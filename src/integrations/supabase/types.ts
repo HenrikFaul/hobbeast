@@ -14,7 +14,185 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      account_deletions: {
+        Row: {
+          account_created_at: string | null
+          deleted_at: string
+          deletion_reason: string
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          account_created_at?: string | null
+          deleted_at?: string
+          deletion_reason: string
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          account_created_at?: string | null
+          deleted_at?: string
+          deletion_reason?: string
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      event_participants: {
+        Row: {
+          event_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          event_date: string | null
+          event_time: string | null
+          id: string
+          image_emoji: string | null
+          is_active: boolean
+          location_address: string | null
+          location_city: string | null
+          location_district: string | null
+          location_free_text: string | null
+          location_type: string | null
+          max_attendees: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          id?: string
+          image_emoji?: string | null
+          is_active?: boolean
+          location_address?: string | null
+          location_city?: string | null
+          location_district?: string | null
+          location_free_text?: string | null
+          location_type?: string | null
+          max_attendees?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          id?: string
+          image_emoji?: string | null
+          is_active?: boolean
+          location_address?: string | null
+          location_city?: string | null
+          location_district?: string | null
+          location_free_text?: string | null
+          location_type?: string | null
+          max_attendees?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          address: string | null
+          address_public: boolean
+          age_public: boolean
+          avatar_url: string | null
+          bio: string | null
+          city: string | null
+          created_at: string
+          date_of_birth: string | null
+          display_name: string | null
+          district: string | null
+          gender: string | null
+          gender_public: boolean
+          hobbies: string[] | null
+          id: string
+          preferred_radius_km: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          address_public?: boolean
+          age_public?: boolean
+          avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          display_name?: string | null
+          district?: string | null
+          gender?: string | null
+          gender_public?: boolean
+          hobbies?: string[] | null
+          id?: string
+          preferred_radius_km?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          address_public?: boolean
+          age_public?: boolean
+          avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          display_name?: string | null
+          district?: string | null
+          gender?: string | null
+          gender_public?: boolean
+          hobbies?: string[] | null
+          id?: string
+          preferred_radius_km?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
