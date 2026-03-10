@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProfileMenu } from "@/components/ProfileMenu";
+import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/hobbeast-logo.png";
 
 const navLinks = [
@@ -14,6 +16,8 @@ const navLinks = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-strong border-b">
@@ -30,24 +34,30 @@ const Navbar = () => {
               key={link.to}
               to={link.to}
               className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.to
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                location.pathname === link.to ? "text-primary" : "text-muted-foreground"
               }`}
             >
               {link.label}
             </Link>
           ))}
-          <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow">
-            Csatlakozz
-          </Button>
+          {!loading && (
+            user ? (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate('/events')}>
+                  <Plus className="h-4 w-4 mr-1" /> Esemény
+                </Button>
+                <ProfileMenu />
+              </div>
+            ) : (
+              <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => navigate('/auth')}>
+                Csatlakozz
+              </Button>
+            )
+          )}
         </div>
 
         {/* Mobile toggle */}
-        <button
-          className="md:hidden p-2 text-foreground"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
+        <button className="md:hidden p-2 text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
@@ -61,18 +71,25 @@ const Navbar = () => {
               to={link.to}
               onClick={() => setMobileOpen(false)}
               className={`block px-6 py-3 text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.to
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                location.pathname === link.to ? "text-primary" : "text-muted-foreground"
               }`}
             >
               {link.label}
             </Link>
           ))}
           <div className="px-6 pt-2">
-            <Button size="sm" className="w-full gradient-primary text-primary-foreground border-0">
-              Csatlakozz
-            </Button>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="flex-1" variant="outline" onClick={() => { navigate('/profile'); setMobileOpen(false); }}>
+                  Profilom
+                </Button>
+                <ProfileMenu />
+              </div>
+            ) : (
+              <Button size="sm" className="w-full gradient-primary text-primary-foreground border-0" onClick={() => { navigate('/auth'); setMobileOpen(false); }}>
+                Csatlakozz
+              </Button>
+            )}
           </div>
         </div>
       )}

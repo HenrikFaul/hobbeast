@@ -1,144 +1,126 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Filter, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-const eventData = [
-  {
-    id: 1,
-    title: "Vasárnapi futóklub a Városligetben",
-    category: "Sport",
-    location: "Budapest, Városliget",
-    date: "2026. márc. 15.",
-    time: "08:00",
-    attendees: 23,
-    maxAttendees: 40,
-    image: "🏃",
-    tags: ["Futás", "Reggeli", "Kezdő-barát"],
-  },
-  {
-    id: 2,
-    title: "Board Game Night – Társasest",
-    category: "Társasjátékok",
-    location: "Budapest, Szimpla Kert",
-    date: "2026. márc. 16.",
-    time: "18:00",
-    attendees: 12,
-    maxAttendees: 20,
-    image: "🎲",
-    tags: ["Társasozás", "Esti program"],
-  },
-  {
-    id: 3,
-    title: "Akrilfestés workshop kezdőknek",
-    category: "Kreatív",
-    location: "Budapest, Művész Stúdió",
-    date: "2026. márc. 18.",
-    time: "16:00",
-    attendees: 8,
-    maxAttendees: 12,
-    image: "🎨",
-    tags: ["Festés", "Workshop", "Kezdő"],
-  },
-  {
-    id: 4,
-    title: "Buda Hills túra – tavaszi kirándulás",
-    category: "Természet",
-    location: "Budapest, Normafa",
-    date: "2026. márc. 20.",
-    time: "09:00",
-    attendees: 31,
-    maxAttendees: 50,
-    image: "🏔️",
-    tags: ["Kirándulás", "Természet", "Közepesen nehéz"],
-  },
-  {
-    id: 5,
-    title: "Akusztikus jam session",
-    category: "Zene",
-    location: "Wien, Café Prückel",
-    date: "2026. márc. 22.",
-    time: "19:30",
-    attendees: 6,
-    maxAttendees: 15,
-    image: "🎸",
-    tags: ["Gitár", "Jam", "Nyitott"],
-  },
-  {
-    id: 6,
-    title: "Street Food & Cooking Challenge",
-    category: "Gasztronómia",
-    location: "Budapest, Bálna",
-    date: "2026. márc. 23.",
-    time: "11:00",
-    attendees: 18,
-    maxAttendees: 30,
-    image: "👨‍🍳",
-    tags: ["Főzés", "Verseny", "Street Food"],
-  },
+interface EventData {
+  id: string;
+  title: string;
+  category: string;
+  event_date: string | null;
+  event_time: string | null;
+  location_city: string | null;
+  location_district: string | null;
+  location_address: string | null;
+  location_free_text: string | null;
+  location_type: string | null;
+  max_attendees: number | null;
+  image_emoji: string | null;
+  tags: string[] | null;
+  description: string | null;
+  created_by: string;
+  participant_count?: number;
+}
+
+const SAMPLE_EVENTS: EventData[] = [
+  { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23 },
+  { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12 },
+  { id: 'sample-3', title: 'Akrilfestés workshop kezdőknek', category: 'Kreatív', event_date: '2026-03-18', event_time: '16:00', location_city: 'Budapest', location_district: null, location_address: 'Művész Stúdió', location_free_text: null, location_type: 'address', max_attendees: 12, image_emoji: '🎨', tags: ['Festés', 'Workshop', 'Kezdő'], description: null, created_by: '', participant_count: 8 },
+  { id: 'sample-4', title: 'Buda Hills túra – tavaszi kirándulás', category: 'Túra', event_date: '2026-03-20', event_time: '09:00', location_city: 'Budapest', location_district: null, location_address: 'Normafa', location_free_text: null, location_type: 'address', max_attendees: 50, image_emoji: '🏔️', tags: ['Kirándulás', 'Természet'], description: null, created_by: '', participant_count: 31 },
+  { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: null, created_by: '', participant_count: 6 },
+  { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: null, created_by: '', participant_count: 18 },
 ];
 
 const Events = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [dbEvents, setDbEvents] = useState<EventData[]>([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const categories = [...new Set(eventData.map((e) => e.category))];
+  const fetchEvents = async () => {
+    const { data } = await supabase.from('events').select('*, event_participants(count)').eq('is_active', true);
+    if (data) {
+      setDbEvents(data.map((e: any) => ({
+        ...e,
+        participant_count: e.event_participants?.[0]?.count || 0,
+      })));
+    }
+  };
 
-  const filtered = eventData.filter((ev) => {
+  useEffect(() => { fetchEvents(); }, []);
+
+  const allEvents = [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title))];
+
+  const categories = [...new Set(allEvents.map((e) => e.category))];
+
+  const filtered = allEvents.filter((ev) => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
-      ev.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+      (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
     const matchCategory = !selectedCategory || ev.category === selectedCategory;
     return matchSearch && matchCategory;
   });
 
+  const getLocationString = (ev: EventData) => {
+    const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
+    if (ev.location_type === 'online') return 'Online';
+    return parts.join(', ') || 'Helyszín nem megadva';
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Dátum nélkül';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const handleJoin = async (eventId: string) => {
+    if (!user) { navigate('/auth?redirect=/events'); return; }
+    if (eventId.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
+    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id });
+    if (error) {
+      if (error.code === '23505') toast.info('Már csatlakoztál ehhez az eseményhez!');
+      else toast.error('Hiba a csatlakozáskor.');
+    } else {
+      toast.success('Sikeresen csatlakoztál!');
+      fetchEvents();
+    }
+  };
+
   return (
     <main className="pt-24 pb-16 min-h-screen">
       <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-10"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
           <h1 className="text-3xl sm:text-4xl font-bold font-display mb-3">
             Közelgő <span className="text-gradient">események</span>
           </h1>
-          <p className="text-muted-foreground max-w-lg mx-auto mb-6">
-            Csatlakozz programokhoz a közeledben, vagy szervezz sajátot!
-          </p>
+          <p className="text-muted-foreground max-w-lg mx-auto mb-6">Csatlakozz programokhoz a közeledben, vagy szervezz sajátot!</p>
+          {user && (
+            <Button className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => setShowCreate(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Új esemény létrehozása
+            </Button>
+          )}
         </motion.div>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
           <div className="relative w-full sm:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Keress eseményt..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+            <Input placeholder="Keress eseményt..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
-            <Button
-              size="sm"
-              variant={!selectedCategory ? "default" : "outline"}
-              onClick={() => setSelectedCategory(null)}
-              className={!selectedCategory ? "gradient-primary text-primary-foreground border-0" : ""}
-            >
-              Mind
-            </Button>
+            <Button size="sm" variant={!selectedCategory ? "default" : "outline"} onClick={() => setSelectedCategory(null)}
+              className={!selectedCategory ? "gradient-primary text-primary-foreground border-0" : ""}>Mind</Button>
             {categories.map((cat) => (
-              <Button
-                key={cat}
-                size="sm"
-                variant={selectedCategory === cat ? "default" : "outline"}
-                onClick={() => setSelectedCategory(cat)}
-                className={selectedCategory === cat ? "gradient-primary text-primary-foreground border-0" : ""}
-              >
-                {cat}
-              </Button>
+              <Button key={cat} size="sm" variant={selectedCategory === cat ? "default" : "outline"} onClick={() => setSelectedCategory(cat)}
+                className={selectedCategory === cat ? "gradient-primary text-primary-foreground border-0" : ""}>{cat}</Button>
             ))}
           </div>
         </div>
@@ -146,47 +128,39 @@ const Events = () => {
         {/* Event cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((event, i) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-              className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer"
-            >
+            <motion.div key={event.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+              className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer">
               <div className="h-32 gradient-warm flex items-center justify-center">
-                <span className="text-5xl">{event.image}</span>
+                <span className="text-5xl">{event.image_emoji || '🎉'}</span>
               </div>
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="secondary" className="text-xs">{event.category}</Badge>
                 </div>
-                <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">
-                  {event.title}
-                </h3>
+                <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">{event.title}</h3>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} />
-                    <span>{event.date}</span>
-                    <Clock size={14} className="ml-2" />
-                    <span>{event.time}</span>
+                    <span>{formatDate(event.event_date)}</span>
+                    {event.event_time && <><Clock size={14} className="ml-2" /><span>{event.event_time}</span></>}
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin size={14} />
-                    <span>{event.location}</span>
+                    <span>{getLocationString(event)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users size={14} />
-                    <span>{event.attendees}/{event.maxAttendees} résztvevő</span>
+                    <span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span>
                   </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap mb-4">
-                  {event.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs font-normal">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-                <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm">
+                {event.tags && event.tags.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap mb-4">
+                    {event.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs font-normal">{tag}</Badge>
+                    ))}
+                  </div>
+                )}
+                <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
                   Csatlakozom
                 </Button>
               </div>
@@ -201,6 +175,8 @@ const Events = () => {
           </div>
         )}
       </div>
+
+      {showCreate && <CreateEventDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
     </main>
   );
 };
