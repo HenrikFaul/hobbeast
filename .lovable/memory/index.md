@@ -1,0 +1,13 @@
+Hobbeast projekt: hobbi-alapú közösségi platform webapp
+- Design: Space Grotesk + DM Sans, coral-orange primary (16 85% 58%), teal accent (172 60% 40%)
+- Brand: "Hobbeast – Minden ami élmény" | Magyar nyelvű UI
+- Pages: Landing, Explore, Events, About, Auth, Profile, ResetPassword
+- Founders: Henrik Faul, Koltai Nikolett, Lázár András
+- Based on: 10 scientific studies about belonging, social connection, community sport
+- Auth: email/password with OTP verification, password reset, account deletion with reason
+- DB tables: profiles, events, event_participants, account_deletions
+- Storage: avatars bucket (public, user-scoped)
+- Profile features: hobbies, location (city/district/address with privacy), avatar upload, age/gender privacy toggles, search radius
+- Events: user-created with category, location type (city/district/address/free/online), max attendees, emoji, tags
+- Edge functions: delete-account (service role, cascading cleanup)
+- SyncFolk reference used for: auth flow, password change, delete account, password validation
