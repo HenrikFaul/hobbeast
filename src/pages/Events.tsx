@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Filter, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { searchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
 
 interface EventData {
   id: string;
@@ -28,9 +27,6 @@ interface EventData {
   description: string | null;
   created_by: string;
   participant_count?: number;
-  source?: 'hobbeast' | 'eventbrite';
-  eventbrite_url?: string;
-  eventbrite_logo_url?: string | null;
 }
 
 const SAMPLE_EVENTS: EventData[] = [
@@ -47,8 +43,6 @@ const Events = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
-  const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
-  const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -62,25 +56,9 @@ const Events = () => {
     }
   };
 
-  const fetchEventbriteEvents = async () => {
-    setEventbriteLoading(true);
-    try {
-      const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents(result.events as unknown as EventData[]);
-    } catch (err) {
-      // Eventbrite not configured – silently skip
-      console.log('Eventbrite import not available:', err);
-    }
-    setEventbriteLoading(false);
-  };
+  useEffect(() => { fetchEvents(); }, []);
 
-  useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
-
-  const allEvents = [
-    ...dbEvents,
-    ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
-    ...eventbriteEvents,
-  ];
+  const allEvents = [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title))];
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
 
@@ -158,9 +136,6 @@ const Events = () => {
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                  {event.source === 'eventbrite' && (
-                    <Badge variant="outline" className="text-xs border-accent text-accent-foreground">Eventbrite</Badge>
-                  )}
                 </div>
                 <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">{event.title}</h3>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
@@ -185,17 +160,9 @@ const Events = () => {
                     ))}
                   </div>
                 )}
-                {event.source === 'eventbrite' && event.eventbrite_url ? (
-                  <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
-                    <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm">
-                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem az Eventbrite-on
-                    </Button>
-                  </a>
-                ) : (
-                  <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
-                    Csatlakozom
-                  </Button>
-                )}
+                <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
+                  Csatlakozom
+                </Button>
               </div>
             </motion.div>
           ))}
