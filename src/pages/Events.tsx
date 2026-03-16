@@ -47,6 +47,8 @@ const Events = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
+  const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
+  const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
