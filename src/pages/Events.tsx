@@ -62,9 +62,25 @@ const Events = () => {
     }
   };
 
-  useEffect(() => { fetchEvents(); }, []);
+  const fetchEventbriteEvents = async () => {
+    setEventbriteLoading(true);
+    try {
+      const result = await searchEventbriteEvents('Budapest', 1);
+      setEventbriteEvents(result.events as unknown as EventData[]);
+    } catch (err) {
+      // Eventbrite not configured – silently skip
+      console.log('Eventbrite import not available:', err);
+    }
+    setEventbriteLoading(false);
+  };
 
-  const allEvents = [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title))];
+  useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
+
+  const allEvents = [
+    ...dbEvents,
+    ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
+    ...eventbriteEvents,
+  ];
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
 
