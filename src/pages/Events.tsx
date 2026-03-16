@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter, Plus } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { searchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
 
 interface EventData {
   id: string;
