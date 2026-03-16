@@ -117,6 +117,31 @@ const About = () => {
           <p className="text-xs text-muted-foreground mt-4">446 válaszadó, többnyire 15-29 éves korosztály</p>
         </motion.div>
 
+        {/* Team */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center"
+        >
+          <h2 className="font-display text-2xl font-bold mb-8">A csapat</h2>
+          <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+            {[
+              { name: "Faul Henrik", role: "Projektvezető, IT", desc: "IT support, üzemeltetés, adatbázis kezelés" },
+              { name: "Koltai Nikolett", role: "UX/UI, Kutatás", desc: "Reklámügynökségi tapasztalat, grafika" },
+              { name: "Lázár András", role: "Értékesítés", desc: "Direct sales tapasztalat" },
+            ].map((member) => (
+              <div key={member.name} className="p-6 rounded-xl border bg-card">
+                <div className="w-16 h-16 rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-primary-foreground font-display font-bold text-lg">
+                  {member.name.split(" ").map(n => n[0]).join("")}
+                </div>
+                <h3 className="font-display font-semibold">{member.name}</h3>
+                <p className="text-primary text-sm font-medium">{member.role}</p>
+                <p className="text-xs text-muted-foreground mt-1">{member.desc}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </main>
   );
