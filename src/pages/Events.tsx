@@ -28,6 +28,9 @@ interface EventData {
   description: string | null;
   created_by: string;
   participant_count?: number;
+  source?: 'hobbeast' | 'eventbrite';
+  eventbrite_url?: string;
+  eventbrite_logo_url?: string | null;
 }
 
 const SAMPLE_EVENTS: EventData[] = [
