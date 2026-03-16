@@ -156,12 +156,11 @@ const Events = () => {
                 <span className="text-5xl">{event.image_emoji || '🎉'}</span>
               </div>
               <div className="p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                    {event.source === 'eventbrite' && (
-                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">Eventbrite</Badge>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="secondary" className="text-xs">{event.category}</Badge>
+                  {event.source === 'eventbrite' && (
+                    <Badge variant="outline" className="text-xs border-accent text-accent-foreground">Eventbrite</Badge>
+                  )}
                 </div>
                 <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">{event.title}</h3>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
@@ -186,9 +185,17 @@ const Events = () => {
                     ))}
                   </div>
                 )}
-                <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
-                  Csatlakozom
-                </Button>
+                {event.source === 'eventbrite' && event.eventbrite_url ? (
+                  <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
+                    <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm">
+                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem az Eventbrite-on
+                    </Button>
+                  </a>
+                ) : (
+                  <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
+                    Csatlakozom
+                  </Button>
+                )}
               </div>
             </motion.div>
           ))}
