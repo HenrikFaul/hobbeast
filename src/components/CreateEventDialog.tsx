@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,11 +14,7 @@ import { X, CalendarPlus, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-
-const CATEGORY_OPTIONS = [
-  'Sport', 'Túra', 'Társasjátékok', 'Kreatív', 'Zene', 'Gasztronómia',
-  'Kutyasétáltatás', 'Kultúra', 'Tech', 'Nyelv', 'Tánc', 'Jóga & Meditáció',
-];
+import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyActivity, type ActivityProfile } from '@/lib/hobbyCategories';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -37,7 +33,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+  
+  // Category selection (3-level)
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState('');
+  const [selectedActivityId, setSelectedActivityId] = useState('');
+
   const [eventDate, setEventDate] = useState<Date>();
   const [eventTime, setEventTime] = useState('');
   const [locationType, setLocationType] = useState('city');
@@ -48,20 +49,72 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
+  const [duration, setDuration] = useState('');
+  const [distance, setDistance] = useState('');
+  const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Derived data
+  const selectedCategory: HobbyCategory | undefined = HOBBY_CATALOG.find(c => c.id === selectedCategoryId);
+  const selectedSubcategory: HobbySubcategory | undefined = selectedCategory?.subcategories.find(s => s.id === selectedSubcategoryId);
+  const selectedActivity: HobbyActivity | undefined = selectedSubcategory?.activities.find(a => a.id === selectedActivityId);
+
+  // Resolved profile (activity overrides subcategory)
+  const profile: ActivityProfile | null = useMemo(() => {
+    if (!selectedSubcategory) return null;
+    return { ...selectedSubcategory.profile, ...(selectedActivity?.profile || {}) } as ActivityProfile;
+  }, [selectedSubcategory, selectedActivity]);
+
+  // Auto-set defaults when profile changes
+  const handleCategoryChange = (catId: string) => {
+    setSelectedCategoryId(catId);
+    setSelectedSubcategoryId('');
+    setSelectedActivityId('');
+  };
+
+  const handleSubcategoryChange = (subId: string) => {
+    setSelectedSubcategoryId(subId);
+    setSelectedActivityId('');
+    const sub = selectedCategory?.subcategories.find(s => s.id === subId);
+    if (sub) {
+      // Auto-set emoji and defaults from profile
+      setImageEmoji(sub.emoji || selectedCategory?.emoji || '🎉');
+      if (sub.profile.suggestedDurationMin) setDuration(String(sub.profile.suggestedDurationMin));
+      setMaxAttendees(String(sub.profile.groupSize.typical));
+      // Set location type based on profile
+      if (sub.profile.canBeOnline && sub.profile.locationTypes.includes('online')) {
+        setLocationType('online');
+      } else {
+        setLocationType('city');
+      }
+    }
+  };
+
+  const handleActivityChange = (actId: string) => {
+    setSelectedActivityId(actId);
+    const act = selectedSubcategory?.activities.find(a => a.id === actId);
+    if (act?.emoji) setImageEmoji(act.emoji);
+  };
+
+  // Build category string for DB: "Category > Subcategory > Activity"
+  const categoryString = [
+    selectedCategory?.name,
+    selectedSubcategory?.name,
+    selectedActivity?.name,
+  ].filter(Boolean).join(' › ');
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !title.trim() || !category) return;
+    if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
 
     setLoading(true);
     const { error } = await supabase.from('events').insert({
       title: title.trim(),
       description: description.trim() || null,
-      category,
+      category: categoryString,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
       location_type: locationType,
@@ -104,20 +157,51 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kategória *</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Válassz..." /></SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {CATEGORY_OPTIONS.map(opt => <SelectItem key={opt} value={opt} className="rounded-lg">{opt}</SelectItem>)}
+          {/* 3-level category selection */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kategória *</Label>
+            <Select value={selectedCategoryId} onValueChange={handleCategoryChange}>
+              <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Főkategória..." /></SelectTrigger>
+              <SelectContent className="rounded-xl max-h-60">
+                {HOBBY_CATALOG.map(cat => (
+                  <SelectItem key={cat.id} value={cat.id} className="rounded-lg">
+                    {cat.emoji} {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedCategory && (
+              <Select value={selectedSubcategoryId} onValueChange={handleSubcategoryChange}>
+                <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Alkategória..." /></SelectTrigger>
+                <SelectContent className="rounded-xl max-h-60">
+                  {selectedCategory.subcategories.map(sub => (
+                    <SelectItem key={sub.id} value={sub.id} className="rounded-lg">
+                      {sub.emoji} {sub.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Emoji ikon</Label>
-              <Input value={imageEmoji} onChange={e => setImageEmoji(e.target.value)} className="rounded-xl h-11 text-center text-2xl" maxLength={2} />
-            </div>
+            )}
+
+            {selectedSubcategory && (
+              <Select value={selectedActivityId} onValueChange={handleActivityChange}>
+                <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Tevékenység (opcionális)..." /></SelectTrigger>
+                <SelectContent className="rounded-xl max-h-60">
+                  {selectedSubcategory.activities.map(act => (
+                    <SelectItem key={act.id} value={act.id} className="rounded-lg">
+                      {act.emoji} {act.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Emoji */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Emoji ikon</Label>
+            <Input value={imageEmoji} onChange={e => setImageEmoji(e.target.value)} className="rounded-xl h-11 text-center text-2xl w-20" maxLength={2} />
           </div>
 
           <div className="space-y-2">
@@ -147,10 +231,57 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Max. létszám</Label>
-            <Input type="number" min="2" max="500" value={maxAttendees} onChange={e => setMaxAttendees(e.target.value)} placeholder="pl. 20 (opcionális)" className="rounded-xl h-11" />
-          </div>
+          {/* Dynamic fields based on profile */}
+          {profile && (
+            <div className="space-y-3 rounded-xl border border-dashed p-3 bg-muted/20">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kategória-specifikus mezők</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Max. létszám</Label>
+                  <Input type="number" min={profile.groupSize.min} max={500}
+                    value={maxAttendees} onChange={e => setMaxAttendees(e.target.value)}
+                    placeholder={`${profile.groupSize.min}–${profile.groupSize.max}`}
+                    className="rounded-xl h-10 text-sm" />
+                </div>
+
+                {profile.hasDuration && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Időtartam (perc)</Label>
+                    <Input type="number" min={15} max={1440}
+                      value={duration} onChange={e => setDuration(e.target.value)}
+                      placeholder={profile.suggestedDurationMin ? `${profile.suggestedDurationMin}` : 'perc'}
+                      className="rounded-xl h-10 text-sm" />
+                  </div>
+                )}
+
+                {profile.hasDistance && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Távolság / Hossz (km)</Label>
+                    <Input type="number" min={0} step={0.1}
+                      value={distance} onChange={e => setDistance(e.target.value)}
+                      placeholder="pl. 10"
+                      className="rounded-xl h-10 text-sm" />
+                  </div>
+                )}
+
+                {profile.hasSkillLevel && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Szint</Label>
+                    <Select value={skillLevel} onValueChange={setSkillLevel}>
+                      <SelectTrigger className="rounded-xl h-10 text-sm"><SelectValue placeholder="Bárki..." /></SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="beginner" className="rounded-lg">Kezdő</SelectItem>
+                        <SelectItem value="intermediate" className="rounded-lg">Haladó</SelectItem>
+                        <SelectItem value="advanced" className="rounded-lg">Profi</SelectItem>
+                        <SelectItem value="any" className="rounded-lg">Mindegy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Location */}
           <div className="space-y-3">
@@ -181,7 +312,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="pl. Kezdő-barát, Reggeli, Ingyenes" className="rounded-xl h-11" />
           </div>
 
-          <Button type="submit" className="w-full h-11 rounded-xl gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold" disabled={loading || !title.trim() || !category}>
+          <Button type="submit" className="w-full h-11 rounded-xl gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold"
+            disabled={loading || !title.trim() || !selectedCategoryId || !selectedSubcategoryId}>
             {loading ? 'Létrehozás...' : 'Esemény létrehozása'}
           </Button>
         </form>
