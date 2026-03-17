@@ -1,13 +1,18 @@
 Hobbeast projekt: hobbi-alapú közösségi platform webapp
 - Design: Space Grotesk + DM Sans, coral-orange primary (16 85% 58%), teal accent (172 60% 40%)
 - Brand: "Hobbeast – Minden ami élmény" | Magyar nyelvű UI
-- Pages: Landing, Explore, Events, About, Auth, Profile, ResetPassword
+- Pages: Landing, Explore (hobbi katalógus), Events (események), About (rólunk)
 - Founders: Henrik Faul, Koltai Nikolett, Lázár András
 - Based on: 10 scientific studies about belonging, social connection, community sport
 - Auth: email/password with OTP verification, password reset, account deletion with reason
 - DB tables: profiles, events, event_participants, account_deletions
 - Storage: avatars bucket (public, user-scoped)
 - Profile features: hobbies, location (city/district/address with privacy), avatar upload, age/gender privacy toggles, search radius
-- Events: user-created with category, location type (city/district/address/free/online), max attendees, emoji, tags
-- Edge functions: delete-account (service role, cascading cleanup)
+- Events: user-created with 3-level category from hobby catalog, location type, max attendees, emoji, tags
+- Hobby Catalog: src/lib/hobbyCategories.ts – 17 categories, ~50 subcategories, ~200 activities
+  - ActivityProfile defines event params: locationTypes, physicalIntensity, groupSize, hasDistance, hasDuration, hasSkillLevel, hasEquipment, isCompetitive, isTeamBased, canBeOnline, suggestedDurationMin, ageRestriction
+  - Subcategory-level default profiles, activity-level overrides
+  - Helpers: getAllActivitiesFlat(), searchActivities(), getActivityProfile()
+- Edge functions: delete-account (service role, cascading cleanup), eventbrite-import
+- Event sources: Hobbeast (internal) + external (Eventbrite API, etc.) with source filter on Events page
 - SyncFolk reference used for: auth flow, password change, delete account, password validation
