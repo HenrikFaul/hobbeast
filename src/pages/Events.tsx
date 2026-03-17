@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { searchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
+import { searchEventbriteEvents } from "@/lib/eventbrite";
+
+type SourceFilter = 'all' | 'hobbeast' | 'external';
 
 interface EventData {
   id: string;
@@ -29,22 +31,34 @@ interface EventData {
   created_by: string;
   participant_count?: number;
   source?: 'hobbeast' | 'eventbrite';
+  source_label?: string;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
 }
 
 const SAMPLE_EVENTS: EventData[] = [
-  { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23 },
-  { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12 },
-  { id: 'sample-3', title: 'Akrilfestés workshop kezdőknek', category: 'Kreatív', event_date: '2026-03-18', event_time: '16:00', location_city: 'Budapest', location_district: null, location_address: 'Művész Stúdió', location_free_text: null, location_type: 'address', max_attendees: 12, image_emoji: '🎨', tags: ['Festés', 'Workshop', 'Kezdő'], description: null, created_by: '', participant_count: 8 },
-  { id: 'sample-4', title: 'Buda Hills túra – tavaszi kirándulás', category: 'Túra', event_date: '2026-03-20', event_time: '09:00', location_city: 'Budapest', location_district: null, location_address: 'Normafa', location_free_text: null, location_type: 'address', max_attendees: 50, image_emoji: '🏔️', tags: ['Kirándulás', 'Természet'], description: null, created_by: '', participant_count: 31 },
-  { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: null, created_by: '', participant_count: 6 },
-  { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: null, created_by: '', participant_count: 18 },
+  { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23, source: 'hobbeast', source_label: 'Hobbeast' },
+  { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12, source: 'hobbeast', source_label: 'Hobbeast' },
+  { id: 'sample-3', title: 'Akrilfestés workshop kezdőknek', category: 'Kreatív', event_date: '2026-03-18', event_time: '16:00', location_city: 'Budapest', location_district: null, location_address: 'Művész Stúdió', location_free_text: null, location_type: 'address', max_attendees: 12, image_emoji: '🎨', tags: ['Festés', 'Workshop', 'Kezdő'], description: null, created_by: '', participant_count: 8, source: 'hobbeast', source_label: 'Hobbeast' },
+  { id: 'sample-4', title: 'Buda Hills túra – tavaszi kirándulás', category: 'Túra', event_date: '2026-03-20', event_time: '09:00', location_city: 'Budapest', location_district: null, location_address: 'Normafa', location_free_text: null, location_type: 'address', max_attendees: 50, image_emoji: '🏔️', tags: ['Kirándulás', 'Természet'], description: null, created_by: '', participant_count: 31, source: 'hobbeast', source_label: 'Hobbeast' },
+  { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: null, created_by: '', participant_count: 6, source: 'hobbeast', source_label: 'Hobbeast' },
+  { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: null, created_by: '', participant_count: 18, source: 'hobbeast', source_label: 'Hobbeast' },
 ];
+
+const SOURCE_FILTERS: { value: SourceFilter; label: string }[] = [
+  { value: 'all', label: 'Minden forrás' },
+  { value: 'hobbeast', label: 'Hobbeast' },
+  { value: 'external', label: 'Külső programok' },
+];
+
+function isExternal(ev: EventData) {
+  return ev.source !== undefined && ev.source !== 'hobbeast';
+}
 
 const Events = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
@@ -58,6 +72,8 @@ const Events = () => {
       setDbEvents(data.map((e: any) => ({
         ...e,
         participant_count: e.event_participants?.[0]?.count || 0,
+        source: 'hobbeast' as const,
+        source_label: 'Hobbeast',
       })));
     }
   };
@@ -66,9 +82,12 @@ const Events = () => {
     setEventbriteLoading(true);
     try {
       const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents(result.events as unknown as EventData[]);
+      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
+        ...ev,
+        source: 'eventbrite' as const,
+        source_label: 'Eventbrite',
+      })));
     } catch (err) {
-      // Eventbrite not configured – silently skip
       console.log('Eventbrite import not available:', err);
     }
     setEventbriteLoading(false);
@@ -88,7 +107,11 @@ const Events = () => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
       (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
     const matchCategory = !selectedCategory || ev.category === selectedCategory;
-    return matchSearch && matchCategory;
+    const matchSource =
+      sourceFilter === 'all' ||
+      (sourceFilter === 'hobbeast' && !isExternal(ev)) ||
+      (sourceFilter === 'external' && isExternal(ev));
+    return matchSearch && matchCategory && matchSource;
   });
 
   const getLocationString = (ev: EventData) => {
@@ -131,7 +154,22 @@ const Events = () => {
           )}
         </motion.div>
 
-        {/* Filters */}
+        {/* Source filter */}
+        <div className="flex gap-2 justify-center mb-4">
+          {SOURCE_FILTERS.map((sf) => (
+            <Button
+              key={sf.value}
+              size="sm"
+              variant={sourceFilter === sf.value ? "default" : "outline"}
+              onClick={() => setSourceFilter(sf.value)}
+              className={sourceFilter === sf.value ? "gradient-primary text-primary-foreground border-0" : ""}
+            >
+              {sf.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Category & search filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
           <div className="relative w-full sm:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -158,8 +196,10 @@ const Events = () => {
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                  {event.source === 'eventbrite' && (
-                    <Badge variant="outline" className="text-xs border-accent text-accent-foreground">Eventbrite</Badge>
+                  {event.source_label && event.source_label !== 'Hobbeast' && (
+                    <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
+                      {event.source_label}
+                    </Badge>
                   )}
                 </div>
                 <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">{event.title}</h3>
@@ -185,10 +225,10 @@ const Events = () => {
                     ))}
                   </div>
                 )}
-                {event.source === 'eventbrite' && event.eventbrite_url ? (
+                {isExternal(event) && event.eventbrite_url ? (
                   <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
                     <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm">
-                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem az Eventbrite-on
+                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
                     </Button>
                   </a>
                 ) : (
