@@ -133,6 +133,190 @@ export type Database = {
         }
         Relationships: []
       }
+      hobby_activities: {
+        Row: {
+          age_restriction: string | null
+          can_be_online: boolean | null
+          created_at: string
+          emoji: string | null
+          group_size_max: number | null
+          group_size_min: number | null
+          id: string
+          is_active: boolean
+          is_team_based: boolean | null
+          keywords: string[] | null
+          name: string
+          physical_intensity: string | null
+          slug: string
+          sort_order: number
+          subcategory_id: string
+          updated_at: string
+        }
+        Insert: {
+          age_restriction?: string | null
+          can_be_online?: boolean | null
+          created_at?: string
+          emoji?: string | null
+          group_size_max?: number | null
+          group_size_min?: number | null
+          id?: string
+          is_active?: boolean
+          is_team_based?: boolean | null
+          keywords?: string[] | null
+          name: string
+          physical_intensity?: string | null
+          slug: string
+          sort_order?: number
+          subcategory_id: string
+          updated_at?: string
+        }
+        Update: {
+          age_restriction?: string | null
+          can_be_online?: boolean | null
+          created_at?: string
+          emoji?: string | null
+          group_size_max?: number | null
+          group_size_min?: number | null
+          id?: string
+          is_active?: boolean
+          is_team_based?: boolean | null
+          keywords?: string[] | null
+          name?: string
+          physical_intensity?: string | null
+          slug?: string
+          sort_order?: number
+          subcategory_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hobby_activities_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "hobby_subcategories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hobby_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          emoji: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          emoji?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hobby_subcategories: {
+        Row: {
+          can_be_online: boolean | null
+          category_id: string
+          created_at: string
+          emoji: string | null
+          group_size_max: number | null
+          group_size_min: number | null
+          group_size_typical: number | null
+          has_distance: boolean | null
+          has_duration: boolean | null
+          has_equipment: boolean | null
+          has_skill_level: boolean | null
+          id: string
+          is_active: boolean
+          is_competitive: boolean | null
+          is_team_based: boolean | null
+          location_types: string[] | null
+          name: string
+          physical_intensity: string | null
+          slug: string
+          sort_order: number
+          suggested_duration_min: number | null
+          updated_at: string
+        }
+        Insert: {
+          can_be_online?: boolean | null
+          category_id: string
+          created_at?: string
+          emoji?: string | null
+          group_size_max?: number | null
+          group_size_min?: number | null
+          group_size_typical?: number | null
+          has_distance?: boolean | null
+          has_duration?: boolean | null
+          has_equipment?: boolean | null
+          has_skill_level?: boolean | null
+          id?: string
+          is_active?: boolean
+          is_competitive?: boolean | null
+          is_team_based?: boolean | null
+          location_types?: string[] | null
+          name: string
+          physical_intensity?: string | null
+          slug: string
+          sort_order?: number
+          suggested_duration_min?: number | null
+          updated_at?: string
+        }
+        Update: {
+          can_be_online?: boolean | null
+          category_id?: string
+          created_at?: string
+          emoji?: string | null
+          group_size_max?: number | null
+          group_size_min?: number | null
+          group_size_typical?: number | null
+          has_distance?: boolean | null
+          has_duration?: boolean | null
+          has_equipment?: boolean | null
+          has_skill_level?: boolean | null
+          id?: string
+          is_active?: boolean
+          is_competitive?: boolean | null
+          is_team_based?: boolean | null
+          location_types?: string[] | null
+          name?: string
+          physical_intensity?: string | null
+          slug?: string
+          sort_order?: number
+          suggested_duration_min?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hobby_subcategories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "hobby_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
