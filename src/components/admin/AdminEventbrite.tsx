@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle } from "lucide-react";
+import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
 import { toast } from "sonner";
 
@@ -12,15 +12,20 @@ export function AdminEventbrite() {
   const [events, setEvents] = useState<MappedEventbriteEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orgMode, setOrgMode] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   const handleSearch = async () => {
     setLoading(true);
     setError(null);
+    setDebugInfo(null);
     try {
       const result = await searchEventbriteEvents(keyword, 1);
       setEvents(result.events);
-      toast.success(`${result.events.length} esemény betöltve az Eventbrite-ról`);
+      if (result.events.length > 0) {
+        toast.success(`${result.events.length} esemény betöltve az Eventbrite-ról`);
+      } else {
+        setDebugInfo('Az Eventbrite API nem adott vissza eseményeket. Ez lehet a keresési kifejezés, az API kulcs jogosultsága, vagy az Eventbrite API korlátozása miatt.');
+      }
     } catch (err: any) {
       setError(err.message || 'Hiba az Eventbrite API hívásnál');
       toast.error('Eventbrite hiba');
@@ -31,6 +36,7 @@ export function AdminEventbrite() {
   const handleOrgPull = async () => {
     setLoading(true);
     setError(null);
+    setDebugInfo(null);
     try {
       const orgs = await fetchEventbriteOrganizations();
       if (orgs.organizations?.length > 0) {
@@ -39,7 +45,7 @@ export function AdminEventbrite() {
         setEvents(result.events);
         toast.success(`${result.events.length} szervezeti esemény betöltve`);
       } else {
-        setError('Nincs szervezet társítva az Eventbrite fiókhoz.');
+        setDebugInfo('Nincs szervezet társítva az Eventbrite API kulcshoz. Az Eventbrite v3 API csak szervezeti eseményeket tud listázni. Hozz létre egy szervezetet az Eventbrite dashboardon, vagy használj személyes OAuth tokent.');
       }
     } catch (err: any) {
       setError(err.message || 'Hiba');
@@ -52,13 +58,22 @@ export function AdminEventbrite() {
       <Card>
         <CardHeader>
           <CardTitle className="font-display text-lg flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-primary" /> Eventbrite import
+            <RefreshCw className="h-5 w-5 text-primary" /> Külső forrás import
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Eseményeket húzhatsz be az Eventbrite API-ból kulcsszavas kereséssel vagy szervezeti fiók alapján.
-          </p>
+          {/* Info box */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-accent/10 text-sm">
+            <Info className="h-4 w-4 mt-0.5 shrink-0 text-accent" />
+            <div>
+              <p className="font-medium">Eventbrite integráció</p>
+              <p className="text-muted-foreground text-xs mt-1">
+                Az Eventbrite v3 API a keresés és a szervezeti események lekérdezését támogatja. 
+                Ha az API kulcs egy szervezethez tartozik, a szervezeti események automatikusan megjelennek.
+                A kulcsszavas keresés a publikus eseményeket keresi.
+              </p>
+            </div>
+          </div>
 
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -91,6 +106,13 @@ export function AdminEventbrite() {
             </div>
           )}
 
+          {debugInfo && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-sm">
+              <Info className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
+              <span className="text-muted-foreground">{debugInfo}</span>
+            </div>
+          )}
+
           {events.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -119,10 +141,6 @@ export function AdminEventbrite() {
                   </div>
                 ))}
               </div>
-
-              <p className="text-xs text-muted-foreground">
-                Ezek az események automatikusan megjelennek az Events oldalon a „Külső programok" szűrővel.
-              </p>
             </div>
           )}
         </CardContent>
