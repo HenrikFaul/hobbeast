@@ -8,6 +8,7 @@ import { User, LogOut, Settings, Shield } from 'lucide-react';
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { isAdmin } = useAdmin();
 
   if (!user) return null;
 
