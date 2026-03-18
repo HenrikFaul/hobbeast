@@ -28,6 +28,11 @@ export function ProfileMenu() {
         <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
           <Settings className="mr-2 h-4 w-4" /> Beállítások
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onClick={() => navigate('/admin')} className="rounded-lg cursor-pointer">
+            <Shield className="mr-2 h-4 w-4" /> Admin
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => { signOut(); navigate('/'); }} className="rounded-lg cursor-pointer text-destructive">
           <LogOut className="mr-2 h-4 w-4" /> Kijelentkezés
