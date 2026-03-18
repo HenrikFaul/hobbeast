@@ -26,9 +26,9 @@ serve(async (req) => {
   };
 
   try {
-    const { action, organization_id, keyword, page } = await req.json();
+    const { action, organization_id, keyword, page, location } = await req.json();
 
-    // Action: list_organizations – get user's orgs to find org IDs
+    // Action: list_organizations
     if (action === 'list_organizations') {
       const res = await fetch(`${EVENTBRITE_BASE}/users/me/organizations/`, { headers });
       if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
@@ -65,81 +65,65 @@ serve(async (req) => {
       });
     }
 
-    // Action: search_events – search via destination endpoint (if available) or keyword filter
+    // Action: search_events – use events search endpoint
     if (action === 'search_events') {
-      // Use the destination events search endpoint
       const params = new URLSearchParams();
       if (keyword) params.set('q', keyword);
       if (page) params.set('page', String(page));
       params.set('expand', 'venue,category');
+      
+      // Location-based search
+      const loc = location || 'Budapest';
+      params.set('location.address', loc);
+      params.set('location.within', '50km');
 
-      // Try destination search endpoint first
-      const res = await fetch(
-        `${EVENTBRITE_BASE}/destination/search/?${params}`,
-        { headers }
-      );
-
-      // If destination search is not available, fall back to org events
-      if (!res.ok) {
-        // Fallback: get user's first org events
-        const orgRes = await fetch(`${EVENTBRITE_BASE}/users/me/organizations/`, { headers });
-        if (!orgRes.ok) throw new Error(`Eventbrite API error [${orgRes.status}]: ${await orgRes.text()}`);
-        const orgData = await orgRes.json();
-
-        if (orgData.organizations?.length > 0) {
-          const orgId = orgData.organizations[0].id;
-          const fallbackParams = new URLSearchParams({
-            status: 'live',
-            order_by: 'start_asc',
-            expand: 'venue,category',
-          });
-          if (keyword) fallbackParams.set('name_filter', keyword);
-          if (page) fallbackParams.set('page', String(page));
-
-          const evRes = await fetch(
-            `${EVENTBRITE_BASE}/organizations/${orgId}/events/?${fallbackParams}`,
-            { headers }
-          );
-          if (!evRes.ok) throw new Error(`Eventbrite API error [${evRes.status}]: ${await evRes.text()}`);
-          const evData = await evRes.json();
-          return new Response(JSON.stringify(evData), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        return new Response(JSON.stringify({ events: [], pagination: {} }), {
+      // Use the events search endpoint (v3)
+      const searchUrl = `${EVENTBRITE_BASE}/events/search/?${params}`;
+      console.log('Eventbrite search URL:', searchUrl);
+      
+      const res = await fetch(searchUrl, { headers });
+      
+      if (res.ok) {
+        const data = await res.json();
+        return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Action: get_event – get single event details
-    if (action === 'get_event') {
-      const { event_id } = await req.json().catch(() => ({}));
-      if (!event_id) {
-        return new Response(JSON.stringify({ error: 'event_id is required' }), {
-          status: 400,
+      // If search endpoint fails, try destination events
+      console.log('Search endpoint failed, trying destination...');
+      const destParams = new URLSearchParams();
+      if (keyword) destParams.set('q', keyword);
+      if (page) destParams.set('page', String(page));
+      destParams.set('expand', 'venue,category');
+      
+      const destRes = await fetch(
+        `${EVENTBRITE_BASE}/destination/events/?${destParams}`,
+        { headers }
+      );
+      
+      if (destRes.ok) {
+        const data = await destRes.json();
+        return new Response(JSON.stringify(data), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      const res = await fetch(
-        `${EVENTBRITE_BASE}/events/${event_id}/?expand=venue,category,ticket_classes`,
-        { headers }
-      );
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
+      // Final fallback: return empty
+      console.log('All Eventbrite search methods failed. Status:', res.status, destRes.status);
+      const errText = await res.text().catch(() => '');
+      console.log('Search error body:', errText);
+      
+      return new Response(JSON.stringify({ 
+        events: [], 
+        pagination: { object_count: 0, page_number: 1, page_size: 50, page_count: 0, has_more_items: false },
+        _debug: `Search returned ${res.status}` 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Unknown action. Use: list_organizations, list_events, search_events, get_event' }), {
+    return new Response(JSON.stringify({ error: 'Unknown action. Use: list_organizations, list_events, search_events' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
