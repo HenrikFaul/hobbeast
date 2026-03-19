@@ -208,7 +208,11 @@ const Events = () => {
                     </Badge>
                   )}
                 </div>
-                <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors">{event.title}</h3>
+                <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event));
+                    navigate(`/events/${event.id}`);
+                  }}>{event.title}</h3>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} />

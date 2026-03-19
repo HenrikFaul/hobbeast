@@ -252,7 +252,15 @@ const Profile = () => {
 
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pontos lakcím (privát)</Label>
-                    <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Cím, ahonnan a távolság kalkulálódik" className="rounded-xl h-11" />
+                    <AddressAutocomplete
+                      value={address}
+                      onSelect={(sel: AddressSelection) => {
+                        setAddress(sel.displayName);
+                        if (sel.city && !city) setCity(sel.city);
+                        if (sel.district && !district) setDistrict(sel.district);
+                      }}
+                      placeholder="Kezdj el gépelni egy címet..."
+                    />
                     <div className="flex items-center gap-2">
                       <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
                       <span className="text-xs text-muted-foreground">
