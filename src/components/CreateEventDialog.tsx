@@ -295,13 +295,15 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </Select>
 
             {(locationType === 'city' || locationType === 'district' || locationType === 'address') && (
-              <Input value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="Város (pl. Budapest)" className="rounded-xl h-11" />
-            )}
-            {(locationType === 'district' || locationType === 'address') && (
-              <Input value={locationDistrict} onChange={e => setLocationDistrict(e.target.value)} placeholder="Kerület (pl. XIII. kerület)" className="rounded-xl h-11" />
-            )}
-            {locationType === 'address' && (
-              <Input value={locationAddress} onChange={e => setLocationAddress(e.target.value)} placeholder="Pontos cím (pl. Váci utca 10.)" className="rounded-xl h-11" />
+              <AddressAutocomplete
+                value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
+                onSelect={(sel: AddressSelection) => {
+                  setLocationCity(sel.city);
+                  setLocationDistrict(sel.district);
+                  setLocationAddress(sel.address);
+                }}
+                placeholder="Keress rá egy címre..."
+              />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />
