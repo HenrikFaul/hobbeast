@@ -190,7 +190,13 @@ const Events = () => {
           {filtered.map((event, i) => (
             <motion.div key={event.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
               className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer">
-              <div className="h-32 gradient-warm flex items-center justify-center">
+              <div className="h-32 gradient-warm flex items-center justify-center" onClick={() => {
+                // Store external event data in sessionStorage for detail page
+                if (isExternal(event)) {
+                  sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event));
+                }
+                navigate(`/events/${event.id}`);
+              }}>
                 <span className="text-5xl">{event.image_emoji || '🎉'}</span>
               </div>
               <div className="p-5">
