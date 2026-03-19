@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import EventDetail from "./pages/EventDetail";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/explore" element={<Explore />} />
                   <Route path="/events" element={<Events />} />
+                  <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/admin" element={<Admin />} />
