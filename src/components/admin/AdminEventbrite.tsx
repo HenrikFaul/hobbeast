@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function AdminEventbrite() {
@@ -29,6 +30,22 @@ export function AdminEventbrite() {
     } catch (err: any) {
       setError(err.message || 'Hiba az Eventbrite API hívásnál');
       toast.error('Eventbrite hiba');
+    }
+    setLoading(false);
+  };
+
+  const handleValidate = async () => {
+    setLoading(true);
+    setError(null);
+    setDebugInfo(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('eventbrite-import', { body: { action: 'validate_token' } });
+      if (error) throw new Error(error.message);
+      const orgCount = data?.organizations?.organizations?.length || data?.organizations?.length || 0;
+      setDebugInfo(`Token rendben válaszolt. Szervezetek száma: ${orgCount}.`);
+      toast.success('Eventbrite token ellenőrizve');
+    } catch (err: any) {
+      setError(err.message || 'Hiba az Eventbrite token ellenőrzésekor');
     }
     setLoading(false);
   };
@@ -92,7 +109,11 @@ export function AdminEventbrite() {
             </Button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleValidate} disabled={loading}>
+              <CheckCircle className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Token teszt
+            </Button>
             <Button variant="outline" size="sm" onClick={handleOrgPull} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               Szervezeti események
