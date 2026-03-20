@@ -15,22 +15,23 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function getEventbriteToken() {
-  return Deno.env.get('EVENTBRITE_API_KEY')
+  return Deno.env.get('EVENTBRITE_PRIVATE_TOKEN')
     || Deno.env.get('EVENTBRITE_TOKEN')
-    || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
+    || Deno.env.get('EVENTBRITE_API_KEY');
+}
+
+function getEventbriteConfig() {
+  return {
+    apiKey: Deno.env.get('EVENTBRITE_API_KEY') || null,
+    clientSecret: Deno.env.get('EVENTBRITE_CLIENT_SECRET') || null,
+    publicToken: Deno.env.get('EVENTBRITE_PUBLIC_TOKEN') || null,
+    webhookId: Deno.env.get('EVENTBRITE_WEBHOOK_ID') || null,
+  };
 }
 
 async function fetchEventbrite(path: string, headers: Record<string, string>) {
-  return fetch(`${EVENTBRITE_BASE}${path}`, { headers });
-}
-
-async function parseErrorBody(res: Response) {
-  const text = await res.text();
-  try {
-    return JSON.stringify(JSON.parse(text));
-  } catch {
-    return text;
-  }
+  const res = await fetch(`${EVENTBRITE_BASE}${path}`, { headers });
+  return res;
 }
 
 serve(async (req) => {
@@ -50,20 +51,32 @@ serve(async (req) => {
 
   try {
     const { action, organization_id, keyword, page, location } = await req.json();
+    const config = getEventbriteConfig();
+
+
+    if (action === 'validate_token') {
+      const res = await fetchEventbrite('/users/me/organizations/', headers);
+      const bodyText = await res.text();
+      let parsed: unknown = null;
+      try { parsed = JSON.parse(bodyText); } catch (_) {}
+      return jsonResponse({
+        ok: res.ok,
+        status: res.status,
+        config: {
+          has_api_key: Boolean(config.apiKey),
+          has_client_secret: Boolean(config.clientSecret),
+          has_private_token: Boolean(token),
+          has_public_token: Boolean(config.publicToken),
+          webhook_id: config.webhookId,
+        },
+        response: parsed ?? bodyText,
+      }, res.ok ? 200 : res.status);
+    }
 
     if (action === 'list_organizations') {
       const res = await fetchEventbrite('/users/me/organizations/', headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await parseErrorBody(res)}`);
+      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
       return jsonResponse(await res.json());
-    }
-
-    if (action === 'validate_token') {
-      const meRes = await fetchEventbrite('/users/me/', headers);
-      if (!meRes.ok) throw new Error(`Eventbrite API error [${meRes.status}]: ${await parseErrorBody(meRes)}`);
-      const me = await meRes.json();
-      const orgRes = await fetchEventbrite('/users/me/organizations/', headers);
-      const organizations = orgRes.ok ? await orgRes.json() : { organizations: [] };
-      return jsonResponse({ ok: true, me, organizations });
     }
 
     if (action === 'list_events') {
@@ -79,7 +92,7 @@ serve(async (req) => {
       if (page) params.set('page', String(page));
 
       const res = await fetchEventbrite(`/organizations/${organization_id}/events/?${params.toString()}`, headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await parseErrorBody(res)}`);
+      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
       return jsonResponse(await res.json());
     }
 
@@ -91,7 +104,7 @@ serve(async (req) => {
         'location.address': locationValue,
         'location.within': '50km',
       });
-      if (keyword && keyword.trim()) searchParams.set('q', keyword.trim());
+      if (keyword) searchParams.set('q', keyword);
       if (page) searchParams.set('page', String(page));
 
       const searchRes = await fetchEventbrite(`/events/search/?${searchParams.toString()}`, headers);
@@ -146,7 +159,7 @@ serve(async (req) => {
       });
     }
 
-    return jsonResponse({ error: 'Unknown action. Use: list_organizations, list_events, search_events, validate_token' }, 400);
+    return jsonResponse({ error: 'Unknown action. Use: validate_token, list_organizations, list_events, search_events' }, 400);
   } catch (error: unknown) {
     console.error('Eventbrite import error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

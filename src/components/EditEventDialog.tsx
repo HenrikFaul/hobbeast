@@ -17,6 +17,7 @@ import { AddressAutocomplete, type AddressSelection } from '@/components/Address
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
+  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -50,6 +51,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [eventTime, setEventTime] = useState(event.event_time || '');
   const [locationType, setLocationType] = useState(event.location_type || 'city');
   const [locationCity, setLocationCity] = useState(event.location_city || '');
+  const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
   const [maxAttendees, setMaxAttendees] = useState(event.max_attendees ? String(event.max_attendees) : '');
@@ -72,7 +74,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: null,
+      location_district: locationDistrict || null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
@@ -153,6 +155,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
                 setLocationCity('');
+                setLocationDistrict('');
                 setLocationAddress('');
               }
               if (nextType !== 'free') {
@@ -164,11 +167,12 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            {['city', 'address'].includes(locationType) && (
+            {['city', 'district', 'address'].includes(locationType) && (
               <AddressAutocomplete
-                value={[locationAddress, locationCity].filter(Boolean).join(', ')}
+                value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
+                  setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                 }}

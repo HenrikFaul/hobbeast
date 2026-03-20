@@ -34,18 +34,23 @@ export function AdminEventbrite() {
     setLoading(false);
   };
 
-  const handleValidate = async () => {
+  const handleTokenTest = async () => {
     setLoading(true);
     setError(null);
     setDebugInfo(null);
     try {
-      const { data, error } = await supabase.functions.invoke('eventbrite-import', { body: { action: 'validate_token' } });
+      const { data, error } = await supabase.functions.invoke('eventbrite-import', {
+        body: { action: 'validate_token' },
+      });
       if (error) throw new Error(error.message);
-      const orgCount = data?.organizations?.organizations?.length || data?.organizations?.length || 0;
-      setDebugInfo(`Token rendben válaszolt. Szervezetek száma: ${orgCount}.`);
-      toast.success('Eventbrite token ellenőrizve');
+      if (data?.ok) {
+        toast.success('Eventbrite token validálva');
+        setDebugInfo(`Token rendben. Webhook ID: ${data?.config?.webhook_id || 'nincs beállítva'}`);
+      } else {
+        setError(`Eventbrite token hiba: ${data?.status || 'ismeretlen'} - ${JSON.stringify(data?.response)}`);
+      }
     } catch (err: any) {
-      setError(err.message || 'Hiba az Eventbrite token ellenőrzésekor');
+      setError(err.message || 'Token teszt hiba');
     }
     setLoading(false);
   };
@@ -110,8 +115,8 @@ export function AdminEventbrite() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleValidate} disabled={loading}>
-              <CheckCircle className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={handleTokenTest} disabled={loading}>
+              <CheckCircle className="h-4 w-4 mr-1" />
               Token teszt
             </Button>
             <Button variant="outline" size="sm" onClick={handleOrgPull} disabled={loading}>

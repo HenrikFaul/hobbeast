@@ -19,6 +19,7 @@ import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyAct
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
+  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -43,6 +44,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [eventTime, setEventTime] = useState('');
   const [locationType, setLocationType] = useState('city');
   const [locationCity, setLocationCity] = useState('');
+  const [locationDistrict, setLocationDistrict] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationFreeText, setLocationFreeText] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
@@ -118,7 +120,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: null,
+      location_district: locationDistrict || null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
@@ -289,6 +291,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
                 setLocationCity('');
+                setLocationDistrict('');
                 setLocationAddress('');
               }
               if (nextType !== 'free') {
@@ -301,11 +304,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </SelectContent>
             </Select>
 
-            {(locationType === 'city' || locationType === 'address') && (
+            {(locationType === 'city' || locationType === 'district' || locationType === 'address') && (
               <AddressAutocomplete
-                value={[locationAddress, locationCity].filter(Boolean).join(', ')}
+                value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
+                  setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                 }}
