@@ -24,7 +24,7 @@ export function LeaveEventDialog({ eventTitle, eventDate, eventTime, eventLocati
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
             <AlertTriangle className="h-5 w-5 text-destructive" />
           </div>
-          <h3 className="font-display text-lg font-bold">Kiiratkozás</h3>
+          <h3 className="font-display text-lg font-bold">Leiratkozás</h3>
         </div>
 
         <p className="text-sm text-muted-foreground mb-4">
