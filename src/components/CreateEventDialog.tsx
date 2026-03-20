@@ -287,17 +287,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
           {/* Location */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa</Label>
-            <Select value={locationType} onValueChange={(nextType) => {
-              setLocationType(nextType);
-              if (nextType === 'free' || nextType === 'online') {
-                setLocationCity('');
-                setLocationDistrict('');
-                setLocationAddress('');
-              }
-              if (nextType !== 'free') {
-                setLocationFreeText('');
-              }
-            }}>
+            <Select value={locationType} onValueChange={setLocationType}>
               <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
@@ -310,8 +300,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
-                  setLocationAddress(sel.address || sel.displayName);
-                  setLocationFreeText('');
+                  setLocationAddress(sel.address);
                 }}
                 placeholder="Keress rá egy címre..."
               />

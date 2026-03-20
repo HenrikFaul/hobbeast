@@ -8,6 +8,7 @@ import logo from "@/assets/hobbeast-logo.png";
 
 const navLinks = [
   { to: "/", label: "Főoldal" },
+  { to: "/explore", label: "Felfedezés" },
   { to: "/events", label: "Események" },
   { to: "/about", label: "Rólunk" },
 ];

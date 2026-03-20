@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// Types for Eventbrite API responses
 export interface EventbriteEvent {
   id: string;
   name: { text: string; html: string };
@@ -39,6 +40,7 @@ export interface EventbriteListResponse {
   pagination: EventbritePagination;
 }
 
+// Map Eventbrite event to our internal EventData format
 export interface MappedEventbriteEvent {
   id: string;
   title: string;
@@ -87,9 +89,13 @@ function mapEventbriteToInternal(event: EventbriteEvent): MappedEventbriteEvent 
   const startLocal = event.start?.local;
   const datePart = startLocal ? startLocal.split('T')[0] : null;
   const timePart = startLocal ? startLocal.split('T')[1]?.substring(0, 5) : null;
+
   const categoryName = event.category?.name || event.category?.short_name || 'Egyéb';
   const emoji = CATEGORY_EMOJI_MAP[categoryName] || '📅';
+
   const venue = event.venue;
+  const city = venue?.address?.city || null;
+  const addressDisplay = venue?.address?.localized_address_display || venue?.name || null;
 
   return {
     id: `eb-${event.id}`,
@@ -97,9 +103,9 @@ function mapEventbriteToInternal(event: EventbriteEvent): MappedEventbriteEvent 
     category: categoryName,
     event_date: datePart,
     event_time: timePart,
-    location_city: venue?.address?.city || null,
+    location_city: city,
     location_district: null,
-    location_address: venue?.address?.localized_address_display || venue?.name || null,
+    location_address: addressDisplay,
     location_free_text: null,
     location_type: venue ? 'address' : 'online',
     max_attendees: event.capacity,
@@ -118,6 +124,7 @@ function mapEventbriteToInternal(event: EventbriteEvent): MappedEventbriteEvent 
   };
 }
 
+// Fetch organizations associated with the Eventbrite account
 export async function fetchEventbriteOrganizations() {
   const { data, error } = await supabase.functions.invoke('eventbrite-import', {
     body: { action: 'list_organizations' },
@@ -126,11 +133,16 @@ export async function fetchEventbriteOrganizations() {
   return data;
 }
 
-export async function fetchEventbriteEvents(organizationId: string, page = 1): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
+// Fetch events from a specific organization
+export async function fetchEventbriteEvents(
+  organizationId: string,
+  page = 1
+): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
   const { data, error } = await supabase.functions.invoke('eventbrite-import', {
     body: { action: 'list_events', organization_id: organizationId, page },
   });
   if (error) throw new Error(error.message);
+
   const response = data as EventbriteListResponse;
   return {
     events: (response.events || []).map(mapEventbriteToInternal),
@@ -138,48 +150,19 @@ export async function fetchEventbriteEvents(organizationId: string, page = 1): P
   };
 }
 
-function emptyPagination(): EventbritePagination {
+// Search Eventbrite events by keyword
+export async function searchEventbriteEvents(
+  keyword: string,
+  page = 1
+): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
+  const { data, error } = await supabase.functions.invoke('eventbrite-import', {
+    body: { action: 'search_events', keyword, page },
+  });
+  if (error) throw new Error(error.message);
+
+  const response = data as EventbriteListResponse;
   return {
-    object_count: 0,
-    page_number: 1,
-    page_size: 50,
-    page_count: 0,
-    has_more_items: false,
+    events: (response.events || []).map(mapEventbriteToInternal),
+    pagination: response.pagination,
   };
-}
-
-export async function loadEventbriteEvents(params?: { keyword?: string; page?: number; location?: string; }): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
-  const keyword = params?.keyword || 'hobby';
-  const page = params?.page || 1;
-  const location = params?.location || 'Budapest';
-
-  try {
-    const orgs = await fetchEventbriteOrganizations();
-    const organizations = orgs?.organizations || [];
-    for (const org of organizations) {
-      try {
-        const result = await fetchEventbriteEvents(org.id, page);
-        if (result.events.length > 0) return result;
-      } catch (error) {
-        console.warn('Eventbrite organization fetch failed', org?.id, error);
-      }
-    }
-  } catch (error) {
-    console.warn('Eventbrite organization listing failed', error);
-  }
-
-  try {
-    const { data, error } = await supabase.functions.invoke('eventbrite-import', {
-      body: { action: 'search_events', keyword, page, location },
-    });
-    if (error) throw new Error(error.message);
-    const response = data as EventbriteListResponse;
-    return {
-      events: (response.events || []).map(mapEventbriteToInternal),
-      pagination: response.pagination || emptyPagination(),
-    };
-  } catch (error) {
-    console.warn('Eventbrite search failed', error);
-    return { events: [], pagination: emptyPagination() };
-  }
 }

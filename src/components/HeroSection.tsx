@@ -1,12 +1,9 @@
 import { motion } from "framer-motion";
-import { Users, MapPin, Heart } from "lucide-react";
+import { ArrowRight, Users, MapPin, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import heroImg from "@/assets/hero-community.jpg";
 
 const HeroSection = () => {
-  const navigate = useNavigate();
-
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden gradient-hero">
       {/* Background decoration */}
@@ -41,11 +38,10 @@ const HeroSection = () => {
             </p>
 
             <div className="flex flex-wrap gap-4 mb-10">
-              <Button
-                size="lg"
-                className="gradient-primary text-primary-foreground border-0 shadow-glow gap-2 text-base"
-                onClick={() => navigate('/events')}
-              >
+              <Button size="lg" className="gradient-primary text-primary-foreground border-0 shadow-glow gap-2 text-base">
+                Kezdd el most <ArrowRight size={18} />
+              </Button>
+              <Button size="lg" variant="outline" className="gap-2 text-base">
                 Események böngészése
               </Button>
             </div>
@@ -91,8 +87,8 @@ const HeroSection = () => {
                   <Users size={18} className="text-primary-foreground" />
                 </div>
                 <div>
-                  <div className="font-display font-semibold text-sm">Új közösségek várnak</div>
-                  <div className="text-xs text-muted-foreground">Találj rád illő programokat</div>
+                  <div className="font-display font-semibold text-sm">Új barátok várnak</div>
+                  <div className="text-xs text-muted-foreground">Csatlakozz ma!</div>
                 </div>
               </div>
             </motion.div>

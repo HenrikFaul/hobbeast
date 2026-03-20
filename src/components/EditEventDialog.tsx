@@ -13,7 +13,6 @@ import { X, Save, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -151,33 +150,20 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín</Label>
-            <Select value={locationType} onValueChange={(nextType) => {
-              setLocationType(nextType);
-              if (nextType === 'free' || nextType === 'online') {
-                setLocationCity('');
-                setLocationDistrict('');
-                setLocationAddress('');
-              }
-              if (nextType !== 'free') {
-                setLocationFreeText('');
-              }
-            }}>
+            <Select value={locationType} onValueChange={setLocationType}>
               <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>
             </Select>
             {['city', 'district', 'address'].includes(locationType) && (
-              <AddressAutocomplete
-                value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: AddressSelection) => {
-                  setLocationCity(sel.city);
-                  setLocationDistrict(sel.district);
-                  setLocationAddress(sel.address || sel.displayName);
-                  setLocationFreeText('');
-                }}
-                placeholder="Keress rá egy címre..."
-              />
+              <Input value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="Város" className="rounded-xl h-11" />
+            )}
+            {['district', 'address'].includes(locationType) && (
+              <Input value={locationDistrict} onChange={e => setLocationDistrict(e.target.value)} placeholder="Kerület" className="rounded-xl h-11" />
+            )}
+            {locationType === 'address' && (
+              <Input value={locationAddress} onChange={e => setLocationAddress(e.target.value)} placeholder="Cím" className="rounded-xl h-11" />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Helyszín" className="rounded-xl h-11" />
