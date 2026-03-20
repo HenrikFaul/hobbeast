@@ -21,8 +21,16 @@ function getEventbriteToken() {
 }
 
 async function fetchEventbrite(path: string, headers: Record<string, string>) {
-  const res = await fetch(`${EVENTBRITE_BASE}${path}`, { headers });
-  return res;
+  return fetch(`${EVENTBRITE_BASE}${path}`, { headers });
+}
+
+async function parseErrorBody(res: Response) {
+  const text = await res.text();
+  try {
+    return JSON.stringify(JSON.parse(text));
+  } catch {
+    return text;
+  }
 }
 
 serve(async (req) => {
@@ -45,8 +53,17 @@ serve(async (req) => {
 
     if (action === 'list_organizations') {
       const res = await fetchEventbrite('/users/me/organizations/', headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
+      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await parseErrorBody(res)}`);
       return jsonResponse(await res.json());
+    }
+
+    if (action === 'validate_token') {
+      const meRes = await fetchEventbrite('/users/me/', headers);
+      if (!meRes.ok) throw new Error(`Eventbrite API error [${meRes.status}]: ${await parseErrorBody(meRes)}`);
+      const me = await meRes.json();
+      const orgRes = await fetchEventbrite('/users/me/organizations/', headers);
+      const organizations = orgRes.ok ? await orgRes.json() : { organizations: [] };
+      return jsonResponse({ ok: true, me, organizations });
     }
 
     if (action === 'list_events') {
@@ -62,7 +79,7 @@ serve(async (req) => {
       if (page) params.set('page', String(page));
 
       const res = await fetchEventbrite(`/organizations/${organization_id}/events/?${params.toString()}`, headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
+      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await parseErrorBody(res)}`);
       return jsonResponse(await res.json());
     }
 
@@ -74,7 +91,7 @@ serve(async (req) => {
         'location.address': locationValue,
         'location.within': '50km',
       });
-      if (keyword) searchParams.set('q', keyword);
+      if (keyword && keyword.trim()) searchParams.set('q', keyword.trim());
       if (page) searchParams.set('page', String(page));
 
       const searchRes = await fetchEventbrite(`/events/search/?${searchParams.toString()}`, headers);
@@ -129,7 +146,7 @@ serve(async (req) => {
       });
     }
 
-    return jsonResponse({ error: 'Unknown action. Use: list_organizations, list_events, search_events' }, 400);
+    return jsonResponse({ error: 'Unknown action. Use: list_organizations, list_events, search_events, validate_token' }, 400);
   } catch (error: unknown) {
     console.error('Eventbrite import error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
