@@ -102,7 +102,7 @@ const Events = () => {
     if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
   };
 
-  useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
 
   const allEvents = [
