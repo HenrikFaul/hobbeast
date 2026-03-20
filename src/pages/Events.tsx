@@ -146,7 +146,21 @@ const Events = () => {
     } else {
       toast.success('Sikeresen csatlakoztál!');
       fetchEvents();
+      fetchJoined();
     }
+  };
+
+  const handleLeave = async () => {
+    if (!user || !leaveTarget) return;
+    const { error } = await supabase.from('event_participants').delete().eq('event_id', leaveTarget.id).eq('user_id', user.id);
+    if (error) {
+      toast.error('Hiba a leiratkozáskor.');
+    } else {
+      toast.success('Sikeresen leiratkoztál az eseményről.');
+      fetchEvents();
+      fetchJoined();
+    }
+    setLeaveTarget(null);
   };
 
   return (
