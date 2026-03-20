@@ -183,3 +183,11 @@ export async function loadEventbriteEvents(params?: { keyword?: string; page?: n
     return { events: [], pagination: emptyPagination() };
   }
 }
+
+export async function searchEventbriteEvents(
+  keyword = 'hobby',
+  page = 1,
+  location = 'Budapest'
+): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
+  return loadEventbriteEvents({ keyword, page, location });
+}
