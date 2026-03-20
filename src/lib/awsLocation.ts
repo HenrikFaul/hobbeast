@@ -1,7 +1,10 @@
 // AWS Location Service configuration and helpers
 
-const AWS_REGION = (import.meta.env.VITE_AWS_LOCATION_REGION || 'eu-north-1').trim();
-const AWS_API_KEY = (import.meta.env.VITE_AWS_LOCATION_API_KEY || '').trim();
+const FALLBACK_AWS_REGION = 'eu-north-1';
+const FALLBACK_AWS_API_KEY = 'v1.public.eyJqdGkiOiJlYTMxNmQwOS00NTU4LTQwNzAtOTljNS1hYzlmMWFkN2QyMjAifWdVyFn7_P0rt7og_jzk-OxT9nOzaUDDub_H3rK37RQ6E25Gs9HjyJsWp0LRU6FeyQiiLshawE15jVWLmCOCSJkQldWYa-dO-P8sB5gjzE92iwmicHhIUe3Ns3PQUMyZw03oEGx8q2rv_qK4f8cCP9jTW6jbMUSzuYHdcwWeH3bYsuC_Pcb8OmMj5yrKmqNFONasWivy4gk7SK70F10EW6fGm5UThnSOxxnLE3x3-LNdmdxqKRpCxeUO57RPH1xgtnpctRQMYgveRpLnVZVwm-IGVQsc9kPd5x3Oa1NNDHfFrujt9h-8pc8uZrPJUERGU4SyYskIw-uIcSyB_NHXWOU.N2IyNTQ2ODQtOWE1YS00MmI2LTkyOTItMGJlNGMxODU1Mzc2';
+
+const AWS_REGION = (import.meta.env.VITE_AWS_LOCATION_REGION || FALLBACK_AWS_REGION).trim();
+const AWS_API_KEY = (import.meta.env.VITE_AWS_LOCATION_API_KEY || FALLBACK_AWS_API_KEY).trim();
 const PLACES_BASE = `https://places.geo.${AWS_REGION}.amazonaws.com`;
 
 function buildAwsUrl(path: string) {
