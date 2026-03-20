@@ -48,6 +48,35 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     requestRef.current?.abort();
   }, []);
 
+  const buildQueryVariants = (input: string): string[] => {
+    const q = input.trim().replace(/\s+/g, ' ');
+    if (!q) return [];
+
+    const variants = new Set<string>();
+    variants.add(q);
+
+    const hasStreetType = /\b(utca|u\.|út|útja|tér|tere|körút|krt\.|sétány|park|fasor|rakpart)\b/i.test(q);
+
+    if (!hasStreetType) {
+      variants.add(`${q} utca`);
+      variants.add(`${q} út`);
+      variants.add(`${q} tér`);
+      variants.add(`${q} körút`);
+      variants.add(`${q} sétány`);
+    }
+
+    const parts = q.split(' ');
+    if (parts.length >= 2) {
+      const reversed = [...parts].reverse().join(' ');
+      variants.add(reversed);
+      if (!hasStreetType) {
+        variants.add(`${reversed} utca`);
+      }
+    }
+
+    return Array.from(variants);
+  };
+
   const search = async (q: string) => {
     const trimmed = q.trim();
     if (trimmed.length < 3) {
@@ -66,16 +95,21 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setErrorText(null);
 
     try {
-      let data = await suggestPlaces(trimmed, controller.signal);
+      const variants = buildQueryVariants(trimmed);
+      let data: AwsSuggestResult[] = [];
 
-      if (data.length === 0) {
-        data = await searchTextPlaces(trimmed, controller.signal);
+      for (const variant of variants) {
+        data = await suggestPlaces(variant, controller.signal);
+        if (data.length > 0) break;
+
+        data = await searchTextPlaces(variant, controller.signal);
+        if (data.length > 0) break;
       }
 
       setResults(data);
       setShowDropdown(data.length > 0);
       if (data.length === 0) {
-        setErrorText('Nincs találat erre a címre.');
+        setErrorText('Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.');
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
