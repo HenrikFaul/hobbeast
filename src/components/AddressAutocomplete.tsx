@@ -1,33 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
-
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address: {
-    road?: string;
-    pedestrian?: string;
-    footway?: string;
-    house_number?: string;
-    suburb?: string;
-    neighbourhood?: string;
-    quarter?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    county?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
-    city_district?: string;
-    district?: string;
-    borough?: string;
-  };
-}
+import { suggestPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
 
 export interface AddressSelection {
   displayName: string;
@@ -45,19 +19,9 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-function buildAddressParts(result: NominatimResult) {
-  const addr = result.address || {};
-  const city = addr.city || addr.town || addr.village || addr.municipality || '';
-  const district = addr.city_district || addr.district || addr.borough || addr.suburb || addr.neighbourhood || addr.quarter || '';
-  const street = addr.road || addr.pedestrian || addr.footway || '';
-  const address = [street, addr.house_number].filter(Boolean).join(' ').trim();
-
-  return { city, district, address };
-}
-
 export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<NominatimResult[]>([]);
+  const [results, setResults] = useState<AwsSuggestResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -98,24 +62,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        q: trimmed,
-        format: 'jsonv2',
-        addressdetails: '1',
-        limit: '6',
-        'accept-language': 'hu',
-        countrycodes: 'hu',
-      });
-
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      if (!res.ok) throw new Error(`Nominatim search failed: ${res.status}`);
-      const data: NominatimResult[] = await res.json();
+      const data = await suggestPlaces(trimmed, controller.signal);
       setResults(data);
       setShowDropdown(data.length > 0);
     } catch (error) {
@@ -136,18 +83,39 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     }, 400);
   };
 
-  const handleSelect = (result: NominatimResult) => {
-    const parts = buildAddressParts(result);
-    setQuery(result.display_name);
+  const handleSelect = async (result: AwsSuggestResult) => {
+    const label = result.place?.label || result.text;
+    setQuery(label);
     setResults([]);
     setShowDropdown(false);
+
+    let city = result.place?.locality || '';
+    let district = result.place?.district || '';
+    let address = [result.place?.street, result.place?.addressNumber].filter(Boolean).join(' ').trim();
+    let lat = result.place?.position ? result.place.position[1] : 0;
+    let lon = result.place?.position ? result.place.position[0] : 0;
+
+    // If we have a placeId but no coordinates, fetch full details
+    if (result.placeId && (!lat || !lon)) {
+      const details = await getPlace(result.placeId);
+      if (details) {
+        city = city || details.locality || '';
+        district = district || details.district || '';
+        address = address || [details.street, details.addressNumber].filter(Boolean).join(' ').trim();
+        if (details.position) {
+          lon = details.position[0];
+          lat = details.position[1];
+        }
+      }
+    }
+
     onSelect({
-      displayName: result.display_name,
-      city: parts.city,
-      district: parts.district,
-      address: parts.address,
-      lat: parseFloat(result.lat),
-      lon: parseFloat(result.lon),
+      displayName: label,
+      city,
+      district,
+      address,
+      lat,
+      lon,
     });
   };
 
@@ -167,20 +135,17 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
       {showDropdown && results.length > 0 && (
         <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto">
-          {results.map((r) => (
+          {results.map((r, i) => (
             <button
-              key={`${r.place_id}-${r.lat}-${r.lon}`}
+              key={`${r.suggestId || i}-${r.text}`}
               type="button"
               className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors text-sm border-b last:border-0 flex items-start gap-2"
               onClick={() => handleSelect(r)}
             >
               <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-              <span className="text-foreground leading-snug">{r.display_name}</span>
+              <span className="text-foreground leading-snug">{r.place?.label || r.text}</span>
             </button>
           ))}
-          <p className="text-[10px] text-muted-foreground text-center py-1.5">
-            © OpenStreetMap contributors
-          </p>
         </div>
       )}
     </div>
