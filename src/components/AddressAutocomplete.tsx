@@ -41,6 +41,7 @@ export interface AddressSelection {
 interface AddressAutocompleteProps {
   value: string;
   onSelect: (selection: AddressSelection) => void;
+  onInputChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -55,7 +56,7 @@ function buildAddressParts(result: NominatimResult) {
   return { city, district, address };
 }
 
-export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ value, onSelect, onInputChange, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +131,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
   const handleChange = (val: string) => {
     setQuery(val);
+    onInputChange?.(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void search(val);
