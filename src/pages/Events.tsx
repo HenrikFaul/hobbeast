@@ -265,6 +265,11 @@ const Events = () => {
                       <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
                     </Button>
                   </a>
+                ) : joinedEventIds.has(event.id) ? (
+                  <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" size="sm"
+                    onClick={() => setLeaveTarget(event)}>
+                    Leiratkozás
+                  </Button>
                 ) : (
                   <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
                     Csatlakozom
