@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,19 +50,12 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [eventTime, setEventTime] = useState(event.event_time || '');
   const [locationType, setLocationType] = useState(event.location_type || 'city');
   const [locationCity, setLocationCity] = useState(event.location_city || '');
-  const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
   const [maxAttendees, setMaxAttendees] = useState(event.max_attendees ? String(event.max_attendees) : '');
   const [imageEmoji, setImageEmoji] = useState(event.image_emoji || '🎉');
   const [tags, setTags] = useState((event.tags || []).join(', '));
   const [loading, setLoading] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<AddressSelection | null>(null);
-  const [locationQuery, setLocationQuery] = useState([event.location_address, event.location_city].filter(Boolean).join(', '));
-
-  const effectiveLocationType = useMemo(() => {
-    return locationType === 'district' ? 'city' : locationType;
-  }, [locationType]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -71,43 +64,16 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
     e.preventDefault();
     if (!title.trim()) return;
 
-    if (effectiveLocationType === 'city') {
-      if (!selectedAddress && !locationCity) {
-        toast.error('Város típusnál kérlek válassz ki egy várost a találati listából.');
-        return;
-      }
-      if (locationQuery.trim() && selectedAddress && selectedAddress.displayName !== locationQuery && !selectedAddress.displayName.includes(locationQuery.trim())) {
-        toast.error('A helyszínhez válassz egy érvényes várost a listából.');
-        return;
-      }
-    }
-
-    if (effectiveLocationType === 'address') {
-      if ((!selectedAddress && !locationAddress) || !locationCity) {
-        toast.error('Pontos címnél kérlek válassz ki egy címet a találati listából.');
-        return;
-      }
-      if (locationQuery.trim() && selectedAddress && selectedAddress.displayName !== locationQuery && !selectedAddress.displayName.includes(locationQuery.trim())) {
-        toast.error('A helyszínhez válassz egy érvényes címet a listából.');
-        return;
-      }
-    }
-
-    const normalizedCity = (selectedAddress?.city || locationCity || '').trim();
-    const normalizedAddress = effectiveLocationType === 'address'
-      ? (selectedAddress?.address || selectedAddress?.displayName || locationAddress || '').trim()
-      : null;
-
     setLoading(true);
     const { error } = await supabase.from('events').update({
       title: title.trim(),
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
-      location_type: effectiveLocationType,
-      location_city: normalizedCity || null,
+      location_type: locationType,
+      location_city: locationCity || null,
       location_district: null,
-      location_address: normalizedAddress,
+      location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
@@ -183,13 +149,12 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín</Label>
-            <Select value={effectiveLocationType} onValueChange={(nextType) => {
+            <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
-              setSelectedAddress(null);
-              setLocationQuery('');
-              setLocationCity('');
-              setLocationDistrict('');
-              setLocationAddress('');
+              if (nextType === 'free' || nextType === 'online') {
+                setLocationCity('');
+                setLocationAddress('');
+              }
               if (nextType !== 'free') {
                 setLocationFreeText('');
               }
@@ -199,50 +164,18 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            {['city', 'address'].includes(effectiveLocationType) && (
-              <div className="space-y-3">
-                <AddressAutocomplete
-                  value={locationQuery}
-                  onInputChange={(value) => {
-                    setLocationQuery(value);
-                    setSelectedAddress(null);
-                    setLocationCity('');
-                    setLocationDistrict('');
-                    setLocationAddress('');
-                  }}
-                  onSelect={(sel: AddressSelection) => {
-                    setSelectedAddress(sel);
-                    setLocationQuery(sel.displayName);
-                    setLocationCity(sel.city);
-                    setLocationDistrict('');
-                    setLocationAddress(effectiveLocationType === 'address' ? (sel.address || sel.displayName) : '');
-                    setLocationFreeText('');
-                  }}
-                  placeholder={effectiveLocationType === 'city' ? 'Keress rá egy városra...' : 'Keress rá egy pontos címre...'}
-                />
-
-                {effectiveLocationType === 'city' && locationCity && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kiválasztott város</Label>
-                    <Input value={locationCity} readOnly className="rounded-xl h-11 bg-muted/40" />
-                  </div>
-                )}
-
-                {effectiveLocationType === 'address' && (locationCity || locationAddress) && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
-                      <Input value={locationCity} readOnly className="rounded-xl h-11 bg-muted/40" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pontos cím</Label>
-                      <Input value={locationAddress} readOnly className="rounded-xl h-11 bg-muted/40" />
-                    </div>
-                  </div>
-                )}
-              </div>
+            {['city', 'address'].includes(locationType) && (
+              <AddressAutocomplete
+                value={[locationAddress, locationCity].filter(Boolean).join(', ')}
+                onSelect={(sel: AddressSelection) => {
+                  setLocationCity(sel.city);
+                  setLocationAddress(sel.address || sel.displayName);
+                  setLocationFreeText('');
+                }}
+                placeholder="Keress rá egy címre..."
+              />
             )}
-            {effectiveLocationType === 'free' && (
+            {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Helyszín" className="rounded-xl h-11" />
             )}
           </div>

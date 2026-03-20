@@ -43,7 +43,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [eventTime, setEventTime] = useState('');
   const [locationType, setLocationType] = useState('city');
   const [locationCity, setLocationCity] = useState('');
-  const [locationDistrict, setLocationDistrict] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationFreeText, setLocationFreeText] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
@@ -53,8 +52,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [distance, setDistance] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<AddressSelection | null>(null);
-  const [locationQuery, setLocationQuery] = useState('');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -112,36 +109,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     e.preventDefault();
     if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
 
-    if (locationType === 'city') {
-      if (!selectedAddress || !selectedAddress.city) {
-        toast.error('Város típusnál kérlek válassz ki egy várost a találati listából.');
-        return;
-      }
-      if (locationQuery.trim() && selectedAddress.displayName !== locationQuery && !selectedAddress.displayName.includes(locationQuery.trim())) {
-        toast.error('A helyszínhez válassz egy érvényes várost a listából.');
-        return;
-      }
-    }
-
-    if (locationType === 'address') {
-      if (!selectedAddress || !selectedAddress.city || !(selectedAddress.address || selectedAddress.displayName)) {
-        toast.error('Pontos címnél kérlek válassz ki egy címet a találati listából.');
-        return;
-      }
-      if (locationQuery.trim() && selectedAddress.displayName !== locationQuery && !selectedAddress.displayName.includes(locationQuery.trim())) {
-        toast.error('A helyszínhez válassz egy érvényes címet a listából.');
-        return;
-      }
-    }
-
-    const normalizedCity = locationType === 'city'
-      ? (selectedAddress?.city || locationCity || '').trim()
-      : (selectedAddress?.city || locationCity || '').trim();
-
-    const normalizedAddress = locationType === 'address'
-      ? (selectedAddress?.address || selectedAddress?.displayName || locationAddress || '').trim()
-      : null;
-
     setLoading(true);
     const { error } = await supabase.from('events').insert({
       title: title.trim(),
@@ -150,9 +117,9 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
       location_type: locationType,
-      location_city: normalizedCity || null,
+      location_city: locationCity || null,
       location_district: null,
-      location_address: normalizedAddress,
+      location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
@@ -320,11 +287,10 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa</Label>
             <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
-              setSelectedAddress(null);
-              setLocationQuery('');
-              setLocationCity('');
-              setLocationDistrict('');
-              setLocationAddress('');
+              if (nextType === 'free' || nextType === 'online') {
+                setLocationCity('');
+                setLocationAddress('');
+              }
               if (nextType !== 'free') {
                 setLocationFreeText('');
               }
@@ -336,47 +302,15 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </Select>
 
             {(locationType === 'city' || locationType === 'address') && (
-              <div className="space-y-3">
-                <AddressAutocomplete
-                  value={locationQuery}
-                  onInputChange={(value) => {
-                    setLocationQuery(value);
-                    setSelectedAddress(null);
-                    setLocationCity('');
-                    setLocationDistrict('');
-                    setLocationAddress('');
-                  }}
-                  onSelect={(sel: AddressSelection) => {
-                    setSelectedAddress(sel);
-                    setLocationQuery(sel.displayName);
-                    setLocationCity(sel.city);
-                    setLocationDistrict('');
-                    setLocationAddress(locationType === 'address' ? (sel.address || sel.displayName) : '');
-                    setLocationFreeText('');
-                  }}
-                  placeholder={locationType === 'city' ? 'Keress rá egy városra...' : 'Keress rá egy pontos címre...'}
-                />
-
-                {locationType === 'city' && locationCity && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kiválasztott város</Label>
-                    <Input value={locationCity} readOnly className="rounded-xl h-11 bg-muted/40" />
-                  </div>
-                )}
-
-                {locationType === 'address' && (locationCity || locationAddress) && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
-                      <Input value={locationCity} readOnly className="rounded-xl h-11 bg-muted/40" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pontos cím</Label>
-                      <Input value={locationAddress} readOnly className="rounded-xl h-11 bg-muted/40" />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <AddressAutocomplete
+                value={[locationAddress, locationCity].filter(Boolean).join(', ')}
+                onSelect={(sel: AddressSelection) => {
+                  setLocationCity(sel.city);
+                  setLocationAddress(sel.address || sel.displayName);
+                  setLocationFreeText('');
+                }}
+                placeholder="Keress rá egy címre..."
+              />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />
