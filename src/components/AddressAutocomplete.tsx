@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { MapPin, Loader2, AlertCircle } from 'lucide-react';
-import { suggestPlaces, getPlace, isAwsLocationConfigured, type AwsSuggestResult } from '@/lib/awsLocation';
+import { MapPin, Loader2 } from 'lucide-react';
+import { suggestPlaces, searchTextPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
 
 export interface AddressSelection {
   displayName: string;
@@ -53,16 +53,8 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     if (trimmed.length < 3) {
       setResults([]);
       setShowDropdown(false);
+      setLoading(false);
       setErrorText(null);
-      setLoading(false);
-      return;
-    }
-
-    if (!isAwsLocationConfigured()) {
-      setResults([]);
-      setShowDropdown(true);
-      setErrorText('AWS Location nincs konfigurálva. Állítsd be a VITE_AWS_LOCATION_API_KEY változót.');
-      setLoading(false);
       return;
     }
 
@@ -72,18 +64,24 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
     setLoading(true);
     setErrorText(null);
+
     try {
-      const data = await suggestPlaces(trimmed, controller.signal);
+      let data = await suggestPlaces(trimmed, controller.signal);
+
+      if (data.length === 0) {
+        data = await searchTextPlaces(trimmed, controller.signal);
+      }
+
       setResults(data);
-      setShowDropdown(data.length > 0 || Boolean(errorText));
+      setShowDropdown(data.length > 0);
       if (data.length === 0) {
         setErrorText('Nincs találat erre a címre.');
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         setResults([]);
-        setShowDropdown(true);
-        setErrorText((error as Error).message || 'Hiba történt a címkeresés közben.');
+        setShowDropdown(false);
+        setErrorText((error as Error).message || 'Hiba történt a címkeresés során.');
       }
     } finally {
       setLoading(false);
@@ -92,6 +90,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
   const handleChange = (val: string) => {
     setQuery(val);
+    setErrorText(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void search(val);
@@ -141,14 +140,14 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
         <Input
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => (results.length > 0 || errorText) && setShowDropdown(true)}
+          onFocus={() => results.length > 0 && setShowDropdown(true)}
           placeholder={placeholder}
           className={`pl-9 pr-9 rounded-xl h-11 ${className || ''}`}
         />
         {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
-      {showDropdown && (results.length > 0 || errorText) && (
+      {showDropdown && results.length > 0 && (
         <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto">
           {results.map((r, i) => (
             <button
@@ -161,12 +160,12 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
               <span className="text-foreground leading-snug">{r.place?.label || r.text}</span>
             </button>
           ))}
-          {errorText && (
-            <div className="px-4 py-3 text-sm text-destructive flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <span>{errorText}</span>
-            </div>
-          )}
+        </div>
+      )}
+
+      {errorText && (
+        <div className="mt-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorText}
         </div>
       )}
     </div>
