@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,61 +13,6 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
-
-
-interface ProfileLocationState {
-  city: string | null;
-  address: string | null;
-  preferredRadiusKm: number;
-}
-
-interface Coords {
-  lat: number;
-  lon: number;
-}
-
-const coordCache = new Map<string, Coords | null>();
-
-function haversineKm(a: Coords, b: Coords) {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const h =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-async function geocodeLocation(query: string): Promise<Coords | null> {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return null;
-  if (coordCache.has(normalized)) return coordCache.get(normalized) ?? null;
-
-  try {
-    const params = new URLSearchParams({
-      q: query,
-      format: 'jsonv2',
-      limit: '1',
-      addressdetails: '0',
-      'accept-language': 'hu',
-    });
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) throw new Error(`Geocode failed: ${res.status}`);
-    const data = await res.json();
-    const first = Array.isArray(data) ? data[0] : null;
-    const coords = first ? { lat: parseFloat(first.lat), lon: parseFloat(first.lon) } : null;
-    coordCache.set(normalized, coords);
-    return coords;
-  } catch {
-    coordCache.set(normalized, null);
-    return null;
-  }
-}
 
 interface EventData {
   id: string;
@@ -93,6 +37,60 @@ interface EventData {
   eventbrite_logo_url?: string | null;
 }
 
+
+
+type LatLng = { lat: number; lon: number };
+
+interface UserLocationPrefs {
+  city: string | null;
+  address: string | null;
+  preferred_radius_km: number | null;
+}
+
+const geocodeCache = new Map<string, LatLng | null>();
+
+function buildLocationQuery(ev: EventData) {
+  if (ev.location_type === 'online') return null;
+  return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
+}
+
+async function geocodeLocation(query: string): Promise<LatLng | null> {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return null;
+  if (geocodeCache.has(normalized)) return geocodeCache.get(normalized) ?? null;
+
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('q', query);
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '1');
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    if (!res.ok) {
+      geocodeCache.set(normalized, null);
+      return null;
+    }
+    const data = await res.json();
+    const hit = Array.isArray(data) ? data[0] : null;
+    const coords = hit?.lat && hit?.lon ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
+    geocodeCache.set(normalized, coords);
+    return coords;
+  } catch {
+    geocodeCache.set(normalized, null);
+    return null;
+  }
+}
+
+function haversineKm(a: LatLng, b: LatLng) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const x = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
 const SAMPLE_EVENTS: EventData[] = [
   { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23, source: 'hobbeast', source_label: 'Hobbeast' },
   { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12, source: 'hobbeast', source_label: 'Hobbeast' },
@@ -122,12 +120,13 @@ const Events = () => {
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
-  const [profileLocation, setProfileLocation] = useState<ProfileLocationState | null>(null);
   const [distanceFilterEnabled, setDistanceFilterEnabled] = useState(false);
   const [distanceKm, setDistanceKm] = useState(25);
-  const [profileCoords, setProfileCoords] = useState<Coords | null>(null);
-  const [eventDistances, setEventDistances] = useState<Record<string, number | null>>({});
+  const [userLocation, setUserLocation] = useState<UserLocationPrefs | null>(null);
+  const [userCoords, setUserCoords] = useState<LatLng | null>(null);
+  const [distanceMap, setDistanceMap] = useState<Record<string, number>>({});
   const [distanceLoading, setDistanceLoading] = useState(false);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -158,98 +157,92 @@ const Events = () => {
     setEventbriteLoading(false);
   };
 
+  const fetchUserLocation = async () => {
+    if (!user) {
+      setUserLocation(null);
+      setUserCoords(null);
+      setDistanceFilterEnabled(false);
+      return;
+    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('city,address,preferred_radius_km')
+      .eq('user_id', user.id)
+      .single();
+    if (data) {
+      setUserLocation(data);
+      setDistanceKm(data.preferred_radius_km || 25);
+    } else {
+      setUserLocation(null);
+      setUserCoords(null);
+      setDistanceFilterEnabled(false);
+    }
+  };
+
   const fetchJoined = async () => {
     if (!user) { setJoinedEventIds(new Set()); return; }
     const { data } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
     if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
   };
 
-  const fetchProfileLocation = async () => {
-    if (!user) {
-      setProfileLocation(null);
-      setDistanceFilterEnabled(false);
-      return;
-    }
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('city, address, preferred_radius_km')
-      .eq('user_id', user.id)
-      .single();
-
-    if (data) {
-      const nextProfile = {
-        city: data.city || null,
-        address: data.address || null,
-        preferredRadiusKm: data.preferred_radius_km || 25,
-      };
-      setProfileLocation(nextProfile);
-      setDistanceKm(nextProfile.preferredRadiusKm);
-      setDistanceFilterEnabled(Boolean(nextProfile.city || nextProfile.address));
-    } else {
-      setProfileLocation(null);
-      setDistanceFilterEnabled(false);
-    }
-  };
-
   useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
-  useEffect(() => { fetchJoined(); fetchProfileLocation(); }, [user]);
+  useEffect(() => { fetchJoined(); fetchUserLocation(); }, [user]);
 
-  const allEvents = useMemo(() => ([
+  const allEvents = [
     ...dbEvents,
     ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
     ...eventbriteEvents,
-  ]), [dbEvents, eventbriteEvents]);
+  ];
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
-
-  const locationQuery = useMemo(() => {
-    if (!profileLocation) return '';
-    return profileLocation.address?.trim() || profileLocation.city?.trim() || '';
-  }, [profileLocation]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const resolveDistances = async () => {
-      if (!distanceFilterEnabled || !locationQuery) {
-        setProfileCoords(null);
-        setEventDistances({});
+    const runDistanceLookup = async () => {
+      if (!userLocation || (!userLocation.address && !userLocation.city)) {
+        setUserCoords(null);
+        setDistanceMap({});
+        setDistanceError('A távolságszűréshez előbb ments el egy várost vagy pontos címet a profilodban.');
         return;
       }
 
       setDistanceLoading(true);
-      const baseCoords = await geocodeLocation(locationQuery);
-      if (cancelled) return;
-      setProfileCoords(baseCoords);
+      setDistanceError(null);
 
-      if (!baseCoords) {
-        setEventDistances({});
+      const originQuery = userLocation.address || userLocation.city || '';
+      const origin = await geocodeLocation(originQuery);
+      if (cancelled) return;
+
+      if (!origin) {
+        setUserCoords(null);
+        setDistanceMap({});
+        setDistanceError('A profilban megadott lokációt nem sikerült beazonosítani.');
         setDistanceLoading(false);
         return;
       }
 
+      setUserCoords(origin);
       const entries = await Promise.all(allEvents.map(async (ev) => {
-        if (ev.location_type === 'online') return [ev.id, 0] as const;
-        const eventQuery = [ev.location_address, ev.location_free_text, ev.location_city].filter(Boolean).join(', ');
-        if (!eventQuery) return [ev.id, null] as const;
-        const coords = await geocodeLocation(eventQuery);
+        const q = buildLocationQuery(ev);
+        if (!q) return [ev.id, null] as const;
+        const coords = await geocodeLocation(q);
         if (!coords) return [ev.id, null] as const;
-        return [ev.id, Number(haversineKm(baseCoords, coords).toFixed(1))] as const;
+        return [ev.id, haversineKm(origin, coords)] as const;
       }));
+      if (cancelled) return;
 
-      if (!cancelled) {
-        setEventDistances(Object.fromEntries(entries));
-        setDistanceLoading(false);
+      const next: Record<string, number> = {};
+      for (const [id, dist] of entries) {
+        if (typeof dist === 'number' && Number.isFinite(dist)) next[id] = dist;
       }
+      setDistanceMap(next);
+      setDistanceLoading(false);
     };
 
-    void resolveDistances();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [allEvents, distanceFilterEnabled, locationQuery]);
+    runDistanceLookup();
+    return () => { cancelled = true; };
+  }, [userLocation, allEvents.map((ev) => `${ev.id}:${buildLocationQuery(ev) || ''}`).join('|')]);
 
   const filtered = allEvents.filter((ev) => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -259,10 +252,8 @@ const Events = () => {
       sourceFilter === 'all' ||
       (sourceFilter === 'hobbeast' && !isExternal(ev)) ||
       (sourceFilter === 'external' && isExternal(ev));
-    const distanceValue = eventDistances[ev.id];
-    const matchDistance = !distanceFilterEnabled || !profileCoords || ev.location_type === 'online'
-      ? true
-      : typeof distanceValue === 'number' && distanceValue <= distanceKm;
+    const distance = distanceMap[ev.id];
+    const matchDistance = !distanceFilterEnabled || ev.location_type === 'online' || (typeof distance === 'number' && distance <= distanceKm);
     return matchSearch && matchCategory && matchSource && matchDistance;
   });
 
@@ -335,59 +326,6 @@ const Events = () => {
           ))}
         </div>
 
-        {user && (
-          <div className="max-w-3xl mx-auto mb-6 rounded-2xl border bg-card p-4 sm:p-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <h2 className="font-semibold">Távolság alapú szűrés</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {profileLocation?.city || profileLocation?.address
-                      ? `A profilodban megadott lokáció alapján szűrünk${profileLocation.city ? ` (${profileLocation.city})` : ''}.`
-                      : 'A funkcióhoz adj meg legalább egy várost vagy címet a profilodban.'}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={distanceFilterEnabled ? 'default' : 'outline'}
-                  onClick={() => setDistanceFilterEnabled((prev) => !prev)}
-                  disabled={!profileLocation?.city && !profileLocation?.address}
-                  className={distanceFilterEnabled ? 'gradient-primary text-primary-foreground border-0' : ''}
-                >
-                  {distanceFilterEnabled ? 'Távolságszűrés aktív' : 'Távolságszűrés kikapcsolva'}
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Max. távolság</span>
-                  <span className="font-semibold">{distanceKm} km</span>
-                </div>
-                <Slider
-                  value={[distanceKm]}
-                  onValueChange={(value) => setDistanceKm(value[0] ?? 25)}
-                  min={1}
-                  max={200}
-                  step={1}
-                  disabled={!distanceFilterEnabled || (!profileLocation?.city && !profileLocation?.address)}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>1 km</span>
-                  <span>200 km</span>
-                </div>
-              </div>
-
-              {distanceFilterEnabled && !profileCoords && !distanceLoading && (
-                <p className="text-sm text-amber-600">A profilban megadott lokációt nem sikerült beazonosítani. Ellenőrizd a várost vagy a címet a profilodban.</p>
-              )}
-              {distanceFilterEnabled && distanceLoading && (
-                <p className="text-sm text-muted-foreground">Távolságok számítása folyamatban...</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Category & search filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
           <div className="relative w-full sm:w-80">
@@ -401,6 +339,50 @@ const Events = () => {
               <Button key={cat} size="sm" variant={selectedCategory === cat ? "default" : "outline"} onClick={() => setSelectedCategory(cat)}
                 className={selectedCategory === cat ? "gradient-primary text-primary-foreground border-0" : ""}>{cat}</Button>
             ))}
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto mb-8 rounded-2xl border bg-card p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+            <div>
+              <h2 className="font-semibold">Távolság alapú szűrés</h2>
+              <p className="text-sm text-muted-foreground">A profilodban megadott lokáció és keresési sugár alapján szűr.</p>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={distanceFilterEnabled}
+                onChange={(e) => setDistanceFilterEnabled(e.target.checked)}
+                disabled={!userLocation || (!userLocation.city && !userLocation.address) || !!distanceError || distanceLoading}
+              />
+              Bekapcsolva
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Max távolság</span>
+              <span className="font-semibold text-primary">{distanceKm} km</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="200"
+              value={distanceKm}
+              onChange={(e) => setDistanceKm(parseInt(e.target.value))}
+              className="w-full accent-primary"
+              disabled={!distanceFilterEnabled}
+            />
+          </div>
+
+          <div className="mt-3 text-sm text-muted-foreground">
+            {distanceLoading
+              ? 'Távolságok számítása folyamatban...'
+              : distanceError
+              ? distanceError
+              : userCoords
+              ? `Kiindulási lokáció: ${userLocation?.address || userLocation?.city}`
+              : 'A távolságszűréshez jelentkezz be és adj meg lokációt a profilodban.'}
           </div>
         </div>
 
@@ -445,13 +427,10 @@ const Events = () => {
                   <div className="flex items-center gap-2">
                     <MapPin size={14} />
                     <span>{getLocationString(event)}</span>
+                    {typeof distanceMap[event.id] === 'number' && (
+                      <span className="text-xs text-primary font-medium">• {Math.round(distanceMap[event.id])} km</span>
+                    )}
                   </div>
-                  {distanceFilterEnabled && typeof eventDistances[event.id] === 'number' && (
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} />
-                      <span>{event.location_type === 'online' ? 'Online esemény' : `${eventDistances[event.id]} km-re tőled`}</span>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2">
                     <Users size={14} />
                     <span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span>

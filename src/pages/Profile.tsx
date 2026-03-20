@@ -41,7 +41,7 @@ const Profile = () => {
   const [address, setAddress] = useState('');
   const [addressPublic, setAddressPublic] = useState(false);
   const [city, setCity] = useState('');
-  const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
+    const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -248,14 +248,14 @@ const Profile = () => {
                       value={address}
                       onSelect={(sel: AddressSelection) => {
                         setAddress(sel.displayName);
-                        if (sel.city) setCity(sel.city);
+                        if (sel.city && !city) setCity(sel.city);
                       }}
                       placeholder="Kezdj el gépelni egy címet..."
                     />
                     <div className="flex items-center gap-2">
                       <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
                       <span className="text-xs text-muted-foreground">
-                        {addressPublic ? 'Pontos cím nyilvános' : 'Csak a város látható mások számára'}
+                        {addressPublic ? 'Pontos cím nyilvános' : 'Csak város látható mások számára'}
                       </span>
                     </div>
                   </div>
