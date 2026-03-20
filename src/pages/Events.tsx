@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,17 @@ interface EventData {
   eventbrite_logo_url?: string | null;
 }
 
+interface Coordinates {
+  lat: number;
+  lon: number;
+}
+
+interface ProfileLocation {
+  city: string | null;
+  address: string | null;
+  preferredRadiusKm: number;
+}
+
 const SAMPLE_EVENTS: EventData[] = [
   { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23, source: 'hobbeast', source_label: 'Hobbeast' },
   { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12, source: 'hobbeast', source_label: 'Hobbeast' },
@@ -52,8 +63,58 @@ const SOURCE_FILTERS: { value: SourceFilter; label: string }[] = [
   { value: 'external', label: 'Külső programok' },
 ];
 
+const geocodeCache = new Map<string, Coordinates | null>();
+
 function isExternal(ev: EventData) {
   return ev.source !== undefined && ev.source !== 'hobbeast';
+}
+
+function getLocationString(ev: EventData) {
+  const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
+  if (ev.location_type === 'online') return 'Online';
+  return parts.join(', ') || 'Helyszín nem megadva';
+}
+
+async function geocodeLocation(query: string): Promise<Coordinates | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  if (geocodeCache.has(trimmed)) return geocodeCache.get(trimmed) || null;
+
+  const params = new URLSearchParams({
+    q: trimmed,
+    format: 'jsonv2',
+    limit: '1',
+    addressdetails: '0',
+    'accept-language': 'hu',
+  });
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    const coords = first ? { lat: parseFloat(first.lat), lon: parseFloat(first.lon) } : null;
+    geocodeCache.set(trimmed, coords);
+    return coords;
+  } catch {
+    geocodeCache.set(trimmed, null);
+    return null;
+  }
+}
+
+function haversineKm(a: Coordinates, b: Coordinates) {
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const earthRadiusKm = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
 }
 
 const Events = () => {
@@ -64,8 +125,15 @@ const Events = () => {
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
+  const [eventbriteError, setEventbriteError] = useState<string | null>(null);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
+  const [profileLocation, setProfileLocation] = useState<ProfileLocation>({ city: null, address: null, preferredRadiusKm: 25 });
+  const [distanceFilterKm, setDistanceFilterKm] = useState(25);
+  const [distanceFilterEnabled, setDistanceFilterEnabled] = useState(false);
+  const [originCoords, setOriginCoords] = useState<Coordinates | null>(null);
+  const [eventDistances, setEventDistances] = useState<Record<string, number | null>>({});
+  const [distanceLoading, setDistanceLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -81,17 +149,41 @@ const Events = () => {
     }
   };
 
+  const fetchProfileLocation = async () => {
+    if (!user) {
+      setProfileLocation({ city: null, address: null, preferredRadiusKm: 25 });
+      setDistanceFilterEnabled(false);
+      setOriginCoords(null);
+      return;
+    }
+
+    const { data } = await supabase.from('profiles').select('city,address,preferred_radius_km').eq('user_id', user.id).single();
+    const next = {
+      city: data?.city || null,
+      address: data?.address || null,
+      preferredRadiusKm: data?.preferred_radius_km || 25,
+    };
+    setProfileLocation(next);
+    setDistanceFilterKm(next.preferredRadiusKm || 25);
+    setDistanceFilterEnabled(Boolean(next.address || next.city));
+  };
+
   const fetchEbEvents = async () => {
     setEventbriteLoading(true);
+    setEventbriteError(null);
     try {
-      const result = await searchEventbriteEvents('Budapest', 1);
+      const result = await searchEventbriteEvents('', 1, 'Budapest');
       setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
         ...ev,
         source: 'eventbrite' as const,
         source_label: 'Eventbrite',
       })));
+      if ((result.events || []).length === 0) {
+        setEventbriteError('Az Eventbrite API nem adott vissza eseményeket. Ellenőrizd a Supabase secretet és az edge function logokat.');
+      }
     } catch (err) {
       console.log('Eventbrite import not available:', err);
+      setEventbriteError(err instanceof Error ? err.message : 'Az Eventbrite import jelenleg nem elérhető.');
     }
     setEventbriteLoading(false);
   };
@@ -103,13 +195,52 @@ const Events = () => {
   };
 
   useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
-  useEffect(() => { fetchJoined(); }, [user]);
+  useEffect(() => { fetchJoined(); fetchProfileLocation(); }, [user]);
 
-  const allEvents = [
+  const allEvents = useMemo(() => [
     ...dbEvents,
     ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
     ...eventbriteEvents,
-  ];
+  ], [dbEvents, eventbriteEvents]);
+
+  useEffect(() => {
+    const originQuery = profileLocation.address || profileLocation.city;
+    let cancelled = false;
+
+    const run = async () => {
+      if (!distanceFilterEnabled || !originQuery) {
+        setOriginCoords(null);
+        setEventDistances({});
+        return;
+      }
+
+      setDistanceLoading(true);
+      const origin = await geocodeLocation(originQuery);
+      if (cancelled) return;
+      setOriginCoords(origin);
+
+      if (!origin) {
+        setEventDistances({});
+        setDistanceLoading(false);
+        return;
+      }
+
+      const entries = await Promise.all(allEvents.map(async (event) => {
+        if (event.location_type === 'online') return [event.id, null] as const;
+        const query = [event.location_address, event.location_city, event.location_free_text].filter(Boolean).join(', ');
+        const coords = await geocodeLocation(query);
+        if (!coords) return [event.id, null] as const;
+        return [event.id, haversineKm(origin, coords)] as const;
+      }));
+
+      if (cancelled) return;
+      setEventDistances(Object.fromEntries(entries));
+      setDistanceLoading(false);
+    };
+
+    void run();
+    return () => { cancelled = true; };
+  }, [allEvents, profileLocation.address, profileLocation.city, distanceFilterEnabled]);
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
 
@@ -121,14 +252,10 @@ const Events = () => {
       sourceFilter === 'all' ||
       (sourceFilter === 'hobbeast' && !isExternal(ev)) ||
       (sourceFilter === 'external' && isExternal(ev));
-    return matchSearch && matchCategory && matchSource;
+    const distance = eventDistances[ev.id];
+    const matchDistance = !distanceFilterEnabled || ev.location_type === 'online' || distance == null || distance <= distanceFilterKm;
+    return matchSearch && matchCategory && matchSource && matchDistance;
   });
-
-  const getLocationString = (ev: EventData) => {
-    const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
-    if (ev.location_type === 'online') return 'Online';
-    return parts.join(', ') || 'Helyszín nem megadva';
-  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Dátum nélkül';
@@ -178,8 +305,7 @@ const Events = () => {
           )}
         </motion.div>
 
-        {/* Source filter */}
-        <div className="flex gap-2 justify-center mb-4">
+        <div className="flex gap-2 justify-center mb-4 flex-wrap">
           {SOURCE_FILTERS.map((sf) => (
             <Button
               key={sf.value}
@@ -193,8 +319,7 @@ const Events = () => {
           ))}
         </div>
 
-        {/* Category & search filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center justify-center">
           <div className="relative w-full sm:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
@@ -209,17 +334,75 @@ const Events = () => {
           </div>
         </div>
 
+        <div className="mx-auto mb-8 max-w-3xl rounded-2xl border bg-card p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Távolság alapú szűrés</p>
+              <p className="text-sm text-muted-foreground">
+                {profileLocation.address || profileLocation.city
+                  ? `Kiindulási pont: ${profileLocation.address || profileLocation.city}`
+                  : 'A távolságszűréshez adj meg várost vagy címet a profilodban.'}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant={distanceFilterEnabled ? 'default' : 'outline'}
+              disabled={!profileLocation.address && !profileLocation.city}
+              onClick={() => setDistanceFilterEnabled((prev) => !prev)}
+              className={distanceFilterEnabled ? 'gradient-primary text-primary-foreground border-0' : ''}
+            >
+              {distanceFilterEnabled ? 'Távolságszűrés aktív' : 'Távolságszűrés bekapcsolása'}
+            </Button>
+          </div>
+          <div className="mt-4 space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Max. távolság: <span className="font-semibold text-primary">{distanceFilterKm} km</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="200"
+              value={distanceFilterKm}
+              onChange={(e) => setDistanceFilterKm(parseInt(e.target.value))}
+              disabled={!distanceFilterEnabled}
+              className="w-full accent-primary disabled:opacity-50"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1 km</span>
+              <span>200 km</span>
+            </div>
+            {distanceFilterEnabled && distanceLoading && (
+              <p className="text-xs text-muted-foreground">Távolságok számítása...</p>
+            )}
+            {distanceFilterEnabled && !originCoords && !distanceLoading && (
+              <p className="text-xs text-destructive">A profilban megadott hely alapján nem sikerült távolságot számolni.</p>
+            )}
+          </div>
+        </div>
+
         {eventbriteLoading && (
           <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>
         )}
 
-        {/* Event cards */}
+        {eventbriteError && (
+          <div className="mx-auto mb-6 flex max-w-3xl items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">Eventbrite kapcsolódási probléma</p>
+              <p className="text-muted-foreground">{eventbriteError}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Supabase secretként állíts be Eventbrite tokent: EVENTBRITE_PRIVATE_TOKEN vagy EVENTBRITE_TOKEN, majd deployold újra az <code>eventbrite-import</code> edge functiont.</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((event, i) => (
+          {filtered.map((event, i) => {
+            const distance = eventDistances[event.id];
+            return (
             <motion.div key={event.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
               className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer">
               <div className="h-32 gradient-warm flex items-center justify-center" onClick={() => {
-                // Store external event data in sessionStorage for detail page
                 if (isExternal(event)) {
                   sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event));
                 }
@@ -228,12 +411,15 @@ const Events = () => {
                 <span className="text-5xl">{event.image_emoji || '🎉'}</span>
               </div>
               <div className="p-5">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Badge variant="secondary" className="text-xs">{event.category}</Badge>
                   {event.source_label && event.source_label !== 'Hobbeast' && (
                     <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
                       {event.source_label}
                     </Badge>
+                  )}
+                  {distanceFilterEnabled && typeof distance === 'number' && (
+                    <Badge variant="outline" className="text-xs">{distance.toFixed(1)} km</Badge>
                   )}
                 </div>
                 <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors cursor-pointer"
@@ -281,7 +467,7 @@ const Events = () => {
                 )}
               </div>
             </motion.div>
-          ))}
+          )})}
         </div>
 
         {filtered.length === 0 && (
