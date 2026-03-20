@@ -1,8 +1,11 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="py-20">
       <div className="container mx-auto px-4">
@@ -24,8 +27,9 @@ const CTASection = () => {
               size="lg"
               variant="secondary"
               className="gap-2 text-base font-semibold"
+              onClick={() => navigate('/about')}
             >
-              Regisztrálj ingyen <ArrowRight size={18} />
+              Tudj meg többet <ArrowRight size={18} />
             </Button>
           </div>
         </motion.div>
