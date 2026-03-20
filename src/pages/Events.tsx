@@ -289,6 +289,17 @@ const Events = () => {
       </div>
 
       {showCreate && <CreateEventDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
+
+      {leaveTarget && (
+        <LeaveEventDialog
+          eventTitle={leaveTarget.title}
+          eventDate={formatDate(leaveTarget.event_date)}
+          eventTime={leaveTarget.event_time}
+          eventLocation={getLocationString(leaveTarget)}
+          onConfirm={handleLeave}
+          onCancel={() => setLeaveTarget(null)}
+        />
+      )}
     </main>
   );
 };

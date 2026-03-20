@@ -54,7 +54,7 @@ export function LeaveEventDialog({ eventTitle, eventDate, eventTime, eventLocati
             Mégsem
           </Button>
           <Button variant="destructive" className="flex-1 rounded-xl" onClick={onConfirm}>
-            Kiiratkozom
+            Leiratkozom
           </Button>
         </div>
       </motion.div>
