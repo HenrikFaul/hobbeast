@@ -10,7 +10,7 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { searchEventbriteEvents } from "@/lib/eventbrite";
+import { loadEventbriteEvents } from "@/lib/eventbrite";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 
@@ -84,7 +84,7 @@ const Events = () => {
   const fetchEventbriteEvents = async () => {
     setEventbriteLoading(true);
     try {
-      const result = await searchEventbriteEvents('Budapest', 1);
+      const result = await loadEventbriteEvents({ keyword: 'hobby', location: 'Budapest', page: 1 });
       setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
         ...ev,
         source: 'eventbrite' as const,
@@ -208,6 +208,10 @@ const Events = () => {
             ))}
           </div>
         </div>
+
+        {eventbriteLoading && (
+          <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>
+        )}
 
         {/* Event cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
