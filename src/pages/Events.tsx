@@ -10,7 +10,7 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { loadEventbriteEvents } from "@/lib/eventbrite";
+import { searchEventbriteEvents } from "@/lib/eventbrite";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 
