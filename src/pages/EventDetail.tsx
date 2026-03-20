@@ -287,7 +287,7 @@ const EventDetail = () => {
             ) : hasJoined ? (
               <Button variant="outline" className="flex-1 h-12 rounded-xl border-destructive text-destructive hover:bg-destructive/10 font-semibold"
                 onClick={() => setShowLeave(true)}>
-                Kiiratkozás
+                Leiratkozás
               </Button>
             ) : (
               <Button className="flex-1 h-12 rounded-xl gradient-primary text-primary-foreground border-0 shadow-glow font-semibold" onClick={handleJoin}>

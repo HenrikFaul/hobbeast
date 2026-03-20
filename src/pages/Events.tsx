@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
+import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
@@ -63,6 +64,8 @@ const Events = () => {
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
+  const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
+  const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -93,7 +96,14 @@ const Events = () => {
     setEventbriteLoading(false);
   };
 
+  const fetchJoined = async () => {
+    if (!user) { setJoinedEventIds(new Set()); return; }
+    const { data } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
+    if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
+  };
+
   useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
+  useEffect(() => { fetchJoined(); }, [user]);
 
   const allEvents = [
     ...dbEvents,
@@ -136,7 +146,21 @@ const Events = () => {
     } else {
       toast.success('Sikeresen csatlakoztál!');
       fetchEvents();
+      fetchJoined();
     }
+  };
+
+  const handleLeave = async () => {
+    if (!user || !leaveTarget) return;
+    const { error } = await supabase.from('event_participants').delete().eq('event_id', leaveTarget.id).eq('user_id', user.id);
+    if (error) {
+      toast.error('Hiba a leiratkozáskor.');
+    } else {
+      toast.success('Sikeresen leiratkoztál az eseményről.');
+      fetchEvents();
+      fetchJoined();
+    }
+    setLeaveTarget(null);
   };
 
   return (
@@ -241,6 +265,11 @@ const Events = () => {
                       <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
                     </Button>
                   </a>
+                ) : joinedEventIds.has(event.id) ? (
+                  <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" size="sm"
+                    onClick={() => setLeaveTarget(event)}>
+                    Leiratkozás
+                  </Button>
                 ) : (
                   <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>
                     Csatlakozom
@@ -260,6 +289,17 @@ const Events = () => {
       </div>
 
       {showCreate && <CreateEventDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
+
+      {leaveTarget && (
+        <LeaveEventDialog
+          eventTitle={leaveTarget.title}
+          eventDate={formatDate(leaveTarget.event_date)}
+          eventTime={leaveTarget.event_time}
+          eventLocation={getLocationString(leaveTarget)}
+          onConfirm={handleLeave}
+          onCancel={() => setLeaveTarget(null)}
+        />
+      )}
     </main>
   );
 };
