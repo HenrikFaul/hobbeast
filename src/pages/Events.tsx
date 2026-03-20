@@ -96,7 +96,14 @@ const Events = () => {
     setEventbriteLoading(false);
   };
 
+  const fetchJoined = async () => {
+    if (!user) { setJoinedEventIds(new Set()); return; }
+    const { data } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
+    if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
+  };
+
   useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
+  useEffect(() => { fetchJoined(); }, [user]);
 
   const allEvents = [
     ...dbEvents,
