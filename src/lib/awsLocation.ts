@@ -1,11 +1,9 @@
 // AWS Location Service configuration and helpers
 
-const FALLBACK_AWS_REGION = 'eu-north-1';
-const FALLBACK_AWS_API_KEY = 'v1.public.eyJqdGkiOiJlYTMxNmQwOS00NTU4LTQwNzAtOTljNS1hYzlmMWFkN2QyMjAifWdVyFn7_P0rt7og_jzk-OxT9nOzaUDDub_H3rK37RQ6E25Gs9HjyJsWp0LRU6FeyQiiLshawE15jVWLmCOCSJkQldWYa-dO-P8sB5gjzE92iwmicHhIUe3Ns3PQUMyZw03oEGx8q2rv_qK4f8cCP9jTW6jbMUSzuYHdcwWeH3bYsuC_Pcb8OmMj5yrKmqNFONasWivy4gk7SK70F10EW6fGm5UThnSOxxnLE3x3-LNdmdxqKRpCxeUO57RPH1xgtnpctRQMYgveRpLnVZVwm-IGVQsc9kPd5x3Oa1NNDHfFrujt9h-8pc8uZrPJUERGU4SyYskIw-uIcSyB_NHXWOU.N2IyNTQ2ODQtOWE1YS00MmI2LTkyOTItMGJlNGMxODU1Mzc2';
-
-const AWS_REGION = (import.meta.env.VITE_AWS_LOCATION_REGION || FALLBACK_AWS_REGION).trim();
-const AWS_API_KEY = (import.meta.env.VITE_AWS_LOCATION_API_KEY || FALLBACK_AWS_API_KEY).trim();
+const AWS_REGION = (import.meta.env.VITE_AWS_LOCATION_REGION || "eu-north-1").trim();
+const AWS_API_KEY = (import.meta.env.VITE_AWS_LOCATION_API_KEY || "").trim();
 const PLACES_BASE = `https://places.geo.${AWS_REGION}.amazonaws.com`;
+const DEFAULT_BIAS_POSITION: [number, number] = [19.0402, 47.4979]; // Budapest [lon, lat]
 
 function buildAwsUrl(path: string) {
   return `${PLACES_BASE}${path}?key=${encodeURIComponent(AWS_API_KEY)}`;
@@ -13,14 +11,14 @@ function buildAwsUrl(path: string) {
 
 function assertAwsConfigured() {
   if (!AWS_API_KEY) {
-    throw new Error('AWS Location API key is missing. Set VITE_AWS_LOCATION_API_KEY.');
+    throw new Error("AWS Location API key is missing. Set VITE_AWS_LOCATION_API_KEY.");
   }
 }
 
 async function parseJsonResponse<T>(res: Response, errorLabel: string): Promise<T> {
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${errorLabel}: ${res.status}${body ? ` - ${body}` : ''}`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`${errorLabel}: ${res.status}${body ? ` - ${body}` : ""}`);
   }
 
   return res.json() as Promise<T>;
@@ -40,7 +38,7 @@ export interface AwsSuggestResult {
     street?: string;
     addressNumber?: string;
     postalCode?: string;
-    position?: [number, number]; // [lon, lat]
+    position?: [number, number];
   };
 }
 
@@ -54,36 +52,34 @@ export interface AwsGetPlaceResult {
   street?: string;
   addressNumber?: string;
   postalCode?: string;
-  position?: [number, number]; // [lon, lat]
+  position?: [number, number];
 }
 
 export function isAwsLocationConfigured() {
   return Boolean(AWS_API_KEY);
 }
 
-export async function suggestPlaces(
-  query: string,
-  signal?: AbortSignal,
-): Promise<AwsSuggestResult[]> {
+export async function suggestPlaces(query: string, signal?: AbortSignal): Promise<AwsSuggestResult[]> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/v2/suggest'), {
-    method: 'POST',
+  const res = await fetch(buildAwsUrl("/v2/suggest"), {
+    method: "POST",
     signal,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       QueryText: query,
       MaxResults: 6,
-      Language: 'hu',
-      Filter: { IncludeCountries: ['HUN'] },
+      Language: "hu",
+      BiasPosition: DEFAULT_BIAS_POSITION,
+      Filter: { IncludeCountries: ["HUN"] },
     }),
   });
 
-  const data = await parseJsonResponse<{ Results?: any[] }>(res, 'AWS suggest failed');
+  const data = await parseJsonResponse<{ Results?: any[] }>(res, "AWS suggest failed");
 
   return (data.Results || []).map((r: any) => ({
-    suggestId: r.SuggestId || '',
-    text: r.Text || '',
+    suggestId: r.SuggestId || "",
+    text: r.Text || "",
     placeId: r.Place?.PlaceId,
     place: r.Place
       ? {
@@ -105,10 +101,10 @@ export async function suggestPlaces(
 export async function getPlace(placeId: string): Promise<AwsGetPlaceResult | null> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/v2/get-place'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ PlaceId: placeId, Language: 'hu' }),
+  const res = await fetch(buildAwsUrl("/v2/get-place"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ PlaceId: placeId, Language: "hu" }),
   });
 
   if (!res.ok) return null;
@@ -128,21 +124,19 @@ export async function getPlace(placeId: string): Promise<AwsGetPlaceResult | nul
   };
 }
 
-export async function geocode(
-  query: string,
-  signal?: AbortSignal,
-): Promise<{ lat: number; lon: number } | null> {
+export async function geocode(query: string, signal?: AbortSignal): Promise<{ lat: number; lon: number } | null> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/v2/search-text'), {
-    method: 'POST',
+  const res = await fetch(buildAwsUrl("/v2/search-text"), {
+    method: "POST",
     signal,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       QueryText: query,
       MaxResults: 1,
-      Language: 'hu',
-      Filter: { IncludeCountries: ['HUN'] },
+      Language: "hu",
+      BiasPosition: DEFAULT_BIAS_POSITION,
+      Filter: { IncludeCountries: ["HUN"] },
     }),
   });
 
