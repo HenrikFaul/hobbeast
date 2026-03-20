@@ -10,7 +10,7 @@ import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { loadEventbriteEvents } from "@/lib/eventbrite";
+import { searchEventbriteEvents } from "@/lib/eventbrite";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 
@@ -81,10 +81,10 @@ const Events = () => {
     }
   };
 
-  const fetchEventbriteEvents = async () => {
+  const fetchEbEvents = async () => {
     setEventbriteLoading(true);
     try {
-      const result = await loadEventbriteEvents({ keyword: 'hobby', location: 'Budapest', page: 1 });
+      const result = await searchEventbriteEvents('Budapest', 1);
       setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
         ...ev,
         source: 'eventbrite' as const,
@@ -102,7 +102,7 @@ const Events = () => {
     if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
   };
 
-  useEffect(() => { fetchEvents(); fetchEventbriteEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
 
   const allEvents = [
