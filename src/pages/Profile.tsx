@@ -41,7 +41,7 @@ const Profile = () => {
   const [address, setAddress] = useState('');
   const [addressPublic, setAddressPublic] = useState(false);
   const [city, setCity] = useState('');
-    const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
+  const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -117,7 +117,6 @@ const Profile = () => {
       address: address || null,
       address_public: addressPublic,
       city: city || null,
-      district: null,
       preferred_radius_km: preferredRadiusKm,
       hobbies,
     }).eq('user_id', user.id);
@@ -234,12 +233,14 @@ const Profile = () => {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">
                     Add meg a tartózkodási helyedet, hogy az app a közeledben lévő hobbistákat és eseményeket ajánlhassa neked. 
-                    Ha privátra állítod a lakcímed, csak a város jelenik meg mások számára.
+                    Ha privátra állítod a lakcímed, csak a város/kerület jelenik meg mások számára.
                   </p>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
-                    <Input value={city} onChange={e => setCity(e.target.value)} placeholder="pl. Budapest" className="rounded-xl h-11" />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
+                      <Input value={city} onChange={e => setCity(e.target.value)} placeholder="pl. Budapest" className="rounded-xl h-11" />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -248,14 +249,14 @@ const Profile = () => {
                       value={address}
                       onSelect={(sel: AddressSelection) => {
                         setAddress(sel.displayName);
-                        if (sel.city && !city) setCity(sel.city);
+                        if (sel.city) setCity(sel.city);
                       }}
                       placeholder="Kezdj el gépelni egy címet..."
                     />
                     <div className="flex items-center gap-2">
                       <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
                       <span className="text-xs text-muted-foreground">
-                        {addressPublic ? 'Pontos cím nyilvános' : 'Csak város látható mások számára'}
+                        {addressPublic ? 'Pontos cím nyilvános' : 'Csak város/kerület látható mások számára'}
                       </span>
                     </div>
                   </div>

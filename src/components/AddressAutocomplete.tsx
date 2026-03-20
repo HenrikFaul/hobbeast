@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { MapPin, Loader2 } from 'lucide-react';
-import { suggestPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
+import { MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { suggestPlaces, getPlace, isAwsLocationConfigured, type AwsSuggestResult } from '@/lib/awsLocation';
 
 export interface AddressSelection {
   displayName: string;
@@ -24,6 +24,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
   const [results, setResults] = useState<AwsSuggestResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const requestRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,15 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     if (trimmed.length < 3) {
       setResults([]);
       setShowDropdown(false);
+      setErrorText(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!isAwsLocationConfigured()) {
+      setResults([]);
+      setShowDropdown(true);
+      setErrorText('AWS Location nincs konfigurálva. Állítsd be a VITE_AWS_LOCATION_API_KEY változót.');
       setLoading(false);
       return;
     }
@@ -61,14 +71,19 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     requestRef.current = controller;
 
     setLoading(true);
+    setErrorText(null);
     try {
       const data = await suggestPlaces(trimmed, controller.signal);
       setResults(data);
-      setShowDropdown(data.length > 0);
+      setShowDropdown(data.length > 0 || Boolean(errorText));
+      if (data.length === 0) {
+        setErrorText('Nincs találat erre a címre.');
+      }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         setResults([]);
-        setShowDropdown(false);
+        setShowDropdown(true);
+        setErrorText((error as Error).message || 'Hiba történt a címkeresés közben.');
       }
     } finally {
       setLoading(false);
@@ -88,6 +103,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setQuery(label);
     setResults([]);
     setShowDropdown(false);
+    setErrorText(null);
 
     let city = result.place?.locality || '';
     let district = result.place?.district || '';
@@ -95,7 +111,6 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     let lat = result.place?.position ? result.place.position[1] : 0;
     let lon = result.place?.position ? result.place.position[0] : 0;
 
-    // If we have a placeId but no coordinates, fetch full details
     if (result.placeId && (!lat || !lon)) {
       const details = await getPlace(result.placeId);
       if (details) {
@@ -126,14 +141,14 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
         <Input
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => results.length > 0 && setShowDropdown(true)}
+          onFocus={() => (results.length > 0 || errorText) && setShowDropdown(true)}
           placeholder={placeholder}
           className={`pl-9 pr-9 rounded-xl h-11 ${className || ''}`}
         />
         {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
-      {showDropdown && results.length > 0 && (
+      {showDropdown && (results.length > 0 || errorText) && (
         <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto">
           {results.map((r, i) => (
             <button
@@ -146,6 +161,12 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
               <span className="text-foreground leading-snug">{r.place?.label || r.text}</span>
             </button>
           ))}
+          {errorText && (
+            <div className="px-4 py-3 text-sm text-destructive flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>{errorText}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

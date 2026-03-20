@@ -19,7 +19,6 @@ import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyAct
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
-  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -120,7 +119,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: locationDistrict || null,
+      location_district: null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
@@ -304,12 +303,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </SelectContent>
             </Select>
 
-            {(locationType === 'city' || locationType === 'district' || locationType === 'address') && (
+            {(locationType === 'city' || locationType === 'address') && (
               <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
-                  setLocationDistrict(sel.district);
+                  setLocationDistrict('');
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                 }}
