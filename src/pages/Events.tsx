@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,61 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
+
+
+interface ProfileLocationState {
+  city: string | null;
+  address: string | null;
+  preferredRadiusKm: number;
+}
+
+interface Coords {
+  lat: number;
+  lon: number;
+}
+
+const coordCache = new Map<string, Coords | null>();
+
+function haversineKm(a: Coords, b: Coords) {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function geocodeLocation(query: string): Promise<Coords | null> {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return null;
+  if (coordCache.has(normalized)) return coordCache.get(normalized) ?? null;
+
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      format: 'jsonv2',
+      limit: '1',
+      addressdetails: '0',
+      'accept-language': 'hu',
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Geocode failed: ${res.status}`);
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    const coords = first ? { lat: parseFloat(first.lat), lon: parseFloat(first.lon) } : null;
+    coordCache.set(normalized, coords);
+    return coords;
+  } catch {
+    coordCache.set(normalized, null);
+    return null;
+  }
+}
 
 interface EventData {
   id: string;
@@ -66,6 +122,12 @@ const Events = () => {
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
+  const [profileLocation, setProfileLocation] = useState<ProfileLocationState | null>(null);
+  const [distanceFilterEnabled, setDistanceFilterEnabled] = useState(false);
+  const [distanceKm, setDistanceKm] = useState(25);
+  const [profileCoords, setProfileCoords] = useState<Coords | null>(null);
+  const [eventDistances, setEventDistances] = useState<Record<string, number | null>>({});
+  const [distanceLoading, setDistanceLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -102,16 +164,92 @@ const Events = () => {
     if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
   };
 
-  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
-  useEffect(() => { fetchJoined(); }, [user]);
+  const fetchProfileLocation = async () => {
+    if (!user) {
+      setProfileLocation(null);
+      setDistanceFilterEnabled(false);
+      return;
+    }
 
-  const allEvents = [
+    const { data } = await supabase
+      .from('profiles')
+      .select('city, address, preferred_radius_km')
+      .eq('user_id', user.id)
+      .single();
+
+    if (data) {
+      const nextProfile = {
+        city: data.city || null,
+        address: data.address || null,
+        preferredRadiusKm: data.preferred_radius_km || 25,
+      };
+      setProfileLocation(nextProfile);
+      setDistanceKm(nextProfile.preferredRadiusKm);
+      setDistanceFilterEnabled(Boolean(nextProfile.city || nextProfile.address));
+    } else {
+      setProfileLocation(null);
+      setDistanceFilterEnabled(false);
+    }
+  };
+
+  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
+  useEffect(() => { fetchJoined(); fetchProfileLocation(); }, [user]);
+
+  const allEvents = useMemo(() => ([
     ...dbEvents,
     ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
     ...eventbriteEvents,
-  ];
+  ]), [dbEvents, eventbriteEvents]);
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
+
+  const locationQuery = useMemo(() => {
+    if (!profileLocation) return '';
+    return profileLocation.address?.trim() || profileLocation.city?.trim() || '';
+  }, [profileLocation]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveDistances = async () => {
+      if (!distanceFilterEnabled || !locationQuery) {
+        setProfileCoords(null);
+        setEventDistances({});
+        return;
+      }
+
+      setDistanceLoading(true);
+      const baseCoords = await geocodeLocation(locationQuery);
+      if (cancelled) return;
+      setProfileCoords(baseCoords);
+
+      if (!baseCoords) {
+        setEventDistances({});
+        setDistanceLoading(false);
+        return;
+      }
+
+      const entries = await Promise.all(allEvents.map(async (ev) => {
+        if (ev.location_type === 'online') return [ev.id, 0] as const;
+        const eventQuery = [ev.location_address, ev.location_free_text, ev.location_city].filter(Boolean).join(', ');
+        if (!eventQuery) return [ev.id, null] as const;
+        const coords = await geocodeLocation(eventQuery);
+        if (!coords) return [ev.id, null] as const;
+        return [ev.id, Number(haversineKm(baseCoords, coords).toFixed(1))] as const;
+      }));
+
+      if (!cancelled) {
+        setEventDistances(Object.fromEntries(entries));
+        setDistanceLoading(false);
+      }
+    };
+
+    void resolveDistances();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allEvents, distanceFilterEnabled, locationQuery]);
 
   const filtered = allEvents.filter((ev) => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -121,7 +259,11 @@ const Events = () => {
       sourceFilter === 'all' ||
       (sourceFilter === 'hobbeast' && !isExternal(ev)) ||
       (sourceFilter === 'external' && isExternal(ev));
-    return matchSearch && matchCategory && matchSource;
+    const distanceValue = eventDistances[ev.id];
+    const matchDistance = !distanceFilterEnabled || !profileCoords || ev.location_type === 'online'
+      ? true
+      : typeof distanceValue === 'number' && distanceValue <= distanceKm;
+    return matchSearch && matchCategory && matchSource && matchDistance;
   });
 
   const getLocationString = (ev: EventData) => {
@@ -193,6 +335,59 @@ const Events = () => {
           ))}
         </div>
 
+        {user && (
+          <div className="max-w-3xl mx-auto mb-6 rounded-2xl border bg-card p-4 sm:p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Távolság alapú szűrés</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {profileLocation?.city || profileLocation?.address
+                      ? `A profilodban megadott lokáció alapján szűrünk${profileLocation.city ? ` (${profileLocation.city})` : ''}.`
+                      : 'A funkcióhoz adj meg legalább egy várost vagy címet a profilodban.'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={distanceFilterEnabled ? 'default' : 'outline'}
+                  onClick={() => setDistanceFilterEnabled((prev) => !prev)}
+                  disabled={!profileLocation?.city && !profileLocation?.address}
+                  className={distanceFilterEnabled ? 'gradient-primary text-primary-foreground border-0' : ''}
+                >
+                  {distanceFilterEnabled ? 'Távolságszűrés aktív' : 'Távolságszűrés kikapcsolva'}
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Max. távolság</span>
+                  <span className="font-semibold">{distanceKm} km</span>
+                </div>
+                <Slider
+                  value={[distanceKm]}
+                  onValueChange={(value) => setDistanceKm(value[0] ?? 25)}
+                  min={1}
+                  max={200}
+                  step={1}
+                  disabled={!distanceFilterEnabled || (!profileLocation?.city && !profileLocation?.address)}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>1 km</span>
+                  <span>200 km</span>
+                </div>
+              </div>
+
+              {distanceFilterEnabled && !profileCoords && !distanceLoading && (
+                <p className="text-sm text-amber-600">A profilban megadott lokációt nem sikerült beazonosítani. Ellenőrizd a várost vagy a címet a profilodban.</p>
+              )}
+              {distanceFilterEnabled && distanceLoading && (
+                <p className="text-sm text-muted-foreground">Távolságok számítása folyamatban...</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Category & search filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8 items-center justify-center">
           <div className="relative w-full sm:w-80">
@@ -251,6 +446,12 @@ const Events = () => {
                     <MapPin size={14} />
                     <span>{getLocationString(event)}</span>
                   </div>
+                  {distanceFilterEnabled && typeof eventDistances[event.id] === 'number' && (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={14} />
+                      <span>{event.location_type === 'online' ? 'Online esemény' : `${eventDistances[event.id]} km-re tőled`}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <Users size={14} />
                     <span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span>
