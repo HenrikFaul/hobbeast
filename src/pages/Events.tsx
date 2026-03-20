@@ -64,6 +64,8 @@ const Events = () => {
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
+  const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
+  const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
