@@ -81,10 +81,10 @@ const Events = () => {
     }
   };
 
-  const fetchEventbriteEvents = async () => {
+  const fetchEbEvents = async () => {
     setEventbriteLoading(true);
     try {
-      const result = await loadEventbriteEvents({ keyword: 'hobby', location: 'Budapest', page: 1 });
+      const result = await searchEventbriteEvents('Budapest', 1);
       setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
         ...ev,
         source: 'eventbrite' as const,
