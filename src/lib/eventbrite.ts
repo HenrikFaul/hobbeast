@@ -149,7 +149,7 @@ function emptyPagination(): EventbritePagination {
 }
 
 export async function loadEventbriteEvents(params?: { keyword?: string; page?: number; location?: string; }): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
-  const keyword = params?.keyword || 'hobby';
+  const keyword = params?.keyword || '';
   const page = params?.page || 1;
   const location = params?.location || 'Budapest';
 
@@ -185,7 +185,7 @@ export async function loadEventbriteEvents(params?: { keyword?: string; page?: n
 }
 
 export async function searchEventbriteEvents(
-  keyword = 'hobby',
+  keyword = '',
   page = 1,
   location = 'Budapest'
 ): Promise<{ events: MappedEventbriteEvent[]; pagination: EventbritePagination }> {
