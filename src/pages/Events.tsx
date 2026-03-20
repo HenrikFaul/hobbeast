@@ -60,18 +60,8 @@ async function geocodeLocation(query: string): Promise<LatLng | null> {
   if (geocodeCache.has(normalized)) return geocodeCache.get(normalized) ?? null;
 
   try {
-    const url = new URL('https://nominatim.openstreetmap.org/search');
-    url.searchParams.set('q', query);
-    url.searchParams.set('format', 'json');
-    url.searchParams.set('limit', '1');
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-    if (!res.ok) {
-      geocodeCache.set(normalized, null);
-      return null;
-    }
-    const data = await res.json();
-    const hit = Array.isArray(data) ? data[0] : null;
-    const coords = hit?.lat && hit?.lon ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
+    const { geocode } = await import('@/lib/awsLocation');
+    const coords = await geocode(query);
     geocodeCache.set(normalized, coords);
     return coords;
   } catch {
