@@ -85,6 +85,8 @@ export type Database = {
           location_city: string | null
           location_district: string | null
           location_free_text: string | null
+          location_lat: number | null
+          location_lon: number | null
           location_type: string | null
           max_attendees: number | null
           tags: string[] | null
@@ -105,6 +107,8 @@ export type Database = {
           location_city?: string | null
           location_district?: string | null
           location_free_text?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
           tags?: string[] | null
@@ -125,6 +129,8 @@ export type Database = {
           location_city?: string | null
           location_district?: string | null
           location_free_text?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
           tags?: string[] | null
@@ -333,6 +339,8 @@ export type Database = {
           gender_public: boolean
           hobbies: string[] | null
           id: string
+          location_lat: number | null
+          location_lon: number | null
           preferred_radius_km: number | null
           updated_at: string
           user_id: string
@@ -352,6 +360,8 @@ export type Database = {
           gender_public?: boolean
           hobbies?: string[] | null
           id?: string
+          location_lat?: number | null
+          location_lon?: number | null
           preferred_radius_km?: number | null
           updated_at?: string
           user_id: string
@@ -371,6 +381,8 @@ export type Database = {
           gender_public?: boolean
           hobbies?: string[] | null
           id?: string
+          location_lat?: number | null
+          location_lon?: number | null
           preferred_radius_km?: number | null
           updated_at?: string
           user_id?: string

@@ -46,6 +46,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationDistrict, setLocationDistrict] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationFreeText, setLocationFreeText] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLon, setLocationLon] = useState<number | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
@@ -119,9 +121,11 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: null,
+      location_district: locationDistrict || null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
+      location_lat: locationLat,
+      location_lon: locationLon,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -292,6 +296,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 setLocationCity('');
                 setLocationDistrict('');
                 setLocationAddress('');
+                setLocationLat(null);
+                setLocationLon(null);
               }
               if (nextType !== 'free') {
                 setLocationFreeText('');
@@ -308,9 +314,11 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
-                  setLocationDistrict('');
+                  setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
+                  setLocationLat(sel.lat || null);
+                  setLocationLon(sel.lon || null);
                 }}
                 placeholder="Keress rá egy címre..."
               />

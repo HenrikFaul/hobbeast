@@ -41,6 +41,9 @@ const Profile = () => {
   const [address, setAddress] = useState('');
   const [addressPublic, setAddressPublic] = useState(false);
   const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLon, setLocationLon] = useState<number | null>(null);
   const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -60,6 +63,9 @@ const Profile = () => {
         setAddress(data.address || '');
         setAddressPublic(data.address_public);
         setCity(data.city || '');
+        setDistrict(data.district || '');
+        setLocationLat((data as any).location_lat ?? null);
+        setLocationLon((data as any).location_lon ?? null);
         setPreferredRadiusKm(data.preferred_radius_km || 25);
         setHobbies(data.hobbies || []);
       }
@@ -117,6 +123,9 @@ const Profile = () => {
       address: address || null,
       address_public: addressPublic,
       city: city || null,
+      district: district || null,
+      location_lat: locationLat,
+      location_lon: locationLon,
       preferred_radius_km: preferredRadiusKm,
       hobbies,
     }).eq('user_id', user.id);
@@ -250,6 +259,9 @@ const Profile = () => {
                       onSelect={(sel: AddressSelection) => {
                         setAddress(sel.displayName);
                         if (sel.city) setCity(sel.city);
+                        setDistrict(sel.district || '');
+                        setLocationLat(sel.lat || null);
+                        setLocationLon(sel.lon || null);
                       }}
                       placeholder="Kezdj el gépelni egy címet..."
                     />
