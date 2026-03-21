@@ -52,8 +52,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [eventTime, setEventTime] = useState(event.event_time || '');
   const [locationType, setLocationType] = useState(event.location_type || 'city');
   const [locationCity, setLocationCity] = useState(event.location_city || '');
-  const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
+  const [locationSearch, setLocationSearch] = useState(event.location_address || event.location_city || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
   const [locationLat, setLocationLat] = useState<number | null>(event.location_lat ?? null);
   const [locationLon, setLocationLon] = useState<number | null>(event.location_lon ?? null);
@@ -68,6 +68,10 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    if ((locationType === 'city' || locationType === 'address') && !locationCity.trim()) {
+      toast.error('Legalább a várost válaszd ki a helyszínhez.');
+      return;
+    }
 
     setLoading(true);
     const { error } = await supabase.from('events').update({
@@ -77,9 +81,9 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: locationDistrict || null,
-      location_address: locationAddress || null,
-      location_free_text: locationFreeText || null,
+      location_district: null,
+      location_address: locationType === 'address' ? (locationAddress || null) : null,
+      location_free_text: locationType === 'free' ? (locationFreeText || null) : null,
       location_lat: locationLat,
       location_lon: locationLon,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
@@ -87,9 +91,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
     }).eq('id', event.id);
 
-    if (error) {
-      toast.error('Hiba a mentés során.');
-    } else {
+    if (error) toast.error('Hiba a mentés során.');
+    else {
       toast.success('Esemény frissítve!');
       onUpdated();
     }
@@ -98,8 +101,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={onClose}>
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h3 className="font-display text-lg font-bold">Esemény szerkesztése</h3>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-xl"><X className="h-4 w-4" /></Button>
@@ -160,14 +162,12 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
                 setLocationCity('');
-                setLocationDistrict('');
                 setLocationAddress('');
+                setLocationSearch('');
                 setLocationLat(null);
                 setLocationLon(null);
               }
-              if (nextType !== 'free') {
-                setLocationFreeText('');
-              }
+              if (nextType !== 'free') setLocationFreeText('');
             }}>
               <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
               <SelectContent className="rounded-xl">
@@ -175,22 +175,27 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               </SelectContent>
             </Select>
             {['city', 'address'].includes(locationType) && (
-              <AddressAutocomplete
-                value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: AddressSelection) => {
-                  setLocationCity(sel.city);
-                  setLocationDistrict(sel.district);
-                  setLocationAddress(sel.address || sel.displayName);
-                  setLocationFreeText('');
-                  setLocationLat(sel.lat || null);
-                  setLocationLon(sel.lon || null);
-                }}
-                placeholder="Keress rá egy címre..."
-              />
+              <>
+                <p className="text-sm text-muted-foreground">Elég a város kiválasztása is, de ha pontosabb címet adsz meg, a távolság alapú szűrés pontosabban működik.</p>
+                <AddressAutocomplete
+                  value={locationSearch}
+                  onSelect={(sel: AddressSelection) => {
+                    setLocationSearch(sel.displayName);
+                    setLocationCity(sel.city || '');
+                    setLocationAddress(sel.address || '');
+                    setLocationFreeText('');
+                    setLocationLat(sel.lat || null);
+                    setLocationLon(sel.lon || null);
+                  }}
+                  placeholder="Kezdd a várossal, majd folytathatod utcával és házszámmal..."
+                />
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
+                  <Input value={locationCity} readOnly placeholder="A kiválasztott lokációból automatikusan kitöltjük" className="rounded-xl h-11 bg-muted/30" />
+                </div>
+              </>
             )}
-            {locationType === 'free' && (
-              <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Helyszín" className="rounded-xl h-11" />
-            )}
+            {locationType === 'free' && <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Helyszín" className="rounded-xl h-11" />}
           </div>
 
           <div className="space-y-2">
