@@ -25,6 +25,8 @@ interface EventData {
   location_district: string | null;
   location_address: string | null;
   location_free_text: string | null;
+  location_lat?: number | null;
+  location_lon?: number | null;
   location_type: string | null;
   max_attendees: number | null;
   image_emoji: string | null;
@@ -41,11 +43,32 @@ interface EventData {
 
 type LatLng = { lat: number; lon: number };
 
+interface ProfileLocation {
+  preferred_radius_km: number | null;
+  location_lat: number | null;
+  location_lon: number | null;
+}
+
 const geocodeCache = new Map<string, LatLng | null>();
 
 function buildLocationQuery(ev: EventData) {
   if (ev.location_type === 'online') return null;
-  return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
+  return [ev.location_address, ev.location_district, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
+}
+
+function haversineDistanceKm(from: LatLng, to: LatLng) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(to.lat - from.lat);
+  const dLon = toRad(to.lon - from.lon);
+  const lat1 = toRad(from.lat);
+  const lat2 = toRad(to.lat);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 async function geocodeLocation(query: string): Promise<LatLng | null> {
@@ -92,6 +115,8 @@ const Events = () => {
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
+  const [profileLocation, setProfileLocation] = useState<ProfileLocation | null>(null);
+  const [distanceFilteredIds, setDistanceFilteredIds] = useState<Set<string> | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -128,8 +153,24 @@ const Events = () => {
     if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
   };
 
+  const fetchProfileLocation = async () => {
+    if (!user) {
+      setProfileLocation(null);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('profiles')
+      .select('preferred_radius_km, location_lat, location_lon')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    setProfileLocation(data ?? null);
+  };
+
   useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
+  useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = [
     ...dbEvents,
@@ -139,6 +180,58 @@ const Events = () => {
 
   const categories = [...new Set(allEvents.map((e) => e.category))];
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const filterByDistance = async () => {
+      if (!profileLocation?.location_lat || !profileLocation?.location_lon || !profileLocation?.preferred_radius_km) {
+        setDistanceFilteredIds(null);
+        return;
+      }
+
+      const origin = {
+        lat: profileLocation.location_lat,
+        lon: profileLocation.location_lon,
+      };
+
+      const allowedIds = new Set<string>();
+
+      for (const event of allEvents) {
+        if (event.location_type === 'online') {
+          allowedIds.add(event.id);
+          continue;
+        }
+
+        let coords =
+          typeof event.location_lat === 'number' && typeof event.location_lon === 'number'
+            ? { lat: event.location_lat, lon: event.location_lon }
+            : null;
+
+        if (!coords) {
+          const query = buildLocationQuery(event);
+          coords = query ? await geocodeLocation(query) : null;
+        }
+
+        if (!coords) continue;
+
+        const distanceKm = haversineDistanceKm(origin, coords);
+        if (distanceKm <= profileLocation.preferred_radius_km) {
+          allowedIds.add(event.id);
+        }
+      }
+
+      if (!cancelled) {
+        setDistanceFilteredIds(allowedIds);
+      }
+    };
+
+    void filterByDistance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allEvents, profileLocation]);
+
   const filtered = allEvents.filter((ev) => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
       (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
@@ -147,7 +240,8 @@ const Events = () => {
       sourceFilter === 'all' ||
       (sourceFilter === 'hobbeast' && !isExternal(ev)) ||
       (sourceFilter === 'external' && isExternal(ev));
-    return matchSearch && matchCategory && matchSource;
+    const matchDistance = distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
+    return matchSearch && matchCategory && matchSource && matchDistance;
   });
 
   const getLocationString = (ev: EventData) => {
