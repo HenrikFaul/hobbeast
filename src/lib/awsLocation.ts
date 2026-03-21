@@ -38,7 +38,7 @@ export interface AwsSuggestResult {
     street?: string;
     addressNumber?: string;
     postalCode?: string;
-    position?: [number, number]; // [lon, lat]
+    position?: [number, number];
   };
 }
 
@@ -52,40 +52,20 @@ export interface AwsGetPlaceResult {
   street?: string;
   addressNumber?: string;
   postalCode?: string;
-  position?: [number, number]; // [lon, lat]
+  position?: [number, number];
 }
 
 export function isAwsLocationConfigured() {
   return Boolean(AWS_API_KEY);
 }
 
-function mapPlace(place: any) {
-  if (!place) return undefined;
-
-  return {
-    label: place.Label,
-    country: place.Country,
-    region: place.Region,
-    subRegion: place.SubRegion,
-    locality: place.Locality,
-    district: place.District,
-    street: place.Street,
-    addressNumber: place.AddressNumber,
-    postalCode: place.PostalCode,
-    position: place.Position,
-  };
-}
-
-/**
- * AWS Places Autocomplete — partial address inputhoz EZ a jó endpoint.
- */
-export async function autocompletePlaces(
+export async function suggestPlaces(
   query: string,
   signal?: AbortSignal,
 ): Promise<AwsSuggestResult[]> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/autocomplete'), {
+  const res = await fetch(buildAwsUrl('/v2/suggest'), {
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json' },
@@ -94,32 +74,40 @@ export async function autocompletePlaces(
       MaxResults: 6,
       Language: 'hu',
       BiasPosition: DEFAULT_BIAS_POSITION,
-      Filter: {
-        IncludeCountries: ['HUN'],
-      },
+      Filter: { IncludeCountries: ['HUN'] },
     }),
   });
 
-  const data = await parseJsonResponse<{ Results?: any[] }>(res, 'AWS autocomplete failed');
+  const data = await parseJsonResponse<{ Results?: any[] }>(res, 'AWS suggest failed');
 
-  return (data.Results || []).map((r: any, index: number) => ({
-    suggestId: `autocomplete-${index}-${r.Place?.PlaceId || r.PlaceId || r.Text || ''}`,
-    text: r.Place?.Label || r.Text || '',
-    placeId: r.Place?.PlaceId || r.PlaceId,
-    place: mapPlace(r.Place),
+  return (data.Results || []).map((r: any) => ({
+    suggestId: r.SuggestId || '',
+    text: r.Text || '',
+    placeId: r.Place?.PlaceId,
+    place: r.Place
+      ? {
+          label: r.Place.Label,
+          country: r.Place.Country,
+          region: r.Place.Region,
+          subRegion: r.Place.SubRegion,
+          locality: r.Place.Locality,
+          district: r.Place.District,
+          street: r.Place.Street,
+          addressNumber: r.Place.AddressNumber,
+          postalCode: r.Place.PostalCode,
+          position: r.Place.Position,
+        }
+      : undefined,
   }));
 }
 
-/**
- * AWS Geocode — teljes cím / szabad szöveges cím feloldás.
- */
-export async function geocodePlaces(
+export async function searchTextPlaces(
   query: string,
   signal?: AbortSignal,
 ): Promise<AwsSuggestResult[]> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/geocode'), {
+  const res = await fetch(buildAwsUrl('/v2/search-text'), {
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json' },
@@ -128,19 +116,30 @@ export async function geocodePlaces(
       MaxResults: 6,
       Language: 'hu',
       BiasPosition: DEFAULT_BIAS_POSITION,
-      Filter: {
-        IncludeCountries: ['HUN'],
-      },
+      Filter: { IncludeCountries: ['HUN'] },
     }),
   });
 
-  const data = await parseJsonResponse<{ Results?: any[] }>(res, 'AWS geocode failed');
+  const data = await parseJsonResponse<{ Results?: any[] }>(res, 'AWS search-text failed');
 
   return (data.Results || []).map((r: any, index: number) => ({
-    suggestId: `geocode-${index}-${r.Place?.PlaceId || r.PlaceId || r.Text || ''}`,
+    suggestId: `search-${index}-${r.Place?.Label || r.Place?.PlaceId || r.Text || ''}`,
     text: r.Place?.Label || r.Text || '',
-    placeId: r.Place?.PlaceId || r.PlaceId,
-    place: mapPlace(r.Place),
+    placeId: r.Place?.PlaceId,
+    place: r.Place
+      ? {
+          label: r.Place.Label,
+          country: r.Place.Country,
+          region: r.Place.Region,
+          subRegion: r.Place.SubRegion,
+          locality: r.Place.Locality,
+          district: r.Place.District,
+          street: r.Place.Street,
+          addressNumber: r.Place.AddressNumber,
+          postalCode: r.Place.PostalCode,
+          position: r.Place.Position,
+        }
+      : undefined,
   }));
 }
 
@@ -150,10 +149,7 @@ export async function getPlace(placeId: string): Promise<AwsGetPlaceResult | nul
   const res = await fetch(buildAwsUrl('/v2/get-place'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      PlaceId: placeId,
-      Language: 'hu',
-    }),
+    body: JSON.stringify({ PlaceId: placeId, Language: 'hu' }),
   });
 
   if (!res.ok) return null;
@@ -173,16 +169,13 @@ export async function getPlace(placeId: string): Promise<AwsGetPlaceResult | nul
   };
 }
 
-/**
- * Egyetlen koordináta kell distance filterhez.
- */
 export async function geocode(
   query: string,
   signal?: AbortSignal,
 ): Promise<{ lat: number; lon: number } | null> {
   assertAwsConfigured();
 
-  const res = await fetch(buildAwsUrl('/geocode'), {
+  const res = await fetch(buildAwsUrl('/v2/search-text'), {
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json' },
@@ -191,9 +184,7 @@ export async function geocode(
       MaxResults: 1,
       Language: 'hu',
       BiasPosition: DEFAULT_BIAS_POSITION,
-      Filter: {
-        IncludeCountries: ['HUN'],
-      },
+      Filter: { IncludeCountries: ['HUN'] },
     }),
   });
 
@@ -202,8 +193,5 @@ export async function geocode(
   const hit = data.Results?.[0]?.Place;
   if (!hit?.Position) return null;
 
-  return {
-    lon: hit.Position[0],
-    lat: hit.Position[1],
-  };
+  return { lon: hit.Position[0], lat: hit.Position[1] };
 }
