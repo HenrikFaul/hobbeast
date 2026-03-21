@@ -50,9 +50,11 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [eventTime, setEventTime] = useState(event.event_time || '');
   const [locationType, setLocationType] = useState(event.location_type || 'city');
   const [locationCity, setLocationCity] = useState(event.location_city || '');
-  const [locationDistrict, setLocationDistrict] = useState('');
+  const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
+  const [locationLat, setLocationLat] = useState<number | null>((event as any).location_lat ?? null);
+  const [locationLon, setLocationLon] = useState<number | null>((event as any).location_lon ?? null);
   const [maxAttendees, setMaxAttendees] = useState(event.max_attendees ? String(event.max_attendees) : '');
   const [imageEmoji, setImageEmoji] = useState(event.image_emoji || '🎉');
   const [tags, setTags] = useState((event.tags || []).join(', '));
@@ -73,9 +75,11 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       event_time: eventTime || null,
       location_type: locationType,
       location_city: locationCity || null,
-      location_district: null,
+      location_district: locationDistrict || null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
+      location_lat: locationLat,
+      location_lon: locationLon,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
@@ -156,6 +160,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 setLocationCity('');
                 setLocationDistrict('');
                 setLocationAddress('');
+                setLocationLat(null);
+                setLocationLon(null);
               }
               if (nextType !== 'free') {
                 setLocationFreeText('');
@@ -171,9 +177,11 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
-                  setLocationDistrict('');
+                  setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
+                  setLocationLat(sel.lat || null);
+                  setLocationLon(sel.lon || null);
                 }}
                 placeholder="Keress rá egy címre..."
               />
