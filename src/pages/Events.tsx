@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
+type DiscoveryFilter = 'all' | 'forMe';
+
 interface EventData {
   id: string;
   title: string;
@@ -45,13 +47,16 @@ interface ProfileLocation {
   address: string | null;
   location_lat: number | null;
   location_lon: number | null;
+  hobbies: string[] | null;
 }
+
 const geocodeCache = new Map<string, LatLng | null>();
 
 function buildLocationQuery(ev: EventData) {
   if (ev.location_type === 'online') return null;
   return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
 }
+
 function haversineDistanceKm(from: LatLng, to: LatLng) {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
@@ -62,6 +67,7 @@ function haversineDistanceKm(from: LatLng, to: LatLng) {
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
 async function geocodeLocation(query: string): Promise<LatLng | null> {
   const normalized = query.trim().toLowerCase();
   if (!normalized || !isAwsLocationConfigured()) return null;
@@ -75,6 +81,15 @@ async function geocodeLocation(query: string): Promise<LatLng | null> {
     return null;
   }
 }
+
+function parseCategoryParts(category: string) {
+  return category.split('›').map((part) => part.trim()).filter(Boolean);
+}
+
+function normalizeText(value: string | null | undefined) {
+  return (value || '').toLowerCase();
+}
+
 const SAMPLE_EVENTS: EventData[] = [
   { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23, source: 'hobbeast', source_label: 'Hobbeast' },
   { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12, source: 'hobbeast', source_label: 'Hobbeast' },
@@ -83,17 +98,26 @@ const SAMPLE_EVENTS: EventData[] = [
   { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: null, created_by: '', participant_count: 6, source: 'hobbeast', source_label: 'Hobbeast' },
   { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: null, created_by: '', participant_count: 18, source: 'hobbeast', source_label: 'Hobbeast' },
 ];
+
 const SOURCE_FILTERS = [
   { value: 'all' as const, label: 'Minden forrás' },
   { value: 'hobbeast' as const, label: 'Hobbeast' },
   { value: 'external' as const, label: 'Külső programok' },
 ];
-function isExternal(ev: EventData) { return ev.source !== undefined && ev.source !== 'hobbeast'; }
+
+function isExternal(ev: EventData) {
+  return ev.source !== undefined && ev.source !== 'hobbeast';
+}
+
+const activeCategoryButtonClass = 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100';
+const secondaryActiveClass = 'gradient-primary text-primary-foreground border-0';
 
 const Events = () => {
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [discoveryFilter, setDiscoveryFilter] = useState<DiscoveryFilter>('all');
+  const [selectedCategoryFilters, setSelectedCategoryFilters] = useState<string[]>([]);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
@@ -115,6 +139,7 @@ const Events = () => {
       setDbEvents(data.map((e: any) => ({ ...e, participant_count: e.event_participants?.[0]?.count || 0, source: 'hobbeast' as const, source_label: 'Hobbeast' })));
     }
   };
+
   const fetchEbEvents = async () => {
     setEventbriteLoading(true);
     try {
@@ -125,23 +150,64 @@ const Events = () => {
     }
     setEventbriteLoading(false);
   };
+
   const fetchJoined = async () => {
-    if (!user) { setJoinedEventIds(new Set()); return; }
+    if (!user) {
+      setJoinedEventIds(new Set());
+      return;
+    }
     const { data } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
-    if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
+    if (data) setJoinedEventIds(new Set(data.map((d) => d.event_id)));
   };
+
   const fetchProfileLocation = async () => {
-    if (!user) { setProfileLocation(null); return; }
-    const { data } = await supabase.from('profiles').select('city,address,location_lat,location_lon').eq('user_id', user.id).maybeSingle();
-    setProfileLocation(data ?? null);
+    if (!user) {
+      setProfileLocation(null);
+      return;
+    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('city,address,location_lat,location_lon,hobbies')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setProfileLocation((data as ProfileLocation) ?? null);
   };
 
   useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
-  const allEvents = useMemo(() => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents], [dbEvents, eventbriteEvents]);
-  const categories = useMemo(() => [...new Set(allEvents.map(e => e.category))], [allEvents]);
+  const allEvents = useMemo(
+    () => [...dbEvents, ...SAMPLE_EVENTS.filter((s) => !dbEvents.some((d) => d.title === s.title)), ...eventbriteEvents],
+    [dbEvents, eventbriteEvents],
+  );
+
+  const categoryTree = useMemo(() => {
+    const tree = new Map<string, Set<string>>();
+    for (const category of [...new Set(allEvents.map((e) => e.category))]) {
+      const parts = parseCategoryParts(category);
+      const top = parts[0] || category;
+      if (!tree.has(top)) tree.set(top, new Set());
+      if (parts.length > 1) tree.get(top)!.add(category);
+    }
+    return Array.from(tree.entries()).map(([top, children]) => ({ top, children: Array.from(children).sort() })).sort((a, b) => a.top.localeCompare(b.top, 'hu'));
+  }, [allEvents]);
+
+  const isSelectedCategory = (value: string) => selectedCategoryFilters.includes(value);
+  const toggleCategoryFilter = (value: string) => {
+    setSelectedCategoryFilters((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]);
+  };
+
+  const hobbyKeywords = useMemo(
+    () => (profileLocation?.hobbies || []).map((hobby) => hobby.toLowerCase()),
+    [profileLocation?.hobbies],
+  );
+
+  const isInterestMatch = (event: EventData) => {
+    if (!hobbyKeywords.length) return false;
+    const haystack = [event.category, event.title, ...(event.tags || [])].join(' • ').toLowerCase();
+    return hobbyKeywords.some((keyword) => haystack.includes(keyword));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -157,47 +223,83 @@ const Events = () => {
 
       if (!origin) {
         setDistanceFilteredIds(null);
-        setDistanceError('A távolságszűrőhöz előbb ments el egy várost vagy címet a profilodban.');
+        setDistanceError('A távolságszűréshez ments el pontosabb lokációt a profilodban.');
         return;
       }
 
       setDistanceLoading(true);
       setDistanceError(null);
-      const allowedIds = new Set<string>();
-      for (const event of allEvents) {
-        if (event.location_type === 'online') { allowedIds.add(event.id); continue; }
-        let coords = typeof event.location_lat === 'number' && typeof event.location_lon === 'number' ? { lat: event.location_lat, lon: event.location_lon } : null;
-        if (!coords) {
-          const query = buildLocationQuery(event);
-          if (!query) continue;
-          coords = await geocodeLocation(query);
+      const allowed = new Set<string>();
+
+      for (const ev of allEvents) {
+        if (ev.location_type === 'online') {
+          allowed.add(ev.id);
+          continue;
         }
+
+        let coords: LatLng | null = null;
+        if (typeof ev.location_lat === 'number' && typeof ev.location_lon === 'number') {
+          coords = { lat: ev.location_lat, lon: ev.location_lon };
+        } else {
+          const query = buildLocationQuery(ev);
+          if (query) coords = await geocodeLocation(query);
+        }
+
+        if (cancelled) return;
         if (!coords) continue;
-        if (haversineDistanceKm(origin, coords) <= distanceKm) allowedIds.add(event.id);
+        if (haversineDistanceKm(origin, coords) <= distanceKm) allowed.add(ev.id);
       }
+
       if (!cancelled) {
-        setDistanceFilteredIds(allowedIds);
+        setDistanceFilteredIds(allowed);
         setDistanceLoading(false);
       }
     };
+
     void filterByDistance();
-    return () => { cancelled = true }
-  }, [allEvents, profileLocation, distanceFilterEnabled, distanceKm]);
+    return () => { cancelled = true; };
+  }, [distanceFilterEnabled, distanceKm, profileLocation, allEvents]);
+
+  const matchesCategoryFilter = (event: EventData) => {
+    if (selectedCategoryFilters.length === 0) return true;
+    const eventParts = parseCategoryParts(event.category);
+    const eventTop = eventParts[0] || event.category;
+    return selectedCategoryFilters.some((selected) => {
+      const selectedParts = parseCategoryParts(selected);
+      if (selectedParts.length === 1) return eventTop === selected;
+      return event.category === selected;
+    });
+  };
 
   const filtered = useMemo(() => allEvents.filter((ev) => {
-    const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
-    const matchCategory = !selectedCategory || ev.category === selectedCategory;
+    const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase())) || ev.category.toLowerCase().includes(search.toLowerCase());
     const matchSource = sourceFilter === 'all' || (sourceFilter === 'hobbeast' && !isExternal(ev)) || (sourceFilter === 'external' && isExternal(ev));
     const matchDistance = !distanceFilterEnabled || distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
-    return matchSearch && matchCategory && matchSource && matchDistance;
-  }), [allEvents, search, selectedCategory, sourceFilter, distanceFilterEnabled, distanceFilteredIds]);
+    const ownEvent = user ? ev.created_by === user.id : false;
+    const joinedEvent = joinedEventIds.has(ev.id);
+    const interestEvent = !ownEvent && !joinedEvent && isInterestMatch(ev);
+    const matchDiscovery = discoveryFilter === 'all' || ownEvent || joinedEvent || interestEvent;
+    const matchCategory = matchesCategoryFilter(ev);
+    return matchSearch && matchSource && matchDistance && matchDiscovery && matchCategory;
+  }).sort((a, b) => {
+    if (discoveryFilter !== 'forMe' || !user) return 0;
+    const score = (ev: EventData) => {
+      if (ev.created_by === user.id) return 3;
+      if (joinedEventIds.has(ev.id)) return 2;
+      if (isInterestMatch(ev)) return 1;
+      return 0;
+    };
+    return score(b) - score(a);
+  }), [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, discoveryFilter, user, joinedEventIds, hobbyKeywords, selectedCategoryFilters]);
 
   const getLocationString = (ev: EventData) => {
     const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return 'Online';
     return parts.join(', ') || 'Helyszín nem megadva';
   };
+
   const formatDate = (dateStr: string | null) => dateStr ? new Date(dateStr).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Dátum nélkül';
+
   const handleJoin = async (eventId: string) => {
     if (!user) { navigate('/auth?redirect=/events'); return; }
     if (eventId.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
@@ -205,13 +307,22 @@ const Events = () => {
     if (error) {
       if ((error as any).code === '23505') toast.info('Már csatlakoztál ehhez az eseményhez!');
       else toast.error('Hiba a csatlakozáskor.');
-    } else { toast.success('Sikeresen csatlakoztál!'); fetchEvents(); fetchJoined(); }
+    } else {
+      toast.success('Sikeresen csatlakoztál!');
+      fetchEvents();
+      fetchJoined();
+    }
   };
+
   const handleLeave = async () => {
     if (!user || !leaveTarget) return;
     const { error } = await supabase.from('event_participants').delete().eq('event_id', leaveTarget.id).eq('user_id', user.id);
     if (error) toast.error('Hiba a leiratkozáskor.');
-    else { toast.success('Sikeresen leiratkoztál az eseményről.'); fetchEvents(); fetchJoined(); }
+    else {
+      toast.success('Sikeresen leiratkoztál az eseményről.');
+      fetchEvents();
+      fetchJoined();
+    }
     setLeaveTarget(null);
   };
 
@@ -224,18 +335,26 @@ const Events = () => {
           {user && <Button className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" /> Új esemény létrehozása</Button>}
         </motion.div>
 
-        <div className="flex gap-2 justify-center mb-4">
-          {SOURCE_FILTERS.map((sf) => <Button key={sf.value} size="sm" variant={sourceFilter === sf.value ? 'default' : 'outline'} onClick={() => setSourceFilter(sf.value)} className={sourceFilter === sf.value ? 'gradient-primary text-primary-foreground border-0' : ''}>{sf.label}</Button>)}
+        <div className="flex gap-2 justify-center mb-5 flex-wrap">
+          {SOURCE_FILTERS.map((sf) => (
+            <Button key={sf.value} size="sm" variant={sourceFilter === sf.value ? 'default' : 'outline'} onClick={() => setSourceFilter(sf.value)} className={sourceFilter === sf.value ? secondaryActiveClass : ''}>
+              {sf.label}
+            </Button>
+          ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6 items-center justify-center">
-          <div className="relative w-full sm:w-80">
+        <div className="flex flex-col lg:flex-row gap-3 mb-6 items-start lg:items-center justify-center">
+          <div className="relative w-full lg:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Keress eseményt..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Keress eseményt" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
+
           <div className="flex gap-2 flex-wrap justify-center">
-            <Button size="sm" variant={!selectedCategory ? 'default' : 'outline'} onClick={() => setSelectedCategory(null)} className={!selectedCategory ? 'gradient-primary text-primary-foreground border-0' : ''}>Mind</Button>
-            {categories.map((cat) => <Button key={cat} size="sm" variant={selectedCategory === cat ? 'default' : 'outline'} onClick={() => setSelectedCategory(cat)} className={selectedCategory === cat ? 'gradient-primary text-primary-foreground border-0' : ''}>{cat}</Button>)}
+            <Button size="sm" variant={discoveryFilter === 'all' ? 'default' : 'outline'} onClick={() => setDiscoveryFilter('all')} className={discoveryFilter === 'all' ? secondaryActiveClass : ''}>Mind</Button>
+            <Button size="sm" variant={discoveryFilter === 'forMe' ? 'outline' : 'outline'} onClick={() => setDiscoveryFilter('forMe')} className={discoveryFilter === 'forMe' ? activeCategoryButtonClass : ''}>Nekem</Button>
+            <Button size="sm" variant="outline" onClick={() => setCategoriesOpen(true)} className={selectedCategoryFilters.length > 0 ? activeCategoryButtonClass : ''}>
+              Kategóriák{selectedCategoryFilters.length > 0 ? ` (${selectedCategoryFilters.length})` : ''}
+            </Button>
           </div>
         </div>
 
@@ -262,37 +381,82 @@ const Events = () => {
         {eventbriteLoading && <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((event, i) => (
-            <motion.div key={event.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer">
-              <div className="h-32 gradient-warm flex items-center justify-center" onClick={() => { if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event)); navigate(`/events/${event.id}`); }}>
-                <span className="text-5xl">{event.image_emoji || '🎉'}</span>
-              </div>
-              <div className="p-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                  {event.source_label && event.source_label !== 'Hobbeast' && <Badge variant="outline" className="text-xs border-accent text-accent-foreground">{event.source_label}</Badge>}
+          {filtered.map((event, i) => {
+            const ownEvent = user ? event.created_by === user.id : false;
+            const joinedEvent = joinedEventIds.has(event.id);
+            const interestEvent = !ownEvent && !joinedEvent && isInterestMatch(event);
+            return (
+              <motion.div key={event.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer">
+                <div className="h-32 gradient-warm flex items-center justify-center" onClick={() => { if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event)); navigate(`/events/${event.id}`); }}>
+                  <span className="text-5xl">{event.image_emoji || '🎉'}</span>
                 </div>
-                <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors cursor-pointer" onClick={() => { if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event)); navigate(`/events/${event.id}`); }}>{event.title}</h3>
-                <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
-                  <div className="flex items-center gap-2"><Calendar size={14} /><span>{formatDate(event.event_date)}</span>{event.event_time && <><Clock size={14} className="ml-2" /><span>{event.event_time}</span></>}</div>
-                  <div className="flex items-center gap-2"><MapPin size={14} /><span>{getLocationString(event)}</span></div>
-                  <div className="flex items-center gap-2"><Users size={14} /><span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span></div>
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <Badge variant="secondary" className="text-xs">{event.category}</Badge>
+                    {event.source_label && event.source_label !== 'Hobbeast' && <Badge variant="outline" className="text-xs border-accent text-accent-foreground">{event.source_label}</Badge>}
+                    {ownEvent && <Badge className="text-xs bg-violet-100 text-violet-700 border border-violet-300 hover:bg-violet-100">Saját</Badge>}
+                    {!ownEvent && joinedEvent && <Badge className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-100">Csatlakoztam</Badge>}
+                    {!ownEvent && !joinedEvent && interestEvent && <Badge className="text-xs bg-sky-100 text-sky-700 border border-sky-300 hover:bg-sky-100">Érdekelhet</Badge>}
+                  </div>
+                  <h3 className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors cursor-pointer" onClick={() => { if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event)); navigate(`/events/${event.id}`); }}>{event.title}</h3>
+                  <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
+                    <div className="flex items-center gap-2"><Calendar size={14} /><span>{formatDate(event.event_date)}</span>{event.event_time && <><Clock size={14} className="ml-2" /><span>{event.event_time}</span></>}</div>
+                    <div className="flex items-center gap-2"><MapPin size={14} /><span>{getLocationString(event)}</span></div>
+                    <div className="flex items-center gap-2"><Users size={14} /><span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span></div>
+                  </div>
+                  {event.tags && event.tags.length > 0 && <div className="flex gap-1.5 flex-wrap mb-4">{event.tags.map((tag) => <Badge key={tag} variant="outline" className="text-xs font-normal">{tag}</Badge>)}</div>}
+                  {isExternal(event) && event.eventbrite_url ? (
+                    <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer"><Button className="w-full gradient-primary text-primary-foreground border-0" size="sm"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})</Button></a>
+                  ) : joinedEvent ? (
+                    <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" size="sm" onClick={() => setLeaveTarget(event)}>Leiratkozás</Button>
+                  ) : (
+                    <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>Csatlakozom</Button>
+                  )}
                 </div>
-                {event.tags && event.tags.length > 0 && <div className="flex gap-1.5 flex-wrap mb-4">{event.tags.map((tag) => <Badge key={tag} variant="outline" className="text-xs font-normal">{tag}</Badge>)}</div>}
-                {isExternal(event) && event.eventbrite_url ? (
-                  <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer"><Button className="w-full gradient-primary text-primary-foreground border-0" size="sm"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})</Button></a>
-                ) : joinedEventIds.has(event.id) ? (
-                  <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" size="sm" onClick={() => setLeaveTarget(event)}>Leiratkozás</Button>
-                ) : (
-                  <Button className="w-full gradient-primary text-primary-foreground border-0" size="sm" onClick={() => handleJoin(event.id)}>Csatlakozom</Button>
-                )}
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && <div className="text-center py-16 text-muted-foreground"><p className="text-lg mb-2">Nincs találat 😔</p><p className="text-sm">Próbálj más szűrőfeltételeket!</p></div>}
       </div>
+
+      {categoriesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setCategoriesOpen(false)}>
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-background p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Kategóriák</h3>
+                <p className="text-sm text-muted-foreground">Választhatsz fő kategóriát vagy ennél szűkebb alkategóriát is. Többet is kijelölhetsz.</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setCategoriesOpen(false)}><X className="h-4 w-4" /></Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button size="sm" variant="outline" onClick={() => setSelectedCategoryFilters([])}>Összes törlése</Button>
+            </div>
+
+            <div className="space-y-5">
+              {categoryTree.map(({ top, children }) => (
+                <div key={top} className="rounded-xl border p-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <Button size="sm" variant="outline" onClick={() => toggleCategoryFilter(top)} className={isSelectedCategory(top) ? activeCategoryButtonClass : ''}>{top}</Button>
+                  </div>
+                  {children.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {children.map((child) => (
+                        <Button key={child} size="sm" variant="outline" onClick={() => toggleCategoryFilter(child)} className={isSelectedCategory(child) ? activeCategoryButtonClass : ''}>
+                          {child}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreateEventDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
       {leaveTarget && <LeaveEventDialog eventTitle={leaveTarget.title} eventDate={formatDate(leaveTarget.event_date)} eventTime={leaveTarget.event_time} eventLocation={getLocationString(leaveTarget)} onConfirm={handleLeave} onCancel={() => setLeaveTarget(null)} />}
