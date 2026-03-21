@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
-import { suggestPlaces, searchTextPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
+import { autocompletePlaces, geocodePlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
 
 export interface AddressSelection {
   displayName: string;
@@ -19,7 +19,12 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
+export function AddressAutocomplete({
+  value,
+  onSelect,
+  placeholder = 'Kezdj el gépelni egy címet...',
+  className,
+}: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<AwsSuggestResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,39 +48,12 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    requestRef.current?.abort();
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      requestRef.current?.abort();
+    };
   }, []);
-
-  const buildQueryVariants = (input: string): string[] => {
-    const q = input.trim().replace(/\s+/g, ' ');
-    if (!q) return [];
-
-    const variants = new Set<string>();
-    variants.add(q);
-
-    const hasStreetType = /\b(utca|u\.|út|útja|tér|tere|körút|krt\.|sétány|park|fasor|rakpart)\b/i.test(q);
-
-    if (!hasStreetType) {
-      variants.add(`${q} utca`);
-      variants.add(`${q} út`);
-      variants.add(`${q} tér`);
-      variants.add(`${q} körút`);
-      variants.add(`${q} sétány`);
-    }
-
-    const parts = q.split(' ');
-    if (parts.length >= 2) {
-      const reversed = [...parts].reverse().join(' ');
-      variants.add(reversed);
-      if (!hasStreetType) {
-        variants.add(`${reversed} utca`);
-      }
-    }
-
-    return Array.from(variants);
-  };
 
   const search = async (q: string) => {
     const trimmed = q.trim();
@@ -95,21 +73,17 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setErrorText(null);
 
     try {
-      const variants = buildQueryVariants(trimmed);
-      let data: AwsSuggestResult[] = [];
+      let data = await autocompletePlaces(trimmed, controller.signal);
 
-      for (const variant of variants) {
-        data = await suggestPlaces(variant, controller.signal);
-        if (data.length > 0) break;
-
-        data = await searchTextPlaces(variant, controller.signal);
-        if (data.length > 0) break;
+      if (data.length === 0) {
+        data = await geocodePlaces(trimmed, controller.signal);
       }
 
       setResults(data);
       setShowDropdown(data.length > 0);
+
       if (data.length === 0) {
-        setErrorText('Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.');
+        setErrorText('Nincs találat erre a címre.');
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
