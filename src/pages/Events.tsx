@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
+import { mapExternalEventToCardLike } from "@/lib/external-events/normalize";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
@@ -38,10 +39,17 @@ interface EventData {
   description: string | null;
   created_by: string;
   participant_count?: number;
-  source?: 'hobbeast' | 'eventbrite';
+  source?: 'hobbeast' | 'eventbrite' | 'ticketmaster' | 'seatgeek';
   source_label?: string;
+  external_url?: string | null;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
+  image_url?: string | null;
+  organizer_name?: string | null;
+  price_min?: number | null;
+  price_max?: number | null;
+  currency?: string | null;
+  is_free?: boolean | null;
 }
 
 interface ProfileLocation {
@@ -183,6 +191,7 @@ const Events = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
+  const [externalDbEvents, setExternalDbEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
@@ -230,11 +239,33 @@ const Events = () => {
     setEventbriteLoading(true);
     try {
       const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' })));
+      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
+        ...ev,
+        source: 'eventbrite' as const,
+        source_label: 'Eventbrite',
+        external_url: ev.eventbrite_url || null,
+      })));
     } catch (err) {
       console.log('Eventbrite import not available:', err);
     }
     setEventbriteLoading(false);
+  };
+
+  const fetchExternalEvents = async () => {
+    const { data, error } = await (supabase as any)
+      .from('external_events')
+      .select('*')
+      .eq('is_active', true)
+      .order('event_date', { ascending: true });
+
+    if (error) {
+      console.log('External events import not available:', error);
+      return;
+    }
+
+    if (data) {
+      setExternalDbEvents((data as any[]).map((row) => mapExternalEventToCardLike(row)));
+    }
   };
 
   const fetchJoined = async () => {
@@ -249,13 +280,18 @@ const Events = () => {
     setProfileLocation(data ?? null);
   };
 
-  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = useMemo(
-    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents],
-    [dbEvents, eventbriteEvents]
+    () => [
+      ...dbEvents,
+      ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
+      ...eventbriteEvents,
+      ...externalDbEvents,
+    ],
+    [dbEvents, eventbriteEvents, externalDbEvents]
   );
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
@@ -348,6 +384,31 @@ const Events = () => {
     const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return 'Online';
     return parts.join(', ') || 'Helyszín nem megadva';
+  };
+
+  const getExternalLabel = (ev: EventData) => {
+    if (ev.source_label) return ev.source_label;
+    if (ev.source === 'ticketmaster') return 'Ticketmaster';
+    if (ev.source === 'seatgeek') return 'SeatGeek';
+    if (ev.source === 'eventbrite') return 'Eventbrite';
+    return 'Külső forrás';
+  };
+
+  const formatPrice = (ev: EventData) => {
+    if (ev.is_free) return 'Ingyenes';
+    if (typeof ev.price_min !== 'number' && typeof ev.price_max !== 'number') return null;
+
+    if (typeof ev.price_min === 'number' && typeof ev.price_max === 'number') {
+      if (ev.price_min === ev.price_max) {
+        return `${ev.price_min} ${ev.currency || ''}`.trim();
+      }
+      return `${ev.price_min}–${ev.price_max} ${ev.currency || ''}`.trim();
+    }
+
+    const singlePrice = ev.price_min ?? ev.price_max;
+    return singlePrice !== undefined && singlePrice !== null
+      ? `${singlePrice} ${ev.currency || ''}`.trim()
+      : null;
   };
 
   const formatDate = (dateStr: string | null) =>
@@ -594,9 +655,9 @@ const Events = () => {
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                    {event.source_label && event.source_label !== 'Hobbeast' && (
+                    {isExternal(event) && (
                       <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
-                        {event.source_label}
+                        {getExternalLabel(event)}
                       </Badge>
                     )}
                     {statusBadge && (
@@ -635,6 +696,21 @@ const Events = () => {
                     </div>
                   </div>
 
+                  {isExternal(event) && (event.organizer_name || formatPrice(event)) && (
+                    <div className="mb-4 space-y-1 text-sm">
+                      {event.organizer_name && (
+                        <div className="text-muted-foreground">
+                          Szervező: <span className="font-medium text-foreground">{event.organizer_name}</span>
+                        </div>
+                      )}
+                      {formatPrice(event) && (
+                        <div className="text-muted-foreground">
+                          Ár: <span className="font-medium text-foreground">{formatPrice(event)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {event.tags && event.tags.length > 0 && (
                     <div className="flex gap-1.5 flex-wrap mb-4">
                       {event.tags.map((tag) => (
@@ -643,10 +719,10 @@ const Events = () => {
                     </div>
                   )}
 
-                  {isExternal(event) && event.eventbrite_url ? (
-                    <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
+                  {isExternal(event) && (event.external_url || event.eventbrite_url) ? (
+                    <a href={event.external_url || event.eventbrite_url} target="_blank" rel="noopener noreferrer">
                       <Button className={relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} size="sm">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({getExternalLabel(event)})
                       </Button>
                     </a>
                   ) : relation === 'own' ? (
