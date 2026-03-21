@@ -260,6 +260,7 @@ const Events = () => {
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
   const selectedCategoryCount = selectedCategoryIds.size + selectedSubcategoryKeys.size + selectedActivityKeys.size;
+  const activePrimaryFilter = search.trim().length > 0 ? 'search' : showPersonalFilter ? 'personal' : selectedCategoryCount > 0 ? 'categories' : 'all';
 
   useEffect(() => {
     let cancelled = false;
@@ -315,7 +316,7 @@ const Events = () => {
         eventMatchesFavorites(ev, favorites) ? 'interest' :
         'default';
 
-      const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
+      const textMatches = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
       const matchSource = sourceFilter === 'all' || (sourceFilter === 'hobbeast' && !isExternal(ev)) || (sourceFilter === 'external' && isExternal(ev));
       const matchDistance = !distanceFilterEnabled || distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
 
@@ -332,8 +333,14 @@ const Events = () => {
           (activityKey ? selectedActivityKeys.has(activityKey) : false);
       }
 
-      const matchMine = !showPersonalFilter || relation === 'own' || relation === 'joined' || relation === 'interest';
-      return matchSearch && matchSource && matchDistance && matchCategory && matchMine;
+      const matchMine = relation === 'own' || relation === 'joined' || relation === 'interest';
+      const matchPrimary =
+        activePrimaryFilter === 'search' ? textMatches :
+        activePrimaryFilter === 'personal' ? matchMine :
+        activePrimaryFilter === 'categories' ? matchCategory :
+        true;
+
+      return matchPrimary && matchSource && matchDistance;
     });
   }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showPersonalFilter, joinedEventIds, favorites, user]);
 
@@ -406,35 +413,51 @@ const Events = () => {
         <div className="flex flex-col lg:flex-row gap-3 mb-4 items-center justify-center">
           <div className="relative w-full lg:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Keress eseményt..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
+                const value = e.target.value;
+                setSearch(value);
+                if (value.trim()) {
+                  setShowPersonalFilter(false);
+                  clearCategorySelections();
+                }
+              }} className="pl-9" />
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
             <Button
               size="sm"
-              variant={!showPersonalFilter && selectedCategoryCount === 0 ? 'default' : 'outline'}
+              variant={activePrimaryFilter === 'all' ? 'default' : 'outline'}
               onClick={() => {
+                setSearch('');
                 setShowPersonalFilter(false);
                 clearCategorySelections();
               }}
-              className={!showPersonalFilter && selectedCategoryCount === 0 ? 'gradient-primary text-primary-foreground border-0' : ''}
+              className={activePrimaryFilter === 'all' ? 'gradient-primary text-primary-foreground border-0' : ''}
             >
               Mind
             </Button>
 
             <Button
               size="sm"
-              variant={showPersonalFilter ? 'default' : 'outline'}
-              onClick={() => setShowPersonalFilter((prev) => !prev)}
-              className={showPersonalFilter ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
+              variant={activePrimaryFilter === 'personal' ? 'default' : 'outline'}
+              onClick={() => {
+                setSearch('');
+                clearCategorySelections();
+                setShowPersonalFilter(true);
+              }}
+              className={activePrimaryFilter === 'personal' ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
             >
               Nekem
             </Button>
 
             <Button
               size="sm"
-              variant={selectedCategoryCount > 0 ? 'default' : 'outline'}
-              onClick={() => setShowCategoryModal(true)}
-              className={selectedCategoryCount > 0 ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
+              variant={activePrimaryFilter === 'categories' ? 'default' : 'outline'}
+              onClick={() => {
+                setSearch('');
+                setShowPersonalFilter(false);
+                setShowCategoryModal(true);
+              }}
+              className={activePrimaryFilter === 'categories' ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
             >
               Kategóriák{selectedCategoryCount > 0 ? ` (${selectedCategoryCount})` : ''}
             </Button>
@@ -659,20 +682,37 @@ const Events = () => {
 
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-display font-bold">Kategóriák</h2>
-                <p className="text-sm text-muted-foreground">
-                  Választhatsz fő kategóriát, alkategóriát vagy konkrét tevékenységet is.
-                </p>
+          <div className="w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl">
+            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-display font-bold">Kategóriák</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Választhatsz fő kategóriát, alkategóriát vagy konkrét tevékenységet is.
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowCategoryModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowCategoryModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="mt-4 flex justify-between gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    clearCategorySelections();
+                    setExpandedCategories(new Set());
+                    setExpandedSubcategories(new Set());
+                  }}
+                >
+                  Kijelölések törlése
+                </Button>
+                <Button className="gradient-primary text-primary-foreground border-0" onClick={() => setShowCategoryModal(false)}>
+                  Kész
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 p-6">
               {HOBBY_CATALOG.map((category) => {
                 const categorySelected = selectedCategoryIds.has(category.id);
                 const categoryExpanded = expandedCategories.has(category.id);
@@ -683,6 +723,8 @@ const Events = () => {
                       <button
                         type="button"
                         onClick={() => {
+                          setSearch('');
+                          setShowPersonalFilter(false);
                           toggleSetValue(setSelectedCategoryIds, category.id);
                           toggleSetValue(setExpandedCategories, category.id);
                         }}
@@ -713,6 +755,8 @@ const Events = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setSearch('');
+                                    setShowPersonalFilter(false);
                                     toggleSetValue(setSelectedSubcategoryKeys, subKey);
                                     toggleSetValue(setExpandedSubcategories, subKey);
                                   }}
@@ -739,7 +783,7 @@ const Events = () => {
                                       <button
                                         key={activityKey}
                                         type="button"
-                                        onClick={() => toggleSetValue(setSelectedActivityKeys, activityKey)}
+                                        onClick={() => { setSearch(''); setShowPersonalFilter(false); toggleSetValue(setSelectedActivityKeys, activityKey); }}
                                         className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
                                           activitySelected
                                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
@@ -762,21 +806,6 @@ const Events = () => {
               })}
             </div>
 
-            <div className="flex justify-between gap-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  clearCategorySelections();
-                  setExpandedCategories(new Set());
-                  setExpandedSubcategories(new Set());
-                }}
-              >
-                Kijelölések törlése
-              </Button>
-              <Button className="gradient-primary text-primary-foreground border-0" onClick={() => setShowCategoryModal(false)}>
-                Kész
-              </Button>
-            </div>
           </div>
         </div>
       )}
