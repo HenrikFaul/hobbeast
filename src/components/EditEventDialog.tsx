@@ -35,6 +35,8 @@ interface EditEventDialogProps {
     location_district: string | null;
     location_address: string | null;
     location_free_text: string | null;
+    location_lat?: number | null;
+    location_lon?: number | null;
     max_attendees: number | null;
     image_emoji: string | null;
     tags: string[] | null;
@@ -53,8 +55,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
-  const [locationLat, setLocationLat] = useState<number | null>((event as any).location_lat ?? null);
-  const [locationLon, setLocationLon] = useState<number | null>((event as any).location_lon ?? null);
+  const [locationLat, setLocationLat] = useState<number | null>(event.location_lat ?? null);
+  const [locationLon, setLocationLon] = useState<number | null>(event.location_lon ?? null);
   const [maxAttendees, setMaxAttendees] = useState(event.max_attendees ? String(event.max_attendees) : '');
   const [imageEmoji, setImageEmoji] = useState(event.image_emoji || '🎉');
   const [tags, setTags] = useState((event.tags || []).join(', '));

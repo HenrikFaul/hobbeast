@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -172,13 +172,13 @@ const Events = () => {
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
-  const allEvents = [
+  const allEvents = useMemo(() => [
     ...dbEvents,
     ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
     ...eventbriteEvents,
-  ];
+  ], [dbEvents, eventbriteEvents]);
 
-  const categories = [...new Set(allEvents.map((e) => e.category))];
+  const categories = useMemo(() => [...new Set(allEvents.map((e) => e.category))], [allEvents]);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,7 +232,7 @@ const Events = () => {
     };
   }, [allEvents, profileLocation]);
 
-  const filtered = allEvents.filter((ev) => {
+  const filtered = useMemo(() => allEvents.filter((ev) => {
     const matchSearch = ev.title.toLowerCase().includes(search.toLowerCase()) ||
       (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
     const matchCategory = !selectedCategory || ev.category === selectedCategory;
@@ -242,7 +242,7 @@ const Events = () => {
       (sourceFilter === 'external' && isExternal(ev));
     const matchDistance = distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
     return matchSearch && matchCategory && matchSource && matchDistance;
-  });
+  }), [allEvents, search, selectedCategory, sourceFilter, distanceFilteredIds]);
 
   const getLocationString = (ev: EventData) => {
     const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
