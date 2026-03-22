@@ -379,7 +379,7 @@ const Events = () => {
 
       return matchPrimary && matchSource && matchDistance;
     });
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showPersonalFilter, joinedEventIds, favorites, user]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activeFilter, joinedEventIds, favorites, user]);
 
   const getLocationString = (ev: EventData) => {
     const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
