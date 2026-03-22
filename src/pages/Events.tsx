@@ -187,6 +187,7 @@ const DEFAULT_BUTTON_CLASS = "w-full gradient-primary text-primary-foreground bo
 
 const Events = () => {
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'personal' | 'categories'>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
@@ -202,7 +203,7 @@ const Events = () => {
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
 
-  const [showPersonalFilter, setShowPersonalFilter] = useState(false);
+
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
@@ -296,7 +297,7 @@ const Events = () => {
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
   const selectedCategoryCount = selectedCategoryIds.size + selectedSubcategoryKeys.size + selectedActivityKeys.size;
-  const activePrimaryFilter = search.trim().length > 0 ? 'search' : showPersonalFilter ? 'personal' : selectedCategoryCount > 0 ? 'categories' : 'all';
+  const activePrimaryFilter = search.trim().length > 0 ? 'search' : activeFilter;
 
   useEffect(() => {
     let cancelled = false;
@@ -378,7 +379,7 @@ const Events = () => {
 
       return matchPrimary && matchSource && matchDistance;
     });
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showPersonalFilter, joinedEventIds, favorites, user]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activeFilter, joinedEventIds, favorites, user]);
 
   const getLocationString = (ev: EventData) => {
     const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
@@ -475,12 +476,7 @@ const Events = () => {
           <div className="relative w-full lg:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
-                const value = e.target.value;
-                setSearch(value);
-                if (value.trim()) {
-                  setShowPersonalFilter(false);
-                  clearCategorySelections();
-                }
+                setSearch(e.target.value);
               }} className="pl-9" />
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
@@ -489,8 +485,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'all' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setShowPersonalFilter(false);
-                clearCategorySelections();
+                setActiveFilter('all');
               }}
               className={activePrimaryFilter === 'all' ? 'gradient-primary text-primary-foreground border-0' : ''}
             >
@@ -502,8 +497,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'personal' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                clearCategorySelections();
-                setShowPersonalFilter(true);
+                setActiveFilter('personal');
               }}
               className={activePrimaryFilter === 'personal' ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
             >
@@ -515,7 +509,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'categories' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setShowPersonalFilter(false);
+                setActiveFilter('categories');
                 setShowCategoryModal(true);
               }}
               className={activePrimaryFilter === 'categories' ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
@@ -800,7 +794,7 @@ const Events = () => {
                         type="button"
                         onClick={() => {
                           setSearch('');
-                          setShowPersonalFilter(false);
+                          setActiveFilter('categories');
                           toggleSetValue(setSelectedCategoryIds, category.id);
                           toggleSetValue(setExpandedCategories, category.id);
                         }}
@@ -832,7 +826,7 @@ const Events = () => {
                                   type="button"
                                   onClick={() => {
                                     setSearch('');
-                                    setShowPersonalFilter(false);
+                                    setActiveFilter('categories');
                                     toggleSetValue(setSelectedSubcategoryKeys, subKey);
                                     toggleSetValue(setExpandedSubcategories, subKey);
                                   }}
@@ -859,7 +853,7 @@ const Events = () => {
                                       <button
                                         key={activityKey}
                                         type="button"
-                                        onClick={() => { setSearch(''); setShowPersonalFilter(false); toggleSetValue(setSelectedActivityKeys, activityKey); }}
+                                        onClick={() => { setSearch(''); setActiveFilter('categories'); toggleSetValue(setSelectedActivityKeys, activityKey); }}
                                         className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
                                           activitySelected
                                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
