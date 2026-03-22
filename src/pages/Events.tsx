@@ -853,7 +853,7 @@ const Events = () => {
                                       <button
                                         key={activityKey}
                                         type="button"
-                                        onClick={() => { setSearch(''); setShowPersonalFilter(false); toggleSetValue(setSelectedActivityKeys, activityKey); }}
+                                        onClick={() => { setSearch(''); setActiveFilter('categories'); toggleSetValue(setSelectedActivityKeys, activityKey); }}
                                         className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
                                           activitySelected
                                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
