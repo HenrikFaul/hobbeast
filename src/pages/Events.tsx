@@ -794,7 +794,7 @@ const Events = () => {
                         type="button"
                         onClick={() => {
                           setSearch('');
-                          setShowPersonalFilter(false);
+                          setActiveFilter('categories');
                           toggleSetValue(setSelectedCategoryIds, category.id);
                           toggleSetValue(setExpandedCategories, category.id);
                         }}
