@@ -187,6 +187,7 @@ const DEFAULT_BUTTON_CLASS = "w-full gradient-primary text-primary-foreground bo
 
 const Events = () => {
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'personal' | 'categories'>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
