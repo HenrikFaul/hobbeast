@@ -297,7 +297,7 @@ const Events = () => {
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
   const selectedCategoryCount = selectedCategoryIds.size + selectedSubcategoryKeys.size + selectedActivityKeys.size;
-  const activePrimaryFilter = search.trim().length > 0 ? 'search' : showPersonalFilter ? 'personal' : selectedCategoryCount > 0 ? 'categories' : 'all';
+  const activePrimaryFilter = search.trim().length > 0 ? 'search' : activeFilter;
 
   useEffect(() => {
     let cancelled = false;
