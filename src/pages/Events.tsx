@@ -203,7 +203,7 @@ const Events = () => {
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
 
-  const [showPersonalFilter, setShowPersonalFilter] = useState(false);
+
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
