@@ -139,6 +139,102 @@ export type Database = {
         }
         Relationships: []
       }
+      external_events: {
+        Row: {
+          category: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          event_date: string | null
+          event_time: string | null
+          external_id: string
+          external_source: string
+          external_url: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          is_free: boolean | null
+          location_address: string | null
+          location_city: string | null
+          location_free_text: string | null
+          location_lat: number | null
+          location_lon: number | null
+          location_type: string | null
+          max_attendees: number | null
+          organizer_name: string | null
+          price_max: number | null
+          price_min: number | null
+          source_last_synced_at: string | null
+          source_payload: Json | null
+          subcategory: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          external_id: string
+          external_source: string
+          external_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_free?: boolean | null
+          location_address?: string | null
+          location_city?: string | null
+          location_free_text?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
+          location_type?: string | null
+          max_attendees?: number | null
+          organizer_name?: string | null
+          price_max?: number | null
+          price_min?: number | null
+          source_last_synced_at?: string | null
+          source_payload?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          external_id?: string
+          external_source?: string
+          external_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_free?: boolean | null
+          location_address?: string | null
+          location_city?: string | null
+          location_free_text?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
+          location_type?: string | null
+          max_attendees?: number | null
+          organizer_name?: string | null
+          price_max?: number | null
+          price_min?: number | null
+          source_last_synced_at?: string | null
+          source_payload?: Json | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hobby_activities: {
         Row: {
           age_restriction: string | null
