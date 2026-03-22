@@ -14,6 +14,35 @@ import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
+
+interface ExternalEventRow {
+  id: string;
+  external_source: string;
+  external_id: string;
+  external_url: string | null;
+  title: string;
+  category: string | null;
+  subcategory: string | null;
+  tags: string[] | null;
+  description: string | null;
+  event_date: string | null;
+  event_time: string | null;
+  location_type: string | null;
+  location_city: string | null;
+  location_address: string | null;
+  location_free_text: string | null;
+  location_lat: number | null;
+  location_lon: number | null;
+  price_min: number | null;
+  price_max: number | null;
+  currency: string | null;
+  is_free: boolean | null;
+  max_attendees: number | null;
+  image_url: string | null;
+  organizer_name: string | null;
+  is_active: boolean | null;
+}
+
 interface EventData {
   id: string;
   title: string;
@@ -35,7 +64,6 @@ interface EventData {
   participant_count?: number;
   source?: 'hobbeast' | 'eventbrite' | 'ticketmaster' | 'seatgeek' | 'external';
   source_label?: string;
-  external_url?: string | null;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
 }
@@ -90,12 +118,40 @@ const SOURCE_FILTERS = [
   { value: 'external' as const, label: 'Külső programok' },
 ];
 function isExternal(ev: EventData) { return ev.source !== undefined && ev.source !== 'hobbeast'; }
-function getExternalSourceLabel(source: string | null | undefined) {
-  if (!source) return 'Külső program';
-  if (source === 'ticketmaster') return 'Ticketmaster';
-  if (source === 'seatgeek') return 'SeatGeek';
-  if (source === 'eventbrite') return 'Eventbrite';
-  return source.charAt(0).toUpperCase() + source.slice(1);
+
+function mapExternalEventToCardLike(ev: ExternalEventRow): EventData {
+  const provider = ev.external_source?.toLowerCase?.() || 'external';
+  const sourceLabelMap: Record<string, string> = {
+    ticketmaster: 'Ticketmaster',
+    seatgeek: 'SeatGeek',
+    universe: 'Universe',
+    tickettailor: 'Ticket Tailor',
+  };
+
+  return {
+    id: `external-${provider}-${ev.external_id}`,
+    title: ev.title || 'Külső esemény',
+    category: ev.category || ev.subcategory || 'Külső program',
+    event_date: ev.event_date,
+    event_time: ev.event_time,
+    location_city: ev.location_city,
+    location_district: null,
+    location_address: ev.location_address,
+    location_free_text: ev.location_free_text,
+    location_lat: ev.location_lat,
+    location_lon: ev.location_lon,
+    location_type: ev.location_type,
+    max_attendees: ev.max_attendees,
+    image_emoji: provider === 'ticketmaster' ? '🎟️' : provider === 'seatgeek' ? '🎫' : '🌍',
+    tags: ev.tags || [],
+    description: ev.description,
+    created_by: '',
+    participant_count: 0,
+    source: (provider as EventData['source']) || 'external',
+    source_label: sourceLabelMap[provider] || 'Külső program',
+    eventbrite_url: ev.external_url ?? undefined,
+    eventbrite_logo_url: ev.image_url ?? null,
+  };
 }
 
 const Events = () => {
@@ -124,16 +180,6 @@ const Events = () => {
       setDbEvents(data.map((e: any) => ({ ...e, participant_count: e.event_participants?.[0]?.count || 0, source: 'hobbeast' as const, source_label: 'Hobbeast' })));
     }
   };
-  const fetchEbEvents = async () => {
-    setEventbriteLoading(true);
-    try {
-      const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' })));
-    } catch (err) {
-      console.log('Eventbrite import not available:', err);
-    }
-    setEventbriteLoading(false);
-  };
 
   const fetchExternalEvents = async () => {
     const { data, error } = await (supabase as any)
@@ -143,36 +189,22 @@ const Events = () => {
       .order('event_date', { ascending: true });
 
     if (error) {
-      console.log('external_events load error:', error);
+      console.error('external_events fetch error:', error);
       return;
     }
 
-    const mapped = ((data ?? []) as any[]).map((ev) => ({
-      id: `external-${ev.external_source}-${ev.external_id}`,
-      title: ev.title,
-      category: ev.category || ev.subcategory || 'Külső program',
-      event_date: ev.event_date,
-      event_time: ev.event_time,
-      location_city: ev.location_city,
-      location_district: null,
-      location_address: ev.location_address,
-      location_free_text: ev.location_free_text,
-      location_lat: ev.location_lat,
-      location_lon: ev.location_lon,
-      location_type: ev.location_type,
-      max_attendees: ev.max_attendees,
-      image_emoji: null,
-      tags: Array.isArray(ev.tags) ? ev.tags : [],
-      description: ev.description,
-      created_by: '',
-      participant_count: 0,
-      source: (ev.external_source ?? 'external') as EventData['source'],
-      source_label: getExternalSourceLabel(ev.external_source),
-      external_url: ev.external_url,
-      eventbrite_logo_url: ev.image_url ?? null,
-    })) as EventData[];
+    setExternalEvents(((data || []) as ExternalEventRow[]).map(mapExternalEventToCardLike));
+  };
 
-    setExternalEvents(mapped);
+  const fetchEbEvents = async () => {
+    setEventbriteLoading(true);
+    try {
+      const result = await searchEventbriteEvents('Budapest', 1);
+      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' })));
+    } catch (err) {
+      console.log('Eventbrite import not available:', err);
+    }
+    setEventbriteLoading(false);
   };
   const fetchJoined = async () => {
     if (!user) { setJoinedEventIds(new Set()); return; }
@@ -308,7 +340,7 @@ const Events = () => {
           </div>
         </div>
 
-        {eventbriteLoading && <div className="text-center text-sm text-muted-foreground mb-6">Külső programok betöltése...</div>}
+        {eventbriteLoading && <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((event, i) => (
@@ -328,8 +360,8 @@ const Events = () => {
                   <div className="flex items-center gap-2"><Users size={14} /><span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span></div>
                 </div>
                 {event.tags && event.tags.length > 0 && <div className="flex gap-1.5 flex-wrap mb-4">{event.tags.map((tag) => <Badge key={tag} variant="outline" className="text-xs font-normal">{tag}</Badge>)}</div>}
-                {isExternal(event) && (event.external_url || event.eventbrite_url) ? (
-                  <a href={event.external_url || event.eventbrite_url} target="_blank" rel="noopener noreferrer"><Button className="w-full gradient-primary text-primary-foreground border-0" size="sm"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})</Button></a>
+                {isExternal(event) && event.eventbrite_url ? (
+                  <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer"><Button className="w-full gradient-primary text-primary-foreground border-0" size="sm"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})</Button></a>
                 ) : joinedEventIds.has(event.id) ? (
                   <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10" size="sm" onClick={() => setLeaveTarget(event)}>Leiratkozás</Button>
                 ) : (
