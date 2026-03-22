@@ -476,12 +476,7 @@ const Events = () => {
           <div className="relative w-full lg:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
-                const value = e.target.value;
-                setSearch(value);
-                if (value.trim()) {
-                  setShowPersonalFilter(false);
-                  clearCategorySelections();
-                }
+                setSearch(e.target.value);
               }} className="pl-9" />
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
@@ -490,8 +485,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'all' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setShowPersonalFilter(false);
-                clearCategorySelections();
+                setActiveFilter('all');
               }}
               className={activePrimaryFilter === 'all' ? 'gradient-primary text-primary-foreground border-0' : ''}
             >
@@ -503,8 +497,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'personal' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                clearCategorySelections();
-                setShowPersonalFilter(true);
+                setActiveFilter('personal');
               }}
               className={activePrimaryFilter === 'personal' ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
             >
@@ -516,7 +509,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'categories' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setShowPersonalFilter(false);
+                setActiveFilter('categories');
                 setShowCategoryModal(true);
               }}
               className={activePrimaryFilter === 'categories' ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
