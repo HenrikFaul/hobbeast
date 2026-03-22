@@ -14,7 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
-import { mapExternalEventToCardLike } from "@/lib/external-events/normalize";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
@@ -39,17 +38,10 @@ interface EventData {
   description: string | null;
   created_by: string;
   participant_count?: number;
-  source?: 'hobbeast' | 'eventbrite' | 'ticketmaster' | 'seatgeek';
+  source?: 'hobbeast' | 'eventbrite';
   source_label?: string;
-  external_url?: string | null;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
-  image_url?: string | null;
-  organizer_name?: string | null;
-  price_min?: number | null;
-  price_max?: number | null;
-  currency?: string | null;
-  is_free?: boolean | null;
 }
 
 interface ProfileLocation {
@@ -187,12 +179,10 @@ const DEFAULT_BUTTON_CLASS = "w-full gradient-primary text-primary-foreground bo
 
 const Events = () => {
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'personal' | 'categories'>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
-  const [externalDbEvents, setExternalDbEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
@@ -203,7 +193,7 @@ const Events = () => {
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
 
-
+  const [primaryFilter, setPrimaryFilter] = useState<'all' | 'search' | 'personal' | 'categories'>('all');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
@@ -240,33 +230,11 @@ const Events = () => {
     setEventbriteLoading(true);
     try {
       const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({
-        ...ev,
-        source: 'eventbrite' as const,
-        source_label: 'Eventbrite',
-        external_url: ev.eventbrite_url || null,
-      })));
+      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' })));
     } catch (err) {
       console.log('Eventbrite import not available:', err);
     }
     setEventbriteLoading(false);
-  };
-
-  const fetchExternalEvents = async () => {
-    const { data, error } = await (supabase as any)
-      .from('external_events')
-      .select('*')
-      .eq('is_active', true)
-      .order('event_date', { ascending: true });
-
-    if (error) {
-      console.log('External events import not available:', error);
-      return;
-    }
-
-    if (data) {
-      setExternalDbEvents((data as any[]).map((row) => mapExternalEventToCardLike(row)));
-    }
   };
 
   const fetchJoined = async () => {
@@ -281,23 +249,18 @@ const Events = () => {
     setProfileLocation(data ?? null);
   };
 
-  useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = useMemo(
-    () => [
-      ...dbEvents,
-      ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)),
-      ...eventbriteEvents,
-      ...externalDbEvents,
-    ],
-    [dbEvents, eventbriteEvents, externalDbEvents]
+    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents],
+    [dbEvents, eventbriteEvents]
   );
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
   const selectedCategoryCount = selectedCategoryIds.size + selectedSubcategoryKeys.size + selectedActivityKeys.size;
-  const activePrimaryFilter = search.trim().length > 0 ? 'search' : activeFilter;
+  const activePrimaryFilter = primaryFilter;
 
   useEffect(() => {
     let cancelled = false;
@@ -379,37 +342,12 @@ const Events = () => {
 
       return matchPrimary && matchSource && matchDistance;
     });
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activeFilter, joinedEventIds, favorites, user]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, primaryFilter, joinedEventIds, favorites, user]);
 
   const getLocationString = (ev: EventData) => {
     const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return 'Online';
     return parts.join(', ') || 'Helyszín nem megadva';
-  };
-
-  const getExternalLabel = (ev: EventData) => {
-    if (ev.source_label) return ev.source_label;
-    if (ev.source === 'ticketmaster') return 'Ticketmaster';
-    if (ev.source === 'seatgeek') return 'SeatGeek';
-    if (ev.source === 'eventbrite') return 'Eventbrite';
-    return 'Külső forrás';
-  };
-
-  const formatPrice = (ev: EventData) => {
-    if (ev.is_free) return 'Ingyenes';
-    if (typeof ev.price_min !== 'number' && typeof ev.price_max !== 'number') return null;
-
-    if (typeof ev.price_min === 'number' && typeof ev.price_max === 'number') {
-      if (ev.price_min === ev.price_max) {
-        return `${ev.price_min} ${ev.currency || ''}`.trim();
-      }
-      return `${ev.price_min}–${ev.price_max} ${ev.currency || ''}`.trim();
-    }
-
-    const singlePrice = ev.price_min ?? ev.price_max;
-    return singlePrice !== undefined && singlePrice !== null
-      ? `${singlePrice} ${ev.currency || ''}`.trim()
-      : null;
   };
 
   const formatDate = (dateStr: string | null) =>
@@ -476,7 +414,13 @@ const Events = () => {
           <div className="relative w-full lg:w-80">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
-                setSearch(e.target.value);
+                const value = e.target.value;
+                setSearch(value);
+                if (value.trim()) {
+                  setPrimaryFilter('search');
+                } else {
+                  setPrimaryFilter((prev) => prev === 'search' ? 'all' : prev);
+                }
               }} className="pl-9" />
           </div>
           <div className="flex gap-2 flex-wrap justify-center">
@@ -485,7 +429,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'all' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setActiveFilter('all');
+                setPrimaryFilter('all');
               }}
               className={activePrimaryFilter === 'all' ? 'gradient-primary text-primary-foreground border-0' : ''}
             >
@@ -497,7 +441,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'personal' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setActiveFilter('personal');
+                setPrimaryFilter('personal');
               }}
               className={activePrimaryFilter === 'personal' ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
             >
@@ -509,7 +453,7 @@ const Events = () => {
               variant={activePrimaryFilter === 'categories' ? 'default' : 'outline'}
               onClick={() => {
                 setSearch('');
-                setActiveFilter('categories');
+                setPrimaryFilter('categories');
                 setShowCategoryModal(true);
               }}
               className={activePrimaryFilter === 'categories' ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
@@ -649,9 +593,9 @@ const Events = () => {
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                    {isExternal(event) && (
+                    {event.source_label && event.source_label !== 'Hobbeast' && (
                       <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
-                        {getExternalLabel(event)}
+                        {event.source_label}
                       </Badge>
                     )}
                     {statusBadge && (
@@ -690,21 +634,6 @@ const Events = () => {
                     </div>
                   </div>
 
-                  {isExternal(event) && (event.organizer_name || formatPrice(event)) && (
-                    <div className="mb-4 space-y-1 text-sm">
-                      {event.organizer_name && (
-                        <div className="text-muted-foreground">
-                          Szervező: <span className="font-medium text-foreground">{event.organizer_name}</span>
-                        </div>
-                      )}
-                      {formatPrice(event) && (
-                        <div className="text-muted-foreground">
-                          Ár: <span className="font-medium text-foreground">{formatPrice(event)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                   {event.tags && event.tags.length > 0 && (
                     <div className="flex gap-1.5 flex-wrap mb-4">
                       {event.tags.map((tag) => (
@@ -713,10 +642,10 @@ const Events = () => {
                     </div>
                   )}
 
-                  {isExternal(event) && (event.external_url || event.eventbrite_url) ? (
-                    <a href={event.external_url || event.eventbrite_url} target="_blank" rel="noopener noreferrer">
+                  {isExternal(event) && event.eventbrite_url ? (
+                    <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
                       <Button className={relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} size="sm">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({getExternalLabel(event)})
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
                       </Button>
                     </a>
                   ) : relation === 'own' ? (
@@ -794,7 +723,7 @@ const Events = () => {
                         type="button"
                         onClick={() => {
                           setSearch('');
-                          setActiveFilter('categories');
+                          setPrimaryFilter('categories');
                           toggleSetValue(setSelectedCategoryIds, category.id);
                           toggleSetValue(setExpandedCategories, category.id);
                         }}
@@ -826,7 +755,7 @@ const Events = () => {
                                   type="button"
                                   onClick={() => {
                                     setSearch('');
-                                    setActiveFilter('categories');
+                                    setPrimaryFilter('categories');
                                     toggleSetValue(setSelectedSubcategoryKeys, subKey);
                                     toggleSetValue(setExpandedSubcategories, subKey);
                                   }}
@@ -853,7 +782,7 @@ const Events = () => {
                                       <button
                                         key={activityKey}
                                         type="button"
-                                        onClick={() => { setSearch(''); setActiveFilter('categories'); toggleSetValue(setSelectedActivityKeys, activityKey); }}
+                                        onClick={() => { setSearch(''); setPrimaryFilter('categories'); toggleSetValue(setSelectedActivityKeys, activityKey); }}
                                         className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
                                           activitySelected
                                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
