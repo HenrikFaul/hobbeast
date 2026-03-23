@@ -12,6 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChangePasswordCard } from '@/components/ChangePasswordCard';
 import { DeleteAccountCard } from '@/components/DeleteAccountCard';
+import { NotificationPreferencesCard } from '@/components/NotificationPreferencesCard';
+import { FavoriteEventCategoriesCard } from '@/components/FavoriteEventCategoriesCard';
 import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
