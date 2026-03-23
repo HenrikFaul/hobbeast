@@ -32,7 +32,8 @@ function envApiKey() {
   return apiKey;
 }
 
-function first<T>(value: T[] | null | undefined): T | null {
+// deno-lint-ignore no-explicit-any
+function first(value: any[] | null | undefined): any | null {
   return Array.isArray(value) && value.length ? value[0] : null;
 }
 
@@ -45,8 +46,12 @@ function mapDateTime(value: string | null | undefined) {
   };
 }
 
+// deno-lint-ignore no-explicit-any
 function normalizeTicketmasterEvent(event: any): ExternalEventNormalized {
-  const venue = first(event?._embedded?.venues) ?? null;
+  const venue: any = first(event?._embedded?.venues) ?? null;
+  const classification: any = first(event?.classifications) ?? null;
+  const image: any = first(event?.images) ?? null;
+  const priceRange: any = first(event?.priceRanges) ?? null;
   const classification = first(event?.classifications) ?? null;
   const image = first(event?.images) ?? null;
   const priceRange = first(event?.priceRanges) ?? null;
