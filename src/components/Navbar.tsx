@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/hobbeast-logo.png";
 
@@ -40,7 +41,10 @@ const Navbar = () => {
           ))}
           {!loading && (
             user ? (
-              <ProfileMenu />
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <ProfileMenu />
+              </div>
             ) : (
               <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => navigate('/auth')}>
                 Csatlakozz

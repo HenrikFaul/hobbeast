@@ -419,6 +419,69 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          event_invite: boolean
+          favorite_category_event: boolean
+          friend_request: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_invite?: boolean
+          favorite_category_event?: boolean
+          friend_request?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_invite?: boolean
+          favorite_category_event?: boolean
+          friend_request?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          data: Json | null
+          id: string
+          is_read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -431,6 +494,7 @@ export type Database = {
           date_of_birth: string | null
           display_name: string | null
           district: string | null
+          favorite_event_categories: string[] | null
           gender: string | null
           gender_public: boolean
           hobbies: string[] | null
@@ -452,6 +516,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           district?: string | null
+          favorite_event_categories?: string[] | null
           gender?: string | null
           gender_public?: boolean
           hobbies?: string[] | null
@@ -473,6 +538,7 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           district?: string | null
+          favorite_event_categories?: string[] | null
           gender?: string | null
           gender_public?: boolean
           hobbies?: string[] | null
