@@ -41,7 +41,10 @@ const Navbar = () => {
           ))}
           {!loading && (
             user ? (
-              <ProfileMenu />
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <ProfileMenu />
+              </div>
             ) : (
               <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => navigate('/auth')}>
                 Csatlakozz
