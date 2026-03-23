@@ -32,7 +32,8 @@ function envApiKey() {
   return apiKey;
 }
 
-function first<T>(value: T[] | null | undefined): T | null {
+// deno-lint-ignore no-explicit-any
+function first(value: any[] | null | undefined): any | null {
   return Array.isArray(value) && value.length ? value[0] : null;
 }
 
