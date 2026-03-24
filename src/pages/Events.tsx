@@ -227,6 +227,36 @@ const Events = () => {
     }
   };
 
+  const fetchExternalDbEvents = async () => {
+    const { data } = await supabase.from('external_events').select('*').eq('is_active', true);
+    if (data) {
+      setExternalDbEvents(data.map((e: any) => ({
+        id: `ext-${e.external_source}-${e.external_id}`,
+        title: e.title,
+        category: e.subcategory || e.category || 'Külső esemény',
+        event_date: e.event_date,
+        event_time: e.event_time,
+        location_city: e.location_city,
+        location_district: null,
+        location_address: e.location_address,
+        location_free_text: e.location_free_text,
+        location_lat: e.location_lat,
+        location_lon: e.location_lon,
+        location_type: e.location_type,
+        max_attendees: e.max_attendees,
+        image_emoji: e.image_url ? null : '🎫',
+        tags: [...(e.tags || []), e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source],
+        description: e.description,
+        created_by: '',
+        participant_count: 0,
+        source: 'eventbrite' as const,
+        source_label: e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source,
+        eventbrite_url: e.external_url,
+        eventbrite_logo_url: e.image_url,
+      })));
+    }
+  };
+
   const fetchEbEvents = async () => {
     setEventbriteLoading(true);
     try {
