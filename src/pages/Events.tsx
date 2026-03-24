@@ -280,7 +280,7 @@ const Events = () => {
     setProfileLocation(data ?? null);
   };
 
-  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalDbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
