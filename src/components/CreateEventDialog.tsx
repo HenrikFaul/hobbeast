@@ -66,6 +66,19 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     return { ...selectedSubcategory.profile, ...(selectedActivity?.profile || {}) } as ActivityProfile;
   }, [selectedSubcategory, selectedActivity]);
 
+  // Show hike planner for outdoor/hiking related categories
+  const showHikePlanner = useMemo(() => {
+    if (!profile) return false;
+    const hasDistance = profile.hasDistance;
+    const isOutdoor = profile.locationTypes?.some((t: string) => t === 'outdoor' || t === 'trail');
+    const catName = (selectedCategory?.name || '').toLowerCase();
+    const subName = (selectedSubcategory?.name || '').toLowerCase();
+    const isHikingRelated = ['túra', 'kirándulás', 'futás', 'kerékpár', 'mountain', 'hiking', 'trail'].some(
+      kw => catName.includes(kw) || subName.includes(kw)
+    );
+    return hasDistance || isOutdoor || isHikingRelated;
+  }, [profile, selectedCategory, selectedSubcategory]);
+
   const handleCategoryChange = (catId: string) => {
     setSelectedCategoryId(catId);
     setSelectedSubcategoryId('');
