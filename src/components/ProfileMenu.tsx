@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, Shield } from 'lucide-react';
+import { User, LogOut, Shield } from 'lucide-react';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
@@ -24,9 +24,6 @@ export function ProfileMenu() {
       <DropdownMenuContent align="end" className="rounded-xl w-48">
         <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
           <User className="mr-2 h-4 w-4" /> Profilom
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
-          <Settings className="mr-2 h-4 w-4" /> Beállítások
         </DropdownMenuItem>
         {isAdmin && (
           <DropdownMenuItem onClick={() => navigate('/admin')} className="rounded-lg cursor-pointer">

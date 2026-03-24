@@ -183,6 +183,7 @@ const Events = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
+  const [externalDbEvents, setExternalDbEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
@@ -226,6 +227,36 @@ const Events = () => {
     }
   };
 
+  const fetchExternalDbEvents = async () => {
+    const { data } = await supabase.from('external_events').select('*').eq('is_active', true);
+    if (data) {
+      setExternalDbEvents(data.map((e: any) => ({
+        id: `ext-${e.external_source}-${e.external_id}`,
+        title: e.title,
+        category: e.subcategory || e.category || 'Külső esemény',
+        event_date: e.event_date,
+        event_time: e.event_time,
+        location_city: e.location_city,
+        location_district: null,
+        location_address: e.location_address,
+        location_free_text: e.location_free_text,
+        location_lat: e.location_lat,
+        location_lon: e.location_lon,
+        location_type: e.location_type,
+        max_attendees: e.max_attendees,
+        image_emoji: e.image_url ? null : '🎫',
+        tags: [...(e.tags || []), e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source],
+        description: e.description,
+        created_by: '',
+        participant_count: 0,
+        source: 'eventbrite' as const,
+        source_label: e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source,
+        eventbrite_url: e.external_url,
+        eventbrite_logo_url: e.image_url,
+      })));
+    }
+  };
+
   const fetchEbEvents = async () => {
     setEventbriteLoading(true);
     try {
@@ -249,13 +280,13 @@ const Events = () => {
     setProfileLocation(data ?? null);
   };
 
-  useEffect(() => { fetchEvents(); fetchEbEvents(); }, []);
+  useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalDbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = useMemo(
-    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents],
-    [dbEvents, eventbriteEvents]
+    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents],
+    [dbEvents, eventbriteEvents, externalDbEvents]
   );
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
@@ -463,7 +494,7 @@ const Events = () => {
           </div>
         </div>
 
-        {selectedCategoryCount > 0 && (
+        {selectedCategoryCount > 0 && activePrimaryFilter === 'categories' && (
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             {Array.from(selectedCategoryIds).map((categoryId) => {
               const category = HOBBY_CATALOG.find((item) => item.id === categoryId);
