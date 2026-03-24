@@ -53,7 +53,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [distance, setDistance] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const [hikeRoute, setHikeRoute] = useState<HikeRouteData | null>(null);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
