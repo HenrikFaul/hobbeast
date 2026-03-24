@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyActivity, type ActivityProfile } from '@/lib/hobbyCategories';
+import { HikePlanner, type HikeRouteData } from '@/components/HikePlanner';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
