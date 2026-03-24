@@ -8,7 +8,7 @@ export interface LatLon {
 export interface RouteResult {
   length: number; // meters
   duration: number; // seconds
-  geometry: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  geometry: unknown;
   routePoints?: unknown[];
 }
 
