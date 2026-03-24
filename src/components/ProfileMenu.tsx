@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, Shield } from 'lucide-react';
+import { User, LogOut, Shield } from 'lucide-react';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
