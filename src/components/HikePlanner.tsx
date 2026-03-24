@@ -241,7 +241,7 @@ export function HikePlanner({ onRouteReady }: HikePlannerProps) {
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-card border p-2">
-              <Mountain className="h-4 w-4 text-green-600" />
+              <Mountain className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-[10px] text-muted-foreground">Össz. emelkedés</p>
                 <p className="text-sm font-semibold">↑ {routeResult.totalAscentM} m</p>
