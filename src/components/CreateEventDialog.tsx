@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyActivity, type ActivityProfile } from '@/lib/hobbyCategories';
+import { HikePlanner, type HikeRouteData } from '@/components/HikePlanner';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -52,7 +53,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [distance, setDistance] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
-
+  const [hikeRoute, setHikeRoute] = useState<HikeRouteData | null>(null);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -64,6 +65,19 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     if (!selectedSubcategory) return null;
     return { ...selectedSubcategory.profile, ...(selectedActivity?.profile || {}) } as ActivityProfile;
   }, [selectedSubcategory, selectedActivity]);
+
+  // Show hike planner for outdoor/hiking related categories
+  const showHikePlanner = useMemo(() => {
+    if (!profile) return false;
+    const hasDistance = profile.hasDistance;
+    const isOutdoor = profile.locationTypes?.some((t: string) => t === 'outdoor' || t === 'trail');
+    const catName = (selectedCategory?.name || '').toLowerCase();
+    const subName = (selectedSubcategory?.name || '').toLowerCase();
+    const isHikingRelated = ['túra', 'kirándulás', 'futás', 'kerékpár', 'mountain', 'hiking', 'trail'].some(
+      kw => catName.includes(kw) || subName.includes(kw)
+    );
+    return hasDistance || isOutdoor || isHikingRelated;
+  }, [profile, selectedCategory, selectedSubcategory]);
 
   const handleCategoryChange = (catId: string) => {
     setSelectedCategoryId(catId);
@@ -100,7 +114,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     }
 
     setLoading(true);
-    const { error } = await supabase.from('events').insert({
+    const { data: eventData, error } = await supabase.from('events').insert({
       title: title.trim(),
       description: description.trim() || null,
       category: categoryString,
@@ -117,10 +131,26 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       created_by: user.id,
-    });
+    }).select('id').single();
 
-    if (error) toast.error('Hiba az esemény létrehozásakor.');
-    else {
+    if (error) {
+      toast.error('Hiba az esemény létrehozásakor.');
+    } else {
+      // Save hike route if planned
+      if (hikeRoute && eventData?.id) {
+        await supabase.from('hike_routes').insert({
+          event_id: eventData.id,
+          created_by: user.id,
+          route_type: hikeRoute.routeType,
+          waypoints: hikeRoute.waypoints,
+          geometry: hikeRoute.geometry as any,
+          elevation_profile: hikeRoute.elevationProfile,
+          total_distance_m: hikeRoute.totalDistanceM,
+          total_duration_s: hikeRoute.totalDurationS,
+          total_ascent_m: hikeRoute.totalAscentM,
+          total_descent_m: hikeRoute.totalDescentM,
+        } as any);
+      }
       toast.success('Esemény sikeresen létrehozva!');
       onCreated();
     }
@@ -284,6 +314,10 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             )}
             {locationType === 'free' && <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />}
           </div>
+
+          {showHikePlanner && (
+            <HikePlanner onRouteReady={(data) => setHikeRoute(data)} />
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Címkék (vesszővel elválasztva)</Label>

@@ -235,6 +235,65 @@ export type Database = {
         }
         Relationships: []
       }
+      hike_routes: {
+        Row: {
+          created_at: string
+          created_by: string
+          elevation_profile: Json | null
+          event_id: string | null
+          geometry: Json | null
+          id: string
+          name: string
+          route_type: string
+          total_ascent_m: number | null
+          total_descent_m: number | null
+          total_distance_m: number | null
+          total_duration_s: number | null
+          updated_at: string
+          waypoints: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          elevation_profile?: Json | null
+          event_id?: string | null
+          geometry?: Json | null
+          id?: string
+          name?: string
+          route_type?: string
+          total_ascent_m?: number | null
+          total_descent_m?: number | null
+          total_distance_m?: number | null
+          total_duration_s?: number | null
+          updated_at?: string
+          waypoints?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          elevation_profile?: Json | null
+          event_id?: string | null
+          geometry?: Json | null
+          id?: string
+          name?: string
+          route_type?: string
+          total_ascent_m?: number | null
+          total_descent_m?: number | null
+          total_distance_m?: number | null
+          total_duration_s?: number | null
+          updated_at?: string
+          waypoints?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hike_routes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hobby_activities: {
         Row: {
           age_restriction: string | null
