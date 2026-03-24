@@ -183,6 +183,7 @@ const Events = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
+  const [externalDbEvents, setExternalDbEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
