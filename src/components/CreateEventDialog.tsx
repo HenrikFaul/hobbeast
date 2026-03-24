@@ -315,6 +315,10 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             {locationType === 'free' && <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />}
           </div>
 
+          {showHikePlanner && (
+            <HikePlanner onRouteReady={(data) => setHikeRoute(data)} />
+          )}
+
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Címkék (vesszővel elválasztva)</Label>
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="pl. Kezdő-barát, Reggeli, Ingyenes" className="rounded-xl h-11" />
