@@ -11,16 +11,32 @@ import { HOBBY_CATALOG } from '@/lib/hobbyCategories';
 export function FavoriteEventCategoriesCard() {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const allCategories = HOBBY_CATALOG.map(c => c.name);
+  // Only show hobby catalog categories that the user has in their hobbies
+  const availableCategories = HOBBY_CATALOG
+    .map(c => c.name)
+    .filter(catName => {
+      if (hobbies.length === 0) return true; // show all if no hobbies set
+      // Check if any of the user's hobbies relate to this category
+      const cat = HOBBY_CATALOG.find(c => c.name === catName);
+      if (!cat) return false;
+      const catKeywords = [
+        cat.name,
+        ...cat.subcategories.map(s => s.name),
+        ...cat.subcategories.flatMap(s => s.activities.map(a => a.name)),
+      ].map(k => k.toLowerCase());
+      return hobbies.some(h => catKeywords.some(k => k.includes(h.toLowerCase()) || h.toLowerCase().includes(k)));
+    });
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('favorite_event_categories').eq('user_id', user.id).single()
+    supabase.from('profiles').select('favorite_event_categories,hobbies').eq('user_id', user.id).single()
       .then(({ data }) => {
-        if (data && (data as any).favorite_event_categories) {
-          setFavorites((data as any).favorite_event_categories);
+        if (data) {
+          setFavorites((data as any).favorite_event_categories || []);
+          setHobbies((data as any).hobbies || []);
         }
       });
   }, [user]);
@@ -52,7 +68,7 @@ export function FavoriteEventCategoriesCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Válaszd ki a kedvenc kategóriáidat – értesítést kapsz, ha ezekre új esemény készül.
+          Az érdeklődési köreidből szűkítheted le a kedvenc kategóriáidat – értesítést kapsz, ha ezekre új esemény készül.
         </p>
 
         {favorites.length > 0 && (
@@ -66,11 +82,14 @@ export function FavoriteEventCategoriesCard() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          {allCategories.filter(c => !favorites.includes(c)).map(cat => (
+          {availableCategories.filter(c => !favorites.includes(c)).map(cat => (
             <Badge key={cat} variant="outline" className="rounded-lg cursor-pointer hover:bg-primary/10 transition-colors" onClick={() => toggle(cat)}>
               + {cat}
             </Badge>
           ))}
+          {availableCategories.length === 0 && hobbies.length > 0 && (
+            <p className="text-sm text-muted-foreground italic">Nincs elérhető kategória az érdeklődési köreid alapján.</p>
+          )}
         </div>
 
         <Button onClick={handleSave} className="w-full rounded-xl h-11 gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold" disabled={saving}>

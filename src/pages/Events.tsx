@@ -494,7 +494,7 @@ const Events = () => {
           </div>
         </div>
 
-        {selectedCategoryCount > 0 && (
+        {selectedCategoryCount > 0 && activePrimaryFilter === 'categories' && (
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             {Array.from(selectedCategoryIds).map((categoryId) => {
               const category = HOBBY_CATALOG.find((item) => item.id === categoryId);
