@@ -114,7 +114,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     }
 
     setLoading(true);
-    const { error } = await supabase.from('events').insert({
+    const { data: eventData, error } = await supabase.from('events').insert({
       title: title.trim(),
       description: description.trim() || null,
       category: categoryString,
@@ -131,10 +131,26 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       created_by: user.id,
-    });
+    }).select('id').single();
 
-    if (error) toast.error('Hiba az esemény létrehozásakor.');
-    else {
+    if (error) {
+      toast.error('Hiba az esemény létrehozásakor.');
+    } else {
+      // Save hike route if planned
+      if (hikeRoute && eventData?.id) {
+        await supabase.from('hike_routes').insert({
+          event_id: eventData.id,
+          created_by: user.id,
+          route_type: hikeRoute.routeType,
+          waypoints: hikeRoute.waypoints,
+          geometry: hikeRoute.geometry as any,
+          elevation_profile: hikeRoute.elevationProfile,
+          total_distance_m: hikeRoute.totalDistanceM,
+          total_duration_s: hikeRoute.totalDurationS,
+          total_ascent_m: hikeRoute.totalAscentM,
+          total_descent_m: hikeRoute.totalDescentM,
+        } as any);
+      }
       toast.success('Esemény sikeresen létrehozva!');
       onCreated();
     }
