@@ -285,8 +285,8 @@ const Events = () => {
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = useMemo(
-    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents],
-    [dbEvents, eventbriteEvents]
+    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents],
+    [dbEvents, eventbriteEvents, externalDbEvents]
   );
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
