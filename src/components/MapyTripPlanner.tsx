@@ -313,7 +313,7 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
     } catch {
       const coords = extractLineCoordinates(routePlan.geometry);
       if (coords.length > 1) {
-        const polyline = L.polyline(coords.map(([lon, lat]) => [lat, lon]), {
+        const polyline = L.polyline(coords.map(([lon, lat]) => [lat, lon] as [number, number]), {
           color: '#2563eb',
           weight: 4,
           opacity: 0.85,

@@ -52,9 +52,6 @@ function normalizeTicketmasterEvent(event: any): ExternalEventNormalized {
   const classification: any = first(event?.classifications) ?? null;
   const image: any = first(event?.images) ?? null;
   const priceRange: any = first(event?.priceRanges) ?? null;
-  const classification = first(event?.classifications) ?? null;
-  const image = first(event?.images) ?? null;
-  const priceRange = first(event?.priceRanges) ?? null;
   const localStart = event?.dates?.start?.localDate && event?.dates?.start?.localTime
     ? `${event.dates.start.localDate}T${event.dates.start.localTime}`
     : event?.dates?.start?.dateTime ?? null;
