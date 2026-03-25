@@ -12,8 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChangePasswordCard } from '@/components/ChangePasswordCard';
 import { DeleteAccountCard } from '@/components/DeleteAccountCard';
-import { NotificationPreferencesCard } from '@/components/NotificationPreferencesCard';
-import { FavoriteEventCategoriesCard } from '@/components/FavoriteEventCategoriesCard';
 import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -43,8 +41,8 @@ const Profile = () => {
   const [address, setAddress] = useState('');
   const [addressPublic, setAddressPublic] = useState(false);
   const [city, setCity] = useState('');
-  const [locationLat, setLocationLat] = useState<number | null>(null);
-  const [locationLon, setLocationLon] = useState<number | null>(null);
+  const [district, setDistrict] = useState('');
+  const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -63,8 +61,8 @@ const Profile = () => {
         setAddress(data.address || '');
         setAddressPublic(data.address_public);
         setCity(data.city || '');
-        setLocationLat((data as any).location_lat ?? null);
-        setLocationLon((data as any).location_lon ?? null);
+        setDistrict(data.district || '');
+        setPreferredRadiusKm(data.preferred_radius_km || 25);
         setHobbies(data.hobbies || []);
       }
     };
@@ -111,11 +109,6 @@ const Profile = () => {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!city.trim()) {
-      toast.error('Legalább a várost add meg a lokációhoz.');
-      return;
-    }
-
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
       display_name: displayName,
@@ -126,9 +119,8 @@ const Profile = () => {
       address: address || null,
       address_public: addressPublic,
       city: city || null,
-      district: null,
-      location_lat: locationLat,
-      location_lon: locationLon,
+      district: district || null,
+      preferred_radius_km: preferredRadiusKm,
       hobbies,
     }).eq('user_id', user.id);
 
@@ -150,7 +142,9 @@ const Profile = () => {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left: Profile info */}
           <div className="flex-1 space-y-6">
+            {/* Avatar + basic info */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="rounded-2xl shadow-card border">
                 <CardHeader>
@@ -162,11 +156,12 @@ const Profile = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
+                  {/* Avatar */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="relative group">
                       <Avatar className="h-24 w-24">
                         <AvatarImage src={avatarUrl || undefined} />
-                        <AvatarFallback className="gradient-primary text-primary-foreground text-2xl font-bold">{displayName ? displayName.slice(0, 2).toUpperCase() : 'U'}</AvatarFallback>
+                        <AvatarFallback className="gradient-primary text-primary-foreground text-2xl font-bold">{initials}</AvatarFallback>
                       </Avatar>
                       <button
                         onClick={() => fileInputRef.current?.click()}
@@ -191,6 +186,7 @@ const Profile = () => {
                     </div>
                   </div>
 
+                  {/* Age & Gender */}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Születési dátum</Label>
@@ -226,6 +222,7 @@ const Profile = () => {
               </Card>
             </motion.div>
 
+            {/* Location */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Card className="rounded-2xl shadow-card border">
                 <CardHeader>
@@ -233,38 +230,62 @@ const Profile = () => {
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10">
                       <MapPin className="h-5 w-5 text-accent" />
                     </div>
-                    Lokációs beállítások
+                    Lokáció & Keresési beállítások
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    A címadatot az eseményeknél használjuk a távolság alapú szűréshez. Minél pontosabb címet adsz meg, annál pontosabban tud működni a távolságszűrő. Ha nem szeretnéd megadni a teljes címedet, elég csak a várost kiválasztanod.
+                    Add meg a tartózkodási helyedet, hogy az app a közeledben lévő hobbistákat és eseményeket ajánlhassa neked. 
+                    Ha privátra állítod a lakcímed, csak a város/kerület jelenik meg mások számára.
                   </p>
 
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
+                      <Input value={city} onChange={e => setCity(e.target.value)} placeholder="pl. Budapest" className="rounded-xl h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kerület (opcionális)</Label>
+                      <Input value={district} onChange={e => setDistrict(e.target.value)} placeholder="pl. XIII. kerület" className="rounded-xl h-11" />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lokáció keresése (város / utca / házszám)</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pontos lakcím (privát)</Label>
                     <AddressAutocomplete
                       value={address}
                       onSelect={(sel: AddressSelection) => {
                         setAddress(sel.displayName);
-                        setCity(sel.city || '');
-                        setLocationLat(sel.lat || null);
-                        setLocationLon(sel.lon || null);
+                        if (sel.city && !city) setCity(sel.city);
+                        if (sel.district && !district) setDistrict(sel.district);
                       }}
-                      placeholder="Kezdd a várossal, majd folytathatod utcával és házszámmal..."
+                      placeholder="Kezdj el gépelni egy címet..."
+                      searchMode="address"
                     />
+                    <div className="flex items-center gap-2">
+                      <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
+                      <span className="text-xs text-muted-foreground">
+                        {addressPublic ? 'Pontos cím nyilvános' : 'Csak város/kerület látható mások számára'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
-                    <Input value={city} readOnly placeholder="A kiválasztott lokációból automatikusan kitöltjük" className="rounded-xl h-11 bg-muted/30" />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
-                    <span className="text-xs text-muted-foreground">
-                      {addressPublic ? 'Pontos cím nyilvános' : 'Csak a város látható mások számára'}
-                    </span>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Keresési sugár: <span className="text-primary font-bold">{preferredRadiusKm} km</span>
+                    </Label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="200"
+                      value={preferredRadiusKm}
+                      onChange={e => setPreferredRadiusKm(parseInt(e.target.value))}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>1 km</span>
+                      <span>200 km</span>
+                    </div>
                   </div>
 
                   <Button onClick={handleSave} className="w-full rounded-xl h-11 gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold" disabled={saving}>
@@ -275,6 +296,7 @@ const Profile = () => {
               </Card>
             </motion.div>
 
+            {/* Hobbies */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="rounded-2xl shadow-card border">
                 <CardHeader>
@@ -313,14 +335,11 @@ const Profile = () => {
                 </CardContent>
               </Card>
             </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-              <FavoriteEventCategoriesCard />
-            </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
-            <NotificationPreferencesCard />
+          {/* Right sidebar */}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
             <ChangePasswordCard />
             <DeleteAccountCard />
           </motion.div>

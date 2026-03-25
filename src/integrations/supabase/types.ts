@@ -70,71 +70,6 @@ export type Database = {
           },
         ]
       }
-      event_trip_plans: {
-        Row: {
-          created_at: string
-          duration_s: number | null
-          elevation_profile: Json | null
-          elevation_summary: Json | null
-          end_point: Json
-          event_id: string
-          external_url: string | null
-          geometry: Json | null
-          id: string
-          length_m: number | null
-          provider: string
-          route_type: string
-          start_point: Json
-          updated_at: string
-          warnings: Json | null
-          waypoints: Json | null
-        }
-        Insert: {
-          created_at?: string
-          duration_s?: number | null
-          elevation_profile?: Json | null
-          elevation_summary?: Json | null
-          end_point: Json
-          event_id: string
-          external_url?: string | null
-          geometry?: Json | null
-          id?: string
-          length_m?: number | null
-          provider?: string
-          route_type?: string
-          start_point: Json
-          updated_at?: string
-          warnings?: Json | null
-          waypoints?: Json | null
-        }
-        Update: {
-          created_at?: string
-          duration_s?: number | null
-          elevation_profile?: Json | null
-          elevation_summary?: Json | null
-          end_point?: Json
-          event_id?: string
-          external_url?: string | null
-          geometry?: Json | null
-          id?: string
-          length_m?: number | null
-          provider?: string
-          route_type?: string
-          start_point?: Json
-          updated_at?: string
-          warnings?: Json | null
-          waypoints?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_trip_plans_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: true
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       events: {
         Row: {
           category: string
@@ -150,10 +85,16 @@ export type Database = {
           location_city: string | null
           location_district: string | null
           location_free_text: string | null
-          location_lat: number | null
-          location_lon: number | null
           location_type: string | null
           max_attendees: number | null
+          place_categories: string[] | null
+          place_details: Json | null
+          place_diagnostics: Json | null
+          place_lat: number | null
+          place_lon: number | null
+          place_name: string | null
+          place_source: string | null
+          place_source_ids: Json | null
           tags: string[] | null
           title: string
           updated_at: string
@@ -172,10 +113,16 @@ export type Database = {
           location_city?: string | null
           location_district?: string | null
           location_free_text?: string | null
-          location_lat?: number | null
-          location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
+          place_categories?: string[] | null
+          place_details?: Json | null
+          place_diagnostics?: Json | null
+          place_lat?: number | null
+          place_lon?: number | null
+          place_name?: string | null
+          place_source?: string | null
+          place_source_ids?: Json | null
           tags?: string[] | null
           title: string
           updated_at?: string
@@ -194,170 +141,21 @@ export type Database = {
           location_city?: string | null
           location_district?: string | null
           location_free_text?: string | null
-          location_lat?: number | null
-          location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
+          place_categories?: string[] | null
+          place_details?: Json | null
+          place_diagnostics?: Json | null
+          place_lat?: number | null
+          place_lon?: number | null
+          place_name?: string | null
+          place_source?: string | null
+          place_source_ids?: Json | null
           tags?: string[] | null
           title?: string
           updated_at?: string
         }
         Relationships: []
-      }
-      external_events: {
-        Row: {
-          category: string | null
-          created_at: string
-          currency: string | null
-          description: string | null
-          event_date: string | null
-          event_time: string | null
-          external_id: string
-          external_source: string
-          external_url: string | null
-          id: string
-          image_url: string | null
-          is_active: boolean
-          is_free: boolean | null
-          location_address: string | null
-          location_city: string | null
-          location_free_text: string | null
-          location_lat: number | null
-          location_lon: number | null
-          location_type: string | null
-          max_attendees: number | null
-          organizer_name: string | null
-          price_max: number | null
-          price_min: number | null
-          source_last_synced_at: string | null
-          source_payload: Json | null
-          subcategory: string | null
-          tags: string[] | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string
-          currency?: string | null
-          description?: string | null
-          event_date?: string | null
-          event_time?: string | null
-          external_id: string
-          external_source: string
-          external_url?: string | null
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_free?: boolean | null
-          location_address?: string | null
-          location_city?: string | null
-          location_free_text?: string | null
-          location_lat?: number | null
-          location_lon?: number | null
-          location_type?: string | null
-          max_attendees?: number | null
-          organizer_name?: string | null
-          price_max?: number | null
-          price_min?: number | null
-          source_last_synced_at?: string | null
-          source_payload?: Json | null
-          subcategory?: string | null
-          tags?: string[] | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string
-          currency?: string | null
-          description?: string | null
-          event_date?: string | null
-          event_time?: string | null
-          external_id?: string
-          external_source?: string
-          external_url?: string | null
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_free?: boolean | null
-          location_address?: string | null
-          location_city?: string | null
-          location_free_text?: string | null
-          location_lat?: number | null
-          location_lon?: number | null
-          location_type?: string | null
-          max_attendees?: number | null
-          organizer_name?: string | null
-          price_max?: number | null
-          price_min?: number | null
-          source_last_synced_at?: string | null
-          source_payload?: Json | null
-          subcategory?: string | null
-          tags?: string[] | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      hike_routes: {
-        Row: {
-          created_at: string
-          created_by: string
-          elevation_profile: Json | null
-          event_id: string | null
-          geometry: Json | null
-          id: string
-          name: string
-          route_type: string
-          total_ascent_m: number | null
-          total_descent_m: number | null
-          total_distance_m: number | null
-          total_duration_s: number | null
-          updated_at: string
-          waypoints: Json
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          elevation_profile?: Json | null
-          event_id?: string | null
-          geometry?: Json | null
-          id?: string
-          name?: string
-          route_type?: string
-          total_ascent_m?: number | null
-          total_descent_m?: number | null
-          total_distance_m?: number | null
-          total_duration_s?: number | null
-          updated_at?: string
-          waypoints?: Json
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          elevation_profile?: Json | null
-          event_id?: string | null
-          geometry?: Json | null
-          id?: string
-          name?: string
-          route_type?: string
-          total_ascent_m?: number | null
-          total_descent_m?: number | null
-          total_distance_m?: number | null
-          total_duration_s?: number | null
-          updated_at?: string
-          waypoints?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "hike_routes_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       hobby_activities: {
         Row: {
@@ -543,69 +341,6 @@ export type Database = {
           },
         ]
       }
-      notification_preferences: {
-        Row: {
-          created_at: string
-          event_invite: boolean
-          favorite_category_event: boolean
-          friend_request: boolean
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          event_invite?: boolean
-          favorite_category_event?: boolean
-          friend_request?: boolean
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          event_invite?: boolean
-          favorite_category_event?: boolean
-          friend_request?: boolean
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
-          body: string | null
-          created_at: string
-          data: Json | null
-          id: string
-          is_read: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          data?: Json | null
-          id?: string
-          is_read?: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          data?: Json | null
-          id?: string
-          is_read?: boolean
-          title?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           address: string | null
@@ -618,13 +353,10 @@ export type Database = {
           date_of_birth: string | null
           display_name: string | null
           district: string | null
-          favorite_event_categories: string[] | null
           gender: string | null
           gender_public: boolean
           hobbies: string[] | null
           id: string
-          location_lat: number | null
-          location_lon: number | null
           preferred_radius_km: number | null
           updated_at: string
           user_id: string
@@ -640,13 +372,10 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           district?: string | null
-          favorite_event_categories?: string[] | null
           gender?: string | null
           gender_public?: boolean
           hobbies?: string[] | null
           id?: string
-          location_lat?: number | null
-          location_lon?: number | null
           preferred_radius_km?: number | null
           updated_at?: string
           user_id: string
@@ -662,13 +391,10 @@ export type Database = {
           date_of_birth?: string | null
           display_name?: string | null
           district?: string | null
-          favorite_event_categories?: string[] | null
           gender?: string | null
           gender_public?: boolean
           hobbies?: string[] | null
           id?: string
-          location_lat?: number | null
-          location_lon?: number | null
           preferred_radius_km?: number | null
           updated_at?: string
           user_id?: string
