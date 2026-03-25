@@ -45,6 +45,7 @@ const Profile = () => {
   const [city, setCity] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLon, setLocationLon] = useState<number | null>(null);
+  const [preferredRadiusKm, setPreferredRadiusKm] = useState(25);
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -65,6 +66,7 @@ const Profile = () => {
         setCity(data.city || '');
         setLocationLat((data as any).location_lat ?? null);
         setLocationLon((data as any).location_lon ?? null);
+        setPreferredRadiusKm((data as any).preferred_radius_km || 25);
         setHobbies(data.hobbies || []);
       }
     };
@@ -129,6 +131,7 @@ const Profile = () => {
       district: null,
       location_lat: locationLat,
       location_lon: locationLon,
+      preferred_radius_km: preferredRadiusKm,
       hobbies,
     }).eq('user_id', user.id);
 
@@ -258,6 +261,24 @@ const Profile = () => {
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Város</Label>
                     <Input value={city} readOnly placeholder="A kiválasztott lokációból automatikusan kitöltjük" className="rounded-xl h-11 bg-muted/30" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Keresési sugár: <span className="text-primary font-bold">{preferredRadiusKm} km</span>
+                    </Label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="200"
+                      value={preferredRadiusKm}
+                      onChange={e => setPreferredRadiusKm(parseInt(e.target.value))}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>1 km</span>
+                      <span>200 km</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

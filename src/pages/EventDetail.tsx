@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { EditEventDialog } from "@/components/EditEventDialog";
+import { PlaceSelectionPreview } from "@/components/PlaceSelectionPreview";
+import { hydrateEventPlace } from "@/lib/places/eventPlace";
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
@@ -26,6 +28,14 @@ interface EventData {
   location_free_text: string | null;
   location_type: string | null;
   max_attendees: number | null;
+  place_name?: string | null;
+  place_source?: string | null;
+  place_source_ids?: unknown;
+  place_categories?: string[] | null;
+  place_lat?: number | null;
+  place_lon?: number | null;
+  place_details?: unknown;
+  place_diagnostics?: unknown;
   image_emoji: string | null;
   tags: string[] | null;
   description: string | null;
@@ -151,7 +161,7 @@ const EventDetail = () => {
   };
 
   const getLocationString = (ev: EventData) => {
-    const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
+    const parts = [ev.place_name, ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return '🌐 Online esemény';
     return parts.join(', ') || 'Helyszín nem megadva';
   };
@@ -164,6 +174,7 @@ const EventDetail = () => {
 
   const isOwner = user && event && event.created_by === user.id;
   const isSample = id?.startsWith('sample-');
+  const selectedPlace = event ? hydrateEventPlace(event as any) : null;
 
   if (loading) {
     return (
@@ -271,6 +282,12 @@ const EventDetail = () => {
               </CardContent>
             </Card>
           </div>
+
+          {selectedPlace && (
+            <div className="mb-6">
+              <PlaceSelectionPreview selection={selectedPlace} />
+            </div>
+          )}
 
           {/* Description */}
           {event.description && (
