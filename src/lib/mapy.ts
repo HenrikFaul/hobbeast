@@ -70,7 +70,7 @@ interface RouteResponseLike {
   routePoints?: Array<{ mappedPosition?: [number, number]; originalPosition?: [number, number] }>;
 }
 
-const MAPY_API_KEY = import.meta.env.VITE_MAPY_API_KEY as string | undefined;
+const MAPY_API_KEY = (import.meta.env.VITE_MAPY_API_KEY as string | undefined) || 'gck3A6lYv7XWC_7ii2uVCxfYtYEUjN-t_y1YDztu2_0';
 const MAPY_BASE_URL = (import.meta.env.VITE_MAPY_API_BASE_URL as string | undefined) || 'https://api.mapy.com/v1';
 const MAPY_TILE_URL = (import.meta.env.VITE_MAPY_TILE_URL as string | undefined) || `${MAPY_BASE_URL}/maptiles/outdoor/256/{z}/{x}/{y}`;
 const MAPY_TILE_ATTRIBUTION = 'Powered by Mapy.com';
