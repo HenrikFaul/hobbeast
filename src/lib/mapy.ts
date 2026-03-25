@@ -143,8 +143,15 @@ function inferResultType(type?: string): MapyResultType {
 }
 
 function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion | null {
-  if (!entity.position || entity.position.length < 2) return null;
-  const [lon, lat] = entity.position;
+  if (!entity.position) return null;
+  let lon: number, lat: number;
+  if (Array.isArray(entity.position)) {
+    if (entity.position.length < 2) return null;
+    [lon, lat] = entity.position;
+  } else {
+    lon = entity.position.lon;
+    lat = entity.position.lat;
+  }
   const region = entity.regionalStructure?.find((item) => item.type?.includes('region'))?.name || null;
   const country = entity.regionalStructure?.find((item) => item.type === 'regional.country')?.isoCode ||
     entity.regionalStructure?.find((item) => item.type === 'regional.country')?.name || null;
