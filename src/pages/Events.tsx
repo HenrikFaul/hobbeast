@@ -33,14 +33,6 @@ interface EventData {
   location_lon?: number | null;
   location_type: string | null;
   max_attendees: number | null;
-  place_name?: string | null;
-  place_source?: string | null;
-  place_source_ids?: unknown;
-  place_categories?: string[] | null;
-  place_lat?: number | null;
-  place_lon?: number | null;
-  place_details?: unknown;
-  place_diagnostics?: unknown;
   image_emoji: string | null;
   tags: string[] | null;
   description: string | null;
@@ -57,7 +49,6 @@ interface ProfileLocation {
   address: string | null;
   location_lat: number | null;
   location_lon: number | null;
-  preferred_radius_km?: number | null;
   hobbies: string[] | null;
 }
 
@@ -75,7 +66,7 @@ function isExternal(ev: EventData) {
 
 function buildLocationQuery(ev: EventData) {
   if (ev.location_type === 'online') return null;
-  return [ev.place_name, ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
+  return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -285,17 +276,13 @@ const Events = () => {
 
   const fetchProfileLocation = async () => {
     if (!user) { setProfileLocation(null); return; }
-    const { data } = await supabase.from('profiles').select('city,address,location_lat,location_lon,preferred_radius_km,hobbies').eq('user_id', user.id).maybeSingle();
+    const { data } = await supabase.from('profiles').select('city,address,location_lat,location_lon,hobbies').eq('user_id', user.id).maybeSingle();
     setProfileLocation(data ?? null);
   };
 
   useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalDbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
-
-  useEffect(() => {
-    if (profileLocation?.preferred_radius_km) setDistanceKm(profileLocation.preferred_radius_km);
-  }, [profileLocation?.preferred_radius_km]);
 
   const allEvents = useMemo(
     () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents],
@@ -330,8 +317,8 @@ const Events = () => {
 
       for (const event of allEvents) {
         if (event.location_type === 'online') { allowedIds.add(event.id); continue; }
-        let coords = typeof (event.location_lat ?? event.place_lat) === 'number' && typeof (event.location_lon ?? event.place_lon) === 'number'
-          ? { lat: Number(event.location_lat ?? event.place_lat), lon: Number(event.location_lon ?? event.place_lon) }
+        let coords = typeof event.location_lat === 'number' && typeof event.location_lon === 'number'
+          ? { lat: event.location_lat, lon: event.location_lon }
           : null;
         if (!coords) {
           const query = buildLocationQuery(event);

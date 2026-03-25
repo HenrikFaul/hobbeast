@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
-import { PlaceSelectionPreview } from '@/components/PlaceSelectionPreview';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,11 +19,9 @@ import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyAct
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { upsertEventTripPlan } from '@/lib/tripPlans';
-import { buildEventPlaceFields } from '@/lib/places/eventPlace';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
-  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -52,7 +49,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationDistrict, setLocationDistrict] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationFreeText, setLocationFreeText] = useState('');
-  const [selectedPlace, setSelectedPlace] = useState<AddressSelection | null>(null);
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLon, setLocationLon] = useState<number | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
@@ -132,13 +130,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         location_district: locationDistrict || null,
         location_address: locationAddress || null,
         location_free_text: locationFreeText || null,
-        location_lat: selectedPlace?.lat ?? null,
-        location_lon: selectedPlace?.lon ?? null,
+        location_lat: locationLat,
+        location_lon: locationLon,
         max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
         image_emoji: imageEmoji,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
-        ...buildEventPlaceFields(selectedPlace, selectedPlace?.details ?? null),
       })
       .select('id')
       .single();
@@ -314,7 +311,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 setLocationCity('');
                 setLocationDistrict('');
                 setLocationAddress('');
-                setSelectedPlace(null);
+                setLocationLat(null);
+                setLocationLon(null);
               }
               if (nextType !== 'free') {
                 setLocationFreeText('');
@@ -326,26 +324,22 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </SelectContent>
             </Select>
 
-            {(locationType === 'city' || locationType === 'district' || locationType === 'address') && (
+            {(locationType === 'city' || locationType === 'address') && (
               <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
-                  setLocationAddress(sel.name || sel.address || sel.displayName);
+                  setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
-                  setSelectedPlace(sel);
+                  setLocationLat(sel.lat || null);
+                  setLocationLon(sel.lon || null);
                 }}
-                placeholder="Keress helyszínre, étteremre, bárra vagy címre..."
-                searchMode="mixed"
+                placeholder="Keress rá egy címre..."
               />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />
-            )}
-
-            {selectedPlace && ['city', 'district', 'address'].includes(locationType) && (
-              <PlaceSelectionPreview selection={selectedPlace} />
             )}
           </div>
 

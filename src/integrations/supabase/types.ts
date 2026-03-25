@@ -154,14 +154,6 @@ export type Database = {
           location_lon: number | null
           location_type: string | null
           max_attendees: number | null
-          place_categories: string[] | null
-          place_details: Json | null
-          place_diagnostics: Json | null
-          place_lat: number | null
-          place_lon: number | null
-          place_name: string | null
-          place_source: string | null
-          place_source_ids: Json | null
           tags: string[] | null
           title: string
           updated_at: string
@@ -184,14 +176,6 @@ export type Database = {
           location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
-          place_categories?: string[] | null
-          place_details?: Json | null
-          place_diagnostics?: Json | null
-          place_lat?: number | null
-          place_lon?: number | null
-          place_name?: string | null
-          place_source?: string | null
-          place_source_ids?: Json | null
           tags?: string[] | null
           title: string
           updated_at?: string
@@ -214,14 +198,6 @@ export type Database = {
           location_lon?: number | null
           location_type?: string | null
           max_attendees?: number | null
-          place_categories?: string[] | null
-          place_details?: Json | null
-          place_diagnostics?: Json | null
-          place_lat?: number | null
-          place_lon?: number | null
-          place_name?: string | null
-          place_source?: string | null
-          place_source_ids?: Json | null
           tags?: string[] | null
           title?: string
           updated_at?: string

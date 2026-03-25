@@ -14,15 +14,12 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
-import { PlaceSelectionPreview } from '@/components/PlaceSelectionPreview';
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan, upsertEventTripPlan } from '@/lib/tripPlans';
-import { buildEventPlaceFields, hydrateEventPlace } from '@/lib/places/eventPlace';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
-  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -46,14 +43,6 @@ interface EditEventDialogProps {
     max_attendees: number | null;
     image_emoji: string | null;
     tags: string[] | null;
-    place_name?: string | null;
-    place_source?: string | null;
-    place_source_ids?: unknown;
-    place_categories?: string[] | null;
-    place_lat?: number | null;
-    place_lon?: number | null;
-    place_details?: unknown;
-    place_diagnostics?: unknown;
   };
   onClose: () => void;
   onUpdated: () => void;
@@ -69,7 +58,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [locationDistrict, setLocationDistrict] = useState(event.location_district || '');
   const [locationAddress, setLocationAddress] = useState(event.location_address || '');
   const [locationFreeText, setLocationFreeText] = useState(event.location_free_text || '');
-  const [selectedPlace, setSelectedPlace] = useState<AddressSelection | null>(hydrateEventPlace(event));
+  const [locationLat, setLocationLat] = useState<number | null>(event.location_lat ?? null);
+  const [locationLon, setLocationLon] = useState<number | null>(event.location_lon ?? null);
   const [maxAttendees, setMaxAttendees] = useState(event.max_attendees ? String(event.max_attendees) : '');
   const [imageEmoji, setImageEmoji] = useState(event.image_emoji || '🎉');
   const [tags, setTags] = useState((event.tags || []).join(', '));
@@ -106,12 +96,11 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       location_district: locationDistrict || null,
       location_address: locationAddress || null,
       location_free_text: locationFreeText || null,
-      location_lat: selectedPlace?.lat ?? null,
-      location_lon: selectedPlace?.lon ?? null,
+      location_lat: locationLat,
+      location_lon: locationLon,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      ...buildEventPlaceFields(selectedPlace, selectedPlace?.details ?? null),
     }).eq('id', event.id);
 
     if (error) {
@@ -196,7 +185,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 setLocationCity('');
                 setLocationDistrict('');
                 setLocationAddress('');
-                setSelectedPlace(null);
+                setLocationLat(null);
+                setLocationLon(null);
               }
               if (nextType !== 'free') {
                 setLocationFreeText('');
@@ -207,25 +197,22 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            {['city', 'district', 'address'].includes(locationType) && (
+            {['city', 'address'].includes(locationType) && (
               <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
-                  setLocationAddress(sel.name || sel.address || sel.displayName);
+                  setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
-                  setSelectedPlace(sel);
+                  setLocationLat(sel.lat || null);
+                  setLocationLon(sel.lon || null);
                 }}
                 placeholder="Keress rá egy címre..."
               />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Helyszín" className="rounded-xl h-11" />
-            )}
-
-            {selectedPlace && ['city', 'district', 'address'].includes(locationType) && (
-              <PlaceSelectionPreview selection={selectedPlace} />
             )}
           </div>
 
