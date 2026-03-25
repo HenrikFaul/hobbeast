@@ -205,7 +205,7 @@ export async function geocodeMapyLocation(query: string, locality?: string): Pro
 }
 
 export async function reverseGeocodeMapyPoint(lat: number, lon: number): Promise<MapySuggestion | null> {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'hu' });
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'en' });
   const payload = await fetchJsonWithFallback<unknown>(REVERSE_ENDPOINTS, params);
   const entity = extractEntityList(payload)[0];
   return entity ? normalizeEntity(entity, `reverse-${lat}-${lon}`) : null;
