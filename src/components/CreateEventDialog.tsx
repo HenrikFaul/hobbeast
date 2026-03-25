@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
-import { PlaceSelectionPreview } from '@/components/PlaceSelectionPreview';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,11 +16,12 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyActivity, type ActivityProfile } from '@/lib/hobbyCategories';
-import { buildEventPlaceFields } from '@/lib/places/eventPlace';
+import { MapyTripPlanner } from '@/components/MapyTripPlanner';
+import type { TripPlanDraft } from '@/lib/mapy';
+import { upsertEventTripPlan } from '@/lib/tripPlans';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
-  { value: 'district', label: 'Város + kerület' },
   { value: 'address', label: 'Pontos cím' },
   { value: 'free', label: 'Szabad megadás' },
   { value: 'online', label: 'Online' },
@@ -49,7 +49,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationDistrict, setLocationDistrict] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationFreeText, setLocationFreeText] = useState('');
-  const [selectedPlace, setSelectedPlace] = useState<AddressSelection | null>(null);
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLon, setLocationLon] = useState<number | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
@@ -57,6 +58,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [distance, setDistance] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -115,29 +117,41 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
 
     setLoading(true);
-    const { error } = await supabase.from('events').insert({
-      title: title.trim(),
-      description: description.trim() || null,
-      category: categoryString,
-      event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
-      event_time: eventTime || null,
-      location_type: locationType,
-      location_city: locationCity || null,
-      location_district: locationDistrict || null,
-      location_address: locationAddress || null,
-      location_free_text: locationFreeText || null,
-      max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
-      image_emoji: imageEmoji,
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      created_by: user.id,
-      ...buildEventPlaceFields(selectedPlace, selectedPlace?.details ?? null),
-    });
+    const { data, error } = await supabase
+      .from('events')
+      .insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        category: categoryString,
+        event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
+        event_time: eventTime || null,
+        location_type: locationType,
+        location_city: locationCity || null,
+        location_district: locationDistrict || null,
+        location_address: locationAddress || null,
+        location_free_text: locationFreeText || null,
+        location_lat: locationLat,
+        location_lon: locationLon,
+        max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
+        image_emoji: imageEmoji,
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        created_by: user.id,
+      })
+      .select('id')
+      .single();
 
-    if (error) {
+    if (error || !data) {
       toast.error('Hiba az esemény létrehozásakor.');
     } else {
-      toast.success('Esemény sikeresen létrehozva!');
-      onCreated();
+      try {
+        await upsertEventTripPlan(data.id, tripPlan);
+        toast.success('Esemény sikeresen létrehozva!');
+        onCreated();
+      } catch (tripPlanError) {
+        console.error('Trip plan save failed', tripPlanError);
+        toast.error('Az esemény létrejött, de az útvonalterv mentése nem sikerült.');
+        onCreated();
+      }
     }
     setLoading(false);
   };
@@ -145,7 +159,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.2 }}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
+        className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -297,7 +311,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 setLocationCity('');
                 setLocationDistrict('');
                 setLocationAddress('');
-                setSelectedPlace(null);
+                setLocationLat(null);
+                setLocationLon(null);
               }
               if (nextType !== 'free') {
                 setLocationFreeText('');
@@ -309,27 +324,28 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </SelectContent>
             </Select>
 
-            {(locationType === 'city' || locationType === 'district' || locationType === 'address') && (
+            {(locationType === 'city' || locationType === 'address') && (
               <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
                 onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
-                  setLocationAddress(sel.name || sel.address || sel.displayName);
+                  setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
-                  setSelectedPlace(sel);
+                  setLocationLat(sel.lat || null);
+                  setLocationLon(sel.lon || null);
                 }}
-                placeholder="Keress helyszínre, étteremre, bárra vagy címre..."
-                searchMode="mixed"
+                placeholder="Keress rá egy címre..."
               />
             )}
             {locationType === 'free' && (
               <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />
             )}
+          </div>
 
-            {selectedPlace && ['city', 'district', 'address'].includes(locationType) && (
-              <PlaceSelectionPreview selection={selectedPlace} />
-            )}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Túra- / útvonalterv (opcionális)</Label>
+            <MapyTripPlanner value={tripPlan} onChange={setTripPlan} />
           </div>
 
           <div className="space-y-2">

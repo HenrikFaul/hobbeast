@@ -1,23 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { MapPin, Loader2 } from 'lucide-react';
-import { loadPlaceDetails, searchPlaces } from '@/lib/places/orchestrator';
-import type { CanonicalPlaceCategory, NormalizedPlaceDetails, NormalizedPlaceSummary, PlaceDiagnostics, PlaceProviderSource, SourceIds } from '@/lib/places/types';
+import { suggestPlaces, searchTextPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
 
 export interface AddressSelection {
   displayName: string;
-  name?: string;
   city: string;
   district: string;
   address: string;
   lat: number;
   lon: number;
-  categories?: CanonicalPlaceCategory[];
-  source?: PlaceProviderSource;
-  sourceIds?: SourceIds;
-  diagnostics?: PlaceDiagnostics;
-  details?: NormalizedPlaceDetails | null;
 }
 
 interface AddressAutocompleteProps {
@@ -25,55 +17,16 @@ interface AddressAutocompleteProps {
   onSelect: (selection: AddressSelection) => void;
   placeholder?: string;
   className?: string;
-  searchMode?: 'mixed' | 'address' | 'venue';
 }
 
-function selectionFromPlace(place: NormalizedPlaceSummary, details: NormalizedPlaceDetails | null): AddressSelection {
-  return {
-    displayName: place.formattedAddress || [place.name, place.address, place.city].filter(Boolean).join(', '),
-    name: place.name,
-    city: place.city || '',
-    district: place.district || '',
-    address: place.address || place.name,
-    lat: place.lat,
-    lon: place.lon,
-    categories: place.categories,
-    source: place.source,
-    sourceIds: place.sourceIds,
-    diagnostics: place.diagnostics,
-    details,
-  };
-}
-
-function compactLocation(place: NormalizedPlaceSummary) {
-  return [place.address, place.city, place.country].filter(Boolean).join(', ');
-}
-
-function categoryLabel(category: CanonicalPlaceCategory) {
-  const labels: Record<CanonicalPlaceCategory, string> = {
-    food_restaurant: 'Étterem',
-    cafe: 'Kávézó',
-    bar_nightlife: 'Bár / Esti hely',
-    entertainment: 'Szórakozás',
-    hobby_games: 'Hobbi / Játék',
-    culture: 'Kultúra',
-    sports: 'Sport',
-    park_outdoor: 'Kültéri hely',
-    shopping: 'Bolt',
-    tourism: 'Látnivaló',
-    generic_poi: 'Helyszín',
-    unknown: 'Ismeretlen',
-  };
-  return labels[category] || 'Helyszín';
-}
-
-export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy helyet vagy címet...', className, searchMode = 'mixed' }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<NormalizedPlaceSummary[]>([]);
+  const [results, setResults] = useState<AwsSuggestResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const latestQueryRef = useRef('');
+  const requestRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,27 +45,78 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
   useEffect(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    requestRef.current?.abort();
   }, []);
+
+  const buildQueryVariants = (input: string): string[] => {
+    const q = input.trim().replace(/\s+/g, ' ');
+    if (!q) return [];
+
+    const variants = new Set<string>();
+    variants.add(q);
+
+    const hasStreetType = /\b(utca|u\.|út|útja|tér|tere|körút|krt\.|sétány|park|fasor|rakpart)\b/i.test(q);
+
+    if (!hasStreetType) {
+      variants.add(`${q} utca`);
+      variants.add(`${q} út`);
+      variants.add(`${q} tér`);
+      variants.add(`${q} körút`);
+      variants.add(`${q} sétány`);
+    }
+
+    const parts = q.split(' ');
+    if (parts.length >= 2) {
+      const reversed = [...parts].reverse().join(' ');
+      variants.add(reversed);
+      if (!hasStreetType) {
+        variants.add(`${reversed} utca`);
+      }
+    }
+
+    return Array.from(variants);
+  };
 
   const search = async (q: string) => {
     const trimmed = q.trim();
-    latestQueryRef.current = trimmed;
-    if (trimmed.length < 2) {
+    if (trimmed.length < 3) {
       setResults([]);
       setShowDropdown(false);
       setLoading(false);
+      setErrorText(null);
       return;
     }
 
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+
     setLoading(true);
+    setErrorText(null);
+
     try {
-      const data = await searchPlaces(trimmed, { limit: 6, mode: searchMode });
-      if (latestQueryRef.current !== trimmed) return;
+      const variants = buildQueryVariants(trimmed);
+      let data: AwsSuggestResult[] = [];
+
+      for (const variant of variants) {
+        data = await suggestPlaces(variant, controller.signal);
+        if (data.length > 0) break;
+
+        data = await searchTextPlaces(variant, controller.signal);
+        if (data.length > 0) break;
+      }
+
       setResults(data);
       setShowDropdown(data.length > 0);
-    } catch {
-      setResults([]);
-      setShowDropdown(false);
+      if (data.length === 0) {
+        setErrorText('Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.');
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        setResults([]);
+        setShowDropdown(false);
+        setErrorText((error as Error).message || 'Hiba történt a címkeresés során.');
+      }
     } finally {
       setLoading(false);
     }
@@ -120,27 +124,47 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
   const handleChange = (val: string) => {
     setQuery(val);
+    setErrorText(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void search(val);
-    }, 350);
+    }, 400);
   };
 
-  const handleSelect = async (result: NormalizedPlaceSummary) => {
-    setQuery(result.formattedAddress || compactLocation(result) || result.name);
+  const handleSelect = async (result: AwsSuggestResult) => {
+    const label = result.place?.label || result.text;
+    setQuery(label);
     setResults([]);
     setShowDropdown(false);
+    setErrorText(null);
 
-    let details: NormalizedPlaceDetails | null = null;
-    if (searchMode !== 'address') {
-      try {
-        details = await loadPlaceDetails(result);
-      } catch {
-        details = null;
+    let city = result.place?.locality || '';
+    let district = result.place?.district || '';
+    let address = [result.place?.street, result.place?.addressNumber].filter(Boolean).join(' ').trim();
+    let lat = result.place?.position ? result.place.position[1] : 0;
+    let lon = result.place?.position ? result.place.position[0] : 0;
+
+    if (result.placeId && (!lat || !lon)) {
+      const details = await getPlace(result.placeId);
+      if (details) {
+        city = city || details.locality || '';
+        district = district || details.district || '';
+        address = address || [details.street, details.addressNumber].filter(Boolean).join(' ').trim();
+        if (details.position) {
+          lon = details.position[0];
+          lat = details.position[1];
+        }
       }
     }
 
-    onSelect(selectionFromPlace(result, details));
+    onSelect({
+      displayName: label,
+      city,
+      district,
+      address,
+      lat,
+      lon,
+    });
   };
 
   return (
@@ -158,32 +182,24 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
       </div>
 
       {showDropdown && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-72 overflow-y-auto">
-          {results.map((r, index) => {
-            const firstCategory = r.categories[0] ?? 'unknown';
-            return (
-              <button
-                key={`${r.source}-${r.sourceIds.geoapify ?? ''}-${r.sourceIds.tomtom ?? ''}-${r.lat}-${r.lon}-${index}`}
-                type="button"
-                className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors text-sm border-b last:border-0 flex items-start gap-3"
-                onClick={() => void handleSelect(r)}
-              >
-                <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-foreground font-medium leading-snug">{r.name}</span>
-                    <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0">
-                      {categoryLabel(firstCategory)}
-                    </Badge>
-                  </div>
-                  <p className="text-muted-foreground leading-snug truncate">{compactLocation(r) || r.formattedAddress || r.name}</p>
-                </div>
-              </button>
-            );
-          })}
-          <p className="text-[10px] text-muted-foreground text-center py-1.5">
-            Helyadatok: Geoapify elsődleges keresés, TomTom kiegészítés/fallback amikor szükséges.
-          </p>
+        <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto">
+          {results.map((r, i) => (
+            <button
+              key={`${r.suggestId || i}-${r.text}`}
+              type="button"
+              className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors text-sm border-b last:border-0 flex items-start gap-2"
+              onClick={() => handleSelect(r)}
+            >
+              <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <span className="text-foreground leading-snug">{r.place?.label || r.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {errorText && (
+        <div className="mt-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorText}
         </div>
       )}
     </div>

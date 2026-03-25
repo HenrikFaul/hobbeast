@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEvents, type MappedEventbriteEvent } from "@/lib/eventbrite";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function AdminEventbrite() {
@@ -29,6 +30,27 @@ export function AdminEventbrite() {
     } catch (err: any) {
       setError(err.message || 'Hiba az Eventbrite API hívásnál');
       toast.error('Eventbrite hiba');
+    }
+    setLoading(false);
+  };
+
+  const handleTokenTest = async () => {
+    setLoading(true);
+    setError(null);
+    setDebugInfo(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('eventbrite-import', {
+        body: { action: 'validate_token' },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.ok) {
+        toast.success('Eventbrite token validálva');
+        setDebugInfo(`Token rendben. Webhook ID: ${data?.config?.webhook_id || 'nincs beállítva'}`);
+      } else {
+        setError(`Eventbrite token hiba: ${data?.status || 'ismeretlen'} - ${JSON.stringify(data?.response)}`);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Token teszt hiba');
     }
     setLoading(false);
   };
@@ -92,7 +114,11 @@ export function AdminEventbrite() {
             </Button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleTokenTest} disabled={loading}>
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Token teszt
+            </Button>
             <Button variant="outline" size="sm" onClick={handleOrgPull} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               Szervezeti események

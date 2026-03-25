@@ -10,8 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { EditEventDialog } from "@/components/EditEventDialog";
-import { PlaceSelectionPreview } from "@/components/PlaceSelectionPreview";
-import { hydrateEventPlace } from "@/lib/places/eventPlace";
+import { MapyTripPlanner } from '@/components/MapyTripPlanner';
+import type { TripPlanDraft } from '@/lib/mapy';
+import { getEventTripPlan } from '@/lib/tripPlans';
 
 interface EventData {
   id: string;
@@ -25,14 +26,6 @@ interface EventData {
   location_free_text: string | null;
   location_type: string | null;
   max_attendees: number | null;
-  place_name?: string | null;
-  place_source?: string | null;
-  place_source_ids?: unknown;
-  place_categories?: string[] | null;
-  place_lat?: number | null;
-  place_lon?: number | null;
-  place_details?: unknown;
-  place_diagnostics?: unknown;
   image_emoji: string | null;
   tags: string[] | null;
   description: string | null;
@@ -64,6 +57,7 @@ const EventDetail = () => {
   const [isExternal, setIsExternal] = useState(false);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const [externalSource, setExternalSource] = useState<string>('');
+  const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -104,6 +98,12 @@ const EventDetail = () => {
       if (data) {
         setEvent(data);
         setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+        try {
+          const loadedTripPlan = await getEventTripPlan(id);
+          setTripPlan(loadedTripPlan);
+        } catch (tripPlanError) {
+          console.error('Failed to load trip plan', tripPlanError);
+        }
       }
 
       // Check if user has joined
@@ -151,7 +151,7 @@ const EventDetail = () => {
   };
 
   const getLocationString = (ev: EventData) => {
-    const parts = [ev.place_name, ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
+    const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return '🌐 Online esemény';
     return parts.join(', ') || 'Helyszín nem megadva';
   };
@@ -164,7 +164,6 @@ const EventDetail = () => {
 
   const isOwner = user && event && event.created_by === user.id;
   const isSample = id?.startsWith('sample-');
-  const selectedPlace = event ? hydrateEventPlace(event as any) : null;
 
   if (loading) {
     return (
@@ -273,13 +272,6 @@ const EventDetail = () => {
             </Card>
           </div>
 
-
-          {selectedPlace && (
-            <div className="mb-6"> 
-              <PlaceSelectionPreview selection={selectedPlace} />
-            </div>
-          )}
-
           {/* Description */}
           {event.description && (
             <Card className="rounded-xl mb-6">
@@ -288,6 +280,12 @@ const EventDetail = () => {
                 <p className="text-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
               </CardContent>
             </Card>
+          )}
+
+          {tripPlan && (
+            <div className="mb-6">
+              <MapyTripPlanner value={tripPlan} readOnly />
+            </div>
           )}
 
           {/* Action buttons */}
@@ -348,6 +346,9 @@ const EventDetail = () => {
                   if (data) {
                     setEvent(data);
                     setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+                    getEventTripPlan(id)
+                      .then((plan) => setTripPlan(plan))
+                      .catch((error) => console.error('Failed to refresh trip plan', error));
                   }
                 });
             }

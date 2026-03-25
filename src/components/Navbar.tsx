@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Plus } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/hobbeast-logo.png";
 
@@ -26,7 +27,6 @@ const Navbar = () => {
           <span className="font-display text-xl font-bold text-gradient">Hobbeast</span>
         </Link>
 
-        {/* Desktop */}
         <div className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <Link
@@ -42,9 +42,7 @@ const Navbar = () => {
           {!loading && (
             user ? (
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate('/events')}>
-                  <Plus className="h-4 w-4 mr-1" /> Esemény
-                </Button>
+                <NotificationBell />
                 <ProfileMenu />
               </div>
             ) : (
@@ -55,13 +53,11 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile toggle */}
         <button className="md:hidden p-2 text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden glass-strong border-t pb-4">
           {navLinks.map((link) => (
