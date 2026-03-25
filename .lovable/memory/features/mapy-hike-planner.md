@@ -1,10 +1,14 @@
 Mapy.cz túratervező integráció - útvonaltervezés, szintprofil, eseményhez csatolás
-- API key: MAPY_CZ_API_KEY secret-ben tárolva
+- API key (client-side, publishable): hardcoded in src/lib/mapy.ts
+- API key (edge function): MAPY_CZ_API_KEY secret
 - Edge function: supabase/functions/mapy-routing/index.ts (route + elevation proxy)
-- Client lib: src/lib/mapyCz.ts (planRoute, getElevation, calculateAscentDescent)
-- DB: hike_routes tábla (event_id FK, waypoints, geometry, elevation_profile, distance/duration/ascent/descent)
-- UI: HikePlanner component + ElevationChart, CreateEventDialog-ba integrálva
+- Client lib: src/lib/mapy.ts (planMapyRoute, enrichMapyElevation, suggestMapyLocations, reverseGeocodeMapyPoint, extractLineCoordinates)
+- DB: event_trip_plans tábla (event_id UNIQUE FK, start_point/end_point jsonb, waypoints, geometry, elevation_profile/summary, length_m/duration_s)
+- DB: hike_routes tábla (régebbi, event_id FK, waypoints, geometry, elevation_profile)
+- UI: MapyTripPlanner component (search, map click, route render, elevation), CreateEventDialog + EditEventDialog-ba integrálva
+- EventDetail oldalon read-only megjelenítés
+- Trip plan persistence: src/lib/tripPlans.ts (upsertEventTripPlan, getEventTripPlan)
+- AI/backend-ready schema: src/lib/tripPlanningSchema.ts, tripPlanningService.ts, tripPlanningAudit.ts, tripPlanningProposals.ts
 - Route types: foot_hiking, foot_fast, bike_mountain, bike_road, car_fast, car_short
-- Mapy.cz API base: https://api.mapy.cz/v1/
-- Routing endpoint: /routing/route?start=lon,lat&end=lon,lat&routeType=...&format=geojson
-- Elevation endpoint: POST /elevation with {coordinates: [{lon, lat}]}
+- Mapy.cz API base: https://api.mapy.com/v1
+- External events cron job: 2 óránként fut (pg_cron + pg_net)
