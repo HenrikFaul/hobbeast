@@ -70,6 +70,71 @@ export type Database = {
           },
         ]
       }
+      event_trip_plans: {
+        Row: {
+          created_at: string
+          duration_s: number | null
+          elevation_profile: Json | null
+          elevation_summary: Json | null
+          end_point: Json
+          event_id: string
+          external_url: string | null
+          geometry: Json | null
+          id: string
+          length_m: number | null
+          provider: string
+          route_type: string
+          start_point: Json
+          updated_at: string
+          warnings: Json | null
+          waypoints: Json | null
+        }
+        Insert: {
+          created_at?: string
+          duration_s?: number | null
+          elevation_profile?: Json | null
+          elevation_summary?: Json | null
+          end_point: Json
+          event_id: string
+          external_url?: string | null
+          geometry?: Json | null
+          id?: string
+          length_m?: number | null
+          provider?: string
+          route_type?: string
+          start_point: Json
+          updated_at?: string
+          warnings?: Json | null
+          waypoints?: Json | null
+        }
+        Update: {
+          created_at?: string
+          duration_s?: number | null
+          elevation_profile?: Json | null
+          elevation_summary?: Json | null
+          end_point?: Json
+          event_id?: string
+          external_url?: string | null
+          geometry?: Json | null
+          id?: string
+          length_m?: number | null
+          provider?: string
+          route_type?: string
+          start_point?: Json
+          updated_at?: string
+          warnings?: Json | null
+          waypoints?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_trip_plans_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           category: string
