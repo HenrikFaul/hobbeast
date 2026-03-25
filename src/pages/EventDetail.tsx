@@ -10,6 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { EditEventDialog } from "@/components/EditEventDialog";
+import { MapyTripPlanner } from '@/components/MapyTripPlanner';
+import type { TripPlanDraft } from '@/lib/mapy';
+import { getEventTripPlan } from '@/lib/tripPlans';
 
 interface EventData {
   id: string;
@@ -54,6 +57,7 @@ const EventDetail = () => {
   const [isExternal, setIsExternal] = useState(false);
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const [externalSource, setExternalSource] = useState<string>('');
+  const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -94,6 +98,12 @@ const EventDetail = () => {
       if (data) {
         setEvent(data);
         setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+        try {
+          const loadedTripPlan = await getEventTripPlan(id);
+          setTripPlan(loadedTripPlan);
+        } catch (tripPlanError) {
+          console.error('Failed to load trip plan', tripPlanError);
+        }
       }
 
       // Check if user has joined
@@ -272,6 +282,12 @@ const EventDetail = () => {
             </Card>
           )}
 
+          {tripPlan && (
+            <div className="mb-6">
+              <MapyTripPlanner value={tripPlan} readOnly />
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-3">
             {isExternal && externalUrl ? (
@@ -330,6 +346,9 @@ const EventDetail = () => {
                   if (data) {
                     setEvent(data);
                     setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+                    getEventTripPlan(id)
+                      .then((plan) => setTripPlan(plan))
+                      .catch((error) => console.error('Failed to refresh trip plan', error));
                   }
                 });
             }
