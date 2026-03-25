@@ -187,7 +187,7 @@ export function getMapyAttributionText() {
 }
 
 export async function suggestMapyLocations(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'hu', limit: '8', type: 'regional,poi' });
+  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
   const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, params);
   return extractEntityList(payload)
