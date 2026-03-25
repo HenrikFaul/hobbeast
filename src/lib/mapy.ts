@@ -49,7 +49,7 @@ export interface TripPlanDraft {
 interface MapyEntity {
   name?: string;
   label?: string;
-  position?: [number, number];
+  position?: { lon: number; lat: number } | [number, number];
   type?: string;
   location?: string;
   bbox?: [number, number, number, number];
