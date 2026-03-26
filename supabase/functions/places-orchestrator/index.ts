@@ -141,7 +141,7 @@ async function searchGeoapify(request: SearchRequest): Promise<NormalizedPlaceSu
     return {
       id: `geoapify-${properties.place_id || index}`,
       source: 'geoapify',
-      sourceIds: { geoapify: String(properties.place_id || properties.datasource?.raw || index) },
+      sourceIds: { geoapify: String(properties.place_id || (properties.datasource as any)?.raw || index) },
       name: String(properties.name || properties.formatted || request.query),
       categories: mapped.categories,
       providerCategories,
