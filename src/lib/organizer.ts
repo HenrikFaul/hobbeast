@@ -166,13 +166,13 @@ export async function saveOrganizerNote(params: {
 
   if (error) throw error;
 
-  await supabase.from('participation_audits').insert({
-    participation_id: params.participantId,
+  await supabase.from('organizer_audit_log' as any).insert({
     event_id: params.eventId,
     action: 'note_updated',
     actor_user_id: params.actorUserId,
+    target_user_id: params.participantId,
     metadata: { organizer_note: params.organizerNote },
-  });
+  } as any);
 }
 
 export async function getParticipationAudit(participantId: string) {
