@@ -385,7 +385,7 @@ const EventDetail = () => {
       {/* Edit dialog */}
       {showEdit && event && !isSample && (
         <EditEventDialog
-          event={event}
+          event={event as any}
           onClose={() => setShowEdit(false)}
           onUpdated={() => {
             setShowEdit(false);

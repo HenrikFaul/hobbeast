@@ -144,7 +144,7 @@ export async function planTripFromRequest(
       status: 'needs_clarification' as const,
       unresolvedItems,
       warnings: ['Legalább egy helyszín tisztázásra szorul a route generálás előtt.'],
-      diagnostics: { provider: 'mapy', degraded: false, correlationId: options?.correlationId },
+      diagnostics: { provider: 'mapy' as const, degraded: false, correlationId: options?.correlationId },
     };
     void persistTripPlanningAudit({
       requestId,

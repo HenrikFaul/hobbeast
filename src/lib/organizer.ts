@@ -219,7 +219,7 @@ export async function createEventMessage(input: {
     .select('*')
     .single();
   if (error) throw error;
-  return data as OrganizerMessage;
+  return data as unknown as OrganizerMessage;
 }
 
 export async function getUpcomingJoinedEvents(userId: string) {
