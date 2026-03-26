@@ -187,7 +187,7 @@ export async function getParticipationAudit(participantId: string) {
 
 export async function getEventMessages(eventId: string): Promise<OrganizerMessage[]> {
   const { data, error } = await supabase
-    .from('event_messages')
+    .from('organizer_messages' as any)
     .select('*')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
