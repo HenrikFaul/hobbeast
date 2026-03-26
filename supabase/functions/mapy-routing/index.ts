@@ -20,9 +20,38 @@ serve(async (req) => {
 
   try {
     const { action, params } = await req.json() as {
-      action: 'route' | 'elevation';
+      action: 'suggest' | 'geocode' | 'reverse_geocode' | 'route' | 'elevation';
       params: Record<string, unknown>;
     };
+
+    if (action === 'suggest' || action === 'geocode') {
+      const { query, locality } = params as { query: string; locality?: string };
+      const endpoint = action === 'suggest' ? 'suggest' : 'geocode';
+      const url = `https://api.mapy.com/v1/${endpoint}?apikey=${apiKey}&query=${encodeURIComponent(query)}&lang=en&limit=8&type=regional,poi${locality ? `&locality=${encodeURIComponent(locality)}` : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Mapy ${endpoint} error ${res.status}: ${body}`);
+      }
+      const data = await res.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'reverse_geocode') {
+      const { lat, lon } = params as { lat: number; lon: number };
+      const url = `https://api.mapy.com/v1/rgeocode?apikey=${apiKey}&lat=${lat}&lon=${lon}&lang=en`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Mapy reverse geocode error ${res.status}: ${body}`);
+      }
+      const data = await res.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     if (action === 'route') {
       const { start, end, waypoints = [], routeType = 'foot_fast' } = params as {
@@ -82,7 +111,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Unknown action. Use "route" or "elevation".' }), {
+    return new Response(JSON.stringify({ error: 'Unknown action.' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

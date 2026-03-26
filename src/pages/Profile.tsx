@@ -14,10 +14,12 @@ import { ChangePasswordCard } from '@/components/ChangePasswordCard';
 import { DeleteAccountCard } from '@/components/DeleteAccountCard';
 import { NotificationPreferencesCard } from '@/components/NotificationPreferencesCard';
 import { FavoriteEventCategoriesCard } from '@/components/FavoriteEventCategoriesCard';
-import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
+import { ArrowLeft, BellRing, BriefcaseBusiness, CalendarPlus, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
+import { useOrganizerMode } from '@/hooks/useOrganizerMode';
+import { getUpcomingJoinedEvents } from '@/lib/organizer';
 
 const HOBBY_OPTIONS = [
   'Futás', 'Kerékpár', 'Túrázás', 'Jóga', 'Crossfit', 'Úszás', 'Tenisz', 'Kosárlabda', 'Foci',
@@ -33,6 +35,7 @@ const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { canUseOrganizerMode } = useOrganizerMode();
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -48,6 +51,7 @@ const Profile = () => {
   const [hobbies, setHobbies] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
@@ -69,6 +73,11 @@ const Profile = () => {
       }
     };
     fetchProfile();
+    if (user) {
+      void getUpcomingJoinedEvents(user.id)
+        .then(setUpcomingEvents)
+        .catch(() => setUpcomingEvents([]));
+    }
   }, [user, navigate]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,7 +328,59 @@ const Profile = () => {
             </motion.div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
+            <Card className="rounded-2xl shadow-card border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2.5 font-display text-lg">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                    <BellRing className="h-5 w-5 text-primary" />
+                  </div>
+                  Közelgő emlékeztetők
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {upcomingEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Még nincs olyan közelgő eseményed, amihez emlékeztetőt mutathatnánk.</p>
+                ) : (
+                  upcomingEvents.slice(0, 4).map((event) => (
+                    <div key={event.id} className="rounded-xl border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{event.image_emoji || '🎉'} {event.title}</div>
+                          <div className="text-sm text-muted-foreground">{event.event_date} {event.event_time ? `• ${event.event_time}` : ''}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{event.location_city || 'Helyszín hamarosan'}</div>
+                        </div>
+                        <Badge variant="outline" className="rounded-lg">{event.participation_status}</Badge>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => navigate(`/events/${event.id}`)}>
+                          Megnyitás
+                        </Button>
+                        <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => navigate(`/events/${event.id}`)}>
+                          <CalendarPlus className="mr-1 h-4 w-4" /> Naptár
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+            {canUseOrganizerMode && (
+              <Card className="rounded-2xl shadow-card border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2.5 font-display text-lg">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10">
+                      <BriefcaseBusiness className="h-5 w-5 text-accent" />
+                    </div>
+                    Organizer mód
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Az InviteM ihlette szervezői felületeden kezelheted a résztvevőket, üzeneteket, check-int és az alap analitikákat.</p>
+                  <Button className="w-full rounded-xl" onClick={() => navigate('/organizer')}>Organizer felület megnyitása</Button>
+                </CardContent>
+              </Card>
+            )}
             <NotificationPreferencesCard />
             <ChangePasswordCard />
             <DeleteAccountCard />

@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 export type MapyResultType =
   | 'address'
   | 'poi'
@@ -70,7 +71,7 @@ interface RouteResponseLike {
   routePoints?: Array<{ mappedPosition?: [number, number]; originalPosition?: [number, number] }>;
 }
 
-const MAPY_API_KEY = (import.meta.env.VITE_MAPY_API_KEY as string | undefined) || 'gck3A6lYv7XWC_7ii2uVCxfYtYEUjN-t_y1YDztu2_0';
+const MAPY_API_KEY = (import.meta.env.VITE_MAPY_API_KEY as string | undefined) || '';
 const MAPY_BASE_URL = (import.meta.env.VITE_MAPY_API_BASE_URL as string | undefined) || 'https://api.mapy.com/v1';
 const MAPY_TILE_URL = (import.meta.env.VITE_MAPY_TILE_URL as string | undefined) || `${MAPY_BASE_URL}/maptiles/outdoor/256/{z}/{x}/{y}`;
 const MAPY_TILE_ATTRIBUTION = 'Powered by Mapy.com';
@@ -84,6 +85,12 @@ const ELEVATION_ENDPOINTS = ['/elevation'];
 function withApiKey(params: URLSearchParams) {
   if (MAPY_API_KEY) params.set('apikey', MAPY_API_KEY);
   return params;
+}
+
+async function invokeMapyFunction<T>(action: 'suggest' | 'geocode' | 'reverse_geocode' | 'route' | 'elevation', params: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('mapy-routing', { body: { action, params } });
+  if (error) throw error;
+  return data as T;
 }
 
 async function fetchJsonWithFallback<T>(
@@ -171,7 +178,7 @@ function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion
 }
 
 export function isMapyConfigured() {
-  return Boolean(MAPY_API_KEY);
+  return true;
 }
 
 export function getMapyTileUrl(mapset: 'outdoor' | 'basic' | 'winter' | 'aerial' = 'outdoor') {
@@ -187,28 +194,48 @@ export function getMapyAttributionText() {
 }
 
 export async function suggestMapyLocations(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
-  if (locality) params.set('locality', locality);
-  const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, params);
-  return extractEntityList(payload)
-    .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
-    .filter((item): item is MapySuggestion => Boolean(item));
+  try {
+    const payload = await invokeMapyFunction<unknown>('suggest', { query, locality });
+    return extractEntityList(payload)
+      .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
+      .filter((item): item is MapySuggestion => Boolean(item));
+  } catch {
+    const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+    if (locality) params.set('locality', locality);
+    const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, params);
+    return extractEntityList(payload)
+      .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
+      .filter((item): item is MapySuggestion => Boolean(item));
+  }
 }
 
 export async function geocodeMapyLocation(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
-  if (locality) params.set('locality', locality);
-  const payload = await fetchJsonWithFallback<unknown>(GEOCODE_ENDPOINTS, params);
-  return extractEntityList(payload)
-    .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
-    .filter((item): item is MapySuggestion => Boolean(item));
+  try {
+    const payload = await invokeMapyFunction<unknown>('geocode', { query, locality });
+    return extractEntityList(payload)
+      .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
+      .filter((item): item is MapySuggestion => Boolean(item));
+  } catch {
+    const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+    if (locality) params.set('locality', locality);
+    const payload = await fetchJsonWithFallback<unknown>(GEOCODE_ENDPOINTS, params);
+    return extractEntityList(payload)
+      .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
+      .filter((item): item is MapySuggestion => Boolean(item));
+  }
 }
 
 export async function reverseGeocodeMapyPoint(lat: number, lon: number): Promise<MapySuggestion | null> {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'en' });
-  const payload = await fetchJsonWithFallback<unknown>(REVERSE_ENDPOINTS, params);
-  const entity = extractEntityList(payload)[0];
-  return entity ? normalizeEntity(entity, `reverse-${lat}-${lon}`) : null;
+  try {
+    const payload = await invokeMapyFunction<unknown>('reverse_geocode', { lat, lon });
+    const entity = extractEntityList(payload)[0];
+    return entity ? normalizeEntity(entity, `reverse-${lat}-${lon}`) : null;
+  } catch {
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'en' });
+    const payload = await fetchJsonWithFallback<unknown>(REVERSE_ENDPOINTS, params);
+    const entity = extractEntityList(payload)[0];
+    return entity ? normalizeEntity(entity, `reverse-${lat}-${lon}`) : null;
+  }
 }
 
 export async function planMapyRoute(input: {
@@ -219,20 +246,7 @@ export async function planMapyRoute(input: {
   avoidHighways?: boolean;
   avoidToll?: boolean;
 }): Promise<TripPlanDraft> {
-  const params = new URLSearchParams({
-    start: `${input.start.lon},${input.start.lat}`,
-    end: `${input.end.lon},${input.end.lat}`,
-    routeType: input.routeType,
-    format: 'geojson',
-  });
-  if (input.waypoints?.length) {
-    params.set('waypoints', input.waypoints.map((p) => `${p.lon},${p.lat}`).join(';'));
-  }
-  if (input.avoidHighways) params.set('avoidHighways', 'true');
-  if (input.avoidToll) params.set('avoidToll', 'true');
-
-  const payload = await fetchJsonWithFallback<RouteResponseLike>(ROUTE_ENDPOINTS, params);
-
+  const payload = await invokeMapyFunction<RouteResponseLike>('route', input as unknown as Record<string, unknown>);
   return {
     provider: 'mapy',
     routeType: input.routeType,
@@ -256,13 +270,8 @@ export async function enrichMapyElevation(plan: TripPlanDraft): Promise<TripPlan
   const points = sampleGeoJsonGeometry(plan.geometry, 128);
   if (!points.length) return plan;
 
-  const params = new URLSearchParams({
-    positions: points.map((p) => `${p.lon},${p.lat}`).join(';'),
-    lang: 'hu',
-  });
-
   try {
-    const payload = await fetchJsonWithFallback<Array<{ position?: [number, number]; elevation?: number }>>(ELEVATION_ENDPOINTS, params);
+    const payload = await invokeMapyFunction<Array<{ position?: [number, number]; elevation?: number }>>('elevation', { coordinates: points.map((p) => [p.lon, p.lat]) });
     const profile = payload
       .filter((item) => item.position && typeof item.elevation === 'number')
       .map((item) => ({ lat: item.position![1], lon: item.position![0], elevation: item.elevation! }));

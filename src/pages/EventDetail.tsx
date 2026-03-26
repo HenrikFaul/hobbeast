@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, BriefcaseBusiness } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,8 @@ import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
 
+type ParticipationStatus = 'interested' | 'going' | 'waitlist' | 'checked_in' | 'cancelled' | 'no_show';
+
 interface EventData {
   id: string;
   title: string;
@@ -24,8 +26,18 @@ interface EventData {
   location_district: string | null;
   location_address: string | null;
   location_free_text: string | null;
+  place_source?: string | null;
+  place_name?: string | null;
+  place_categories?: string[] | null;
+  place_address?: string | null;
+  place_city?: string | null;
+  place_country?: string | null;
+  place_details?: Record<string, unknown> | null;
   location_type: string | null;
   max_attendees: number | null;
+  waitlist_enabled?: boolean | null;
+  visibility_type?: string | null;
+  participation_type?: string | null;
   image_emoji: string | null;
   tags: string[] | null;
   description: string | null;
@@ -51,6 +63,7 @@ const EventDetail = () => {
   const [event, setEvent] = useState<EventData | null>(null);
   const [participantCount, setParticipantCount] = useState(0);
   const [hasJoined, setHasJoined] = useState(false);
+  const [participationStatus, setParticipationStatus] = useState<ParticipationStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLeave, setShowLeave] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -110,11 +123,12 @@ const EventDetail = () => {
       if (user) {
         const { data: participation } = await supabase
           .from('event_participants')
-          .select('id')
+          .select('id,status')
           .eq('event_id', id)
           .eq('user_id', user.id)
           .maybeSingle();
         setHasJoined(!!participation);
+        setParticipationStatus((participation as any)?.status ?? null);
       }
 
       setLoading(false);
@@ -126,13 +140,19 @@ const EventDetail = () => {
     if (!user) { navigate('/auth?redirect=/events/' + id); return; }
     if (!id || id.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
 
-    const { error } = await supabase.from('event_participants').insert({ event_id: id, user_id: user.id });
+    const targetStatus = event?.max_attendees && participantCount >= event.max_attendees ? (event.waitlist_enabled ? 'waitlist' : null) : 'going';
+    if (!targetStatus) {
+      toast.error('Az esemény megtelt, és nincs várólista.');
+      return;
+    }
+    const { error } = await supabase.from('event_participants').insert({ event_id: id, user_id: user.id, status: targetStatus });
     if (error) {
       if (error.code === '23505') toast.info('Már csatlakoztál!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      toast.success(targetStatus === 'waitlist' ? 'Felkerültél a várólistára!' : 'Sikeresen csatlakoztál!');
       setHasJoined(true);
+      setParticipationStatus(targetStatus as ParticipationStatus);
       setParticipantCount(p => p + 1);
     }
   };
@@ -145,6 +165,7 @@ const EventDetail = () => {
     } else {
       toast.success('Sikeresen kiléptél az eseményből.');
       setHasJoined(false);
+      setParticipationStatus(null);
       setParticipantCount(p => Math.max(0, p - 1));
     }
     setShowLeave(false);
@@ -164,6 +185,7 @@ const EventDetail = () => {
 
   const isOwner = user && event && event.created_by === user.id;
   const isSample = id?.startsWith('sample-');
+  const remainingSlots = event?.max_attendees ? Math.max(0, event.max_attendees - participantCount) : null;
 
   if (loading) {
     return (
@@ -210,13 +232,21 @@ const EventDetail = () => {
             <div className="flex items-start justify-between gap-3 mb-3">
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
-                <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
-                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate('/organizer')}>
+                    <BriefcaseBusiness className="h-3.5 w-3.5 mr-1" /> Organizer
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
+                  </Button>
+                </div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{event.category}</Badge>
+              {event.visibility_type && <Badge variant="outline">{event.visibility_type}</Badge>}
+              {participationStatus && <Badge className="bg-primary/10 text-primary border-0">Állapot: {participationStatus}</Badge>}
+              {remainingSlots !== null && <Badge variant="outline">Szabad helyek: {remainingSlots}</Badge>}
               {event.tags?.map(tag => (
                 <Badge key={tag} variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1" />{tag}</Badge>
               ))}
@@ -271,6 +301,26 @@ const EventDetail = () => {
               </CardContent>
             </Card>
           </div>
+
+          {event.place_name && (
+            <Card className="mb-6 rounded-xl">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Normalizált venue rekord</p>
+                    <p className="text-lg font-semibold text-foreground">{event.place_name}</p>
+                    <p className="text-sm text-muted-foreground">{[event.place_address, event.place_city, event.place_country].filter(Boolean).join(', ')}</p>
+                  </div>
+                  {event.place_source && <Badge variant="outline">{event.place_source}</Badge>}
+                </div>
+                {event.place_categories && event.place_categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {event.place_categories.map((category) => <Badge key={category} variant="secondary">{category}</Badge>)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Description */}
           {event.description && (
