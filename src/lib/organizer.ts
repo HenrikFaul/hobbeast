@@ -192,7 +192,7 @@ export async function getEventMessages(eventId: string): Promise<OrganizerMessag
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as OrganizerMessage[];
+  return (data ?? []) as unknown as OrganizerMessage[];
 }
 
 export async function createEventMessage(input: {
