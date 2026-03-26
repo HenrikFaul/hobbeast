@@ -32,7 +32,7 @@ interface EventData {
   place_address?: string | null;
   place_city?: string | null;
   place_country?: string | null;
-  place_details?: Record<string, unknown> | null;
+  place_details?: unknown;
   location_type: string | null;
   max_attendees: number | null;
   waitlist_enabled?: boolean | null;
