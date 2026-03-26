@@ -97,7 +97,7 @@ export async function getEventParticipants(
   if (error) throw error;
 
   const lowered = options?.search?.trim().toLowerCase();
-  const rows = (data ?? []) as OrganizerParticipant[];
+  const rows = (data ?? []) as unknown as OrganizerParticipant[];
   if (!lowered) return rows;
 
   return rows.filter((row) => {
