@@ -17,12 +17,8 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyActivity, type ActivityProfile } from '@/lib/hobbyCategories';
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
-import { NormalizedPlaceSearch } from '@/components/NormalizedPlaceSearch';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { upsertEventTripPlan } from '@/lib/tripPlans';
-import type { NormalizedPlaceDetails, NormalizedPlaceSummary } from '@/lib/places/types';
-import { loadPlaceDetails } from '@/lib/places/client';
-import { placeToEventColumns, placeToLegacyLocation } from '@/lib/places/eventMapping';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -63,8 +59,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<NormalizedPlaceSummary | null>(null);
-  const [selectedPlaceDetails, setSelectedPlaceDetails] = useState<NormalizedPlaceDetails | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -123,9 +117,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
 
     setLoading(true);
-    const legacyLocation = selectedPlace ? placeToLegacyLocation(selectedPlace) : null;
-    const placeColumns = placeToEventColumns(selectedPlace, selectedPlaceDetails);
-
     const { data, error } = await supabase
       .from('events')
       .insert({
@@ -134,19 +125,18 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         category: categoryString,
         event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
         event_time: eventTime || null,
-        location_type: legacyLocation?.location_type || locationType,
-        location_city: legacyLocation?.location_city || locationCity || null,
+        location_type: locationType,
+        location_city: locationCity || null,
         location_district: locationDistrict || null,
-        location_address: legacyLocation?.location_address || locationAddress || null,
-        location_free_text: legacyLocation?.location_free_text || locationFreeText || null,
-        location_lat: legacyLocation?.location_lat ?? locationLat,
-        location_lon: legacyLocation?.location_lon ?? locationLon,
+        location_address: locationAddress || null,
+        location_free_text: locationFreeText || null,
+        location_lat: locationLat,
+        location_lon: locationLon,
         max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
         image_emoji: imageEmoji,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
-        ...placeColumns,
-      } as any)
+      })
       .select('id')
       .single();
 
@@ -224,32 +214,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   ))}
                 </SelectContent>
               </Select>
-            )}
-          </div>
-
-          <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
-            <NormalizedPlaceSearch
-              label="Venue / hely keresése (Geoapify + TomTom)"
-              value={selectedPlace}
-              onSelect={(item) => {
-                setSelectedPlace(item);
-                const legacy = placeToLegacyLocation(item);
-                setLocationType('address');
-                setLocationCity(legacy.location_city || '');
-                setLocationAddress(legacy.location_address || '');
-                setLocationFreeText(legacy.location_free_text || '');
-                setLocationLat(legacy.location_lat);
-                setLocationLon(legacy.location_lon);
-                void loadPlaceDetails(item).then((response) => setSelectedPlaceDetails(response.item)).catch(() => setSelectedPlaceDetails(null));
-              }}
-              featurePath="event_create"
-              latitude={locationLat || undefined}
-              longitude={locationLon || undefined}
-            />
-            {selectedPlace && (
-              <div className="text-xs text-muted-foreground">
-                A kiválasztott venue normalizált place rekordként is mentésre kerül az eseményhez.
-              </div>
             )}
           </div>
 

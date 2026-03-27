@@ -71,30 +71,10 @@ export const clarificationItemSchema = z.object({
   candidates: z.array(locationCandidateSchema).optional(),
 });
 
-
-export const tripPointProposalSchema = z.object({
-  label: z.string().min(1),
-  lat: z.number(),
-  lon: z.number(),
-  rationale: z.string().optional(),
-});
-
-export const routeAlternativeProposalSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1),
-  routeType: z.enum(routeTypeValues),
-  summary: z.string().min(1),
-  estimatedLengthM: z.number().nullable().optional(),
-  estimatedDurationS: z.number().nullable().optional(),
-  points: z.array(tripPointProposalSchema).default([]),
-  warnings: z.array(z.string()).optional(),
-});
-
 export const aiTripPlanningResponseSchema = z.object({
   schemaVersion: z.literal('1.0').default('1.0'),
   status: z.enum(['success', 'needs_clarification', 'partial_success', 'failure']),
   resolvedRoute: z.any().optional(),
-  alternativeProposals: z.array(routeAlternativeProposalSchema).optional(),
   unresolvedItems: z.array(clarificationItemSchema).optional(),
   warnings: z.array(z.string()).optional(),
   diagnostics: z.object({
@@ -115,8 +95,6 @@ export type TripPlanningConstraintSet = z.infer<typeof tripPlanningConstraintSch
 export type AITripPlanningRequest = z.infer<typeof aiTripPlanningRequestSchema>;
 export type AITripPlanningResponse = z.infer<typeof aiTripPlanningResponseSchema>;
 export type AITripPlanningErrorCode = z.infer<typeof aiTripPlanningErrorCodeSchema>;
-export type TripPointProposal = z.infer<typeof tripPointProposalSchema>;
-export type RouteAlternativeProposal = z.infer<typeof routeAlternativeProposalSchema>;
 
 export function isResolvedLocationRef(value: unknown): value is LocationRef {
   return locationRefSchema.safeParse(value).success;
