@@ -109,7 +109,7 @@ const EventDetail = () => {
         .eq('id', id)
         .single();
       if (data) {
-        setEvent(data);
+        setEvent(data as unknown as EventData);
         setParticipantCount((data as any).event_participants?.[0]?.count || 0);
         try {
           const loadedTripPlan = await getEventTripPlan(id);
