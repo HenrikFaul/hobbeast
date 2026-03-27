@@ -205,11 +205,10 @@ export async function createEventMessage(input: {
   deliveryState: DeliveryState;
   scheduledFor?: string | null;
 }) {
-  const { data, error } = await supabase
-    .from('event_messages')
+  const { data, error } = await (supabase
+    .from('organizer_messages') as any)
     .insert({
       event_id: input.eventId,
-      actor_user_id: input.actorUserId,
       message_type: input.messageType,
       audience_filter: input.audienceFilter,
       subject: input.subject ?? null,
