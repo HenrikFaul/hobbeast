@@ -59,6 +59,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
