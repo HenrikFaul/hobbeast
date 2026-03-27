@@ -140,8 +140,8 @@ export async function planTripFromRequest(
 
   if (unresolvedItems.length > 0 || startResolved.status !== 'resolved' || endResolved.status !== 'resolved') {
     const response = {
-      schemaVersion: '1.0',
-      status: 'needs_clarification',
+      schemaVersion: '1.0' as const,
+      status: 'needs_clarification' as const,
       unresolvedItems,
       warnings: ['Legalább egy helyszín tisztázásra szorul a route generálás előtt.'],
       diagnostics: { provider: 'mapy', degraded: false, correlationId: options?.correlationId },
