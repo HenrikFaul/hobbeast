@@ -143,13 +143,13 @@ export async function transitionParticipation(params: {
     no_show: 'no_show',
   };
 
-  await supabase.from('participation_audits').insert({
-    participation_id: params.participantId,
+  await supabase.from('organizer_audit_log').insert({
     event_id: params.eventId,
-    action: actionMap[params.nextStatus],
     actor_user_id: params.actorUserId,
+    action: actionMap[params.nextStatus],
+    target_user_id: null,
     metadata: params.metadata ?? null,
-  });
+  } as any);
 }
 
 export async function saveOrganizerNote(params: {
