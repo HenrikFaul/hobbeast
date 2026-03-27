@@ -139,7 +139,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       ...placeColumns,
-    } as any).eq('id', event.id);
+    }).eq('id', event.id);
 
     if (error) {
       toast.error('Hiba a mentés során.');

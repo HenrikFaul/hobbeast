@@ -50,6 +50,8 @@ export type Database = {
           joined_at: string
           organizer_note: string | null
           status: string
+          status_updated_at: string
+          ticket_token: string | null
           user_id: string
         }
         Insert: {
@@ -60,6 +62,8 @@ export type Database = {
           joined_at?: string
           organizer_note?: string | null
           status?: string
+          status_updated_at?: string
+          ticket_token?: string | null
           user_id: string
         }
         Update: {
@@ -70,11 +74,60 @@ export type Database = {
           joined_at?: string
           organizer_note?: string | null
           status?: string
+          status_updated_at?: string
+          ticket_token?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_messages: {
+        Row: {
+          actor_user_id: string
+          audience_filter: string
+          body: string
+          created_at: string
+          delivery_state: string
+          event_id: string
+          id: string
+          message_type: string
+          scheduled_for: string | null
+          subject: string | null
+        }
+        Insert: {
+          actor_user_id: string
+          audience_filter: string
+          body: string
+          created_at?: string
+          delivery_state?: string
+          event_id: string
+          id?: string
+          message_type: string
+          scheduled_for?: string | null
+          subject?: string | null
+        }
+        Update: {
+          actor_user_id?: string
+          audience_filter?: string
+          body?: string
+          created_at?: string
+          delivery_state?: string
+          event_id?: string
+          id?: string
+          message_type?: string
+          scheduled_for?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_messages_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -147,6 +200,174 @@ export type Database = {
           },
         ]
       }
+
+      places_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          query_text: string
+          response_payload: Json
+          updated_at: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          query_text: string
+          response_payload: Json
+          updated_at?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          query_text?: string
+          response_payload?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trip_planning_audits: {
+        Row: {
+          caller_id: string | null
+          caller_type: string
+          chosen_alternative_id: string | null
+          correlation_id: string | null
+          created_at: string
+          error_code: string | null
+          event_id: string | null
+          finished_at: string | null
+          id: string
+          provider: string
+          request_id: string
+          request_summary: Json
+          route_type: string | null
+          started_at: string
+          status: string
+          warnings: Json | null
+        }
+        Insert: {
+          caller_id?: string | null
+          caller_type: string
+          chosen_alternative_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          event_id?: string | null
+          finished_at?: string | null
+          id?: string
+          provider?: string
+          request_id: string
+          request_summary?: Json
+          route_type?: string | null
+          started_at?: string
+          status: string
+          warnings?: Json | null
+        }
+        Update: {
+          caller_id?: string | null
+          caller_type?: string
+          chosen_alternative_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          event_id?: string | null
+          finished_at?: string | null
+          id?: string
+          provider?: string
+          request_id?: string
+          request_summary?: Json
+          route_type?: string | null
+          started_at?: string
+          status?: string
+          warnings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_planning_audits_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participation_audits: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          metadata: Json | null
+          participation_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          metadata?: Json | null
+          participation_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+          participation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participation_audits_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participation_audits_participation_id_fkey"
+            columns: ["participation_id"]
+            isOneToOne: false
+            referencedRelation: "event_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_reminder_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          joined_event_reminders: boolean
+          reminder_hours_before: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          joined_event_reminders?: boolean
+          reminder_hours_before?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          joined_event_reminders?: boolean
+          reminder_hours_before?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           category: string
@@ -165,8 +386,6 @@ export type Database = {
           location_lat: number | null
           location_lon: number | null
           location_type: string | null
-          max_attendees: number | null
-          participation_type: string | null
           place_address: string | null
           place_categories: string[] | null
           place_category_confidence: number | null
@@ -181,11 +400,17 @@ export type Database = {
           place_postcode: string | null
           place_source: string | null
           place_source_ids: Json | null
+          max_attendees: number | null
+          waitlist_enabled: boolean | null
+          visibility_type: string | null
+          participation_type: string | null
+          organizer_notes: string | null
+          external_ticket_url: string | null
+          entry_start_at: string | null
+          entry_end_at: string | null
           tags: string[] | null
           title: string
           updated_at: string
-          visibility_type: string | null
-          waitlist_enabled: boolean | null
         }
         Insert: {
           category: string
@@ -204,8 +429,6 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_type?: string | null
-          max_attendees?: number | null
-          participation_type?: string | null
           place_address?: string | null
           place_categories?: string[] | null
           place_category_confidence?: number | null
@@ -220,11 +443,31 @@ export type Database = {
           place_postcode?: string | null
           place_source?: string | null
           place_source_ids?: Json | null
+          place_address?: string | null
+          place_categories?: string[] | null
+          place_category_confidence?: number | null
+          place_city?: string | null
+          place_country?: string | null
+          place_details?: Json | null
+          place_diagnostics?: Json | null
+          place_distance_m?: number | null
+          place_lat?: number | null
+          place_lon?: number | null
+          place_name?: string | null
+          place_postcode?: string | null
+          place_source?: string | null
+          place_source_ids?: Json | null
+          max_attendees?: number | null
+          waitlist_enabled?: boolean | null
+          visibility_type?: string | null
+          participation_type?: string | null
+          organizer_notes?: string | null
+          external_ticket_url?: string | null
+          entry_start_at?: string | null
+          entry_end_at?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string
-          visibility_type?: string | null
-          waitlist_enabled?: boolean | null
         }
         Update: {
           category?: string
@@ -243,8 +486,6 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_type?: string | null
-          max_attendees?: number | null
-          participation_type?: string | null
           place_address?: string | null
           place_categories?: string[] | null
           place_category_confidence?: number | null
@@ -259,11 +500,17 @@ export type Database = {
           place_postcode?: string | null
           place_source?: string | null
           place_source_ids?: Json | null
+          max_attendees?: number | null
+          waitlist_enabled?: boolean | null
+          visibility_type?: string | null
+          participation_type?: string | null
+          organizer_notes?: string | null
+          external_ticket_url?: string | null
+          entry_start_at?: string | null
+          entry_end_at?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string
-          visibility_type?: string | null
-          waitlist_enabled?: boolean | null
         }
         Relationships: []
       }
@@ -288,6 +535,20 @@ export type Database = {
           location_lat: number | null
           location_lon: number | null
           location_type: string | null
+          place_address: string | null
+          place_categories: string[] | null
+          place_category_confidence: number | null
+          place_city: string | null
+          place_country: string | null
+          place_details: Json | null
+          place_diagnostics: Json | null
+          place_distance_m: number | null
+          place_lat: number | null
+          place_lon: number | null
+          place_name: string | null
+          place_postcode: string | null
+          place_source: string | null
+          place_source_ids: Json | null
           max_attendees: number | null
           organizer_name: string | null
           price_max: number | null
@@ -319,6 +580,20 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_type?: string | null
+          place_address?: string | null
+          place_categories?: string[] | null
+          place_category_confidence?: number | null
+          place_city?: string | null
+          place_country?: string | null
+          place_details?: Json | null
+          place_diagnostics?: Json | null
+          place_distance_m?: number | null
+          place_lat?: number | null
+          place_lon?: number | null
+          place_name?: string | null
+          place_postcode?: string | null
+          place_source?: string | null
+          place_source_ids?: Json | null
           max_attendees?: number | null
           organizer_name?: string | null
           price_max?: number | null
@@ -350,6 +625,20 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_type?: string | null
+          place_address?: string | null
+          place_categories?: string[] | null
+          place_category_confidence?: number | null
+          place_city?: string | null
+          place_country?: string | null
+          place_details?: Json | null
+          place_diagnostics?: Json | null
+          place_distance_m?: number | null
+          place_lat?: number | null
+          place_lon?: number | null
+          place_name?: string | null
+          place_postcode?: string | null
+          place_source?: string | null
+          place_source_ids?: Json | null
           max_attendees?: number | null
           organizer_name?: string | null
           price_max?: number | null
@@ -666,115 +955,6 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      organizer_audit_log: {
-        Row: {
-          action: string
-          actor_user_id: string
-          created_at: string
-          event_id: string
-          id: string
-          metadata: Json | null
-          target_user_id: string | null
-        }
-        Insert: {
-          action: string
-          actor_user_id: string
-          created_at?: string
-          event_id: string
-          id?: string
-          metadata?: Json | null
-          target_user_id?: string | null
-        }
-        Update: {
-          action?: string
-          actor_user_id?: string
-          created_at?: string
-          event_id?: string
-          id?: string
-          metadata?: Json | null
-          target_user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organizer_audit_log_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      organizer_messages: {
-        Row: {
-          audience_filter: string
-          body: string
-          created_at: string
-          delivery_state: string
-          event_id: string
-          id: string
-          message_type: string
-          scheduled_for: string | null
-          subject: string | null
-        }
-        Insert: {
-          audience_filter?: string
-          body: string
-          created_at?: string
-          delivery_state?: string
-          event_id: string
-          id?: string
-          message_type?: string
-          scheduled_for?: string | null
-          subject?: string | null
-        }
-        Update: {
-          audience_filter?: string
-          body?: string
-          created_at?: string
-          delivery_state?: string
-          event_id?: string
-          id?: string
-          message_type?: string
-          scheduled_for?: string | null
-          subject?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organizer_messages_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      places_cache: {
-        Row: {
-          cache_key: string
-          created_at: string
-          expires_at: string
-          id: string
-          provider: string
-          response_data: Json
-        }
-        Insert: {
-          cache_key: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          provider: string
-          response_data: Json
-        }
-        Update: {
-          cache_key?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          provider?: string
-          response_data?: Json
         }
         Relationships: []
       }

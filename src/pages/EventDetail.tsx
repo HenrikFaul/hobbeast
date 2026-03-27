@@ -32,7 +32,7 @@ interface EventData {
   place_address?: string | null;
   place_city?: string | null;
   place_country?: string | null;
-  place_details?: unknown;
+  place_details?: Record<string, unknown> | null;
   location_type: string | null;
   max_attendees: number | null;
   waitlist_enabled?: boolean | null;
@@ -109,7 +109,7 @@ const EventDetail = () => {
         .eq('id', id)
         .single();
       if (data) {
-        setEvent(data as unknown as EventData);
+        setEvent(data);
         setParticipantCount((data as any).event_participants?.[0]?.count || 0);
         try {
           const loadedTripPlan = await getEventTripPlan(id);
@@ -385,7 +385,7 @@ const EventDetail = () => {
       {/* Edit dialog */}
       {showEdit && event && !isSample && (
         <EditEventDialog
-          event={event as any}
+          event={event}
           onClose={() => setShowEdit(false)}
           onUpdated={() => {
             setShowEdit(false);
@@ -394,7 +394,7 @@ const EventDetail = () => {
               supabase.from('events').select('*, event_participants(count)').eq('id', id).single()
                 .then(({ data }) => {
                   if (data) {
-                    setEvent(data as unknown as EventData);
+                    setEvent(data);
                     setParticipantCount((data as any).event_participants?.[0]?.count || 0);
                     getEventTripPlan(id)
                       .then((plan) => setTripPlan(plan))

@@ -97,7 +97,7 @@ export async function getEventParticipants(
   if (error) throw error;
 
   const lowered = options?.search?.trim().toLowerCase();
-  const rows = (data ?? []) as unknown as OrganizerParticipant[];
+  const rows = (data ?? []) as OrganizerParticipant[];
   if (!lowered) return rows;
 
   return rows.filter((row) => {
@@ -143,13 +143,13 @@ export async function transitionParticipation(params: {
     no_show: 'no_show',
   };
 
-  await supabase.from('organizer_audit_log' as any).insert({
+  await supabase.from('participation_audits').insert({
+    participation_id: params.participantId,
     event_id: params.eventId,
     action: actionMap[params.nextStatus],
     actor_user_id: params.actorUserId,
-    target_user_id: params.participantId,
     metadata: params.metadata ?? null,
-  } as any);
+  });
 }
 
 export async function saveOrganizerNote(params: {
@@ -166,20 +166,20 @@ export async function saveOrganizerNote(params: {
 
   if (error) throw error;
 
-  await supabase.from('organizer_audit_log' as any).insert({
+  await supabase.from('participation_audits').insert({
+    participation_id: params.participantId,
     event_id: params.eventId,
     action: 'note_updated',
     actor_user_id: params.actorUserId,
-    target_user_id: params.participantId,
     metadata: { organizer_note: params.organizerNote },
-  } as any);
+  });
 }
 
 export async function getParticipationAudit(participantId: string) {
   const { data, error } = await supabase
-    .from('organizer_audit_log' as any)
+    .from('participation_audits')
     .select('*')
-    .eq('target_user_id', participantId)
+    .eq('participation_id', participantId)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
@@ -187,12 +187,12 @@ export async function getParticipationAudit(participantId: string) {
 
 export async function getEventMessages(eventId: string): Promise<OrganizerMessage[]> {
   const { data, error } = await supabase
-    .from('organizer_messages' as any)
+    .from('event_messages')
     .select('*')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as unknown as OrganizerMessage[];
+  return (data ?? []) as OrganizerMessage[];
 }
 
 export async function createEventMessage(input: {
@@ -206,9 +206,10 @@ export async function createEventMessage(input: {
   scheduledFor?: string | null;
 }) {
   const { data, error } = await supabase
-    .from('organizer_messages' as any)
+    .from('event_messages')
     .insert({
       event_id: input.eventId,
+      actor_user_id: input.actorUserId,
       message_type: input.messageType,
       audience_filter: input.audienceFilter,
       subject: input.subject ?? null,
@@ -219,7 +220,7 @@ export async function createEventMessage(input: {
     .select('*')
     .single();
   if (error) throw error;
-  return data as unknown as OrganizerMessage;
+  return data as OrganizerMessage;
 }
 
 export async function getUpcomingJoinedEvents(userId: string) {
