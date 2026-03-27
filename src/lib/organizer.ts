@@ -176,10 +176,10 @@ export async function saveOrganizerNote(params: {
 }
 
 export async function getParticipationAudit(participantId: string) {
-  const { data, error } = await supabase
-    .from('participation_audits')
+  const { data, error } = await (supabase
+    .from('organizer_audit_log') as any)
     .select('*')
-    .eq('participation_id', participantId)
+    .eq('metadata->>participation_id', participantId)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
