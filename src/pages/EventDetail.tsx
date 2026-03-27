@@ -109,7 +109,7 @@ const EventDetail = () => {
         .eq('id', id)
         .single();
       if (data) {
-        setEvent(data);
+        setEvent(data as unknown as EventData);
         setParticipantCount((data as any).event_participants?.[0]?.count || 0);
         try {
           const loadedTripPlan = await getEventTripPlan(id);
@@ -394,7 +394,7 @@ const EventDetail = () => {
               supabase.from('events').select('*, event_participants(count)').eq('id', id).single()
                 .then(({ data }) => {
                   if (data) {
-                    setEvent(data);
+                    setEvent(data as unknown as EventData);
                     setParticipantCount((data as any).event_participants?.[0]?.count || 0);
                     getEventTripPlan(id)
                       .then((plan) => setTripPlan(plan))

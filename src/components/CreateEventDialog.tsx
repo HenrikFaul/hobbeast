@@ -146,7 +146,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
         ...placeColumns,
-      })
+      } as any)
       .select('id')
       .single();
 
