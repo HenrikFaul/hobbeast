@@ -210,9 +210,14 @@ const EventDetail = () => {
             <div className="flex items-start justify-between gap-3 mb-3">
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
-                <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
-                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/events/${id}/organize`)}>
+                    <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
+                  </Button>
+                </div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">

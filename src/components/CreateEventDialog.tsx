@@ -326,9 +326,9 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </Select>
 
             {(locationType === 'city' || locationType === 'address') && (
-              <AddressAutocomplete
+              <PlaceAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: AddressSelection) => {
+                onSelect={(sel: PlaceSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
@@ -336,7 +336,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
                 }}
-                placeholder="Keress rá egy címre..."
+                placeholder="Keress rá egy helyszínre..."
               />
             )}
             {locationType === 'free' && (
