@@ -387,12 +387,27 @@ const Events = () => {
   const handleJoin = async (eventId: string) => {
     if (!user) { navigate('/auth?redirect=/events'); return; }
     if (eventId.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
-    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id });
+
+    // Find event to check capacity
+    const ev = allEvents.find(e => e.id === eventId);
+    const isFull = ev?.max_attendees && (ev.participant_count || 0) >= ev.max_attendees;
+    const joinStatus = isFull ? 'waitlist' : 'going';
+
+    if (isFull) {
+      // Check if waitlist is enabled (we default to true for capacity-aware join)
+      toast.info('Az esemény betelt, felkerülsz a várólistára!');
+    }
+
+    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id, status: joinStatus });
     if (error) {
       if ((error as any).code === '23505') toast.info('Már csatlakoztál ehhez az eseményhez!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      if (joinStatus === 'waitlist') {
+        toast.info('Felkerültél a várólistára!');
+      } else {
+        toast.success('Sikeresen csatlakoztál!');
+      }
       fetchEvents();
       fetchJoined();
     }
