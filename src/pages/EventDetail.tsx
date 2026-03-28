@@ -32,6 +32,9 @@ interface EventData {
   created_by: string;
   is_active?: boolean;
   created_at?: string;
+  waitlist_enabled?: boolean | null;
+  location_lat?: number | null;
+  location_lon?: number | null;
 }
 
 const SAMPLE_EVENTS = [
