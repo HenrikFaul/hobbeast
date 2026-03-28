@@ -13,7 +13,7 @@ import { X, Save, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
+import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan, upsertEventTripPlan } from '@/lib/tripPlans';
