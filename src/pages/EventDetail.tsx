@@ -126,12 +126,29 @@ const EventDetail = () => {
     if (!user) { navigate('/auth?redirect=/events/' + id); return; }
     if (!id || id.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
 
-    const { error } = await supabase.from('event_participants').insert({ event_id: id, user_id: user.id });
+    // Check capacity - is event full?
+    const isFull = event?.max_attendees && participantCount >= event.max_attendees;
+    const joinStatus = isFull && event?.waitlist_enabled ? 'waitlist' : 'going';
+
+    if (isFull && !event?.waitlist_enabled) {
+      toast.error('Az esemény betelt és nincs várólista.');
+      return;
+    }
+
+    const { error } = await supabase.from('event_participants').insert({
+      event_id: id,
+      user_id: user.id,
+      status: joinStatus,
+    });
     if (error) {
       if (error.code === '23505') toast.info('Már csatlakoztál!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      if (joinStatus === 'waitlist') {
+        toast.info('Az esemény betelt, felkerültél a várólistára!');
+      } else {
+        toast.success('Sikeresen csatlakoztál!');
+      }
       setHasJoined(true);
       setParticipantCount(p => p + 1);
     }
