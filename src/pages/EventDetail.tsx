@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +32,9 @@ interface EventData {
   created_by: string;
   is_active?: boolean;
   created_at?: string;
+  waitlist_enabled?: boolean | null;
+  location_lat?: number | null;
+  location_lon?: number | null;
 }
 
 const SAMPLE_EVENTS = [
@@ -126,12 +129,29 @@ const EventDetail = () => {
     if (!user) { navigate('/auth?redirect=/events/' + id); return; }
     if (!id || id.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
 
-    const { error } = await supabase.from('event_participants').insert({ event_id: id, user_id: user.id });
+    // Check capacity - is event full?
+    const isFull = event?.max_attendees && participantCount >= event.max_attendees;
+    const joinStatus = isFull && event?.waitlist_enabled ? 'waitlist' : 'going';
+
+    if (isFull && !event?.waitlist_enabled) {
+      toast.error('Az esemény betelt és nincs várólista.');
+      return;
+    }
+
+    const { error } = await supabase.from('event_participants').insert({
+      event_id: id,
+      user_id: user.id,
+      status: joinStatus,
+    });
     if (error) {
       if (error.code === '23505') toast.info('Már csatlakoztál!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      if (joinStatus === 'waitlist') {
+        toast.info('Az esemény betelt, felkerültél a várólistára!');
+      } else {
+        toast.success('Sikeresen csatlakoztál!');
+      }
       setHasJoined(true);
       setParticipantCount(p => p + 1);
     }
@@ -210,9 +230,14 @@ const EventDetail = () => {
             <div className="flex items-start justify-between gap-3 mb-3">
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
-                <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
-                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/events/${id}/organize`)}>
+                    <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
+                  </Button>
+                </div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">

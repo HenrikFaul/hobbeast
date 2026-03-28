@@ -13,7 +13,7 @@ import { X, Save, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
+import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan, upsertEventTripPlan } from '@/lib/tripPlans';
@@ -198,9 +198,9 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               </SelectContent>
             </Select>
             {['city', 'address'].includes(locationType) && (
-              <AddressAutocomplete
+              <PlaceAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: AddressSelection) => {
+                onSelect={(sel: PlaceSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
@@ -208,7 +208,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
                 }}
-                placeholder="Keress rá egy címre..."
+                placeholder="Keress rá egy helyszínre..."
               />
             )}
             {locationType === 'free' && (
