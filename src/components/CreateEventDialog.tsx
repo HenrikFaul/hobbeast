@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
+import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
