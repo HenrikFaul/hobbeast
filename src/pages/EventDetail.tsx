@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
