@@ -138,6 +138,14 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         image_emoji: imageEmoji,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
+        // Place data from normalized search
+        place_name: placeData?.displayName || null,
+        place_address: placeData?.address || null,
+        place_city: placeData?.city || null,
+        place_lat: placeData?.lat || null,
+        place_lon: placeData?.lon || null,
+        place_source: placeData?.source || null,
+        place_categories: placeData?.categories || null,
       })
       .select('id')
       .single();
