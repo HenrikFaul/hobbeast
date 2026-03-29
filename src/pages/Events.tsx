@@ -12,7 +12,7 @@ import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
-import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
+import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
@@ -31,14 +31,6 @@ interface EventData {
   location_free_text: string | null;
   location_lat?: number | null;
   location_lon?: number | null;
-  place_name?: string | null;
-  place_source?: string | null;
-  place_categories?: string[] | null;
-  place_address?: string | null;
-  place_city?: string | null;
-  place_country?: string | null;
-  place_lat?: number | null;
-  place_lon?: number | null;
   location_type: string | null;
   max_attendees: number | null;
   image_emoji: string | null;
@@ -74,7 +66,7 @@ function isExternal(ev: EventData) {
 
 function buildLocationQuery(ev: EventData) {
   if (ev.location_type === 'online') return null;
-  return [ev.place_name, ev.place_address, ev.place_city, ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
+  return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -98,10 +90,11 @@ function haversineDistanceKm(from: LatLng, to: LatLng) {
 
 async function geocodeLocation(query: string): Promise<LatLng | null> {
   const normalized = query.trim().toLowerCase();
-  if (!normalized || !isAwsLocationConfigured()) return null;
+  if (!normalized) return null;
   if (geocodeCache.has(normalized)) return geocodeCache.get(normalized) ?? null;
   try {
-    const coords = await geocode(query);
+    const place = await geocodePlace(query);
+    const coords = place ? { lat: place.lat, lon: place.lon } : null;
     geocodeCache.set(normalized, coords);
     return coords;
   } catch {
@@ -250,14 +243,6 @@ const Events = () => {
         location_free_text: e.location_free_text,
         location_lat: e.location_lat,
         location_lon: e.location_lon,
-        place_name: (e as any).place_name ?? null,
-        place_source: (e as any).place_source ?? null,
-        place_categories: (e as any).place_categories ?? null,
-        place_address: (e as any).place_address ?? null,
-        place_city: (e as any).place_city ?? null,
-        place_country: (e as any).place_country ?? null,
-        place_lat: (e as any).place_lat ?? null,
-        place_lon: (e as any).place_lon ?? null,
         location_type: e.location_type,
         max_attendees: e.max_attendees,
         image_emoji: e.image_url ? null : '🎫',
@@ -333,9 +318,7 @@ const Events = () => {
 
       for (const event of allEvents) {
         if (event.location_type === 'online') { allowedIds.add(event.id); continue; }
-        let coords = typeof event.place_lat === 'number' && typeof event.place_lon === 'number'
-          ? { lat: event.place_lat, lon: event.place_lon }
-          : typeof event.location_lat === 'number' && typeof event.location_lon === 'number'
+        let coords = typeof event.location_lat === 'number' && typeof event.location_lon === 'number'
           ? { lat: event.location_lat, lon: event.location_lon }
           : null;
         if (!coords) {
@@ -394,7 +377,7 @@ const Events = () => {
   }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, primaryFilter, joinedEventIds, favorites, user]);
 
   const getLocationString = (ev: EventData) => {
-    const parts = [ev.place_name, ev.place_city, ev.place_address, ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
+    const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
     if (ev.location_type === 'online') return 'Online';
     return parts.join(', ') || 'Helyszín nem megadva';
   };
@@ -405,12 +388,27 @@ const Events = () => {
   const handleJoin = async (eventId: string) => {
     if (!user) { navigate('/auth?redirect=/events'); return; }
     if (eventId.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
-    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id });
+
+    // Find event to check capacity
+    const ev = allEvents.find(e => e.id === eventId);
+    const isFull = ev?.max_attendees && (ev.participant_count || 0) >= ev.max_attendees;
+    const joinStatus = isFull ? 'waitlist' : 'going';
+
+    if (isFull) {
+      // Check if waitlist is enabled (we default to true for capacity-aware join)
+      toast.info('Az esemény betelt, felkerülsz a várólistára!');
+    }
+
+    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id, status: joinStatus });
     if (error) {
       if ((error as any).code === '23505') toast.info('Már csatlakoztál ehhez az eseményhez!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      if (joinStatus === 'waitlist') {
+        toast.info('Felkerültél a várólistára!');
+      } else {
+        toast.success('Sikeresen csatlakoztál!');
+      }
       fetchEvents();
       fetchJoined();
     }

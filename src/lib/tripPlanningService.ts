@@ -19,7 +19,6 @@ import {
   isResolvedLocationRef,
 } from '@/lib/tripPlanningSchema';
 import { evaluateQuotaPolicy, type TripPlanningQuotaPolicy, type TripPlanningQuotaSnapshot } from '@/lib/tripPlanningAudit';
-import { persistTripPlanningAudit } from '@/lib/tripPlanningAuditRepo';
 
 function toTripPlanPoint(location: LocationRef): TripPlanPoint {
   return {
@@ -78,27 +77,10 @@ export async function planTripFromRequest(
   input: AITripPlanningRequest,
   options?: { quotaPolicy?: TripPlanningQuotaPolicy; quotaSnapshot?: TripPlanningQuotaSnapshot; correlationId?: string },
 ): Promise<AITripPlanningResponse> {
-  const startedAt = new Date().toISOString();
-  const requestId = crypto.randomUUID();
   if (options?.quotaPolicy && options?.quotaSnapshot) {
     const decision = evaluateQuotaPolicy(options.quotaPolicy, options.quotaSnapshot);
     if (!decision.allowed) {
-      const response = buildFailureResponse('RATE_LIMITED', `Trip planning kvóta elérve: ${decision.reason}`, options?.correlationId);
-      void persistTripPlanningAudit({
-        requestId,
-        callerType: input.callerContext?.source === 'automation' ? 'automation' : input.callerContext?.source === 'ai_agent' ? 'ai_agent' : 'ui',
-        callerId: input.callerContext?.userId,
-        eventId: input.callerContext?.eventId,
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        status: 'rate_limited',
-        routeType: input.routeType,
-        provider: 'mapy',
-        requestSummary: { hasWaypoints: Boolean(input.waypoints?.length), waypointCount: input.waypoints?.length || 0, hasConstraints: Boolean(input.constraints) },
-        errorCode: decision.reason,
-        correlationId: options?.correlationId,
-      }).catch(() => null);
-      return response;
+      return buildFailureResponse('RATE_LIMITED', `Trip planning kvóta elérve: ${decision.reason}`, options.correlationId);
     }
   }
 
@@ -139,28 +121,13 @@ export async function planTripFromRequest(
   }
 
   if (unresolvedItems.length > 0 || startResolved.status !== 'resolved' || endResolved.status !== 'resolved') {
-    const response = {
+    return {
       schemaVersion: '1.0',
       status: 'needs_clarification',
       unresolvedItems,
       warnings: ['Legalább egy helyszín tisztázásra szorul a route generálás előtt.'],
       diagnostics: { provider: 'mapy', degraded: false, correlationId: options?.correlationId },
     };
-    void persistTripPlanningAudit({
-      requestId,
-      callerType: request.callerContext?.source === 'automation' ? 'automation' : request.callerContext?.source === 'ai_agent' ? 'ai_agent' : 'ui',
-      callerId: request.callerContext?.userId,
-      eventId: request.callerContext?.eventId,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      status: 'needs_clarification',
-      routeType: request.routeType,
-      provider: 'mapy',
-      requestSummary: { hasWaypoints: Boolean(request.waypoints?.length), waypointCount: request.waypoints?.length || 0, hasConstraints: Boolean(request.constraints) },
-      warnings: response.warnings,
-      correlationId: options?.correlationId,
-    }).catch(() => null);
-    return response;
   }
 
   try {
@@ -173,57 +140,14 @@ export async function planTripFromRequest(
       avoidToll: request.constraints?.avoidToll,
     });
 
-    const response = {
+    return {
       schemaVersion: '1.0',
       status: 'success',
       resolvedRoute: route,
-      alternativeProposals: [
-        {
-          id: `primary-${request.routeType}`,
-          title: 'Elsődleges Mapy útvonal',
-          routeType: request.routeType,
-          summary: 'A kiválasztott pontok alapján generált útvonalterv.',
-          estimatedLengthM: route.lengthM,
-          estimatedDurationS: route.durationS,
-          points: [route.start, ...route.waypoints, route.end].map((point) => ({ label: point.label, lat: point.lat, lon: point.lon })),
-          warnings: route.warnings,
-        },
-      ],
       diagnostics: { provider: 'mapy', degraded: false, correlationId: options?.correlationId },
-    } as AITripPlanningResponse;
-    void persistTripPlanningAudit({
-      requestId,
-      callerType: request.callerContext?.source === 'automation' ? 'automation' : request.callerContext?.source === 'ai_agent' ? 'ai_agent' : 'ui',
-      callerId: request.callerContext?.userId,
-      eventId: request.callerContext?.eventId,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      status: 'success',
-      routeType: request.routeType,
-      provider: 'mapy',
-      requestSummary: { hasWaypoints: Boolean(request.waypoints?.length), waypointCount: request.waypoints?.length || 0, hasConstraints: Boolean(request.constraints) },
-      chosenAlternativeId: `primary-${request.routeType}`,
-      warnings: route.warnings,
-      correlationId: options?.correlationId,
-    }).catch(() => null);
-    return response;
+    };
   } catch (error) {
-    const response = buildFailureResponse('PROVIDER_FAILURE', (error as Error).message || 'Nem sikerült útvonalat számolni.', options?.correlationId);
-    void persistTripPlanningAudit({
-      requestId,
-      callerType: request.callerContext?.source === 'automation' ? 'automation' : request.callerContext?.source === 'ai_agent' ? 'ai_agent' : 'ui',
-      callerId: request.callerContext?.userId,
-      eventId: request.callerContext?.eventId,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      status: 'failure',
-      routeType: request.routeType,
-      provider: 'mapy',
-      requestSummary: { hasWaypoints: Boolean(request.waypoints?.length), waypointCount: request.waypoints?.length || 0, hasConstraints: Boolean(request.constraints) },
-      errorCode: response.error?.code,
-      correlationId: options?.correlationId,
-    }).catch(() => null);
-    return response;
+    return buildFailureResponse('PROVIDER_FAILURE', (error as Error).message || 'Nem sikerült útvonalat számolni.', options?.correlationId);
   }
 }
 
