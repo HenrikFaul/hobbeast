@@ -478,6 +478,19 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
           </div>
         )}
 
+        <Separator />
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kezdőpont</Label>
+            <div className="rounded-xl border px-3 py-2 text-sm">{pointToText(start)}</div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Végpont</Label>
+            <div className="rounded-xl border px-3 py-2 text-sm">{pointToText(end)}</div>
+          </div>
+        </div>
+
         {routePlan && (
           <div className="space-y-3 rounded-2xl border bg-primary/5 p-4">
             <div className="flex flex-wrap items-center gap-2">

@@ -49,7 +49,7 @@ export interface TripPlanDraft {
 interface MapyEntity {
   name?: string;
   label?: string;
-  position?: { lon: number; lat: number } | [number, number];
+  position?: [number, number];
   type?: string;
   location?: string;
   bbox?: [number, number, number, number];
@@ -143,15 +143,8 @@ function inferResultType(type?: string): MapyResultType {
 }
 
 function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion | null {
-  if (!entity.position) return null;
-  let lon: number, lat: number;
-  if (Array.isArray(entity.position)) {
-    if (entity.position.length < 2) return null;
-    [lon, lat] = entity.position;
-  } else {
-    lon = entity.position.lon;
-    lat = entity.position.lat;
-  }
+  if (!entity.position || entity.position.length < 2) return null;
+  const [lon, lat] = entity.position;
   const region = entity.regionalStructure?.find((item) => item.type?.includes('region'))?.name || null;
   const country = entity.regionalStructure?.find((item) => item.type === 'regional.country')?.isoCode ||
     entity.regionalStructure?.find((item) => item.type === 'regional.country')?.name || null;
@@ -187,7 +180,7 @@ export function getMapyAttributionText() {
 }
 
 export async function suggestMapyLocations(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+  const params = new URLSearchParams({ query: query.trim(), lang: 'hu', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
   const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, params);
   return extractEntityList(payload)
@@ -196,7 +189,7 @@ export async function suggestMapyLocations(query: string, locality?: string): Pr
 }
 
 export async function geocodeMapyLocation(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+  const params = new URLSearchParams({ query: query.trim(), lang: 'hu', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
   const payload = await fetchJsonWithFallback<unknown>(GEOCODE_ENDPOINTS, params);
   return extractEntityList(payload)
@@ -205,7 +198,7 @@ export async function geocodeMapyLocation(query: string, locality?: string): Pro
 }
 
 export async function reverseGeocodeMapyPoint(lat: number, lon: number): Promise<MapySuggestion | null> {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'en' });
+  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), lang: 'hu' });
   const payload = await fetchJsonWithFallback<unknown>(REVERSE_ENDPOINTS, params);
   const entity = extractEntityList(payload)[0];
   return entity ? normalizeEntity(entity, `reverse-${lat}-${lon}`) : null;
