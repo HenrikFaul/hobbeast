@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +32,9 @@ interface EventData {
   created_by: string;
   is_active?: boolean;
   created_at?: string;
+  waitlist_enabled?: boolean | null;
+  location_lat?: number | null;
+  location_lon?: number | null;
 }
 
 const SAMPLE_EVENTS = [
@@ -126,12 +129,29 @@ const EventDetail = () => {
     if (!user) { navigate('/auth?redirect=/events/' + id); return; }
     if (!id || id.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
 
-    const { error } = await supabase.from('event_participants').insert({ event_id: id, user_id: user.id });
+    // Check capacity - is event full?
+    const isFull = event?.max_attendees && participantCount >= event.max_attendees;
+    const joinStatus = isFull && event?.waitlist_enabled ? 'waitlist' : 'going';
+
+    if (isFull && !event?.waitlist_enabled) {
+      toast.error('Az esemény betelt és nincs várólista.');
+      return;
+    }
+
+    const { error } = await supabase.from('event_participants').insert({
+      event_id: id,
+      user_id: user.id,
+      status: joinStatus,
+    });
     if (error) {
       if (error.code === '23505') toast.info('Már csatlakoztál!');
       else toast.error('Hiba a csatlakozáskor.');
     } else {
-      toast.success('Sikeresen csatlakoztál!');
+      if (joinStatus === 'waitlist') {
+        toast.info('Az esemény betelt, felkerültél a várólistára!');
+      } else {
+        toast.success('Sikeresen csatlakoztál!');
+      }
       setHasJoined(true);
       setParticipantCount(p => p + 1);
     }
@@ -210,9 +230,14 @@ const EventDetail = () => {
             <div className="flex items-start justify-between gap-3 mb-3">
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
-                <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
-                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/events/${id}/organize`)}>
+                    <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
+                  </Button>
+                </div>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -271,6 +296,28 @@ const EventDetail = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Venue / Place block */}
+          {(event as any).place_name && (
+            <Card className="rounded-xl mb-6">
+              <CardContent className="p-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Helyszín részletei</p>
+                  <p className="font-medium">{(event as any).place_name}</p>
+                  {(event as any).place_address && <p className="text-sm text-muted-foreground">{(event as any).place_address}</p>}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {[(event as any).place_city, (event as any).place_postcode, (event as any).place_country].filter(Boolean).join(', ')}
+                  </p>
+                  {(event as any).place_source && (
+                    <Badge variant="outline" className="text-[10px] mt-1">{(event as any).place_source}</Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Description */}
           {event.description && (

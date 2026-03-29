@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
+import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +51,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationFreeText, setLocationFreeText] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLon, setLocationLon] = useState<number | null>(null);
+  const [placeData, setPlaceData] = useState<PlaceSelection | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
@@ -59,6 +60,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -136,6 +138,14 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         image_emoji: imageEmoji,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
+        // Place data from normalized search
+        place_name: placeData?.displayName || null,
+        place_address: placeData?.address || null,
+        place_city: placeData?.city || null,
+        place_lat: placeData?.lat || null,
+        place_lon: placeData?.lon || null,
+        place_source: placeData?.source || null,
+        place_categories: placeData?.categories || null,
       })
       .select('id')
       .single();
@@ -325,17 +335,18 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </Select>
 
             {(locationType === 'city' || locationType === 'address') && (
-              <AddressAutocomplete
+              <PlaceAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: AddressSelection) => {
+                onSelect={(sel: PlaceSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
+                  setPlaceData(sel);
                 }}
-                placeholder="Keress rá egy címre..."
+                placeholder="Keress rá egy helyszínre..."
               />
             )}
             {locationType === 'free' && (
@@ -343,10 +354,22 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             )}
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Túra- / útvonalterv (opcionális)</Label>
-            <MapyTripPlanner value={tripPlan} onChange={setTripPlan} />
-          </div>
+          {profile?.hasDistance && !tripPlannerOpen && (
+            <Button type="button" variant="outline" className="w-full h-11 rounded-xl" onClick={() => setTripPlannerOpen(true)}>
+              🗺️ Túratervező használata
+            </Button>
+          )}
+          {profile?.hasDistance && tripPlannerOpen && (
+            <div className="space-y-3 rounded-xl border p-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Túra- / útvonalterv</Label>
+                <Button type="button" variant="ghost" size="sm" className="rounded-xl text-xs" onClick={() => { setTripPlannerOpen(false); setTripPlan(null); }}>
+                  <X className="h-3 w-3 mr-1" /> Bezárás
+                </Button>
+              </div>
+              <MapyTripPlanner value={tripPlan} onChange={setTripPlan} />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Címkék (vesszővel elválasztva)</Label>
