@@ -90,10 +90,11 @@ function haversineDistanceKm(from: LatLng, to: LatLng) {
 
 async function geocodeLocation(query: string): Promise<LatLng | null> {
   const normalized = query.trim().toLowerCase();
-  if (!normalized || !isAwsLocationConfigured()) return null;
+  if (!normalized) return null;
   if (geocodeCache.has(normalized)) return geocodeCache.get(normalized) ?? null;
   try {
-    const coords = await geocode(query);
+    const place = await geocodePlace(query);
+    const coords = place ? { lat: place.lat, lon: place.lon } : null;
     geocodeCache.set(normalized, coords);
     return coords;
   } catch {
