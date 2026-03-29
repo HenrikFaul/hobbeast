@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
+import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,7 +51,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationFreeText, setLocationFreeText] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLon, setLocationLon] = useState<number | null>(null);
-  const [placeData, setPlaceData] = useState<PlaceSelection | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
@@ -138,14 +137,6 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         image_emoji: imageEmoji,
         tags: tags.split(',').map(t => t.trim()).filter(Boolean),
         created_by: user.id,
-        // Place data from normalized search
-        place_name: placeData?.displayName || null,
-        place_address: placeData?.address || null,
-        place_city: placeData?.city || null,
-        place_lat: placeData?.lat || null,
-        place_lon: placeData?.lon || null,
-        place_source: placeData?.source || null,
-        place_categories: placeData?.categories || null,
       })
       .select('id')
       .single();
@@ -335,18 +326,17 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             </Select>
 
             {(locationType === 'city' || locationType === 'address') && (
-              <PlaceAutocomplete
+              <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: PlaceSelection) => {
+                onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
-                  setPlaceData(sel);
                 }}
-                placeholder="Keress rá egy helyszínre..."
+                placeholder="Keress rá egy címre..."
               />
             )}
             {locationType === 'free' && (

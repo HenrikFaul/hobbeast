@@ -18,7 +18,6 @@ import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
-import { UpcomingEventsReminder } from '@/components/UpcomingEventsReminder';
 
 const HOBBY_OPTIONS = [
   'Futás', 'Kerékpár', 'Túrázás', 'Jóga', 'Crossfit', 'Úszás', 'Tenisz', 'Kosárlabda', 'Foci',
@@ -321,7 +320,6 @@ const Profile = () => {
           </div>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
-            <UpcomingEventsReminder />
             <NotificationPreferencesCard />
             <ChangePasswordCard />
             <DeleteAccountCard />

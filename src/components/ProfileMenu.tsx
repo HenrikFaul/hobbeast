@@ -1,49 +1,14 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CalendarDays, LogOut, Shield, User, Wrench } from 'lucide-react';
+import { User, LogOut, Shield } from 'lucide-react';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
-  const [organizerEventId, setOrganizerEventId] = useState<string | null>(null);
-  const [hasOrganizerAccess, setHasOrganizerAccess] = useState(false);
-
-  useEffect(() => {
-    if (!user) {
-      setHasOrganizerAccess(false);
-      setOrganizerEventId(null);
-      return;
-    }
-
-    let active = true;
-
-    const fetchOrganizerAccess = async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('id')
-        .eq('created_by', user.id)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-
-      if (!active || error) return;
-
-      setHasOrganizerAccess((data?.length ?? 0) > 0);
-      setOrganizerEventId(data?.[0]?.id ?? null);
-    };
-
-    fetchOrganizerAccess();
-
-    return () => {
-      active = false;
-    };
-  }, [user]);
 
   if (!user) return null;
 
@@ -60,18 +25,6 @@ export function ProfileMenu() {
         <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
           <User className="mr-2 h-4 w-4" /> Profilom
         </DropdownMenuItem>
-        {hasOrganizerAccess && (
-          <>
-            <DropdownMenuItem onClick={() => navigate('/events')} className="rounded-lg cursor-pointer">
-              <Wrench className="mr-2 h-4 w-4" /> Organizer mód
-            </DropdownMenuItem>
-            {organizerEventId && (
-              <DropdownMenuItem onClick={() => navigate(`/events/${organizerEventId}/organize`)} className="rounded-lg cursor-pointer">
-                <CalendarDays className="mr-2 h-4 w-4" /> Szervezői műszerfal
-              </DropdownMenuItem>
-            )}
-          </>
-        )}
         {isAdmin && (
           <DropdownMenuItem onClick={() => navigate('/admin')} className="rounded-lg cursor-pointer">
             <Shield className="mr-2 h-4 w-4" /> Admin
