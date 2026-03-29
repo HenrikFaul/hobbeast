@@ -320,6 +320,7 @@ const Profile = () => {
           </div>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
+            <UpcomingEventsReminder />
             <NotificationPreferencesCard />
             <ChangePasswordCard />
             <DeleteAccountCard />
