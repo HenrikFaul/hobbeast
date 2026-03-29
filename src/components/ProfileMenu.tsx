@@ -1,49 +1,23 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
-import { supabase } from '@/integrations/supabase/client';
+import { useOrganizerMode } from '@/hooks/useOrganizerMode';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CalendarDays, LogOut, Shield, User, Wrench } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { User, LogOut, Shield, BriefcaseBusiness, Compass } from 'lucide-react';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
-  const [organizerEventId, setOrganizerEventId] = useState<string | null>(null);
-  const [hasOrganizerAccess, setHasOrganizerAccess] = useState(false);
-
-  useEffect(() => {
-    if (!user) {
-      setHasOrganizerAccess(false);
-      setOrganizerEventId(null);
-      return;
-    }
-
-    let active = true;
-
-    const fetchOrganizerAccess = async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('id')
-        .eq('created_by', user.id)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-
-      if (!active || error) return;
-
-      setHasOrganizerAccess((data?.length ?? 0) > 0);
-      setOrganizerEventId(data?.[0]?.id ?? null);
-    };
-
-    fetchOrganizerAccess();
-
-    return () => {
-      active = false;
-    };
-  }, [user]);
+  const { mode, setMode, canUseOrganizerMode, ownedEventCount } = useOrganizerMode();
 
   if (!user) return null;
 
@@ -56,20 +30,28 @@ export function ProfileMenu() {
           {initials}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="rounded-xl w-48">
+      <DropdownMenuContent align="end" className="rounded-xl w-56">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          {mode === 'organizer' ? 'Organizer mód' : 'Community mód'}
+        </DropdownMenuLabel>
         <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
           <User className="mr-2 h-4 w-4" /> Profilom
         </DropdownMenuItem>
-        {hasOrganizerAccess && (
+        {canUseOrganizerMode && (
           <>
-            <DropdownMenuItem onClick={() => navigate('/events')} className="rounded-lg cursor-pointer">
-              <Wrench className="mr-2 h-4 w-4" /> Organizer mód
+            <DropdownMenuItem
+              onClick={() => {
+                setMode(mode === 'organizer' ? 'community' : 'organizer');
+                navigate(mode === 'organizer' ? '/events' : '/organizer');
+              }}
+              className="rounded-lg cursor-pointer"
+            >
+              {mode === 'organizer' ? <Compass className="mr-2 h-4 w-4" /> : <BriefcaseBusiness className="mr-2 h-4 w-4" />}
+              {mode === 'organizer' ? 'Váltás community módra' : `Organizer mód (${ownedEventCount})`}
             </DropdownMenuItem>
-            {organizerEventId && (
-              <DropdownMenuItem onClick={() => navigate(`/events/${organizerEventId}/organize`)} className="rounded-lg cursor-pointer">
-                <CalendarDays className="mr-2 h-4 w-4" /> Szervezői műszerfal
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem onClick={() => navigate('/organizer')} className="rounded-lg cursor-pointer">
+              <BriefcaseBusiness className="mr-2 h-4 w-4" /> Organizer felület
+            </DropdownMenuItem>
           </>
         )}
         {isAdmin && (

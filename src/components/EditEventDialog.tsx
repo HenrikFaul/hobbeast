@@ -13,10 +13,14 @@ import { X, Save, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
+import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
+import { NormalizedPlaceSearch } from '@/components/NormalizedPlaceSearch';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan, upsertEventTripPlan } from '@/lib/tripPlans';
+import type { NormalizedPlaceDetails, NormalizedPlaceSummary } from '@/lib/places/types';
+import { loadPlaceDetails } from '@/lib/places/client';
+import { placeToEventColumns, placeToLegacyLocation } from '@/lib/places/eventMapping';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -40,6 +44,20 @@ interface EditEventDialogProps {
     location_free_text: string | null;
     location_lat?: number | null;
     location_lon?: number | null;
+    place_source?: string | null;
+    place_source_ids?: Record<string, unknown> | null;
+    place_name?: string | null;
+    place_categories?: string[] | null;
+    place_category_confidence?: number | null;
+    place_address?: string | null;
+    place_city?: string | null;
+    place_postcode?: string | null;
+    place_country?: string | null;
+    place_lat?: number | null;
+    place_lon?: number | null;
+    place_distance_m?: number | null;
+    place_diagnostics?: Record<string, unknown> | null;
+    place_details?: Record<string, unknown> | null;
     max_attendees: number | null;
     image_emoji: string | null;
     tags: string[] | null;
@@ -65,7 +83,23 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [tags, setTags] = useState((event.tags || []).join(', '));
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
-  const [placeSel, setPlaceSel] = useState<PlaceSelection | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<NormalizedPlaceSummary | null>(event.place_name ? {
+    id: String(event.id),
+    source: (event.place_source as 'geoapify' | 'tomtom' | 'merged') || 'geoapify',
+    sourceIds: (event.place_source_ids as Record<string, string>) || {},
+    name: event.place_name,
+    categories: (event.place_categories as any) || ['unknown'],
+    categoryConfidence: event.place_category_confidence ?? undefined,
+    address: event.place_address || undefined,
+    city: event.place_city || undefined,
+    postcode: event.place_postcode || undefined,
+    country: event.place_country || undefined,
+    lat: event.place_lat ?? event.location_lat ?? 0,
+    lon: event.place_lon ?? event.location_lon ?? 0,
+    distanceM: event.place_distance_m ?? undefined,
+    diagnostics: (event.place_diagnostics as any) || undefined,
+  } : null);
+  const [selectedPlaceDetails, setSelectedPlaceDetails] = useState<NormalizedPlaceDetails | null>((event.place_details as any) || null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -87,34 +121,25 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
     if (!title.trim()) return;
 
     setLoading(true);
-    const updatePayload: any = {
+    const legacyLocation = selectedPlace ? placeToLegacyLocation(selectedPlace) : null;
+    const placeColumns = placeToEventColumns(selectedPlace, selectedPlaceDetails);
+    const { error } = await supabase.from('events').update({
       title: title.trim(),
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
-      location_type: locationType,
-      location_city: locationCity || null,
+      location_type: legacyLocation?.location_type || locationType,
+      location_city: legacyLocation?.location_city || locationCity || null,
       location_district: locationDistrict || null,
-      location_address: locationAddress || null,
-      location_free_text: locationFreeText || null,
-      location_lat: locationLat,
-      location_lon: locationLon,
+      location_address: legacyLocation?.location_address || locationAddress || null,
+      location_free_text: legacyLocation?.location_free_text || locationFreeText || null,
+      location_lat: legacyLocation?.location_lat ?? locationLat,
+      location_lon: legacyLocation?.location_lon ?? locationLon,
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-    };
-
-    if (placeSel) {
-      updatePayload.place_name = placeSel.displayName;
-      updatePayload.place_address = placeSel.address;
-      updatePayload.place_city = placeSel.city;
-      updatePayload.place_lat = placeSel.lat;
-      updatePayload.place_lon = placeSel.lon;
-      updatePayload.place_source = placeSel.source;
-      updatePayload.place_categories = placeSel.categories;
-    }
-
-    const { error } = await supabase.from('events').update(updatePayload).eq('id', event.id);
+      ...placeColumns,
+    }).eq('id', event.id);
 
     if (error) {
       toast.error('Hiba a mentés során.');
@@ -190,6 +215,32 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
             <Input type="number" min={1} value={maxAttendees} onChange={e => setMaxAttendees(e.target.value)} className="rounded-xl h-11" />
           </div>
 
+          <div className="space-y-3 rounded-2xl border bg-muted/20 p-4">
+            <NormalizedPlaceSearch
+              label="Venue / hely keresése (Geoapify + TomTom)"
+              value={selectedPlace}
+              onSelect={(item) => {
+                setSelectedPlace(item);
+                const legacy = placeToLegacyLocation(item);
+                setLocationType('address');
+                setLocationCity(legacy.location_city || '');
+                setLocationAddress(legacy.location_address || '');
+                setLocationFreeText(legacy.location_free_text || '');
+                setLocationLat(legacy.location_lat);
+                setLocationLon(legacy.location_lon);
+                void loadPlaceDetails(item).then((response) => setSelectedPlaceDetails(response.item)).catch(() => setSelectedPlaceDetails(null));
+              }}
+              featurePath="event_edit"
+              latitude={locationLat || undefined}
+              longitude={locationLon || undefined}
+            />
+            {selectedPlace && (
+              <div className="text-xs text-muted-foreground">
+                A venue-kiválasztás frissíti az esemény strukturált place mezőit is.
+              </div>
+            )}
+          </div>
+
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín</Label>
             <Select value={locationType} onValueChange={(nextType) => {
@@ -211,19 +262,17 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               </SelectContent>
             </Select>
             {['city', 'address'].includes(locationType) && (
-              <PlaceAutocomplete
+              <AddressAutocomplete
                 value={[locationAddress, locationDistrict, locationCity].filter(Boolean).join(', ')}
-                onSelect={(sel: PlaceSelection) => {
+                onSelect={(sel: AddressSelection) => {
                   setLocationCity(sel.city);
                   setLocationDistrict(sel.district);
                   setLocationAddress(sel.address || sel.displayName);
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
-                  // Also update place fields in the save
-                  setPlaceSel(sel);
                 }}
-                placeholder="Keress rá egy helyszínre..."
+                placeholder="Keress rá egy címre..."
               />
             )}
             {locationType === 'free' && (
