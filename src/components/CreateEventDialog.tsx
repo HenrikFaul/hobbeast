@@ -344,6 +344,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
+                  setPlaceData(sel);
                 }}
                 placeholder="Keress rá egy helyszínre..."
               />
