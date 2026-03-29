@@ -51,6 +51,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [locationFreeText, setLocationFreeText] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLon, setLocationLon] = useState<number | null>(null);
+  const [placeData, setPlaceData] = useState<PlaceSelection | null>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [imageEmoji, setImageEmoji] = useState('🎉');
   const [tags, setTags] = useState('');
