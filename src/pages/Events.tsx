@@ -12,7 +12,7 @@ import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
-import { geocode, isAwsLocationConfigured } from "@/lib/awsLocation";
+import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
