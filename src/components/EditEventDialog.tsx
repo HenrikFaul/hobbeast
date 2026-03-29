@@ -207,6 +207,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
+                  // Also update place fields in the save
+                  setPlaceSel(sel);
                 }}
                 placeholder="Keress rá egy helyszínre..."
               />
