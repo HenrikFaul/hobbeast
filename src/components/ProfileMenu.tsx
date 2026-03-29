@@ -14,9 +14,13 @@ export function ProfileMenu() {
   const [organizerEventId, setOrganizerEventId] = useState<string | null>(null);
   const [hasOrganizerAccess, setHasOrganizerAccess] = useState(false);
 
-  if (!user) return null;
-
   useEffect(() => {
+    if (!user) {
+      setHasOrganizerAccess(false);
+      setOrganizerEventId(null);
+      return;
+    }
+
     let active = true;
 
     const fetchOrganizerAccess = async () => {
@@ -39,7 +43,9 @@ export function ProfileMenu() {
     return () => {
       active = false;
     };
-  }, [user.id]);
+  }, [user]);
+
+  if (!user) return null;
 
   const initials = (user.user_metadata?.display_name || user.email || 'U').slice(0, 2).toUpperCase();
 
