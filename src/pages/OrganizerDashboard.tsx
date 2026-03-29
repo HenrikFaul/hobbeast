@@ -192,9 +192,20 @@ export default function OrganizerDashboard() {
     await logAuditAction(`status_change:${currentStatus}→${newStatus}`, userId, { from: currentStatus, to: newStatus });
     toast.success(`Státusz módosítva: ${STATUS_LABELS[newStatus].label}`);
 
-    // If someone moved from waitlist to going, check if there's room
-    if (newStatus === 'going' && currentStatus === 'waitlist') {
-      // Auto-promote logic could go here
+    // If someone cancelled, auto-promote first waitlister
+    if ((newStatus === 'cancelled' || newStatus === 'no_show') && event?.max_attendees) {
+      const currentGoing = participants.filter(p => p.status === 'going' || p.status === 'checked_in').length;
+      // After this status change, we freed a spot
+      if (currentGoing <= event.max_attendees) {
+        const firstWaitlister = participants
+          .filter(p => p.status === 'waitlist')
+          .sort((a, b) => new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime())[0];
+        if (firstWaitlister) {
+          await supabase.from('event_participants').update({ status: 'going' }).eq('id', firstWaitlister.id);
+          await logAuditAction('auto_promoted_from_waitlist', firstWaitlister.user_id, { reason: `${newStatus} freed a spot` });
+          toast.info(`${firstWaitlister.profile?.display_name || 'Várólistás'} automatikusan előlépett!`);
+        }
+      }
     }
 
     fetchAll();

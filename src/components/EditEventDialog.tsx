@@ -65,6 +65,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [tags, setTags] = useState((event.tags || []).join(', '));
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [placeSel, setPlaceSel] = useState<PlaceSelection | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -86,7 +87,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
     if (!title.trim()) return;
 
     setLoading(true);
-    const { error } = await supabase.from('events').update({
+    const updatePayload: any = {
       title: title.trim(),
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
@@ -101,7 +102,19 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-    }).eq('id', event.id);
+    };
+
+    if (placeSel) {
+      updatePayload.place_name = placeSel.displayName;
+      updatePayload.place_address = placeSel.address;
+      updatePayload.place_city = placeSel.city;
+      updatePayload.place_lat = placeSel.lat;
+      updatePayload.place_lon = placeSel.lon;
+      updatePayload.place_source = placeSel.source;
+      updatePayload.place_categories = placeSel.categories;
+    }
+
+    const { error } = await supabase.from('events').update(updatePayload).eq('id', event.id);
 
     if (error) {
       toast.error('Hiba a mentés során.');
@@ -207,6 +220,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                   setLocationFreeText('');
                   setLocationLat(sel.lat || null);
                   setLocationLon(sel.lon || null);
+                  // Also update place fields in the save
+                  setPlaceSel(sel);
                 }}
                 placeholder="Keress rá egy helyszínre..."
               />

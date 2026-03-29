@@ -297,6 +297,28 @@ const EventDetail = () => {
             </Card>
           </div>
 
+          {/* Venue / Place block */}
+          {(event as any).place_name && (
+            <Card className="rounded-xl mb-6">
+              <CardContent className="p-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Helyszín részletei</p>
+                  <p className="font-medium">{(event as any).place_name}</p>
+                  {(event as any).place_address && <p className="text-sm text-muted-foreground">{(event as any).place_address}</p>}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {[(event as any).place_city, (event as any).place_postcode, (event as any).place_country].filter(Boolean).join(', ')}
+                  </p>
+                  {(event as any).place_source && (
+                    <Badge variant="outline" className="text-[10px] mt-1">{(event as any).place_source}</Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Description */}
           {event.description && (
             <Card className="rounded-xl mb-6">
