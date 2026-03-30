@@ -41,6 +41,53 @@ export type Database = {
         }
         Relationships: []
       }
+      event_messages: {
+        Row: {
+          actor_user_id: string
+          audience_filter: string
+          body: string
+          created_at: string
+          delivery_state: string
+          event_id: string
+          id: string
+          message_type: string
+          scheduled_for: string | null
+          subject: string | null
+        }
+        Insert: {
+          actor_user_id: string
+          audience_filter: string
+          body: string
+          created_at?: string
+          delivery_state?: string
+          event_id: string
+          id?: string
+          message_type: string
+          scheduled_for?: string | null
+          subject?: string | null
+        }
+        Update: {
+          actor_user_id?: string
+          audience_filter?: string
+          body?: string
+          created_at?: string
+          delivery_state?: string
+          event_id?: string
+          id?: string
+          message_type?: string
+          scheduled_for?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_messages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_participants: {
         Row: {
           checked_in_at: string | null
@@ -50,6 +97,7 @@ export type Database = {
           joined_at: string
           organizer_note: string | null
           status: string
+          status_updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -60,6 +108,7 @@ export type Database = {
           joined_at?: string
           organizer_note?: string | null
           status?: string
+          status_updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -70,6 +119,7 @@ export type Database = {
           joined_at?: string
           organizer_note?: string | null
           status?: string
+          status_updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -751,6 +801,51 @@ export type Database = {
           },
         ]
       }
+      participation_audits: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          metadata: Json | null
+          participation_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          metadata?: Json | null
+          participation_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+          participation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participation_audits_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participation_audits_participation_id_fkey"
+            columns: ["participation_id"]
+            isOneToOne: false
+            referencedRelation: "event_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       places_cache: {
         Row: {
           cache_key: string
@@ -842,6 +937,33 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           preferred_radius_km?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_reminder_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          joined_event_reminders: boolean
+          reminder_hours_before: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          joined_event_reminders?: boolean
+          reminder_hours_before?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          joined_event_reminders?: boolean
+          reminder_hours_before?: number
           updated_at?: string
           user_id?: string
         }

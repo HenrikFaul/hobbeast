@@ -1,6 +1,6 @@
 # Hobbeast v0.9.0 – Release Notes
 
-**Dátum:** 2026-03-29
+**Dátum:** 2026-03-30
 
 ---
 
@@ -23,52 +23,94 @@
 
 ---
 
-## 👥 B. InviteM-inspirált organizer funkciók
+## 👥 B. InviteM-inspirált organizer funkciók (v0.9.0 frissítés)
+
+### Organizer mode architektúra
+- **`useOrganizerMode` context** – Community / Organizer mód váltás, `localStorage` persistencia
+- **`OrganizerModeProvider`** – App-szintű provider, automatikus `ownedEventCount` figyelés
+- **Navbar integráció** – "Organizer" gomb a navbarban ha van saját esemény, mode badge
+- **ProfileMenu integráció** – Mód-váltó menüpont, "Organizer felület" direkt link, eseményszám badge
+
+### Organizer Dashboard (`/organizer`)
+Teljes InviteM-inspirált szervezői műszerfal 5 fő tabbal:
+
+#### 1. My Events tab
+- Saját események grid nézete (emoji, cím, helyszín, dátum, kategória badge)
+- Going / Várólista / Check-in számláló pill-ek
+- "Megnyitás" (event detail) és "Kezelés" (attendees tab) gombok
+
+#### 2. Attendees tab
+- **Résztvevőkezelés** – Táblázatos nézet: név, város, állapot, csatlakozás dátuma, check-in, invite code
+- **Szűrés** – Szöveges keresés (név/invite code) + státusz szűrő dropdown
+- **CSV export** – Egy kattintással letölthető résztvevő lista
+- **Státusz-váltás** – Promote, Check-in, Undo, Cancel gombok soronként
+- **Résztvevő munkaterület** (Sheet drawer) – Állapot, quick actions, szervezői megjegyzés, audit timeline
+
+#### 3. Check-in tab
+- Név és invite code szerinti keresés
+- Gyors check-in/undo/promote akciók
+- Szűrt lista: csak going, checked_in, waitlist státuszú résztvevők
+
+#### 4. Messages tab
+- **Üzenetküldés** – Típus (emlékeztető, logisztikai, eseményfrissítés, lemondás, egyedi), célközönség szűrő, tárgy, szöveg, ütemezés
+- **Message history** – Kronologikus üzenettörténet típus/audience/delivery_state badge-ekkel
+
+#### 5. Analytics tab
+- Join click/intent, Going, Waitlist, Attendance rate metrika kártyák
+- Source attribution breakdown (forrás, views, joins, check-in)
+
+### Szervezői service layer (`src/lib/organizer.ts`)
+- `getOwnedEvents()` – Saját események lekérése participant statisztikákkal
+- `getEventParticipants()` – Szűrhető résztvevő lista profilokkal
+- `transitionParticipation()` – Státuszváltás + audit log írás
+- `saveOrganizerNote()` – Szervezői megjegyzés mentés + audit
+- `getParticipationAudit()` – Résztvevőnkénti audit előzmények
+- `getEventMessages()` / `createEventMessage()` – Üzenet CRUD
+- `getOrganizerAnalytics()` – Származtatott analytics metrikák
+- `getUpcomingJoinedEvents()` – Profil emlékeztető blokk
+- `buildAttendeeCsv()` – CSV export builder
+
+### Adatbázis (új táblák)
+- `participation_audits` – Résztvevői státuszváltás audit napló (RLS: event owner olvasás/írás)
+- `event_messages` – Szervezői üzenetek persistencia (RLS: event owner olvasás/írás)
+- `user_reminder_preferences` – Emlékeztető beállítások (RLS: saját felhasználó)
+- `event_participants.status_updated_at` – Új mező a státusz változás időbélyegéhez
+
+---
+
+## 📋 C. Profil emlékeztetők
 
 ### Megvalósítva
-- **Organizer Dashboard** (`/events/:id/organize`) – Teljes szervezői műszerfal
-- **Résztvevő-menedzsment** – Keresés, szűrés státusz szerint, CSV export
-- **Státuszkezelés állapotgéppel:**
-  - `going` → `checked_in`, `cancelled`, `no_show`
-  - `waitlist` → `going`, `cancelled`
-  - `checked_in` → `no_show`
-  - `cancelled` → `going`, `waitlist`
-  - `no_show` → (végállapot)
-- **Capacity / waitlist-aware join logika** – Telt eseménynél automatikus várólistára helyezés
-- **Waitlist auto-promote** – Lemondás/no-show esetén a legrégebben várólistán lévő automatikusan `going` státuszba lép
-- **Attendee drawer** – Szervezői jegyzet per résztvevő, audit timeline a drawer-ben
-- **Organizer üzenetküldés** – Tárgy, szöveg, közönségszűrő (mindenki/going/waitlist), history persistence
-- **Organizer audit napló** – Minden státuszváltás, jegyzet módosítás, üzenetküldés naplózva
-- **Owner quick actions** – Event Detail oldalon „Szervezés" gomb a dashboard-ra
-
-### Profil
-- **Közelgő események blokk** – Profile oldal jobb sávjában jelenik meg az 5 legközelebbi joined/waitlist esemény
+- **UpcomingEventsReminder** komponens a Profile oldalon – Következő 5 közelgő esemény
+- Megnyitás és Naptár gombok
 
 ---
 
-## 🔧 Technikai részletek
-
-### Edge Functions
-| Funkció | Leírás |
-|---------|--------|
-| `place-search` | Geoapify + TomTom orchestrator, cache, merge/rank |
-
-### Adatbázis
-| Tábla | Változás |
-|-------|---------|
-| `places_cache` | Cache tábla `cache_key` UNIQUE constraint-tel |
-| `events` | `place_*` mezők (name, address, city, lat, lon, source, categories) |
-| `event_participants` | `status`, `checked_in_at`, `organizer_note` mezők |
-| `organizer_audit_log` | Teljes audit log tábla |
-| `organizer_messages` | Üzenet persistence tábla |
-
-### Biztonság
-- Geoapify/TomTom API kulcsok kizárólag edge function-ből elérhetők (nem kliens oldalról)
-- RLS policies a `places_cache`, `event_participants`, `organizer_audit_log`, `organizer_messages` táblákon
+## ⚠️ Ismert limitációk
+- QR kamera alapú check-in scanner nincs (admin felületen történik)
+- Üzenetkézbesítés csak persistencia szinten (nincs valós push/email delivery)
+- Analytics baseline metrikák (nincs teljes interaction tracking pipeline)
+- Permission mátrix ownership-centrikus (nincs multi-organizer role)
 
 ---
 
-## 📋 Ismert limitációk / Következő lépések
-- Organizer üzenetek jelenleg csak mentésre kerülnek (push/email küldés nincs)
-- Reminder blokk statikus adatból dolgozik (scheduled reminder workflow nincs)
-- Place kategória mapping (canonical taxonomy) alapszinten működik, finomhangolás szükséges
+## 📁 Érintett fájlok
+
+### Új fájlok
+- `src/hooks/useOrganizerMode.tsx`
+- `src/lib/organizer.ts`
+- `src/pages/OrganizerDashboard.tsx` (teljes újraírás)
+- `src/components/UpcomingEventsReminder.tsx`
+- `src/components/PlaceAutocomplete.tsx`
+- `src/lib/placeSearch.ts`
+- `supabase/functions/place-search/index.ts`
+
+### Módosított fájlok
+- `src/App.tsx` – OrganizerModeProvider + `/organizer` route
+- `src/components/Navbar.tsx` – Organizer gomb + mode badge
+- `src/components/ProfileMenu.tsx` – Mód-váltó + organizer felület link
+- `src/pages/Profile.tsx` – UpcomingEventsReminder integráció
+- `src/pages/EventDetail.tsx` – Venue blokk, kapacitás/waitlist logika
+- `src/pages/Events.tsx` – Place-search geocoding
+- `src/components/CreateEventDialog.tsx` – PlaceAutocomplete integráció
+- `src/components/EditEventDialog.tsx` – PlaceAutocomplete integráció
