@@ -85,7 +85,7 @@ export async function getEventParticipants(
 ): Promise<OrganizerParticipant[]> {
   let query = supabase
     .from('event_participants')
-    .select('id,event_id,user_id,joined_at,status,checked_in_at,organizer_note,invite_code,profiles(display_name,avatar_url,city)')
+    .select('id,event_id,user_id,joined_at,status,checked_in_at,organizer_note,invite_code')
     .eq('event_id', eventId)
     .order('joined_at', { ascending: false });
 
@@ -96,8 +96,21 @@ export async function getEventParticipants(
   const { data, error } = await query;
   if (error) throw error;
 
+  // Fetch profiles separately since there's no direct FK
+  const userIds = (data ?? []).map((p) => p.user_id);
+  const { data: profilesData } = userIds.length > 0
+    ? await supabase.from('profiles').select('user_id,display_name,avatar_url,city').in('user_id', userIds)
+    : { data: [] };
+
+  const profileMap = new Map((profilesData ?? []).map((p) => [p.user_id, p]));
+
+  const rows: OrganizerParticipant[] = (data ?? []).map((p) => ({
+    ...p,
+    status: p.status as ParticipationStatus,
+    profiles: profileMap.get(p.user_id) ?? null,
+  }));
+
   const lowered = options?.search?.trim().toLowerCase();
-  const rows = (data ?? []) as OrganizerParticipant[];
   if (!lowered) return rows;
 
   return rows.filter((row) => {
