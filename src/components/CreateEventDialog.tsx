@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
+import { VenueSuggestionsPanel, type VenueSelection } from '@/components/VenueSuggestionsPanel';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
