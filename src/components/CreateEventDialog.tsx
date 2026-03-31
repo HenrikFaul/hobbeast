@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
+import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +62,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
+  const [venueSearchHint, setVenueSearchHint] = useState('');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -105,6 +107,29 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     setSelectedActivityId(actId);
     const act = selectedSubcategory?.activities.find(a => a.id === actId);
     if (act?.emoji) setImageEmoji(act.emoji);
+    // Update venue search hint
+    const hint = [act?.name, selectedSubcategory?.name].filter(Boolean).join(' ');
+    setVenueSearchHint(hint);
+  };
+
+  const handleActivityAutocomplete = (sel: ActivitySelection) => {
+    setSelectedCategoryId(sel.categoryId);
+    setSelectedSubcategoryId(sel.subcategoryId);
+    setSelectedActivityId(sel.activityId);
+    setImageEmoji(sel.emoji);
+    setVenueSearchHint(sel.venueSearchHint);
+    // Also apply defaults from the subcategory profile
+    const cat = HOBBY_CATALOG.find(c => c.id === sel.categoryId);
+    const sub = cat?.subcategories.find(s => s.id === sel.subcategoryId);
+    if (sub) {
+      if (sub.profile.suggestedDurationMin) setDuration(String(sub.profile.suggestedDurationMin));
+      setMaxAttendees(String(sub.profile.groupSize.typical));
+      if (sub.profile.canBeOnline && sub.profile.locationTypes.includes('online')) {
+        setLocationType('online');
+      } else {
+        setLocationType('city');
+      }
+    }
   };
 
   // Build category string for DB: "Category > Subcategory > Activity"
@@ -184,6 +209,16 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve *</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
+          </div>
+
+          {/* Quick activity search */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gyorskeresés tevékenységre</Label>
+            <ActivityAutocomplete
+              onSelect={handleActivityAutocomplete}
+              value={selectedActivity ? `${selectedActivity.emoji || ''} ${selectedActivity.name}`.trim() : ''}
+            />
+            <p className="text-xs text-muted-foreground">Írd be a tevékenység nevét (pl. sakkozás, futás, jóga) – vagy válassz lentebb a kategóriákból.</p>
           </div>
 
           {/* 3-level category selection */}
@@ -346,7 +381,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   setLocationLon(sel.lon || null);
                   setPlaceData(sel);
                 }}
-                placeholder="Keress rá egy helyszínre..."
+                placeholder={venueSearchHint ? `Keress helyszínt: ${venueSearchHint}...` : 'Keress rá egy helyszínre...'}
+                activityHint={venueSearchHint}
               />
             )}
             {locationType === 'free' && (

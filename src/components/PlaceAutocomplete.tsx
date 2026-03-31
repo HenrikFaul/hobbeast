@@ -21,9 +21,11 @@ interface PlaceAutocompleteProps {
   placeholder?: string;
   className?: string;
   bias?: { lat: number; lon: number };
+  /** Activity hint passed to provider for POI-aware search */
+  activityHint?: string;
 }
 
-export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá egy helyszínre...', className, bias }: PlaceAutocompleteProps) {
+export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá egy helyszínre...', className, bias, activityHint }: PlaceAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<NormalizedPlace[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,7 @@ export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá e
     }
     setLoading(true);
     try {
-      const data = await searchPlaces(q, bias);
+      const data = await searchPlaces(q, bias, activityHint);
       setResults(data);
       setShowDropdown(data.length > 0);
     } catch {
