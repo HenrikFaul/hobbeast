@@ -211,6 +211,16 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
           </div>
 
+          {/* Quick activity search */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gyorskeresés tevékenységre</Label>
+            <ActivityAutocomplete
+              onSelect={handleActivityAutocomplete}
+              value={selectedActivity ? `${selectedActivity.emoji || ''} ${selectedActivity.name}`.trim() : ''}
+            />
+            <p className="text-xs text-muted-foreground">Írd be a tevékenység nevét (pl. sakkozás, futás, jóga) – vagy válassz lentebb a kategóriákból.</p>
+          </div>
+
           {/* 3-level category selection */}
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kategória *</Label>
