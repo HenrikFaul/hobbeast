@@ -1,396 +1,380 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+// deno-lint-ignore-file no-explicit-any
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
+interface SearchBody {
+  query?: string
+  category?: string
+  latitude?: number
+  longitude?: number
+  radius_km?: number
+  open_now?: boolean
+  limit?: number
+  lenient?: boolean
+}
+
+interface Coordinates {
+  latitude: number
+  longitude: number
+}
+
+interface ProviderPlace {
+  provider: string
+  external_id: string
+  name: string
+  category?: string
+  address?: string
+  city?: string
+  postal_code?: string
+  latitude?: number
+  longitude?: number
+  distance_km?: number
+  rating?: number
+  review_count?: number
+  image_url?: string | null
+  phone?: string | null
+  website?: string | null
+  open_now?: boolean
+  opening_hours_text?: string[]
+  metadata?: Record<string, unknown>
+  score?: number
+  match_type?: 'query' | 'nearby'
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  })
 }
 
-// ─── Provider interfaces ─────────────────────────────────────────────────────
-
-interface NormalizedPlace {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  district: string;
-  country: string;
-  postcode: string;
-  lat: number;
-  lon: number;
-  categories: string[];
-  source: 'geoapify' | 'tomtom';
-  sourceId: string;
-  confidence: number;
+function normalizeCategory(category?: string) {
+  const lower = String(category || '').toLowerCase()
+  if (lower.includes('restaurant') || lower.includes('étterem')) return 'restaurant'
+  if (lower.includes('cafe') || lower.includes('kávé')) return 'cafe'
+  if (lower.includes('bar') || lower.includes('bár')) return 'bar'
+  return 'pub'
 }
 
-// ─── Geoapify provider ──────────────────────────────────────────────────────
-
-async function geoapifyAutocomplete(query: string, apiKey: string, bias?: { lat: number; lon: number }): Promise<NormalizedPlace[]> {
-  const params = new URLSearchParams({
-    text: query,
-    apiKey,
-    lang: 'hu',
-    limit: '6',
-    format: 'json',
-  });
-  if (bias) params.set('bias', `proximity:${bias.lon},${bias.lat}`);
-
-  const res = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?${params}`);
-  if (!res.ok) {
-    console.error('Geoapify error:', res.status, await res.text().catch(() => ''));
-    return [];
-  }
-  const data = await res.json();
-  return (data.results || []).map((r: any, i: number) => ({
-    id: `geoapify-${r.place_id || i}`,
-    name: r.name || r.formatted || '',
-    address: r.address_line1 || r.street || '',
-    city: r.city || r.town || r.village || '',
-    district: r.district || r.suburb || '',
-    country: r.country || '',
-    postcode: r.postcode || '',
-    lat: r.lat,
-    lon: r.lon,
-    categories: r.categories || [],
-    source: 'geoapify' as const,
-    sourceId: r.place_id || `${i}`,
-    confidence: r.rank?.confidence || (1 - i * 0.1),
-  }));
+function geoapifyCategoryFilter(category?: string) {
+  const normalized = normalizeCategory(category)
+  if (normalized === 'restaurant') return 'catering.restaurant'
+  if (normalized === 'cafe') return 'catering.cafe'
+  if (normalized === 'bar') return 'catering.bar'
+  return 'catering.pub,catering.bar'
 }
 
-async function geoapifyReverse(lat: number, lon: number, apiKey: string): Promise<NormalizedPlace[]> {
-  const params = new URLSearchParams({
-    lat: String(lat),
-    lon: String(lon),
-    apiKey,
-    lang: 'hu',
-    format: 'json',
-  });
-  const res = await fetch(`https://api.geoapify.com/v1/geocode/reverse?${params}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return (data.results || []).slice(0, 1).map((r: any) => ({
-    id: `geoapify-${r.place_id || 'rev'}`,
-    name: r.name || r.formatted || '',
-    address: r.address_line1 || r.street || '',
-    city: r.city || r.town || r.village || '',
-    district: r.district || r.suburb || '',
-    country: r.country || '',
-    postcode: r.postcode || '',
-    lat: r.lat,
-    lon: r.lon,
-    categories: r.categories || [],
-    source: 'geoapify' as const,
-    sourceId: r.place_id || 'rev',
-    confidence: 0.9,
-  }));
+function tomTomCategoryQuery(category?: string) {
+  const normalized = normalizeCategory(category)
+  if (normalized === 'restaurant') return 'restaurant'
+  if (normalized === 'cafe') return 'cafe'
+  if (normalized === 'bar') return 'bar'
+  return 'pub'
 }
 
-// ─── TomTom provider (enrichment/fallback) ──────────────────────────────────
-
-async function tomtomSearch(query: string, apiKey: string, bias?: { lat: number; lon: number }): Promise<NormalizedPlace[]> {
-  const params = new URLSearchParams({
-    key: apiKey,
-    language: 'hu-HU',
-    limit: '5',
-    typeahead: 'true',
-  });
-  if (bias) {
-    params.set('lat', String(bias.lat));
-    params.set('lon', String(bias.lon));
-    params.set('radius', '100000');
-  }
-  const res = await fetch(`https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json?${params}`);
-  if (!res.ok) {
-    console.error('TomTom error:', res.status, await res.text().catch(() => ''));
-    return [];
-  }
-  const data = await res.json();
-  return (data.results || []).map((r: any, i: number) => ({
-    id: `tomtom-${r.id || i}`,
-    name: r.poi?.name || r.address?.freeformAddress || '',
-    address: r.address?.streetName ? `${r.address.streetName} ${r.address.streetNumber || ''}`.trim() : r.address?.freeformAddress || '',
-    city: r.address?.municipality || r.address?.localName || '',
-    district: r.address?.municipalitySubdivision || '',
-    country: r.address?.country || '',
-    postcode: r.address?.postalCode || '',
-    lat: r.position?.lat || 0,
-    lon: r.position?.lon || 0,
-    categories: r.poi?.categories || [],
-    source: 'tomtom' as const,
-    sourceId: r.id || `${i}`,
-    confidence: r.score ? Math.min(1, r.score / 10) : (0.8 - i * 0.1),
-  }));
+function textMatchesQuery(row: ProviderPlace, query?: string) {
+  const normalizedQuery = String(query || '').trim().toLowerCase()
+  if (!normalizedQuery) return true
+  const haystack = [row.name, row.address, row.city, row.category]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(normalizedQuery)
 }
-
-async function tomtomReverse(lat: number, lon: number, apiKey: string): Promise<NormalizedPlace[]> {
-  const params = new URLSearchParams({ key: apiKey, language: 'hu-HU' });
-  const res = await fetch(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lon}.json?${params}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return (data.addresses || []).slice(0, 1).map((r: any) => ({
-    id: `tomtom-rev`,
-    name: r.address?.freeformAddress || '',
-    address: r.address?.streetName ? `${r.address.streetName} ${r.address.streetNumber || ''}`.trim() : '',
-    city: r.address?.municipality || '',
-    district: r.address?.municipalitySubdivision || '',
-    country: r.address?.country || '',
-    postcode: r.address?.postalCode || '',
-    lat,
-    lon,
-    categories: [],
-    source: 'tomtom' as const,
-    sourceId: 'rev',
-    confidence: 0.85,
-  }));
-}
-
-// ─── Merge / Dedup / Rank ───────────────────────────────────────────────────
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const toRad = (v: number) => (v * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function mergeAndRank(primary: NormalizedPlace[], secondary: NormalizedPlace[]): NormalizedPlace[] {
-  const merged = [...primary];
-
-  for (const sec of secondary) {
-    const isDuplicate = merged.some(
-      (m) => haversineKm(m.lat, m.lon, sec.lat, sec.lon) < 0.05 &&
-        m.name.toLowerCase().includes(sec.name.toLowerCase().slice(0, 5))
-    );
-    if (!isDuplicate) {
-      // Lower confidence for secondary provider results
-      merged.push({ ...sec, confidence: sec.confidence * 0.8 });
+function dedupe(results: ProviderPlace[]) {
+  const seen = new Map<string, ProviderPlace>()
+  for (const row of results) {
+    const key = `${row.name}|${row.address || ''}|${Math.round((row.latitude || 0) * 1000)}|${Math.round((row.longitude || 0) * 1000)}`.toLowerCase()
+    const current = seen.get(key)
+    if (!current || (row.score || 0) > (current.score || 0)) {
+      seen.set(key, row)
     }
   }
-
-  return merged.sort((a, b) => b.confidence - a.confidence).slice(0, 8);
+  return Array.from(seen.values())
 }
 
-// ─── Cache ──────────────────────────────────────────────────────────────────
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-async function getCached(key: string): Promise<NormalizedPlace[] | null> {
-  const { data } = await supabase
-    .from('places_cache')
-    .select('response_data')
-    .eq('cache_key', key)
-    .gt('expires_at', new Date().toISOString())
-    .maybeSingle();
-  return data ? (data.response_data as unknown as NormalizedPlace[]) : null;
-}
-
-async function setCache(key: string, results: NormalizedPlace[], provider: string) {
-  await supabase.from('places_cache').upsert({
-    cache_key: key,
-    provider,
-    response_data: results as any,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  }, { onConflict: 'cache_key' });
-}
-
-// ─── Main handler ───────────────────────────────────────────────────────────
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+function scoreRow(row: ProviderPlace, query: string, center?: Coordinates | null) {
+  let score = 0
+  if (query && textMatchesQuery(row, query)) score += 100
+  if (row.match_type === 'query') score += 40
+  if (typeof row.rating === 'number') score += Math.min(row.rating, 5) * 2
+  if (typeof row.distance_km === 'number') score += Math.max(0, 30 - row.distance_km)
+  if (!row.distance_km && center && typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+    score += Math.max(0, 30 - haversineKm(center.latitude, center.longitude, row.latitude, row.longitude))
   }
+  return score
+}
 
-  const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
-  const tomtomKey = Deno.env.get('TOMTOM_API_KEY');
-
-  if (!geoapifyKey && !tomtomKey) {
-    return json({ error: 'No place provider API keys configured' }, 500);
+async function geocodeGeoapify(query: string, apiKey: string): Promise<Coordinates | null> {
+  const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&limit=1&apiKey=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return null
+  const payload = await response.json()
+  const feature = payload.features?.[0]
+  if (!feature?.properties) return null
+  return {
+    latitude: Number(feature.properties.lat),
+    longitude: Number(feature.properties.lon),
   }
+}
+
+async function geocodeTomTom(query: string, apiKey: string): Promise<Coordinates | null> {
+  const url = `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(query)}.json?limit=1&key=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return null
+  const payload = await response.json()
+  const row = payload.results?.[0]
+  if (!row?.position) return null
+  return {
+    latitude: Number(row.position.lat),
+    longitude: Number(row.position.lon),
+  }
+}
+
+async function searchGeoapifyNearby(params: SearchBody, apiKey: string, center: Coordinates): Promise<ProviderPlace[]> {
+  const category = normalizeCategory(params.category)
+  const categories = geoapifyCategoryFilter(params.category)
+  const radius = Math.max(1, params.radius_km || 10) * 1000
+  const url = `https://api.geoapify.com/v2/places?categories=${categories}&filter=circle:${center.longitude},${center.latitude},${radius}&bias=proximity:${center.longitude},${center.latitude}&limit=${params.limit || 24}&apiKey=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return []
+  const payload = await response.json()
+  return (payload.features || []).map((feature: any) => ({
+    provider: 'geoapify',
+    external_id: feature.properties.place_id,
+    name: feature.properties.name || feature.properties.address_line1 || 'Helyszín',
+    category,
+    address: feature.properties.formatted,
+    city: feature.properties.city,
+    postal_code: feature.properties.postcode,
+    latitude: feature.properties.lat,
+    longitude: feature.properties.lon,
+    website: feature.properties.website,
+    phone: feature.properties.contact?.phone,
+    open_now: typeof feature.properties.opening_hours?.open_now === 'boolean' ? feature.properties.opening_hours.open_now : undefined,
+    opening_hours_text: Array.isArray(feature.properties.opening_hours?.text) ? feature.properties.opening_hours.text : [],
+    image_url: feature.properties.datasource?.raw?.image || null,
+    rating: feature.properties.datasource?.raw?.rating || null,
+    match_type: 'nearby',
+    metadata: feature.properties,
+  }))
+}
+
+async function searchGeoapifyByName(params: SearchBody, apiKey: string, center?: Coordinates | null, query?: string): Promise<ProviderPlace[]> {
+  const trimmedQuery = String(query || '').trim()
+  if (!trimmedQuery) return []
+  const category = normalizeCategory(params.category)
+  const categories = geoapifyCategoryFilter(params.category)
+  const radius = Math.max(1, params.radius_km || 10) * 1000
+  const spatial = center
+    ? `&filter=circle:${center.longitude},${center.latitude},${radius}&bias=proximity:${center.longitude},${center.latitude}`
+    : ''
+  const url = `https://api.geoapify.com/v2/places?categories=${categories}&name=${encodeURIComponent(trimmedQuery)}${spatial}&limit=${params.limit || 24}&apiKey=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return []
+  const payload = await response.json()
+  return (payload.features || []).map((feature: any) => ({
+    provider: 'geoapify',
+    external_id: feature.properties.place_id,
+    name: feature.properties.name || feature.properties.address_line1 || 'Helyszín',
+    category,
+    address: feature.properties.formatted,
+    city: feature.properties.city,
+    postal_code: feature.properties.postcode,
+    latitude: feature.properties.lat,
+    longitude: feature.properties.lon,
+    website: feature.properties.website,
+    phone: feature.properties.contact?.phone,
+    open_now: typeof feature.properties.opening_hours?.open_now === 'boolean' ? feature.properties.opening_hours.open_now : undefined,
+    opening_hours_text: Array.isArray(feature.properties.opening_hours?.text) ? feature.properties.opening_hours.text : [],
+    image_url: feature.properties.datasource?.raw?.image || null,
+    rating: feature.properties.datasource?.raw?.rating || null,
+    match_type: 'query',
+    metadata: feature.properties,
+  }))
+}
+
+async function searchTomTomByName(params: SearchBody, apiKey: string, center?: Coordinates | null, textQuery?: string): Promise<ProviderPlace[]> {
+  const trimmedQuery = String(textQuery || '').trim()
+  if (!trimmedQuery) return []
+  const radius = Math.max(1, params.radius_km || 10) * 1000
+  const locationPart = center ? `lat=${center.latitude}&lon=${center.longitude}&radius=${radius}&` : ''
+  const url = `https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(trimmedQuery)}.json?${locationPart}limit=${params.limit || 24}&key=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return []
+  const payload = await response.json()
+  return (payload.results || []).map((result: any) => ({
+    provider: 'tomtom',
+    external_id: result.id,
+    name: result.poi?.name || 'Helyszín',
+    category: result.poi?.classifications?.[0]?.code || tomTomCategoryQuery(params.category),
+    address: result.address?.freeformAddress,
+    city: result.address?.municipality,
+    postal_code: result.address?.postalCode,
+    latitude: result.position?.lat,
+    longitude: result.position?.lon,
+    website: result.poi?.url,
+    phone: result.poi?.phone,
+    distance_km: typeof result.dist === 'number' ? result.dist / 1000 : undefined,
+    match_type: 'query',
+    metadata: result,
+  }))
+}
+
+async function searchTomTomNearby(params: SearchBody, apiKey: string, center: Coordinates): Promise<ProviderPlace[]> {
+  const categoryQuery = tomTomCategoryQuery(params.category)
+  const radius = Math.max(1, params.radius_km || 10) * 1000
+  const url = `https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(categoryQuery)}.json?lat=${center.latitude}&lon=${center.longitude}&radius=${radius}&limit=${params.limit || 24}&key=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) return []
+  const payload = await response.json()
+  return (payload.results || []).map((result: any) => ({
+    provider: 'tomtom',
+    external_id: result.id,
+    name: result.poi?.name || 'Helyszín',
+    category: result.poi?.classifications?.[0]?.code || categoryQuery,
+    address: result.address?.freeformAddress,
+    city: result.address?.municipality,
+    postal_code: result.address?.postalCode,
+    latitude: result.position?.lat,
+    longitude: result.position?.lon,
+    website: result.poi?.url,
+    phone: result.poi?.phone,
+    distance_km: typeof result.dist === 'number' ? result.dist / 1000 : undefined,
+    match_type: 'nearby',
+    metadata: result,
+  }))
+}
+
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const body = await req.json();
-    const { action, query, lat, lon, bias, activityHint } = body as {
-      action: 'autocomplete' | 'reverse' | 'geocode';
-      query?: string;
-      lat?: number;
-      lon?: number;
-      bias?: { lat: number; lon: number };
-      activityHint?: string;
-    };
+    const body = (await request.json()) as SearchBody
+    const trimmedQuery = String(body.query || '').trim()
+    const hasCoords = Number.isFinite(Number(body.latitude)) && Number.isFinite(Number(body.longitude))
+    const explicitCenter = hasCoords ? { latitude: Number(body.latitude), longitude: Number(body.longitude) } : null
 
-    if (!action) return json({ error: 'Missing action parameter' }, 400);
-
-    const defaultBias = bias || { lat: 47.4979, lon: 19.0402 }; // Budapest
-
-    if (action === 'autocomplete' || action === 'geocode') {
-      // Build enriched query: if user typed something, use it; otherwise use activityHint
-      const rawQ = query?.trim() || '';
-      const enrichedQuery = rawQ.length >= 2 ? rawQ : (activityHint || rawQ);
-      if (enrichedQuery.length < 2) return json({ error: 'Query too short' }, 400);
-
-      const cacheKey = `autocomplete:${enrichedQuery.toLowerCase()}${activityHint ? ':' + activityHint.toLowerCase() : ''}`;
-      const cached = await getCached(cacheKey);
-      if (cached) return json({ results: cached, cached: true });
-
-      let primary: NormalizedPlace[] = [];
-      let secondary: NormalizedPlace[] = [];
-
-      // For activity-aware search, combine the query with the hint
-      const searchQuery = rawQ && activityHint && !rawQ.toLowerCase().includes(activityHint.toLowerCase().slice(0, 5))
-        ? `${rawQ} ${activityHint}` : enrichedQuery;
-
-      // Geoapify primary
-      if (geoapifyKey) {
-        primary = await geoapifyAutocomplete(searchQuery, geoapifyKey, defaultBias);
-        // If no results with combined query, try original query alone
-        if (primary.length === 0 && searchQuery !== rawQ && rawQ.length >= 2) {
-          primary = await geoapifyAutocomplete(rawQ, geoapifyKey, defaultBias);
-        }
-      }
-
-      // TomTom fallback/enrichment
-      if (tomtomKey) {
-        secondary = await tomtomSearch(searchQuery, tomtomKey, defaultBias);
-        if (secondary.length === 0 && searchQuery !== rawQ && rawQ.length >= 2) {
-          secondary = await tomtomSearch(rawQ, tomtomKey, defaultBias);
-        }
-      }
-
-      // If primary failed but secondary worked, swap
-      if (primary.length === 0 && secondary.length > 0) {
-        primary = secondary;
-        secondary = [];
-      }
-
-      const results = mergeAndRank(primary, secondary);
-      if (results.length > 0) await setCache(cacheKey, results, 'merged');
-
-      return json({ results, cached: false });
+    if (!explicitCenter && !trimmedQuery) {
+      return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0 } }, 400)
     }
 
-    if (action === 'reverse') {
-      if (typeof lat !== 'number' || typeof lon !== 'number') {
-        return json({ error: 'Missing lat/lon for reverse geocode' }, 400);
-      }
+    const limit = Math.min(Math.max(Number(body.limit || 24), 1), 48)
+    const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
+    const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
 
-      const cacheKey = `reverse:${lat.toFixed(4)},${lon.toFixed(4)}`;
-      const cached = await getCached(cacheKey);
-      if (cached) return json({ results: cached, cached: true });
-
-      let results: NormalizedPlace[] = [];
-
-      if (geoapifyKey) {
-        results = await geoapifyReverse(lat, lon, geoapifyKey);
-      }
-
-      if (results.length === 0 && tomtomKey) {
-        results = await tomtomReverse(lat, lon, tomtomKey);
-      }
-
-      if (results.length > 0) await setCache(cacheKey, results, results[0].source);
-
-      return json({ results, cached: false });
+    let resolvedCenter = explicitCenter
+    if (!resolvedCenter && trimmedQuery) {
+      resolvedCenter =
+        (geoapifyKey ? await geocodeGeoapify(trimmedQuery, geoapifyKey) : null) ||
+        (tomtomKey ? await geocodeTomTom(trimmedQuery, tomtomKey) : null)
     }
 
-    if (action === 'details') {
-      const { sourceId, source, lat: dLat, lon: dLon } = body as { sourceId?: string; source?: string; lat?: number; lon?: number };
+    const [geoByName, tomtomByName, geoNearby, tomtomNearby] = await Promise.all([
+      trimmedQuery && geoapifyKey ? searchGeoapifyByName({ ...body, limit }, geoapifyKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
+      trimmedQuery && tomtomKey ? searchTomTomByName({ ...body, limit }, tomtomKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
+      resolvedCenter && geoapifyKey ? searchGeoapifyNearby({ ...body, limit }, geoapifyKey, resolvedCenter) : Promise.resolve([]),
+      resolvedCenter && tomtomKey ? searchTomTomNearby({ ...body, limit }, tomtomKey, resolvedCenter) : Promise.resolve([]),
+    ])
 
-      // Try TomTom POI details first (richer data)
-      if (tomtomKey && source === 'tomtom' && sourceId && sourceId !== 'rev') {
-        try {
-          const params = new URLSearchParams({ key: tomtomKey, language: 'hu-HU' });
-          const res = await fetch(`https://api.tomtom.com/search/2/place.json?entityId=${encodeURIComponent(sourceId)}&${params}`);
-          if (res.ok) {
-            const data = await res.json();
-            const r = data.results?.[0];
-            if (r) {
-              return json({
-                detail: {
-                  name: r.poi?.name || r.address?.freeformAddress || '',
-                  address: r.address?.streetName ? `${r.address.streetName} ${r.address.streetNumber || ''}`.trim() : r.address?.freeformAddress || '',
-                  city: r.address?.municipality || '',
-                  phone: r.poi?.phone || null,
-                  website: r.poi?.url || null,
-                  openingHours: r.poi?.openingHours?.timeRanges?.map((tr: any) => `${tr.startTime?.date || ''} ${tr.startTime?.hour || ''}:${String(tr.startTime?.minute || 0).padStart(2, '0')} - ${tr.endTime?.hour || ''}:${String(tr.endTime?.minute || 0).padStart(2, '0')}`) || null,
-                  categories: r.poi?.categories || [],
-                  rating: null,
-                  lat: r.position?.lat || dLat || 0,
-                  lon: r.position?.lon || dLon || 0,
-                  source: 'tomtom',
-                  sourceId: r.id || sourceId,
-                },
-              });
-            }
-          }
-        } catch (e) {
-          console.error('TomTom details error:', e);
-        }
+    const rawCandidates = dedupe([...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => {
+      const distance =
+        typeof row.distance_km === 'number'
+          ? row.distance_km
+          : resolvedCenter && typeof row.latitude === 'number' && typeof row.longitude === 'number'
+            ? haversineKm(resolvedCenter.latitude, resolvedCenter.longitude, row.latitude, row.longitude)
+            : undefined
+      return {
+        ...row,
+        distance_km: distance,
       }
+    })
 
-      // Geoapify place details
-      if (geoapifyKey && sourceId && source === 'geoapify') {
-        try {
-          const params = new URLSearchParams({ apiKey: geoapifyKey, lang: 'hu' });
-          const res = await fetch(`https://api.geoapify.com/v2/place-details?id=${encodeURIComponent(sourceId)}&${params}`);
-          if (res.ok) {
-            const data = await res.json();
-            const f = data.features?.[0]?.properties;
-            if (f) {
-              return json({
-                detail: {
-                  name: f.name || f.formatted || '',
-                  address: f.address_line1 || f.street || '',
-                  city: f.city || f.town || f.village || '',
-                  phone: f.contact?.phone || null,
-                  website: f.website || f.contact?.website || null,
-                  openingHours: f.opening_hours ? [f.opening_hours] : null,
-                  categories: f.categories || [],
-                  rating: null,
-                  lat: f.lat || dLat || 0,
-                  lon: f.lon || dLon || 0,
-                  source: 'geoapify',
-                  sourceId: f.place_id || sourceId,
-                },
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Geoapify details error:', e);
-        }
-      }
+    let merged = rawCandidates.map((row) => ({
+      ...row,
+      score: scoreRow(row, trimmedQuery, resolvedCenter),
+    }))
 
-      // Fallback: do a reverse geocode to get at least basic info
-      if (typeof dLat === 'number' && typeof dLon === 'number') {
-        let results: NormalizedPlace[] = [];
-        if (geoapifyKey) results = await geoapifyReverse(dLat, dLon, geoapifyKey);
-        if (results.length === 0 && tomtomKey) results = await tomtomReverse(dLat, dLon, tomtomKey);
-        if (results.length > 0) {
-          const r = results[0];
-          return json({ detail: { name: r.name, address: r.address, city: r.city, categories: r.categories, lat: r.lat, lon: r.lon, source: r.source, sourceId: r.sourceId } });
-        }
-      }
-
-      return json({ detail: null });
+    if (body.open_now) {
+      merged = merged.filter((row) => row.open_now !== false)
     }
 
-    return json({ error: `Unknown action: ${action}` }, 400);
+    const strictMatches = trimmedQuery
+      ? merged.filter((row) => textMatchesQuery(row, trimmedQuery))
+      : merged
+
+    const finalResults = (strictMatches.length > 0 && !body.lenient ? strictMatches : merged)
+      .sort((left, right) => {
+        const scoreDelta = (right.score || 0) - (left.score || 0)
+        if (scoreDelta !== 0) return scoreDelta
+        const leftDistance = typeof left.distance_km === 'number' ? left.distance_km : Number.MAX_SAFE_INTEGER
+        const rightDistance = typeof right.distance_km === 'number' ? right.distance_km : Number.MAX_SAFE_INTEGER
+        if (leftDistance !== rightDistance) return leftDistance - rightDistance
+        return (right.rating || 0) - (left.rating || 0)
+      })
+      .slice(0, limit)
+
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    if (serviceRoleKey && supabaseUrl && finalResults.length > 0) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/places_cache?on_conflict=provider,external_id`, {
+          method: 'POST',
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify(
+            finalResults.map((row) => ({
+              provider: row.provider,
+              external_id: row.external_id,
+              name: row.name,
+              category: row.category,
+              address: row.address,
+              city: row.city,
+              postal_code: row.postal_code,
+              latitude: row.latitude,
+              longitude: row.longitude,
+              rating: row.rating,
+              image_url: row.image_url,
+              metadata: row.metadata || {},
+              updated_at: new Date().toISOString(),
+            }))
+          ),
+        })
+      } catch {
+        // cache write should not block search results
+      }
+    }
+
+    return json({
+      results: finalResults,
+      debug: {
+        raw_candidate_count: rawCandidates.length,
+        strict_match_count: strictMatches.length,
+        returned_count: finalResults.length,
+        used_lenient_mode: Boolean(body.lenient) || (strictMatches.length === 0 && merged.length > 0),
+        resolved_center: resolvedCenter,
+      },
+    })
   } catch (error) {
-    console.error('place-search error:', error);
-    return json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500);
+    return json({ results: [], error: String(error), debug: { raw_candidate_count: 0 } }, 500)
   }
-});
+})
