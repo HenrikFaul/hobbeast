@@ -4,6 +4,38 @@ Minden változtatás dátummal és leírással.
 
 ---
 
+
+## [1.3.8] — 2026-03-31
+
+### 🧭 Versioning és fejlesztési metodika
+- A fejlesztési workflow kiegészült azzal, hogy minden új üzleti kérés / hibajavítás előtt kötelező:
+  - `codingLessonsLearnt.md` és `changelog.md` beolvasása
+  - hivatalos internetes forráskutatás a gyökérok detektálásához
+  - megoldási koncepciók kiértékelése és regressziós kockázat szerinti választás
+- Új versioning dokumentumpár készült ehhez a hibajavításhoz:
+  - `versioning/13804152_v1.3.8_business_request_summary.pdf`
+  - `versioning/13804152_v1.3.8_ai_dev_prompts.md`
+
+### 🐛 Venue finder / place-search hibajavítás
+- A Geoapify Places integráció többé nem küld nem támogatott `text` paramétert a Places API felé; a helykeresés nearby + `name` alapú keresésre lett bontva.
+- A TomTom integráció a közeli kategóriaalapú venue-listákhoz `categorySearch` irányt használ a korábbi túl szűk keresési út helyett.
+- A `place-search` edge functionből kikerült a túl agresszív végszűrés, amely lenullázhatta a már megtalált provider venue-listát.
+- A válasz debug-safe meta mezőt is ad (`raw_candidate_count`, `strict_match_count`, `returned_count`, `used_lenient_mode`), így a következő hibakeresés gyorsabb.
+- A kliensoldali `searchPlaces()` helper puhább retry logikát kapott, és csak ezután esik vissza cache-re.
+
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos internetes forráskutatás megtörtént
+- [x] gyökérok detektálva
+- [x] megoldási koncepciók összevetve
+- [x] regressziószegényebb megoldás kiválasztva
+- [x] korábbi működő funkciók search útvonala megőrizve
+- [x] lessons/changelog frissítve
+- [x] versioning dokumentumpár elkészítve
+
+---
+
 ## [1.1.0] — 2026-03-30
 
 ### ✨ Új funkciók
@@ -111,29 +143,3 @@ Minden változtatás dátummal és leírással.
 
 ### 📝 Megjegyzés
 - Ez a kiadás kifejezetten a korábban működő funkciók visszaállítására és a redesign regressziók megszüntetésére készült.
-
----
-
-## [1.3.9] — 2026-03-31
-
-### 🐛 Venue finder / címkereső javítás
-- **Gyökérok-detektálás után** a provider keresési lánc át lett építve a hivatalos API-paraméterekhez igazítva
-- Geoapify query-ág javítva: a Places API név alapú POI lekérése `name` paraméterrel történik
-- TomTom nearby venue lekérés javítva: külön kategóriaalapú nearby keresés került be a venue finderbe
-- A function végi túl agresszív `textMatchesQuery()` hard filter megszüntetve mint kizárólagos kimeneti feltétel
-- Új **score + lenient fallback** stratégia került be, hogy a provider által már visszaadott venue-k ne vesszenek el
-- Query-variánsok (eredeti / tisztított / normalizált) hozzáadva a location resolution és névkeresés stabilizálására
-- A kliensoldali `searchPlaces()` helper debug-safe újrapróbálást és cache fallbacket kapott
-
-### 📋 Ellenőrzési checklist
-- [x] `codingLessonsLearnt.md` és `changelog.md` beolvasva a fejlesztés elején
-- [x] Hivatalos dokumentációk átnézve (Supabase / Geoapify / TomTom)
-- [x] Gyökérok detektálva a `place-search` function és kliens helper rétegben
-- [x] Megoldási koncepciók összevetve (hard filter eltávolítás vs. score + lenient fallback)
-- [x] Célzott helyi szimuláció lefuttatva a keresési koncepciókra
-- [x] Csak a cserélendő fájlok előkészítve patchhez
-- [x] Versioning dokumentumpár létrehozva és changelogban hivatkozva
-
-### 📎 Versioning referencia
-- `versioning/13903921_v1.3.9_business_request_summary.pdf`
-- `versioning/13903921_v1.3.9_ai_dev_prompts.md`

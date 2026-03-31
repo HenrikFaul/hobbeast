@@ -1,21 +1,35 @@
 # LEGFONTOSABB: SEMMILYEN MÁR JÓL MŰKÖDŐ FUNKCIÓT NEM SZABAD ELRONTANI.
 
-## 🔁 KÖTELEZŐ FEJLESZTÉSI MÓDSZERTAN (MINDEN ÚJ HIBA / REQUIREMENT ELŐTT)
+# FEJLESZTÉSI MÓDSZERTAN (MINDIG EZT KÖVESD ELŐSZÖR)
 
-**Kötelező indító prompt minden jövőbeli fejlesztéshez:**
+**KÖTELEZŐ indító prompt minden új fejlesztéshez / hibajavításhoz:**
+1. **Legfontosabb, hogy semmilyen már jól működő funkciót ne ronts el.**
+2. Olvasd be a `codingLessonsLearnt.md` és a `changelog.md` fájlt.
+3. Az újonnan megfogalmazott üzleti követelmény vagy hibajavítás érdekében **szedd össze az összes szükséges tudást elsődlegesen hivatalos internetes forrásokból**.
+4. A begyűjtött tudás alapján **detektáld a valós gyökérokot** a kódban / konfigurációban / futási láncban.
+5. **Tesztek vagy célzott próbák alapján** hasonlíts össze legalább 2 megoldási koncepciót, és a **leghatékonyabbat / legkisebb regressziós kockázatút** válaszd.
+6. A fejlesztést checklist-alapon végezd el.
+7. A fejlesztés végén kötelezően ellenőrizd:
+   - minden kért javítás / fejlesztés elkészült-e,
+   - minden korábbi fontos funkció megmaradt-e,
+   - a `codingLessonsLearnt.md`-ben felsorolt korábbi hibaminták nem tértek-e vissza,
+   - a `changelog.md` frissült-e,
+   - a `versioning/` mappába bekerült-e az új PDF + MD dokumentumpár.
 
-> Olvasd be a `codingLessonsLearnt.md` és `changelog.md` fájlokat. A cél: **semmilyen már jól működő funkciót nem szabad elrontani**. Az újonnan megfogalmazott üzleti követelmény vagy hibajavítás érdekében először gyűjtsd össze az internetes / hivatalos dokumentációs tudást, ami a probléma detektálásához és a helyes megoldáshoz kell. Ezután detektáld a gyökérokot a kódban, készíts több megoldási koncepciót, végezz célzott teszteket a koncepciókra, és a leghatékonyabb, regressziószempontból legbiztonságosabb megoldást szállítsd. A fejlesztés végén checklist alapján ellenőrizd, hogy minden kérés teljesült, és hogy a korábbi hibaminták nem kerültek vissza.
+**Kötelező végellenőrző checklist minden szállítás előtt:**
+- [ ] `codingLessonsLearnt.md` beolvasva
+- [ ] `changelog.md` beolvasva
+- [ ] webes / hivatalos forráskutatás megtörtént
+- [ ] gyökérok detektálva
+- [ ] legalább 2 megoldási koncepció kiértékelve
+- [ ] a legkisebb regressziós kockázatú megoldás kiválasztva
+- [ ] korábbi működő funkciók megléte double-checkelve
+- [ ] új regresszió nem maradt bent
+- [ ] changelog frissítve
+- [ ] versioning PDF + MD elkészítve és hivatkozva
 
-**Kötelező lépések:**
-1. `codingLessonsLearnt.md` és `changelog.md` elolvasása
-2. Hivatalos webes / dokumentációs tudás összegyűjtése a problémáról
-3. Gyökérok detektálása a kódban
-4. Legalább 2 megoldási koncepció felállítása
-5. Célzott teszt vagy szimuláció a koncepciókra
-6. A legbiztonságosabb megoldás implementálása
-7. Regresszióellenőrzés checklist alapján
-8. `codingLessonsLearnt.md` és `changelog.md` frissítése
-9. Versioning fájlpár generálása (`PDF` + `MD`)
+
+# codingLessonsLearnt.md — Kapakka PubApp
 
 ## ⚠️ UTASÍTÁSOK (MINDIG OLVASD EL ELŐSZÖR!)
 
@@ -218,13 +232,10 @@
 
 *Appendelve: 2026-03-31 — v1.3.6*
 
-
-### [HIBA-034] Venue finder nullára szűrte a provider találatokat a function végén
-- **Dátum**: 2026-03-31 (v1.3.9)
+### [HIBA-034] Venue / címkereső túl agresszív végszűrése lenullázta a provider találatokat
+- **Dátum**: 2026-03-31 (v1.3.8)
 - **Fájl**: `supabase/functions/place-search/index.ts`, `src/lib/place-search.ts`
-- **Hibaüzenet**: Futás közben a TomTom / Geoapify provider kérések ellenére a venue finder gyakran 0 találatot adott vissza (`Nincs találat`), különösen városnév vagy cím alapú keresésnél.
-- **Gyökérok**: Két kombinált probléma volt:
-  1. A Geoapify Places API lekérés a jelenlegi implementációban `text=` paraméterre épült, miközben a Places API hivatalos, dokumentált név-alapú POI szűrője a `name` paraméter. Emiatt a query-ág gyengén vagy kiszámíthatatlanul működött.
-  2. A provider találatok összefésülése után a function végén egy kemény `textMatchesQuery()` filter újra nullára szűrhette a már megtalált közeli venue-ket is. Ha emiatt a lista üres lett, a kliens csak cache-fallbacket látott, ami első használatkor üres lehetett.
-- **Javítás**: A keresési logika kétlépcsősre lett alakítva: előbb geocode / center feloldás query-variánsokkal, majd külön by-name és nearby POI lekérés. A végső szűrés hard filter helyett score + lenient fallback logikára váltott. A kliens `searchPlaces()` helper debug-safe retry/fallback lépcsőt kapott.
-- **Megelőzés**: Provider API integrációnál **MINDIG** az adott szolgáltató hivatalos paramétereit kell követni, és a provider által már visszaadott találatokat nem szabad egy második, túl agresszív kliens-specifikus szűréssel lenullázni. Search pipeline-nál kötelező külön ellenőrizni: provider hits > merged results > UI results.
+- **Hibaüzenet**: Futás közben a Geoapify / TomTom provider már visszaadott nyers venue-ket, de a UI mégis üres maradt („nincs találat”).
+- **Gyökérok**: A place-search edge function a merge után kemény `textMatchesQuery()` szűrést futtatott, ami városközpontú vagy geokódolt közeli venue keresésnél lenullázhatta a listát. Emellett a Geoapify Places API-hoz `text=` paraméter ment, miközben a Places API dokumentációja `name=` és térbeli `filter`/`bias` használatot ír elő.
+- **Javítás**: A végszűrés hard filter helyett rangsorolássá lett alakítva, a Geoapify integráció külön nearby + name-search ágra váltott, a TomTom nearby keresés categorySearch alapú lett, és debug-safe meta információ került a function válaszába.
+- **Megelőzés**: Provider találatoknál **SOHA** ne legyen olyan utólagos végszűrés, ami teljesen lenullázhatja a már visszaadott candidate listát, hacsak nincs külön bizonyítva, hogy irrelevánsak. Keresőhibánál mindig ellenőrizni kell a harmadik fél API dokumentációját a ténylegesen támogatott query paraméterekre.

@@ -98,19 +98,13 @@ async function searchCachedPlaces(params: PlaceSearchParams): Promise<ExternalPl
 
 async function invokePlaceSearch(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('place-search', { body })
-  if (error) {
-    return {
-      rows: [] as ExternalPlace[],
-      error: error.message,
-      debug: null as Record<string, unknown> | null,
-    }
-  }
+  if (error) return { rows: [] as ExternalPlace[], error: error.message, debug: null as Record<string, unknown> | null }
 
   if (data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string') {
     return {
       rows: [] as ExternalPlace[],
       error: String((data as { error: string }).error),
-      debug: data as Record<string, unknown>,
+      debug: typeof data === 'object' ? (data as Record<string, unknown>) : null,
     }
   }
 
@@ -122,13 +116,8 @@ async function invokePlaceSearch(body: Record<string, unknown>) {
 
   const normalizedRows: ExternalPlace[] = rows.map((row: any) => normalizeExternalPlace(row))
   const filteredRows: ExternalPlace[] = normalizedRows.filter((row: ExternalPlace) => Boolean(row.external_id))
-  const debug = typeof data === 'object' && data ? ((data as Record<string, unknown>).debug as Record<string, unknown> | undefined) : undefined
-
-  return {
-    rows: filteredRows,
-    error: null as string | null,
-    debug: debug || null,
-  }
+  const debug = typeof data === 'object' && data ? (data as Record<string, unknown>).debug as Record<string, unknown> | undefined : undefined
+  return { rows: filteredRows, error: null as string | null, debug: debug || null }
 }
 
 export async function searchPlaces(params: PlaceSearchParams): Promise<ExternalPlace[]> {
@@ -145,10 +134,10 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<ExternalP
   const primary = await invokePlaceSearch(payload)
   if (primary.rows.length > 0) return primary.rows
 
+  // If provider calls happened but the primary result set is still empty,
+  // retry once with softer constraints before falling back to cache.
   const rawCandidateCount = Number(primary.debug?.raw_candidate_count || 0)
-  const hadProviderResponse = rawCandidateCount > 0 || Number(primary.debug?.provider_hits || 0) > 0
-
-  if (hadProviderResponse || (params.query || '').trim()) {
+  if (rawCandidateCount > 0 || (params.query || '').trim()) {
     const fallback = await invokePlaceSearch({
       query: params.query || '',
       category: params.category || '',
@@ -163,12 +152,5 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<ExternalP
   }
 
   const cached = await searchCachedPlaces(params)
-  if (cached.length > 0) return cached
-
-  if (params.query?.trim() && params.category) {
-    const broaderCache = await searchCachedPlaces({ ...params, category: undefined, openNow: false })
-    if (broaderCache.length > 0) return broaderCache
-  }
-
-  return []
+  return cached
 }
