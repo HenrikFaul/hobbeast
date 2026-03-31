@@ -40,9 +40,9 @@ interface ProviderPlace {
   website?: string | null
   open_now?: boolean
   opening_hours_text?: string[]
-  metadata?: Record<string, unknown>
+  match_type: 'query' | 'nearby'
   score?: number
-  match_type?: 'query' | 'nearby'
+  metadata?: Record<string, unknown>
 }
 
 function json(data: unknown, status = 200) {
@@ -52,11 +52,19 @@ function json(data: unknown, status = 200) {
   })
 }
 
+function normalizeText(value?: string | null) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 function normalizeCategory(category?: string) {
-  const lower = String(category || '').toLowerCase()
-  if (lower.includes('restaurant') || lower.includes('étterem')) return 'restaurant'
-  if (lower.includes('cafe') || lower.includes('kávé')) return 'cafe'
-  if (lower.includes('bar') || lower.includes('bár')) return 'bar'
+  const lower = normalizeText(category)
+  if (lower.includes('restaurant') || lower.includes('etterem')) return 'restaurant'
+  if (lower.includes('cafe') || lower.includes('kave')) return 'cafe'
+  if (lower.includes('bar')) return 'bar'
   return 'pub'
 }
 
@@ -65,25 +73,34 @@ function geoapifyCategoryFilter(category?: string) {
   if (normalized === 'restaurant') return 'catering.restaurant'
   if (normalized === 'cafe') return 'catering.cafe'
   if (normalized === 'bar') return 'catering.bar'
-  return 'catering.pub,catering.bar'
+  return 'catering.pub,catering.bar,catering.restaurant,catering.cafe'
 }
 
 function tomTomCategoryQuery(category?: string) {
   const normalized = normalizeCategory(category)
   if (normalized === 'restaurant') return 'restaurant'
-  if (normalized === 'cafe') return 'cafe'
+  if (normalized === 'cafe') return 'café'
   if (normalized === 'bar') return 'bar'
   return 'pub'
 }
 
 function textMatchesQuery(row: ProviderPlace, query?: string) {
-  const normalizedQuery = String(query || '').trim().toLowerCase()
+  const normalizedQuery = normalizeText(query)
   if (!normalizedQuery) return true
-  const haystack = [row.name, row.address, row.city, row.category]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
+  const haystack = normalizeText([row.name, row.address, row.city, row.category].filter(Boolean).join(' '))
   return haystack.includes(normalizedQuery)
+}
+
+function buildQueryVariants(query?: string) {
+  const trimmed = String(query || '').trim()
+  if (!trimmed) return []
+  const base = trimmed.replace(/\s+/g, ' ')
+  const normalized = normalizeText(base)
+  const withoutCategoryWords = base.replace(/\b(pub|bar|bár|etterem|étterem|restaurant|cafe|kávézó|kavezo|coffee|shop|kocsma)\b/gi, '').replace(/\s+/g, ' ').trim()
+  const variants = [base]
+  if (withoutCategoryWords && withoutCategoryWords !== base) variants.push(withoutCategoryWords)
+  if (normalized && normalized !== normalizeText(base)) variants.push(normalized)
+  return Array.from(new Set(variants.filter(Boolean)))
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -101,7 +118,7 @@ function dedupe(results: ProviderPlace[]) {
   for (const row of results) {
     const key = `${row.name}|${row.address || ''}|${Math.round((row.latitude || 0) * 1000)}|${Math.round((row.longitude || 0) * 1000)}`.toLowerCase()
     const current = seen.get(key)
-    if (!current || (row.score || 0) > (current.score || 0)) {
+    if (!current || (row.score || 0) > (current.score || 0) || row.match_type === 'query') {
       seen.set(key, row)
     }
   }
@@ -109,8 +126,9 @@ function dedupe(results: ProviderPlace[]) {
 }
 
 function scoreRow(row: ProviderPlace, query: string, center?: Coordinates | null) {
+  const normalizedQuery = normalizeText(query)
   let score = 0
-  if (query && textMatchesQuery(row, query)) score += 100
+  if (normalizedQuery && textMatchesQuery(row, normalizedQuery)) score += 100
   if (row.match_type === 'query') score += 40
   if (typeof row.rating === 'number') score += Math.min(row.rating, 5) * 2
   if (typeof row.distance_km === 'number') score += Math.max(0, 30 - row.distance_km)
@@ -271,7 +289,7 @@ Deno.serve(async (request) => {
     const explicitCenter = hasCoords ? { latitude: Number(body.latitude), longitude: Number(body.longitude) } : null
 
     if (!explicitCenter && !trimmedQuery) {
-      return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0 } }, 400)
+      return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0, provider_hits: 0 } }, 400)
     }
 
     const limit = Math.min(Math.max(Number(body.limit || 24), 1), 48)
@@ -279,15 +297,23 @@ Deno.serve(async (request) => {
     const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
 
     let resolvedCenter = explicitCenter
-    if (!resolvedCenter && trimmedQuery) {
-      resolvedCenter =
-        (geoapifyKey ? await geocodeGeoapify(trimmedQuery, geoapifyKey) : null) ||
-        (tomtomKey ? await geocodeTomTom(trimmedQuery, tomtomKey) : null)
+    const queryVariants = buildQueryVariants(trimmedQuery)
+    if (!resolvedCenter && queryVariants.length > 0) {
+      for (const variant of queryVariants) {
+        resolvedCenter =
+          (geoapifyKey ? await geocodeGeoapify(variant, geoapifyKey) : null) ||
+          (tomtomKey ? await geocodeTomTom(variant, tomtomKey) : null)
+        if (resolvedCenter) break
+      }
     }
 
-    const [geoByName, tomtomByName, geoNearby, tomtomNearby] = await Promise.all([
-      trimmedQuery && geoapifyKey ? searchGeoapifyByName({ ...body, limit }, geoapifyKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
-      trimmedQuery && tomtomKey ? searchTomTomByName({ ...body, limit }, tomtomKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
+    const geoByName = geoapifyKey
+      ? (await Promise.all(queryVariants.map((variant) => searchGeoapifyByName({ ...body, limit }, geoapifyKey, explicitCenter || resolvedCenter, variant)))).flat()
+      : []
+    const tomtomByName = tomtomKey
+      ? (await Promise.all(queryVariants.map((variant) => searchTomTomByName({ ...body, limit }, tomtomKey, explicitCenter || resolvedCenter, variant)))).flat()
+      : []
+    const [geoNearby, tomtomNearby] = await Promise.all([
       resolvedCenter && geoapifyKey ? searchGeoapifyNearby({ ...body, limit }, geoapifyKey, resolvedCenter) : Promise.resolve([]),
       resolvedCenter && tomtomKey ? searchTomTomNearby({ ...body, limit }, tomtomKey, resolvedCenter) : Promise.resolve([]),
     ])
@@ -314,9 +340,7 @@ Deno.serve(async (request) => {
       merged = merged.filter((row) => row.open_now !== false)
     }
 
-    const strictMatches = trimmedQuery
-      ? merged.filter((row) => textMatchesQuery(row, trimmedQuery))
-      : merged
+    const strictMatches = trimmedQuery ? merged.filter((row) => textMatchesQuery(row, trimmedQuery)) : merged
 
     const finalResults = (strictMatches.length > 0 && !body.lenient ? strictMatches : merged)
       .sort((left, right) => {
@@ -370,11 +394,13 @@ Deno.serve(async (request) => {
         raw_candidate_count: rawCandidates.length,
         strict_match_count: strictMatches.length,
         returned_count: finalResults.length,
+        provider_hits: geoByName.length + tomtomByName.length + geoNearby.length + tomtomNearby.length,
         used_lenient_mode: Boolean(body.lenient) || (strictMatches.length === 0 && merged.length > 0),
         resolved_center: resolvedCenter,
+        query_variants: queryVariants,
       },
     })
   } catch (error) {
-    return json({ results: [], error: String(error), debug: { raw_candidate_count: 0 } }, 500)
+    return json({ results: [], error: String(error), debug: { raw_candidate_count: 0, provider_hits: 0 } }, 500)
   }
 })
