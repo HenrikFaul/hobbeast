@@ -224,12 +224,13 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, query, lat, lon, bias } = body as {
+    const { action, query, lat, lon, bias, activityHint } = body as {
       action: 'autocomplete' | 'reverse' | 'geocode';
       query?: string;
       lat?: number;
       lon?: number;
       bias?: { lat: number; lon: number };
+      activityHint?: string;
     };
 
     if (!action) return json({ error: 'Missing action parameter' }, 400);
