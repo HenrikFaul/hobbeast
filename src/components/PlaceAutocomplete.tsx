@@ -25,7 +25,7 @@ interface PlaceAutocompleteProps {
   activityHint?: string;
 }
 
-export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá egy helyszínre...', className, bias }: PlaceAutocompleteProps) {
+export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá egy helyszínre...', className, bias, activityHint }: PlaceAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<NormalizedPlace[]>([]);
   const [loading, setLoading] = useState(false);
