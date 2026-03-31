@@ -238,23 +238,37 @@ serve(async (req) => {
     const defaultBias = bias || { lat: 47.4979, lon: 19.0402 }; // Budapest
 
     if (action === 'autocomplete' || action === 'geocode') {
-      if (!query || query.trim().length < 2) return json({ error: 'Query too short' }, 400);
+      // Build enriched query: if user typed something, use it; otherwise use activityHint
+      const rawQ = query?.trim() || '';
+      const enrichedQuery = rawQ.length >= 2 ? rawQ : (activityHint || rawQ);
+      if (enrichedQuery.length < 2) return json({ error: 'Query too short' }, 400);
 
-      const cacheKey = `autocomplete:${query.trim().toLowerCase()}`;
+      const cacheKey = `autocomplete:${enrichedQuery.toLowerCase()}${activityHint ? ':' + activityHint.toLowerCase() : ''}`;
       const cached = await getCached(cacheKey);
       if (cached) return json({ results: cached, cached: true });
 
       let primary: NormalizedPlace[] = [];
       let secondary: NormalizedPlace[] = [];
 
+      // For activity-aware search, combine the query with the hint
+      const searchQuery = rawQ && activityHint && !rawQ.toLowerCase().includes(activityHint.toLowerCase().slice(0, 5))
+        ? `${rawQ} ${activityHint}` : enrichedQuery;
+
       // Geoapify primary
       if (geoapifyKey) {
-        primary = await geoapifyAutocomplete(query, geoapifyKey, defaultBias);
+        primary = await geoapifyAutocomplete(searchQuery, geoapifyKey, defaultBias);
+        // If no results with combined query, try original query alone
+        if (primary.length === 0 && searchQuery !== rawQ && rawQ.length >= 2) {
+          primary = await geoapifyAutocomplete(rawQ, geoapifyKey, defaultBias);
+        }
       }
 
       // TomTom fallback/enrichment
       if (tomtomKey) {
-        secondary = await tomtomSearch(query, tomtomKey, defaultBias);
+        secondary = await tomtomSearch(searchQuery, tomtomKey, defaultBias);
+        if (secondary.length === 0 && searchQuery !== rawQ && rawQ.length >= 2) {
+          secondary = await tomtomSearch(rawQ, tomtomKey, defaultBias);
+        }
       }
 
       // If primary failed but secondary worked, swap
