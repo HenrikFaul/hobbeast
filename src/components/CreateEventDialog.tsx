@@ -107,6 +107,29 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     setSelectedActivityId(actId);
     const act = selectedSubcategory?.activities.find(a => a.id === actId);
     if (act?.emoji) setImageEmoji(act.emoji);
+    // Update venue search hint
+    const hint = [act?.name, selectedSubcategory?.name].filter(Boolean).join(' ');
+    setVenueSearchHint(hint);
+  };
+
+  const handleActivityAutocomplete = (sel: ActivitySelection) => {
+    setSelectedCategoryId(sel.categoryId);
+    setSelectedSubcategoryId(sel.subcategoryId);
+    setSelectedActivityId(sel.activityId);
+    setImageEmoji(sel.emoji);
+    setVenueSearchHint(sel.venueSearchHint);
+    // Also apply defaults from the subcategory profile
+    const cat = HOBBY_CATALOG.find(c => c.id === sel.categoryId);
+    const sub = cat?.subcategories.find(s => s.id === sel.subcategoryId);
+    if (sub) {
+      if (sub.profile.suggestedDurationMin) setDuration(String(sub.profile.suggestedDurationMin));
+      setMaxAttendees(String(sub.profile.groupSize.typical));
+      if (sub.profile.canBeOnline && sub.profile.locationTypes.includes('online')) {
+        setLocationType('online');
+      } else {
+        setLocationType('city');
+      }
+    }
   };
 
   // Build category string for DB: "Category > Subcategory > Activity"
