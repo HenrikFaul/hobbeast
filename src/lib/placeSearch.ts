@@ -30,9 +30,9 @@ async function callPlaceSearch(body: Record<string, unknown>): Promise<Normalize
   return data?.results || [];
 }
 
-export async function searchPlaces(query: string, bias?: { lat: number; lon: number }): Promise<NormalizedPlace[]> {
+export async function searchPlaces(query: string, bias?: { lat: number; lon: number }, activityHint?: string): Promise<NormalizedPlace[]> {
   if (!query || query.trim().length < 2) return [];
-  return callPlaceSearch({ action: 'autocomplete', query: query.trim(), bias });
+  return callPlaceSearch({ action: 'autocomplete', query: query.trim(), bias, activityHint });
 }
 
 export async function reverseGeocodePlace(lat: number, lon: number): Promise<NormalizedPlace | null> {

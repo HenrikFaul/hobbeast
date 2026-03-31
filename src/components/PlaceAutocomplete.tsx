@@ -58,7 +58,7 @@ export function PlaceAutocomplete({ value, onSelect, placeholder = 'Keress rá e
     }
     setLoading(true);
     try {
-      const data = await searchPlaces(q, bias);
+      const data = await searchPlaces(q, bias, activityHint);
       setResults(data);
       setShowDropdown(data.length > 0);
     } catch {
