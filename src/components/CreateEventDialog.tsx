@@ -381,7 +381,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   setLocationLon(sel.lon || null);
                   setPlaceData(sel);
                 }}
-                placeholder="Keress rá egy helyszínre..."
+                placeholder={venueSearchHint ? `Keress helyszínt: ${venueSearchHint}...` : 'Keress rá egy helyszínre...'}
+                activityHint={venueSearchHint}
               />
             )}
             {locationType === 'free' && (
