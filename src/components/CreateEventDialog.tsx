@@ -269,6 +269,34 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={imageEmoji} onChange={e => setImageEmoji(e.target.value)} className="rounded-xl h-11 text-center text-2xl w-20" maxLength={2} />
           </div>
 
+          {/* Venue suggestions button – appears after activity selection */}
+          {venueSearchHint && (
+            <VenueSuggestionsPanel
+              activityHint={venueSearchHint}
+              bias={locationLat && locationLon ? { lat: locationLat, lon: locationLon } : undefined}
+              onSelectVenue={(venue: VenueSelection) => {
+                setLocationCity(venue.city);
+                setLocationDistrict(venue.district);
+                setLocationAddress(venue.address || venue.displayName);
+                setLocationFreeText('');
+                setLocationLat(venue.lat);
+                setLocationLon(venue.lon);
+                setPlaceData({
+                  displayName: venue.displayName,
+                  city: venue.city,
+                  district: venue.district,
+                  address: venue.address,
+                  lat: venue.lat,
+                  lon: venue.lon,
+                  placeId: venue.placeId,
+                  source: venue.source,
+                  categories: venue.categories,
+                });
+                setLocationType('address');
+              }}
+            />
+          )}
+
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Leírás (max. 300 karakter)</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value.slice(0, 300))} placeholder="Részletek..." className="rounded-xl" maxLength={300} />
