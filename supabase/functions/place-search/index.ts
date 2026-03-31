@@ -307,6 +307,87 @@ serve(async (req) => {
       return json({ results, cached: false });
     }
 
+    if (action === 'details') {
+      const { sourceId, source, lat: dLat, lon: dLon } = body as { sourceId?: string; source?: string; lat?: number; lon?: number };
+
+      // Try TomTom POI details first (richer data)
+      if (tomtomKey && source === 'tomtom' && sourceId && sourceId !== 'rev') {
+        try {
+          const params = new URLSearchParams({ key: tomtomKey, language: 'hu-HU' });
+          const res = await fetch(`https://api.tomtom.com/search/2/place.json?entityId=${encodeURIComponent(sourceId)}&${params}`);
+          if (res.ok) {
+            const data = await res.json();
+            const r = data.results?.[0];
+            if (r) {
+              return json({
+                detail: {
+                  name: r.poi?.name || r.address?.freeformAddress || '',
+                  address: r.address?.streetName ? `${r.address.streetName} ${r.address.streetNumber || ''}`.trim() : r.address?.freeformAddress || '',
+                  city: r.address?.municipality || '',
+                  phone: r.poi?.phone || null,
+                  website: r.poi?.url || null,
+                  openingHours: r.poi?.openingHours?.timeRanges?.map((tr: any) => `${tr.startTime?.date || ''} ${tr.startTime?.hour || ''}:${String(tr.startTime?.minute || 0).padStart(2, '0')} - ${tr.endTime?.hour || ''}:${String(tr.endTime?.minute || 0).padStart(2, '0')}`) || null,
+                  categories: r.poi?.categories || [],
+                  rating: null,
+                  lat: r.position?.lat || dLat || 0,
+                  lon: r.position?.lon || dLon || 0,
+                  source: 'tomtom',
+                  sourceId: r.id || sourceId,
+                },
+              });
+            }
+          }
+        } catch (e) {
+          console.error('TomTom details error:', e);
+        }
+      }
+
+      // Geoapify place details
+      if (geoapifyKey && sourceId && source === 'geoapify') {
+        try {
+          const params = new URLSearchParams({ apiKey: geoapifyKey, lang: 'hu' });
+          const res = await fetch(`https://api.geoapify.com/v2/place-details?id=${encodeURIComponent(sourceId)}&${params}`);
+          if (res.ok) {
+            const data = await res.json();
+            const f = data.features?.[0]?.properties;
+            if (f) {
+              return json({
+                detail: {
+                  name: f.name || f.formatted || '',
+                  address: f.address_line1 || f.street || '',
+                  city: f.city || f.town || f.village || '',
+                  phone: f.contact?.phone || null,
+                  website: f.website || f.contact?.website || null,
+                  openingHours: f.opening_hours ? [f.opening_hours] : null,
+                  categories: f.categories || [],
+                  rating: null,
+                  lat: f.lat || dLat || 0,
+                  lon: f.lon || dLon || 0,
+                  source: 'geoapify',
+                  sourceId: f.place_id || sourceId,
+                },
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Geoapify details error:', e);
+        }
+      }
+
+      // Fallback: do a reverse geocode to get at least basic info
+      if (typeof dLat === 'number' && typeof dLon === 'number') {
+        let results: NormalizedPlace[] = [];
+        if (geoapifyKey) results = await geoapifyReverse(dLat, dLon, geoapifyKey);
+        if (results.length === 0 && tomtomKey) results = await tomtomReverse(dLat, dLon, tomtomKey);
+        if (results.length > 0) {
+          const r = results[0];
+          return json({ detail: { name: r.name, address: r.address, city: r.city, categories: r.categories, lat: r.lat, lon: r.lon, source: r.source, sourceId: r.sourceId } });
+        }
+      }
+
+      return json({ detail: null });
+    }
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error('place-search error:', error);

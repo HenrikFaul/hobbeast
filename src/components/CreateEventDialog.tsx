@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
+import { VenueSuggestionsPanel, type VenueSelection } from '@/components/VenueSuggestionsPanel';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -267,6 +268,34 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Emoji ikon</Label>
             <Input value={imageEmoji} onChange={e => setImageEmoji(e.target.value)} className="rounded-xl h-11 text-center text-2xl w-20" maxLength={2} />
           </div>
+
+          {/* Venue suggestions button – appears after activity selection */}
+          {venueSearchHint && (
+            <VenueSuggestionsPanel
+              activityHint={venueSearchHint}
+              bias={locationLat && locationLon ? { lat: locationLat, lon: locationLon } : undefined}
+              onSelectVenue={(venue: VenueSelection) => {
+                setLocationCity(venue.city);
+                setLocationDistrict(venue.district);
+                setLocationAddress(venue.address || venue.displayName);
+                setLocationFreeText('');
+                setLocationLat(venue.lat);
+                setLocationLon(venue.lon);
+                setPlaceData({
+                  displayName: venue.displayName,
+                  city: venue.city,
+                  district: venue.district,
+                  address: venue.address,
+                  lat: venue.lat,
+                  lon: venue.lon,
+                  placeId: venue.placeId,
+                  source: venue.source,
+                  categories: venue.categories,
+                });
+                setLocationType('address');
+              }}
+            />
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Leírás (max. 300 karakter)</Label>
