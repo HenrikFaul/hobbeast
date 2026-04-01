@@ -144,7 +144,7 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const body = await request.json().catch(() => ({})) as { cityFilter?: string }
+    const body = await request.json().catch(() => ({})) as { cityFilter?: string; batch?: number }
     const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
@@ -160,7 +160,16 @@ Deno.serve(async (request) => {
     // Filter cities if requested
     const citiesToProcess = body.cityFilter
       ? CITIES.filter(c => c.name.toLowerCase() === body.cityFilter!.toLowerCase())
-      : CITIES
+      : [CITIES[0]] // Default to Budapest only
+
+    // Process only a batch of queries (5 at a time)
+    const batchIdx = body.batch || 0
+    const batchSize = 5
+    const queryBatch = VENUE_QUERIES.slice(batchIdx * batchSize, (batchIdx + 1) * batchSize)
+
+    if (queryBatch.length === 0) {
+      return json({ success: true, message: 'No more batches', total_batches: Math.ceil(VENUE_QUERIES.length / batchSize) })
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
