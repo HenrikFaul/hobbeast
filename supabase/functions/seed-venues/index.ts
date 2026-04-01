@@ -219,8 +219,10 @@ Deno.serve(async (request) => {
     return json({
       success: true,
       total_upserted: totalInserted,
-      cities_covered: CITIES.length,
-      query_types: VENUE_QUERIES.length,
+      batch: batchIdx,
+      next_batch: (batchIdx + 1) * batchSize < VENUE_QUERIES.length ? batchIdx + 1 : null,
+      total_batches: Math.ceil(VENUE_QUERIES.length / batchSize),
+      cities_covered: citiesToProcess.map(c => c.name),
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
