@@ -180,7 +180,7 @@ Deno.serve(async (request) => {
 
     // Process each city × query combination
     for (const city of citiesToProcess) {
-      for (const vq of VENUE_QUERIES) {
+      for (const vq of queryBatch) {
         const allRows: VenueRow[] = []
 
         // Fetch from both providers in parallel
