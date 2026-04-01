@@ -144,6 +144,7 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    const body = await request.json().catch(() => ({})) as { cityFilter?: string }
     const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
@@ -155,6 +156,11 @@ Deno.serve(async (request) => {
     if (!tomtomKey && !geoapifyKey) {
       return json({ error: 'No API keys configured' }, 500)
     }
+
+    // Filter cities if requested
+    const citiesToProcess = body.cityFilter
+      ? CITIES.filter(c => c.name.toLowerCase() === body.cityFilter!.toLowerCase())
+      : CITIES
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
