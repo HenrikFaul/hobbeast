@@ -987,6 +987,75 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_cache: {
+        Row: {
+          address: string | null
+          category: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          details: Json
+          external_id: string
+          id: string
+          image_url: string | null
+          lat: number
+          lon: number
+          name: string
+          opening_hours_text: string[] | null
+          phone: string | null
+          postal_code: string | null
+          provider: string
+          rating: number | null
+          tags: string[]
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          details?: Json
+          external_id: string
+          id?: string
+          image_url?: string | null
+          lat: number
+          lon: number
+          name: string
+          opening_hours_text?: string[] | null
+          phone?: string | null
+          postal_code?: string | null
+          provider: string
+          rating?: number | null
+          tags?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          details?: Json
+          external_id?: string
+          id?: string
+          image_url?: string | null
+          lat?: number
+          lon?: number
+          name?: string
+          opening_hours_text?: string[] | null
+          phone?: string | null
+          postal_code?: string | null
+          provider?: string
+          rating?: number | null
+          tags?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
