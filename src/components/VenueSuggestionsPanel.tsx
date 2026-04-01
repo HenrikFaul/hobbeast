@@ -1,39 +1,17 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, Phone, Globe, Clock, ChevronRight, Loader2, X, ExternalLink } from 'lucide-react';
+import { MapPin, Loader2, List, Map, Clock, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { VenueDetailModal } from '@/components/venue/VenueDetailModal';
+import { VenueMapView } from '@/components/venue/VenueMapView';
+import { haversineKm, isLikelyOpenNow } from '@/components/venue/venueUtils';
+import type { CachedVenue, VenueSelection } from '@/components/venue/types';
 
-export interface VenueSelection {
-  displayName: string;
-  city: string;
-  district: string;
-  address: string;
-  lat: number;
-  lon: number;
-  placeId: string;
-  source: string;
-  categories: string[];
-}
-
-interface CachedVenue {
-  id: string;
-  provider: string;
-  external_id: string;
-  name: string;
-  category: string | null;
-  tags: string[];
-  address: string | null;
-  city: string | null;
-  lat: number;
-  lon: number;
-  phone: string | null;
-  website: string | null;
-  rating: number | null;
-  image_url: string | null;
-  opening_hours_text: string[] | null;
-  details: Record<string, unknown>;
-}
+export type { VenueSelection };
 
 // Map activity hints to venue_cache tags
 const HINT_TAG_MAP: Record<string, string[]> = {
@@ -76,18 +54,10 @@ const HINT_TAG_MAP: Record<string, string[]> = {
 function getTagsForHint(hint: string): string[] {
   const lower = hint.toLowerCase();
   const matchedTags = new Set<string>();
-
   for (const [keyword, tags] of Object.entries(HINT_TAG_MAP)) {
-    if (lower.includes(keyword)) {
-      tags.forEach(t => matchedTags.add(t));
-    }
+    if (lower.includes(keyword)) tags.forEach(t => matchedTags.add(t));
   }
-
-  // Fallback: broad entertainment/cafe search
-  if (matchedTags.size === 0) {
-    return ['entertainment', 'cafe', 'community'];
-  }
-
+  if (matchedTags.size === 0) return ['entertainment', 'cafe', 'community'];
   return Array.from(matchedTags);
 }
 
@@ -98,49 +68,63 @@ interface VenueSuggestionsPanelProps {
 }
 
 export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: VenueSuggestionsPanelProps) {
-  const [venues, setVenues] = useState<CachedVenue[]>([]);
+  const [rawVenues, setRawVenues] = useState<CachedVenue[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<CachedVenue | null>(null);
+
+  // Filters
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [maxDistanceKm, setMaxDistanceKm] = useState(50);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
       const tags = getTagsForHint(activityHint);
-
-      // Query venue_cache table by overlapping tags
       const { data, error } = await supabase
-        .from('venue_cache' as any)
+        .from('venue_cache')
         .select('*')
         .overlaps('tags', tags)
-        .limit(10);
+        .limit(50);
 
       if (error) {
         console.error('venue_cache query error:', error);
-        setVenues([]);
+        setRawVenues([]);
       } else {
         const rows = (data || []) as unknown as CachedVenue[];
-
-        // Sort by distance if bias is available
-        if (bias) {
-          rows.sort((a, b) => {
-            const distA = Math.hypot(a.lat - bias.lat, a.lon - bias.lon);
-            const distB = Math.hypot(b.lat - bias.lat, b.lon - bias.lon);
-            return distA - distB;
-          });
-        }
-
-        setVenues(rows.slice(0, 10));
+        // Compute distances
+        rows.forEach((v) => {
+          if (bias) v.distanceKm = haversineKm(bias.lat, bias.lon, v.lat, v.lon);
+        });
+        setRawVenues(rows);
       }
       setLoaded(true);
     } catch {
-      setVenues([]);
+      setRawVenues([]);
       setLoaded(true);
     }
     setLoading(false);
   };
 
-  const handleUseVenue = (venue: CachedVenue) => {
+  // Filter + sort
+  const filteredVenues = useMemo(() => {
+    let list = [...rawVenues];
+
+    if (openNowOnly) {
+      list = list.filter(v => isLikelyOpenNow(v.opening_hours_text));
+    }
+
+    if (bias) {
+      list = list.filter(v => (v.distanceKm ?? Infinity) <= maxDistanceKm);
+      list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    }
+
+    return list;
+  }, [rawVenues, openNowOnly, maxDistanceKm, bias]);
+
+  const handleUseVenue = useCallback((venue: CachedVenue) => {
     onSelectVenue({
       displayName: [venue.name, venue.city].filter(Boolean).join(', '),
       city: venue.city || '',
@@ -152,7 +136,11 @@ export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: Ven
       source: venue.provider,
       categories: venue.tags,
     });
-  };
+  }, [onSelectVenue]);
+
+  const handleMapSelect = useCallback((venue: CachedVenue) => {
+    setSelectedVenue(venue);
+  }, []);
 
   if (!loaded) {
     return (
@@ -164,15 +152,9 @@ export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: Ven
         disabled={loading}
       >
         {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            Keresés...
-          </>
+          <><Loader2 className="h-4 w-4 animate-spin mr-2" />Keresés...</>
         ) : (
-          <>
-            <MapPin className="h-4 w-4 mr-2" />
-            Helyszínjavaslatok mutatása
-          </>
+          <><MapPin className="h-4 w-4 mr-2" />Helyszínjavaslatok mutatása</>
         )}
       </Button>
     );
@@ -180,22 +162,100 @@ export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: Ven
 
   return (
     <div className="space-y-2">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Javasolt helyszínek ({venues.length})
+          Helyszínek ({filteredVenues.length})
         </p>
-        <Button type="button" variant="ghost" size="sm" className="text-xs rounded-xl h-7" onClick={() => { setLoaded(false); setVenues([]); setSelectedVenue(null); }}>
-          Bezárás
-        </Button>
+        <div className="flex items-center gap-1">
+          {/* View toggle */}
+          <Button
+            type="button"
+            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 w-7 p-0 rounded-lg"
+            onClick={() => setViewMode('list')}
+            title="Lista nézet"
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === 'map' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 w-7 p-0 rounded-lg"
+            onClick={() => setViewMode('map')}
+            title="Térkép nézet"
+          >
+            <Map className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Filter toggle */}
+          <Button
+            type="button"
+            variant={showFilters ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 px-2 rounded-lg text-xs gap-1"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-xs rounded-xl h-7"
+            onClick={() => { setLoaded(false); setRawVenues([]); setSelectedVenue(null); }}
+          >
+            Bezárás
+          </Button>
+        </div>
       </div>
 
-      {venues.length === 0 ? (
+      {/* Filters panel */}
+      {showFilters && (
+        <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+          {/* Open now toggle */}
+          <div className="flex items-center justify-between">
+            <Label className="text-xs flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Csak nyitva lévők
+            </Label>
+            <Switch checked={openNowOnly} onCheckedChange={setOpenNowOnly} />
+          </div>
+
+          {/* Distance slider */}
+          {bias && (
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Max távolság
+                </span>
+                <span className="font-mono text-muted-foreground">{maxDistanceKm} km</span>
+              </Label>
+              <Slider
+                min={1}
+                max={100}
+                step={1}
+                value={[maxDistanceKm]}
+                onValueChange={([v]) => setMaxDistanceKm(v)}
+                className="w-full"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      {filteredVenues.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
-          Nem találtunk javasolt helyszínt ehhez a tevékenységhez. Futtasd a venue seed funkciót az adatok betöltéséhez.
+          Nem találtunk helyszínt a szűrési feltételeknek megfelelően.
         </p>
-      ) : (
+      ) : viewMode === 'list' ? (
         <div className="rounded-xl border bg-popover max-h-[280px] overflow-y-auto divide-y">
-          {venues.map((v) => (
+          {filteredVenues.map((v) => (
             <button
               key={v.id}
               type="button"
@@ -216,119 +276,35 @@ export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: Ven
                   </p>
                 )}
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                {v.distanceKm != null && (
+                  <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                    {v.distanceKm < 1 ? `${Math.round(v.distanceKm * 1000)} m` : `${v.distanceKm.toFixed(1)} km`}
+                  </span>
+                )}
+                {v.rating != null && v.rating > 0 && (
+                  <span className="text-[10px] text-amber-600">★ {v.rating.toFixed(1)}</span>
+                )}
+              </div>
             </button>
           ))}
         </div>
+      ) : (
+        <VenueMapView
+          venues={filteredVenues}
+          bias={bias}
+          onSelectVenue={handleMapSelect}
+        />
       )}
 
       {/* Venue detail modal */}
       <AnimatePresence>
         {selectedVenue && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={() => setSelectedVenue(null)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-                    <MapPin className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-bold text-lg leading-tight">{selectedVenue.name}</h4>
-                    <p className="text-sm text-muted-foreground">{selectedVenue.city}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setSelectedVenue(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Address */}
-                {selectedVenue.address && (
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <p className="text-sm">{selectedVenue.address}</p>
-                  </div>
-                )}
-
-                {/* Phone */}
-                {selectedVenue.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <a href={`tel:${selectedVenue.phone}`} className="text-sm text-primary hover:underline">{selectedVenue.phone}</a>
-                  </div>
-                )}
-
-                {/* Website */}
-                {selectedVenue.website && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <a href={selectedVenue.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
-                      Weboldal <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
-
-                {/* Opening hours */}
-                {selectedVenue.opening_hours_text && selectedVenue.opening_hours_text.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="text-sm space-y-0.5">
-                      {selectedVenue.opening_hours_text.map((h, i) => (
-                        <p key={i} className="text-muted-foreground">{h}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Rating */}
-                {selectedVenue.rating != null && selectedVenue.rating > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    <span className="text-sm font-medium">{selectedVenue.rating.toFixed(1)} / 5</span>
-                  </div>
-                )}
-
-                {/* Tags */}
-                {selectedVenue.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedVenue.tags.slice(0, 6).map((tag, i) => (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Source badge */}
-                <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
-                  Forrás: {selectedVenue.provider === 'tomtom' ? 'TomTom' : 'Geoapify'}
-                </p>
-
-                {/* Action buttons */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button"
-                    className="flex-1 rounded-xl h-10 font-semibold"
-                    onClick={() => {
-                      handleUseVenue(selectedVenue);
-                      setSelectedVenue(null);
-                    }}
-                  >
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Helyszínnek kiválasztom
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <VenueDetailModal
+            venue={selectedVenue}
+            onClose={() => setSelectedVenue(null)}
+            onSelect={handleUseVenue}
+          />
         )}
       </AnimatePresence>
     </div>
