@@ -170,7 +170,7 @@ Deno.serve(async (request) => {
     const errors: string[] = []
 
     // Process each city × query combination
-    for (const city of CITIES) {
+    for (const city of citiesToProcess) {
       for (const vq of VENUE_QUERIES) {
         const allRows: VenueRow[] = []
 
