@@ -1,0 +1,9 @@
+---
+description: Shared governance rules
+alwaysApply: true
+---
+- Read .governance/controller.md before coding.
+- Read .governance/codingLessonsLearnt.md before coding.
+- Never remove existing features.
+- Prefer minimal-risk fixes.
+- Update CHANGELOG and lessons when required.

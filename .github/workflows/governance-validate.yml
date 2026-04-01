@@ -1,0 +1,22 @@
+name: Validate local governance state
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure governance files exist
+        run: |
+          test -f .governance/controller.md
+          test -f .governance/codingLessonsLearnt.md
+          test -f .github/copilot-instructions.md
+          test -f AGENTS.md
+          test -f CLAUDE.md

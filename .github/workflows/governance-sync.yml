@@ -1,0 +1,38 @@
+name: Sync Dev Governance Pack
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Update governance subtree
+        run: |
+          git subtree pull --prefix .governance https://github.com/HenrikFaul/dev-governance-pack.git main --squash || echo "Subtree pull requires initial add if first time"
+      - name: Generate instruction files
+        run: |
+          node .governance/tools/generate-instructions.mjs
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(governance): sync pack"
+          title: "chore(governance): sync Dev Governance Pack"
+          body: |
+            Automated sync from central governance pack.
+          branch: chore/governance-sync
+          delete-branch: true
