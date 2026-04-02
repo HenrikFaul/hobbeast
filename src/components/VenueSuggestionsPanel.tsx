@@ -314,7 +314,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
       ) : (
         <VenueMapView
           venues={filteredVenues}
-          bias={bias}
+          bias={bias || effectiveBias}
           onSelectVenue={handleMapSelect}
         />
       )}
