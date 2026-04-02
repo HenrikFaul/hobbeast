@@ -64,6 +64,7 @@ function getTagsForHint(hint: string): string[] {
 interface VenueSuggestionsPanelProps {
   activityHint: string;
   bias?: { lat: number; lon: number };
+  cityName?: string;
   onSelectVenue: (venue: VenueSelection) => void;
 }
 
