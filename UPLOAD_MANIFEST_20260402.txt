@@ -1,0 +1,2 @@
+Snapshot file count excluding .env: 204
+Sensitive file skipped: .env
