@@ -376,11 +376,7 @@ const Events = () => {
     });
   }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, primaryFilter, joinedEventIds, favorites, user]);
 
-  const getLocationString = (ev: EventData) => {
-    const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
-    if (ev.location_type === 'online') return 'Online';
-    return parts.join(', ') || 'Helyszín nem megadva';
-  };
+  const getLocationString = (ev: EventData) => resolveEventLocationLabel(ev);
 
   const formatDate = (dateStr: string | null) =>
     dateStr ? new Date(dateStr).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Dátum nélkül';
