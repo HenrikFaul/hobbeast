@@ -84,21 +84,40 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
+      // Derive bias from city name if no explicit bias
+      let useBias = bias;
+      if (!useBias && cityName) {
+        const { geocodePlace } = await import('@/lib/placeSearch');
+        const geo = await geocodePlace(cityName);
+        if (geo) {
+          useBias = { lat: geo.lat, lon: geo.lon };
+          setEffectiveBias(useBias);
+        }
+      }
+
       const tags = getTagsForHint(activityHint);
-      const { data, error } = await supabase
+
+      // Query venue_cache — filter by city if we have a cityName
+      let query = supabase
         .from('venue_cache')
         .select('*')
         .overlaps('tags', tags)
         .limit(50);
+
+      if (cityName) {
+        query = query.ilike('city', `%${cityName}%`);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('venue_cache query error:', error);
         setRawVenues([]);
       } else {
         const rows = (data || []) as unknown as CachedVenue[];
-        // Compute distances
+        const biasToUse = useBias || effectiveBias;
         rows.forEach((v) => {
-          if (bias) v.distanceKm = haversineKm(bias.lat, bias.lon, v.lat, v.lon);
+          if (biasToUse) v.distanceKm = haversineKm(biasToUse.lat, biasToUse.lon, v.lat, v.lon);
         });
         setRawVenues(rows);
       }
