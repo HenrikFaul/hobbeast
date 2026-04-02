@@ -248,7 +248,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
           </div>
 
           {/* Distance slider */}
-          {bias && (
+          {(bias || effectiveBias) && (
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
