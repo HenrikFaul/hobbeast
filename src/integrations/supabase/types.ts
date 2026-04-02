@@ -1056,6 +1056,36 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_sync_runs: {
+        Row: {
+          cities_covered: string[]
+          created_at: string
+          duration_ms: number | null
+          errors: string[] | null
+          id: string
+          scope: string
+          total_upserted: number
+        }
+        Insert: {
+          cities_covered?: string[]
+          created_at?: string
+          duration_ms?: number | null
+          errors?: string[] | null
+          id?: string
+          scope?: string
+          total_upserted?: number
+        }
+        Update: {
+          cities_covered?: string[]
+          created_at?: string
+          duration_ms?: number | null
+          errors?: string[] | null
+          id?: string
+          scope?: string
+          total_upserted?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

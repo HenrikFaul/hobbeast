@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
+import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
@@ -42,6 +43,9 @@ interface EventData {
   source_label?: string;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
+  place_name?: string | null;
+  place_city?: string | null;
+  place_address?: string | null;
 }
 
 interface ProfileLocation {
@@ -376,11 +380,7 @@ const Events = () => {
     });
   }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, primaryFilter, joinedEventIds, favorites, user]);
 
-  const getLocationString = (ev: EventData) => {
-    const parts = [ev.location_city, ev.location_address, ev.location_free_text].filter(Boolean);
-    if (ev.location_type === 'online') return 'Online';
-    return parts.join(', ') || 'Helyszín nem megadva';
-  };
+  const getLocationString = (ev: EventData) => resolveEventLocationLabel(ev);
 
   const formatDate = (dateStr: string | null) =>
     dateStr ? new Date(dateStr).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Dátum nélkül';

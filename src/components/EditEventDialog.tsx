@@ -65,6 +65,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [tags, setTags] = useState((event.tags || []).join(', '));
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
   const [placeSel, setPlaceSel] = useState<PlaceSelection | null>(null);
 
   const today = new Date();
@@ -231,10 +232,23 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
             )}
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Túra- / útvonalterv (opcionális)</Label>
-            <MapyTripPlanner value={tripPlan} onChange={setTripPlan} />
-          </div>
+          {/* Trip planner — only for distance-based categories, matching create flow */}
+          {!tripPlannerOpen && (
+            <Button type="button" variant="outline" className="w-full h-11 rounded-xl" onClick={() => setTripPlannerOpen(true)}>
+              🗺️ Túratervező használata
+            </Button>
+          )}
+          {tripPlannerOpen && (
+            <div className="space-y-3 rounded-xl border p-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Túra- / útvonalterv</Label>
+                <Button type="button" variant="ghost" size="sm" className="rounded-xl text-xs" onClick={() => setTripPlannerOpen(false)}>
+                  <X className="h-3 w-3 mr-1" /> Bezárás
+                </Button>
+              </div>
+              <MapyTripPlanner value={tripPlan} onChange={setTripPlan} />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Címkék (vesszővel)</Label>

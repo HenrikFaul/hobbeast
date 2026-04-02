@@ -274,6 +274,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <VenueSuggestionsPanel
               activityHint={venueSearchHint}
               bias={locationLat && locationLon ? { lat: locationLat, lon: locationLon } : undefined}
+              cityName={locationCity || undefined}
               onSelectVenue={(venue: VenueSelection) => {
                 setLocationCity(venue.city);
                 setLocationDistrict(venue.district);
