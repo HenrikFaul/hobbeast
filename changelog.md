@@ -2,6 +2,30 @@
 
 Read this whole file before starting work. Do not remove previously delivered functionality from the codebase. New changes must always be appended with timestamp and context. Never replace the file contents with only the newest change.
 
+## [1.4.0] - 2026-04-02
+
+### Added (v1.4.0 batch)
+- **Waitlist auto-promote**: SQL trigger automatically promotes oldest waitlisted participant to 'going' when a going participant cancels or is marked no-show. Creates audit records and in-app notification for promoted user.
+- **Organizer message delivery**: SQL trigger delivers organizer messages as in-app notifications to participants when `delivery_state` changes to 'sending'. Supports audience filtering (all/going/waitlist) and auto-updates state to 'sent'.
+- **venue_sync_runs tracking table**: Records every seed-venues run with scope, cities, upsert count, errors, and duration.
+- **resolveEventLocationLabel helper**: Shared function for consistent location display across events list and detail pages, preferring normalized `place_*` fields.
+- **Full Hungary venue coverage**: Expanded seed-venues to 34 locations (all county seats + Budapest districts).
+- **City-based venue bias derivation**: VenueSuggestionsPanel geocodes the selected city when no explicit coordinates exist, enabling distance sorting/filtering.
+
+### Changed (v1.4.0 batch)
+- Edit-event trip planner now matches create-event behavior: hidden behind explicit CTA button instead of always visible.
+- Events list `getLocationString()` replaced with `resolveEventLocationLabel()` for place-aware fallback.
+- Merged duplicate place-search client (`src/lib/place-search.ts` removed; `src/lib/placeSearch.ts` is canonical).
+- VenueSuggestionsPanel filters by city name when available for more relevant results.
+- seed-venues logs run metadata to `venue_sync_runs` after each execution.
+
+### Fixed (v1.4.0 batch)
+- Fixed edit-event dialog always showing trip planner regardless of activity type.
+- Fixed venue suggestions ignoring city context, showing global results.
+- Fixed events list not using normalized place fields for location display.
+
+---
+
 ## [Unreleased] - 2026-04-02 00:00 UTC
 
 ### Added
