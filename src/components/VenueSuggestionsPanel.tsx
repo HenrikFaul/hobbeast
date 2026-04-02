@@ -68,8 +68,9 @@ interface VenueSuggestionsPanelProps {
   onSelectVenue: (venue: VenueSelection) => void;
 }
 
-export function VenueSuggestionsPanel({ activityHint, bias, onSelectVenue }: VenueSuggestionsPanelProps) {
+export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVenue }: VenueSuggestionsPanelProps) {
   const [rawVenues, setRawVenues] = useState<CachedVenue[]>([]);
+  const [effectiveBias, setEffectiveBias] = useState(bias);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<CachedVenue | null>(null);
