@@ -43,6 +43,9 @@ interface EventData {
   source_label?: string;
   eventbrite_url?: string;
   eventbrite_logo_url?: string | null;
+  place_name?: string | null;
+  place_city?: string | null;
+  place_address?: string | null;
 }
 
 interface ProfileLocation {

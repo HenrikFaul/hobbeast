@@ -43,8 +43,9 @@ const VENUE_QUERIES: { tags: string[]; tomtomQuery: string; geoapifyCategories: 
   { tags: ['library', 'education'], tomtomQuery: 'library', geoapifyCategories: 'education.library' },
 ]
 
-// Hungarian cities to cover
+// Full Hungary coverage: county seats + major district centers
 const CITIES: { name: string; lat: number; lon: number }[] = [
+  // County seats & largest cities
   { name: 'Budapest', lat: 47.4979, lon: 19.0402 },
   { name: 'Debrecen', lat: 47.5316, lon: 21.6273 },
   { name: 'Szeged', lat: 46.2530, lon: 20.1414 },
@@ -55,6 +56,31 @@ const CITIES: { name: string; lat: number; lon: number }[] = [
   { name: 'Kecskemét', lat: 46.8964, lon: 19.6897 },
   { name: 'Székesfehérvár', lat: 47.1860, lon: 18.4221 },
   { name: 'Szombathely', lat: 47.2307, lon: 16.6218 },
+  { name: 'Szolnok', lat: 47.1621, lon: 20.1825 },
+  { name: 'Tatabánya', lat: 47.5690, lon: 18.3949 },
+  { name: 'Kaposvár', lat: 46.3594, lon: 17.7968 },
+  { name: 'Érd', lat: 47.3917, lon: 18.9174 },
+  { name: 'Veszprém', lat: 47.0933, lon: 17.9115 },
+  { name: 'Békéscsaba', lat: 46.6834, lon: 21.0887 },
+  { name: 'Zalaegerszeg', lat: 46.8417, lon: 16.8416 },
+  { name: 'Sopron', lat: 47.6851, lon: 16.5908 },
+  { name: 'Eger', lat: 47.9025, lon: 20.3772 },
+  { name: 'Nagykanizsa', lat: 46.4590, lon: 16.9937 },
+  { name: 'Dunaújváros', lat: 46.9619, lon: 18.9356 },
+  { name: 'Hódmezővásárhely', lat: 46.4181, lon: 20.3300 },
+  { name: 'Dunakeszi', lat: 47.6301, lon: 19.1366 },
+  { name: 'Cegléd', lat: 47.1720, lon: 19.7990 },
+  { name: 'Baja', lat: 46.1814, lon: 18.9546 },
+  { name: 'Salgótarján', lat: 48.0989, lon: 19.8039 },
+  { name: 'Siófok', lat: 46.9048, lon: 18.0486 },
+  { name: 'Esztergom', lat: 47.7858, lon: 18.7403 },
+  { name: 'Gödöllő', lat: 47.5979, lon: 19.3555 },
+  { name: 'Pápa', lat: 47.3310, lon: 17.4678 },
+  // Budapest districts as separate search centers for better coverage
+  { name: 'Budapest-Buda', lat: 47.4937, lon: 18.9817 },
+  { name: 'Budapest-Óbuda', lat: 47.5419, lon: 19.0370 },
+  { name: 'Budapest-Pest-Kelet', lat: 47.4984, lon: 19.1100 },
+  { name: 'Budapest-Dél', lat: 47.4390, lon: 19.0610 },
 ]
 
 interface VenueRow {
@@ -144,7 +170,7 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const body = await request.json().catch(() => ({})) as { cityFilter?: string; batch?: number }
+    const body = await request.json().catch(() => ({})) as { cityFilter?: string; batch?: number; allCities?: boolean }
     const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
@@ -157,10 +183,17 @@ Deno.serve(async (request) => {
       return json({ error: 'No API keys configured' }, 500)
     }
 
-    // Filter cities if requested
-    const citiesToProcess = body.cityFilter
-      ? CITIES.filter(c => c.name.toLowerCase() === body.cityFilter!.toLowerCase())
-      : [CITIES[0]] // Default to Budapest only
+    const startTime = Date.now()
+
+    // Filter cities if requested; allCities=true processes the full list
+    let citiesToProcess: typeof CITIES
+    if (body.cityFilter) {
+      citiesToProcess = CITIES.filter(c => c.name.toLowerCase() === body.cityFilter!.toLowerCase())
+    } else if (body.allCities) {
+      citiesToProcess = CITIES
+    } else {
+      citiesToProcess = CITIES.slice(0, 10) // Default to top 10 cities
+    }
 
     // Process only a batch of queries (5 at a time)
     const batchIdx = body.batch || 0
@@ -216,6 +249,17 @@ Deno.serve(async (request) => {
       }
     }
 
+    const durationMs = Date.now() - startTime
+
+    // Log sync run
+    await supabaseAdmin.from('venue_sync_runs').insert({
+      scope: body.allCities ? 'full' : body.cityFilter ? `city:${body.cityFilter}` : 'top10',
+      cities_covered: citiesToProcess.map(c => c.name),
+      total_upserted: totalInserted,
+      errors: errors.length > 0 ? errors : [],
+      duration_ms: durationMs,
+    }).then(() => {}, () => {})
+
     return json({
       success: true,
       total_upserted: totalInserted,
@@ -223,6 +267,7 @@ Deno.serve(async (request) => {
       next_batch: (batchIdx + 1) * batchSize < VENUE_QUERIES.length ? batchIdx + 1 : null,
       total_batches: Math.ceil(VENUE_QUERIES.length / batchSize),
       cities_covered: citiesToProcess.map(c => c.name),
+      duration_ms: durationMs,
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {

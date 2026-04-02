@@ -137,13 +137,14 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
       list = list.filter(v => isLikelyOpenNow(v.opening_hours_text));
     }
 
-    if (bias) {
+    const biasToUse = bias || effectiveBias;
+    if (biasToUse) {
       list = list.filter(v => (v.distanceKm ?? Infinity) <= maxDistanceKm);
       list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     }
 
     return list;
-  }, [rawVenues, openNowOnly, maxDistanceKm, bias]);
+  }, [rawVenues, openNowOnly, maxDistanceKm, bias, effectiveBias]);
 
   const handleUseVenue = useCallback((venue: CachedVenue) => {
     onSelectVenue({
