@@ -65,6 +65,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [tags, setTags] = useState((event.tags || []).join(', '));
   const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
   const [placeSel, setPlaceSel] = useState<PlaceSelection | null>(null);
 
   const today = new Date();

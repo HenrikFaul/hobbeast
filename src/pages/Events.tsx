@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
+import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
