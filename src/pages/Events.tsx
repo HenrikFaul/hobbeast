@@ -81,6 +81,18 @@ function normalizeText(value: string | null | undefined) {
     .trim();
 }
 
+function getTodayDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isUpcomingEventDate(eventDate: string | null | undefined) {
+  return Boolean(eventDate && eventDate >= getTodayDateString());
+}
+
 function haversineDistanceKm(from: LatLng, to: LatLng) {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
@@ -226,14 +238,22 @@ const Events = () => {
   };
 
   const fetchEvents = async () => {
-    const { data } = await supabase.from('events').select('*, event_participants(count)').eq('is_active', true);
+    const today = getTodayDateString();
+    const { data } = await supabase
+      .from('events')
+      .select('*, event_participants(count)')
+      .eq('is_active', true)
+      .gte('event_date', today);
+
     if (data) {
       setDbEvents(data.map((e: any) => ({ ...e, participant_count: e.event_participants?.[0]?.count || 0, source: 'hobbeast' as const, source_label: 'Hobbeast' })));
     }
   };
 
   const fetchExternalDbEvents = async () => {
-    const { data } = await supabase.from('external_events').select('*').eq('is_active', true);
+    const today = getTodayDateString();
+    const { data } = await supabase.from('external_events').select('*').eq('is_active', true).gte('event_date', today);
+
     if (data) {
       setExternalDbEvents(data.map((e: any) => ({
         id: `ext-${e.external_source}-${e.external_id}`,
@@ -290,7 +310,8 @@ const Events = () => {
   useEffect(() => { fetchProfileLocation(); }, [user]);
 
   const allEvents = useMemo(
-    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents],
+    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents]
+      .filter((event) => isUpcomingEventDate(event.event_date)),
     [dbEvents, eventbriteEvents, externalDbEvents]
   );
 

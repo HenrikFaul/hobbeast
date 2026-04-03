@@ -4,6 +4,32 @@ Minden változtatás dátummal és leírással.
 
 ---
 
+## [1.4.4] - 2026-04-03
+
+### 🐛 Eseményszűrés és helykereső stabilizálás
+- Az eseménykereső mostantól csak a **mai vagy jövőbeli dátumú** eseményeket mutatja.
+- A Hobbeast és a lokálisan tárolt külső események backend lekérése is kizárja a múltbeli dátumú elemeket.
+- A kliensoldali összefésülés is kapott egy második védelmi szűrőt, így a demo / importált múltbeli elemek sem csúsznak vissza a listába.
+
+### 🗺️ Mapy.cz túratervező keresés javítás
+- A túratervező autocomplete már **Magyarországra szűkítve** keres (`locality=hu`), így megszűnik a cseh / szlovák / irreleváns első találatok dominanciája.
+- A találati lista már a **tényleges helynevet / címet** mutatja elsődleges címként, nem a generikus típuscímkét (`Address`, `Town/city`, `Village`).
+- A suggest útvonal geocode fallbacket kapott, így gyengébb autocomplete találat esetén is van második keresési ág.
+
+### 🔧 Provider és build stabilizálás
+- Az address provider resolver többé nem ragad hibás `aws` módba, ha az AWS kulcs nincs ténylegesen konfigurálva.
+- A kereső helper-ek használható providerre esnek vissza nem konfigurált AWS környezetben is.
+- A `place-search` és `seed-venues` funkciókból kikerült a problémás edge runtime típusimport, ami build közben a hiányzó `openai` npm típusfeloldást triggerelte.
+
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos dokumentációs kutatás megtörtént (Mapy geocoding/suggest/search area, Amazon Location autocomplete/search text/get place)
+- [x] gyökérok detektálva
+- [x] legalább 2 megoldási koncepció kiértékelve
+- [x] a kisebb regressziós kockázatú javítás kiválasztva
+- [ ] build ellenőrzés lefuttatva
+
 
 ## [1.4.1] - 2026-04-03
 

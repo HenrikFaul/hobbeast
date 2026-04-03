@@ -70,6 +70,11 @@ function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
   };
 }
 
+function resolveUsableProvider(provider: AddressSearchProvider): AddressSearchProvider {
+  if (provider === 'aws' && !isAwsLocationConfigured()) return 'geoapify_tomtom';
+  return provider;
+}
+
 async function callPlaceSearch(body: Record<string, unknown>): Promise<NormalizedPlace[]> {
   const { data, error } = await supabase.functions.invoke('place-search', { body });
   if (error) {
@@ -125,7 +130,7 @@ export async function searchPlaces(
   providerOverride?: AddressSearchProvider,
 ): Promise<NormalizedPlace[]> {
   if (!query || query.trim().length < 2) return [];
-  const provider = providerOverride || await getAddressSearchProvider();
+  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider());
 
   if (provider === 'aws') {
     return searchAwsPlaces(query);
@@ -141,7 +146,7 @@ export async function searchPlaces(
 }
 
 export async function reverseGeocodePlace(lat: number, lon: number): Promise<NormalizedPlace | null> {
-  const provider = await getAddressSearchProvider();
+  const provider = resolveUsableProvider(await getAddressSearchProvider());
 
   if (provider === 'aws') {
     return null;
@@ -152,7 +157,7 @@ export async function reverseGeocodePlace(lat: number, lon: number): Promise<Nor
 }
 
 export async function geocodePlace(query: string, providerOverride?: AddressSearchProvider): Promise<NormalizedPlace | null> {
-  const provider = providerOverride || await getAddressSearchProvider();
+  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider());
 
   if (provider === 'aws') {
     const results = await searchAwsPlaces(query);

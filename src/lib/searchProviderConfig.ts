@@ -6,15 +6,18 @@ export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog';
 const CONFIG_KEY = 'address_search';
 const CONFIG_CACHE_MS = 60_000;
 
-type ConfigRow = { key: string; provider: AddressSearchProvider; options?: Record<string, unknown> | null };
-
 type CachedConfig = { provider: AddressSearchProvider; expiresAt: number };
 
 let cachedConfig: CachedConfig | null = null;
 
+function getDefaultProvider(): AddressSearchProvider {
+  return isAwsLocationConfigured() ? 'aws' : 'geoapify_tomtom';
+}
+
 function normalizeProvider(value: unknown): AddressSearchProvider {
   if (value === 'geoapify_tomtom' || value === 'local_catalog') return value;
-  return 'aws';
+  if (value === 'aws' && isAwsLocationConfigured()) return 'aws';
+  return getDefaultProvider();
 }
 
 export async function getAddressSearchProvider(force = false): Promise<AddressSearchProvider> {
@@ -29,12 +32,17 @@ export async function getAddressSearchProvider(force = false): Promise<AddressSe
     .maybeSingle();
 
   if (error || !data) {
-    const fallback: AddressSearchProvider = isAwsLocationConfigured() ? 'aws' : 'geoapify_tomtom';
+    const fallback = getDefaultProvider();
     cachedConfig = { provider: fallback, expiresAt: Date.now() + CONFIG_CACHE_MS };
     return fallback;
   }
 
-  const provider = normalizeProvider((data as ConfigRow).provider);
+  const providerValue =
+    data && typeof data === 'object' && 'provider' in data
+      ? (data as { provider?: unknown }).provider
+      : undefined;
+
+  const provider = normalizeProvider(providerValue);
   cachedConfig = { provider, expiresAt: Date.now() + CONFIG_CACHE_MS };
   return provider;
 }
