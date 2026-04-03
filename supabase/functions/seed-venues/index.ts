@@ -1,5 +1,4 @@
 // deno-lint-ignore-file no-explicit-any
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8'
 
 const corsHeaders = {

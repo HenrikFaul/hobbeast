@@ -1,5 +1,4 @@
 // deno-lint-ignore-file no-explicit-any
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

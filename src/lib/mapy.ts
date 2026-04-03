@@ -74,6 +74,7 @@ const MAPY_API_KEY = (import.meta.env.VITE_MAPY_API_KEY as string | undefined) |
 const MAPY_BASE_URL = (import.meta.env.VITE_MAPY_API_BASE_URL as string | undefined) || 'https://api.mapy.com/v1';
 const MAPY_TILE_URL = (import.meta.env.VITE_MAPY_TILE_URL as string | undefined) || `${MAPY_BASE_URL}/maptiles/outdoor/256/{z}/{x}/{y}`;
 const MAPY_TILE_ATTRIBUTION = 'Powered by Mapy.com';
+const MAPY_DEFAULT_LOCALITY = 'hu';
 
 const GEOCODE_ENDPOINTS = ['/geocode'];
 const SUGGEST_ENDPOINTS = ['/suggest'];
@@ -158,7 +159,7 @@ function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion
 
   return {
     id: entity.id || fallbackId,
-    label: entity.label || entity.name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    label: entity.name || entity.location || entity.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
     lat,
     lon,
     type: inferResultType(entity.type),
@@ -186,21 +187,37 @@ export function getMapyAttributionText() {
   return MAPY_TILE_ATTRIBUTION;
 }
 
-export async function suggestMapyLocations(query: string, locality?: string): Promise<MapySuggestion[]> {
+function buildMapySearchParams(query: string, locality = MAPY_DEFAULT_LOCALITY) {
   const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
-  const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, params);
-  return extractEntityList(payload)
-    .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
-    .filter((item): item is MapySuggestion => Boolean(item));
+  return params;
+}
+
+export async function suggestMapyLocations(query: string, locality?: string): Promise<MapySuggestion[]> {
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length < 2) return [];
+
+  try {
+    const payload = await fetchJsonWithFallback<unknown>(SUGGEST_ENDPOINTS, buildMapySearchParams(trimmedQuery, locality));
+    const results = extractEntityList(payload)
+      .map((entity, index) => normalizeEntity(entity, `${trimmedQuery}-${index}`))
+      .filter((item): item is MapySuggestion => Boolean(item));
+
+    if (results.length > 0) return results;
+  } catch {
+    // geocode fallback below
+  }
+
+  return geocodeMapyLocation(trimmedQuery, locality).catch(() => []);
 }
 
 export async function geocodeMapyLocation(query: string, locality?: string): Promise<MapySuggestion[]> {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
-  if (locality) params.set('locality', locality);
-  const payload = await fetchJsonWithFallback<unknown>(GEOCODE_ENDPOINTS, params);
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length < 2) return [];
+
+  const payload = await fetchJsonWithFallback<unknown>(GEOCODE_ENDPOINTS, buildMapySearchParams(trimmedQuery, locality));
   return extractEntityList(payload)
-    .map((entity, index) => normalizeEntity(entity, `${query}-${index}`))
+    .map((entity, index) => normalizeEntity(entity, `${trimmedQuery}-${index}`))
     .filter((item): item is MapySuggestion => Boolean(item));
 }
 
