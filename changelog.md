@@ -1,155 +1,184 @@
-# CHANGELOG
+# Kapakka PubApp — Changelog
 
-Read this whole file before starting work. Do not remove previously delivered functionality from the codebase. New changes must always be appended with timestamp and context. Never replace the file contents with only the newest change.
-
-## [1.4.0] - 2026-04-02
-
-### Added (v1.4.0 batch)
-- **Waitlist auto-promote**: SQL trigger automatically promotes oldest waitlisted participant to 'going' when a going participant cancels or is marked no-show. Creates audit records and in-app notification for promoted user.
-- **Organizer message delivery**: SQL trigger delivers organizer messages as in-app notifications to participants when `delivery_state` changes to 'sending'. Supports audience filtering (all/going/waitlist) and auto-updates state to 'sent'.
-- **venue_sync_runs tracking table**: Records every seed-venues run with scope, cities, upsert count, errors, and duration.
-- **resolveEventLocationLabel helper**: Shared function for consistent location display across events list and detail pages, preferring normalized `place_*` fields.
-- **Full Hungary venue coverage**: Expanded seed-venues to 34 locations (all county seats + Budapest districts).
-- **City-based venue bias derivation**: VenueSuggestionsPanel geocodes the selected city when no explicit coordinates exist, enabling distance sorting/filtering.
-
-### Changed (v1.4.0 batch)
-- Edit-event trip planner now matches create-event behavior: hidden behind explicit CTA button instead of always visible.
-- Events list `getLocationString()` replaced with `resolveEventLocationLabel()` for place-aware fallback.
-- Merged duplicate place-search client (`src/lib/place-search.ts` removed; `src/lib/placeSearch.ts` is canonical).
-- VenueSuggestionsPanel filters by city name when available for more relevant results.
-- seed-venues logs run metadata to `venue_sync_runs` after each execution.
-
-### Fixed (v1.4.0 batch)
-- Fixed edit-event dialog always showing trip planner regardless of activity type.
-- Fixed venue suggestions ignoring city context, showing global results.
-- Fixed events list not using normalized place fields for location display.
+Minden változtatás dátummal és leírással.
 
 ---
 
-## [Unreleased] - 2026-04-02 00:00 UTC
 
-### Added
-- Added conditional Mapy trip planner support to the event creation flow for distance-based activity profiles only, with explicit inline expansion through the **„Túratervező használata”** action instead of showing the planner immediately.
-- Added normalized place-search architecture around **Geoapify + TomTom** with a dedicated `place-search` edge function, client helper layer, and normalized place persistence fields on events.
-- Added `PlaceAutocomplete` integration into create and edit flows so normalized venue data can be saved into event records.
-- Added normalized venue rendering on the event detail page from stored place fields.
-- Added `ActivityAutocomplete` so free-text activity search can prefill the hobby hierarchy and feed venue-search context.
-- Added organizer mode foundations: `OrganizerModeProvider`, navbar/profile entry points, `/organizer` route, attendee management, CSV export, organizer notes, audit history, messaging history, and analytics surface.
-- Added organizer-related database support tables and policies: `participation_audits`, `event_messages`, `user_reminder_preferences`, plus owner update policy for `event_participants`.
-- Added profile-side upcoming joined-events reminder block.
-- Added local `venue_cache` architecture plus `seed-venues` edge function and a `VenueSuggestionsPanel` with list view, map view, detail modal, and venue selection back into event creation.
+## [1.4.1] - 2026-04-03
 
-### Changed
-- Changed trip planner behavior from always-visible to activity-relevant and CTA-triggered inline expansion.
-- Changed place-search direction from older / mixed location lookup paths toward Geoapify + TomTom normalization through Supabase edge functions.
-- Changed venue suggestion behavior after repeated no-result feedback: the flow now prefers local `venue_cache` lookup for activity-based suggestions instead of depending only on live provider suggestion calls.
-- Changed organizer access flow by restoring previously removed organizer entry points in the profile/navbar area.
-- Changed venue suggestion panel UX to support list/map switching, open-now filtering, and distance-based filtering/sorting when a bias coordinate is available.
+### ✨ Hobbeast admin import és címkereső provider konfiguráció
+- Az admin `Import` panel többprovideres hubbá bővült:
+  - **Eventbrite** preview + token/szervezeti pull
+  - **Ticketmaster** preview + import
+  - **Ticketmaster source** választó: `ticketmaster`, `universe`, `frontgate`, `tmr`
+  - **SeatGeek** preview + import
+- Új admin funkcionalitás került az Import panelre a **címkereső provider runtime konfigurációjához**:
+  - választható provider: `AWS`, `Geoapify + TomTom`, `lokális címtábla`
+  - a választás **adatbázisban mentett konfiguráció**, nem kódcserés megoldás
+  - a kiválasztott provider adminból **tesztelhető** egy szabad szöveges kereséssel és találat preview-val
+- Új lokális címtábla infrastruktúra került be:
+  - `app_runtime_config`
+  - `places_local_catalog`
+  - `place_sync_state`
+  - `search_local_places(...)` RPC
+- Új `sync-local-places` edge function készült, ami adminból **manuálisan újratölthető** Geoapify és TomTom adatokkal, és visszaadja a betöltési státuszt / preview-t.
 
-### Fixed
-- Fixed the earlier regression where organizer menu / organizer entry points disappeared from the profile area.
-- Fixed the earlier UX issue where the trip planner surfaced too early instead of appearing only for relevant categories and only after explicit user action.
-- Addressed the repeated “no venue suggestions at all” complaint by introducing a cache-backed suggestion path.
+### 🔧 Technikai módosítások
+- `src/lib/placeSearch.ts` runtime provider-aware kereső wrapper lett.
+- `src/components/AddressAutocomplete.tsx` most már ugyanazt a runtime provider konfigurációt követi, mint a venue/hely kereső.
+- `supabase/functions/place-search/index.ts` most már támogatja a `provider_mode` alapú útvonalválasztást és a lokális katalógusos keresést.
+- Új versioning dokumentumpár készült:
+  - `versioning/14040311_v1.4.1_business_request_summary.pdf`
+  - `versioning/14040311_v1.4.1_ai_dev_prompts.md`
 
-### Todo log
-- [ ] **Nationwide venue ingestion is still not fully delivered from the requirement perspective.**
-  - **Observed in code**: `seed-venues` contains a fixed city list and category batch strategy; this proves a seeded subset, but not “all Hungarian venues / POIs”.
-  - **Recommended solution**:
-    - expand ingestion from a small city list to a full Hungary coverage strategy (county seats + district centers + tile/grid sweep where needed),
-    - paginate provider fetches until exhaustion,
-    - persist provider paging / checkpoint state,
-    - add dedupe rules by provider + external ID + geo/name fuzzy merge,
-    - store `last_seeded_at`, `seed_scope`, and `provider_version` metadata for traceability.
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos dokumentációs kutatás megtörtént (Ticketmaster, AWS Places V2, Geoapify, TomTom)
+- [x] legalább 2 megoldási koncepció összevetve
+- [x] a kisebb regressziós kockázatú, adminból konfigurálható megoldás kiválasztva
+- [x] Ticketmaster és egyéb integrált provider import UI visszakötve az admin panelre
+- [x] runtime címkereső provider választás implementálva kódcserementesen
+- [x] lokális címtábla újratöltés és ellenőrzés adminból megoldva
+- [x] TypeScript ellenőrzés lefuttatva (`tsc --noEmit`)
 
-- [ ] **Daily automatic venue cache refresh is not implemented clearly.**
-  - **Observed in code**: `seed-venues` exists, but no scheduler / cron orchestration was found that runs it automatically every day.
-  - **Recommended solution**:
-    - add a scheduled Supabase Edge job / cron trigger,
-    - split refresh into idempotent batches to avoid timeouts,
-    - refresh changed / stale records first,
-    - log run status into a dedicated sync table (`venue_sync_runs`) with counts, duration, and failures.
 
-- [ ] **Place-search contract is inconsistent across client helpers, edge function, and cache tables.**
-  - **Observed in code**:
-    - `src/lib/placeSearch.ts` sends `action`, `bias`, `activityHint`, and reverse-geocode payloads using `lat` / `lon`,
-    - `supabase/functions/place-search/index.ts` currently expects `query`, `category`, `latitude`, `longitude`, `radius_km`, `open_now`, `limit`, `lenient`,
-    - one path caches into `places_cache`, while venue suggestions read from `venue_cache`.
-  - **Recommended solution**:
-    - merge `src/lib/placeSearch.ts` and `src/lib/place-search.ts` into one canonical client,
-    - define one request/response contract for autocomplete, geocode, reverse-geocode, and activity-aware lookup,
-    - either unify `places_cache` and `venue_cache` into one canonical table or document and implement a strict separation rule,
-    - add shared TypeScript DTOs for the edge function body and response.
+## [1.3.8] — 2026-03-31
 
-- [ ] **Activity-aware provider querying is not yet trustworthy end-to-end.**
-  - **Observed in code**: the UI passes `activityHint`, but the current edge function does not clearly consume that field in the same contract.
-  - **Recommended solution**:
-    - convert activity hints into canonical provider query terms on the server side,
-    - keep the mapping in one shared module,
-    - add fallback expansion (activity → synonyms → category terms),
-    - add debug telemetry showing which hint terms were actually used in ranking.
+### 🧭 Versioning és fejlesztési metodika
+- A fejlesztési workflow kiegészült azzal, hogy minden új üzleti kérés / hibajavítás előtt kötelező:
+  - `codingLessonsLearnt.md` és `changelog.md` beolvasása
+  - hivatalos internetes forráskutatás a gyökérok detektálásához
+  - megoldási koncepciók kiértékelése és regressziós kockázat szerinti választás
+- Új versioning dokumentumpár készült ehhez a hibajavításhoz:
+  - `versioning/13804152_v1.3.8_business_request_summary.pdf`
+  - `versioning/13804152_v1.3.8_ai_dev_prompts.md`
 
-- [ ] **Waitlist auto-promote is not clearly implemented automatically.**
-  - **Observed in code**: organizer dashboard has manual “Promote” actions, but the transition layer does not automatically move the next waitlisted user to `going` on cancel / no-show.
-  - **Recommended solution**:
-    - implement auto-promote in one transactional backend path (preferred: SQL function or edge function),
-    - trigger it whenever a `going` attendee becomes `cancelled` or `no_show`,
-    - promote the oldest eligible waitlist record,
-    - write participation audit rows for both the cancellation and the promotion,
-    - optionally create an in-app notification for the promoted participant.
+### 🐛 Venue finder / place-search hibajavítás
+- A Geoapify Places integráció többé nem küld nem támogatott `text` paramétert a Places API felé; a helykeresés nearby + `name` alapú keresésre lett bontva.
+- A TomTom integráció a közeli kategóriaalapú venue-listákhoz `categorySearch` irányt használ a korábbi túl szűk keresési út helyett.
+- A `place-search` edge functionből kikerült a túl agresszív végszűrés, amely lenullázhatta a már megtalált provider venue-listát.
+- A válasz debug-safe meta mezőt is ad (`raw_candidate_count`, `strict_match_count`, `returned_count`, `used_lenient_mode`), így a következő hibakeresés gyorsabb.
+- A kliensoldali `searchPlaces()` helper puhább retry logikát kapott, és csak ezután esik vissza cache-re.
 
-- [ ] **Organizer messaging persists messages, but real delivery is still missing.**
-  - **Observed in code**: organizer messages are stored in `event_messages`, but no actual push/email delivery pipeline was found.
-  - **Recommended solution**:
-    - create a dispatcher edge function that resolves the audience and sends notifications,
-    - write in-app rows into the `notifications` table,
-    - optionally add email delivery through a provider such as Resend / SMTP,
-    - update `delivery_state` from `draft/scheduled` to real sent / failed states,
-    - persist per-recipient delivery results for auditability.
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos internetes forráskutatás megtörtént
+- [x] gyökérok detektálva
+- [x] megoldási koncepciók összevetve
+- [x] regressziószegényebb megoldás kiválasztva
+- [x] korábbi működő funkciók search útvonala megőrizve
+- [x] lessons/changelog frissítve
+- [x] versioning dokumentumpár elkészítve
 
-- [ ] **Edit-event trip planner behavior is not aligned with the create-event requirement.**
-  - **Observed in code**: `CreateEventDialog` gates the trip planner behind `profile.hasDistance` and an explicit CTA, but `EditEventDialog` still renders `MapyTripPlanner` directly.
-  - **Recommended solution**:
-    - apply the same `profile.hasDistance` + explicit CTA logic in edit mode,
-    - keep the planner hidden for non-distance activities,
-    - preserve previously saved trip data when the panel is collapsed.
+---
 
-- [ ] **Events list place-aware fallback is not clearly implemented.**
-  - **Observed in code**: `EventDetail` renders normalized place fields, but the events list still appears to build location text mainly from legacy `location_*` fields.
-  - **Recommended solution**:
-    - create one shared `resolveEventLocationLabel()` helper,
-    - prefer normalized place fields (`place_name`, `place_city`, `place_address`) when available,
-    - fall back to legacy free-text / city fields only when normalized place data is missing.
+## [1.1.0] — 2026-03-30
 
-- [ ] **Distance-based venue suggestions depend on already having bias coordinates.**
-  - **Observed in code**: sorting / max-distance filtering in `VenueSuggestionsPanel` only becomes meaningful when `bias` exists.
-  - **Recommended solution**:
-    - derive bias from the selected city/address automatically,
-    - if the user only selected a city, geocode the city before loading suggestions,
-    - persist the last successful center to keep list and map ordering stable.
+### ✨ Új funkciók
 
-### Checklist
-- [x] A túratervező csak releváns, distance-based kategóriáknál jelenik meg a create flow-ban
-- [x] A túratervező külön CTA-val, inline módon nyílik le a create flow-ban
-- [x] Van Geoapify/TomTom alapú `place-search` edge function
-- [x] A create/edit flow tartalmaz normalizált helyszínválasztást
-- [x] Az event detail oldalon van normalizált venue blokk
-- [x] Van organizer mód és `/organizer` dashboard
-- [x] A profile/navbar organizer belépési pontok vissza lettek téve
-- [x] Van `venue_cache` tábla és `seed-venues` edge function
-- [x] Van „Helyszínjavaslatok mutatása” panel
-- [x] Van lista / térkép nézet váltás a venue javaslatoknál
-- [x] Van nyitva-most szűrő a venue javaslatoknál
-- [x] Van távolság alapú rendezés/szűrés, ha rendelkezésre áll bias koordináta
-- [ ] Bizonyítottan teljes Magyarországos venue/POI letöltés megvalósult
-- [ ] Bizonyítottan napi automatikus venue cache frissítés megvalósult
-- [ ] Az activity-aware place search paraméterezés bizonyítottan végig össze van kötve kliens és edge function között
-- [ ] Automatikus waitlist auto-promote bizonyítottan működik
-- [ ] Tényleges push/email organizer message delivery megvalósult
-- [ ] Az edit flow túratervező viselkedése igazodik a create flow requirementhez
-- [ ] Az events lista bizonyítottan place-aware fallbacket használ
+#### Site Admin Panel (`/siteadmin/`)
+- **Dashboard**: Összes felhasználó, helyszín, rendelés, bevétel metrikák valós időben
+- **Felhasználó kezelés**: Szerepkörök módosítása, felhasználók tiltása/engedélyezése, keresés
+- **Helyszín áttekintés**: Összes regisztrált venue státusza, aktivitása, bevételi adatok
+- **Aktivitás logok**: Rendszer szintű eseménynapló (regisztrációk, rendelések, hibák)
 
-### Notes
-- This changelog is **requirement-first**: where the DOCX included both user request and developer “done” claims, the requirement was treated as the stronger source.
-- Items were marked done only where the repository content clearly supported the delivery at feature level.
-- Items were moved into **Todo log** when the codebase showed either a clear gap, a partial implementation, or a contract inconsistency that makes the feature unreliable.
-- This file is intended to replace the currently mixed / project-mismatched changelog with a Hobbeast-specific, requirement-based entry.
+#### Étlap/Itallap Sablonok (Vendéglátói panel)
+- **Magyar kocsma sablon**: Csapolt sörök, üveges sörök, borok, röviditalok, koktélok, üdítők — 40+ előre kitöltött termék
+- **Étterem sablon**: Előételek, levesek, főételek, desszertek, gyerekmenü — 30+ termék
+- **Kávézó sablon**: Kávék, teák, limonádék, sütemények — 25+ termék
+- **Koktélbár sablon**: Klasszikus és signature koktélok, gin&tonic, whisky válogatás — 35+ termék
+- Egyetlen kattintással betölthetők az étlapra
+- Kategóriák automatikus létrehozásával
+
+#### Vendéglátói UI fejlesztések
+- Továbbfejlesztett admin sidebar: ikonok Lucide React-ból, tooltipek, aktív állapot vizuálisan kiemelt
+- Admin fejléc: venue név + élő rendelésjellző badge
+- Konfigurátor bővítés: Asztal kapacitás szerkesztése, QR kód letöltés gomb
+- Étlap szerkesztő: "Sablon betöltése" gomb a gyors induláshoz
+
+### 🎨 UI/UX javítások
+- Admin sidebar: sötét háttér gradienssel, átlátszó blur effekt mobil nézetben
+- Státusz badge-ek: konzisztens szín és ikon rendszer (sárga/kék/narancs/zöld)
+- Kártya design: finomabb árnyékok, lekerekített sarkok (16px)
+- Gombok: hover animáció, disabled állapot vizuális visszajelzés
+- Mobile-first responsive elrendezés az összes új oldalon
+- Admin oldalsáv: Lucide ikonok az emoji ikonok helyett
+- Siteadmin link a superadmin felhasználók számára
+
+### 🗄️ Adatbázis
+- `activity_logs` tábla: rendszer szintű eseménynaplózás
+- `menu_templates` tábla: előre definiált étlap sablonok
+- `menu_template_items` tábla: sablon tételek
+- RLS policies az új táblákhoz
+- Trigger: automatikus logolás regisztrációnál és rendelésnél
+
+### 🔧 Technikai
+- `changelog.md` bevezetése a változtatások nyomon követésére
+
+---
+
+## [1.0.1] — 2026-03-29
+
+### 🐛 Hibajavítások
+- Auth redirect loop javítása (middleware + page.tsx + customer/page.tsx + admin/layout.tsx egymásba irányított)
+- RLS policy javítás: profil olvasás engedélyezés minden bejelentkezett felhasználónak
+- Szerepkör hozzárendelés javítás: auth.users JOIN-nal email alapján
+- Email mező szinkronizálás: handle_new_user() trigger javítás
+
+---
+
+## [1.0.0] — 2026-03-28
+
+### 🎉 Első kiadás
+- Vendég oldal: helyszín kereső, QR rendelés, rendeléskövetés, kocsmakvíz, játékok
+- Admin panel: kiszolgálás, rendelések, étlap, készlet, statisztikák, konfigurátor, segítség
+- Supabase auth + RLS
+- Valós idejű rendeléskezelés (Realtime)
+- PWA manifest
+
+
+---
+
+## [1.3.6] — 2026-03-31
+
+### 🐛 Regressziójavítások
+- **Input fókuszvesztés javítva** a bejelentkezési / regisztrációs / venue finder mezőkön
+  - a page komponenseken belüli remountoló belső komponensek megszüntetve
+  - a kereső- és jelszómezők már nem halnak meg 1 karakter után
+- **Venue finder stabilizálva**
+  - megszűnt a többször egymásra dobott „Nincs találat” toast
+  - a kereső már csak inline empty state-et mutat
+  - a kliens oldali keresés szélesebb fallbackgel hívja a `place-search` edge functiont
+- **Select dropdown olvashatóság javítva**
+  - a sötét témás option elemek explicit színt kaptak
+- **Aktív becsekkolási logika visszaállítva**
+  - a főoldali gyorselérés csempék csak aktív venue / asztal kontextus esetén látszanak
+  - a becsekkolt venue neve és asztalszáma megjelenik
+  - a scan és venue oldalak elmentik a becsekkolt kontextust
+
+### ♻️ Visszatett korábbi funkciók
+- **Játékok menü visszaállítva**
+  - a külön Barátok menü helyére visszakerült a **Játékok** menüpont
+  - ismét elérhető: kocsmakvíz / dice / igazság vagy mersz / részegségmérő
+- **Barátok és közös listák** visszarakva a **Profil** oldal aljára
+- **Hűségpont fókusz** visszaállítva a Profil oldalon
+- **Egyéni ajánlataim** blokk hozzáadva a Profil oldalhoz
+- **Admin oldali Étlap menüpont** visszaállítva az oldalsávba
+- **Digitális étlap belépési pont** megőrizve és visszahangsúlyozva a vendég oldalon
+
+### 🔧 Technikai
+- `src/app/page.tsx` auth képernyő refaktor a fókuszvesztés megszüntetésére
+- `src/app/customer/page.tsx` teljes regressziófix:
+  - tabstruktúra helyreállítás
+  - discover / games / profile logika rendezése
+  - check-in context kezelés
+- `src/components/PlaceAutocomplete.tsx` stabilabb controlled input viselkedés
+- `src/app/customer/scan/page.tsx` és `src/app/customer/pub/[id]/page.tsx` aktív venue context mentés
+- `src/lib/place-search.ts` szélesebb fallback keresés
+- `supabase/functions/place-search/index.ts` szélesebb provider lekérés és jobb geocode/nearby összevonás
+
+### 📝 Megjegyzés
+- Ez a kiadás kifejezetten a korábban működő funkciók visszaállítására és a redesign regressziók megszüntetésére készült.

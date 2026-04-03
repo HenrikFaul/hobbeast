@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
-import { suggestPlaces, searchTextPlaces, getPlace, type AwsSuggestResult } from '@/lib/awsLocation';
+import { getPlace, searchTextPlaces, suggestPlaces, type AwsSuggestResult } from '@/lib/awsLocation';
+import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
+import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
 
 export interface AddressSelection {
   displayName: string;
@@ -19,9 +21,70 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
+type AddressResult = {
+  key: string;
+  label: string;
+  city: string;
+  district: string;
+  address: string;
+  lat: number;
+  lon: number;
+  placeId?: string;
+};
+
+function buildQueryVariants(input: string): string[] {
+  const q = input.trim().replace(/\s+/g, ' ');
+  if (!q) return [];
+
+  const variants = new Set<string>();
+  variants.add(q);
+
+  const hasStreetType = /\b(utca|u\.|út|útja|tér|tere|körút|krt\.|sétány|park|fasor|rakpart)\b/i.test(q);
+  if (!hasStreetType) {
+    variants.add(`${q} utca`);
+    variants.add(`${q} út`);
+    variants.add(`${q} tér`);
+    variants.add(`${q} körút`);
+  }
+
+  const parts = q.split(' ');
+  if (parts.length >= 2) {
+    const reversed = [...parts].reverse().join(' ');
+    variants.add(reversed);
+    if (!hasStreetType) variants.add(`${reversed} utca`);
+  }
+
+  return Array.from(variants);
+}
+
+function mapAwsResult(item: AwsSuggestResult, index: number): AddressResult {
+  return {
+    key: `${item.placeId || 'aws'}-${index}`,
+    label: item.place?.label || item.text || '',
+    city: item.place?.locality || '',
+    district: item.place?.district || '',
+    address: [item.place?.street, item.place?.addressNumber].filter(Boolean).join(' ').trim() || item.place?.label || item.text || '',
+    lat: item.place?.position?.[1] || 0,
+    lon: item.place?.position?.[0] || 0,
+    placeId: item.placeId,
+  };
+}
+
+function mapNormalizedPlace(item: NormalizedPlace, index: number): AddressResult {
+  return {
+    key: `${item.source}-${item.sourceId}-${index}`,
+    label: [item.name, item.city].filter(Boolean).join(', ') || item.address || item.name,
+    city: item.city || '',
+    district: item.district || '',
+    address: item.address || item.name,
+    lat: item.lat || 0,
+    lon: item.lon || 0,
+  };
+}
+
 export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el gépelni egy címet...', className }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<AwsSuggestResult[]>([]);
+  const [results, setResults] = useState<AddressResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -48,35 +111,6 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     requestRef.current?.abort();
   }, []);
 
-  const buildQueryVariants = (input: string): string[] => {
-    const q = input.trim().replace(/\s+/g, ' ');
-    if (!q) return [];
-
-    const variants = new Set<string>();
-    variants.add(q);
-
-    const hasStreetType = /\b(utca|u\.|út|útja|tér|tere|körút|krt\.|sétány|park|fasor|rakpart)\b/i.test(q);
-
-    if (!hasStreetType) {
-      variants.add(`${q} utca`);
-      variants.add(`${q} út`);
-      variants.add(`${q} tér`);
-      variants.add(`${q} körút`);
-      variants.add(`${q} sétány`);
-    }
-
-    const parts = q.split(' ');
-    if (parts.length >= 2) {
-      const reversed = [...parts].reverse().join(' ');
-      variants.add(reversed);
-      if (!hasStreetType) {
-        variants.add(`${reversed} utca`);
-      }
-    }
-
-    return Array.from(variants);
-  };
-
   const search = async (q: string) => {
     const trimmed = q.trim();
     if (trimmed.length < 3) {
@@ -95,21 +129,35 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setErrorText(null);
 
     try {
-      const variants = buildQueryVariants(trimmed);
-      let data: AwsSuggestResult[] = [];
+      const provider = await getAddressSearchProvider();
+      let data: AddressResult[] = [];
 
-      for (const variant of variants) {
-        data = await suggestPlaces(variant, controller.signal);
-        if (data.length > 0) break;
+      if (provider === 'aws') {
+        const variants = buildQueryVariants(trimmed);
+        let awsData: AwsSuggestResult[] = [];
 
-        data = await searchTextPlaces(variant, controller.signal);
-        if (data.length > 0) break;
+        for (const variant of variants) {
+          awsData = await suggestPlaces(variant, controller.signal);
+          if (awsData.length > 0) break;
+
+          awsData = await searchTextPlaces(variant, controller.signal);
+          if (awsData.length > 0) break;
+        }
+
+        data = awsData.map(mapAwsResult);
+      } else {
+        const remote = await searchPlaces(trimmed, undefined, undefined, provider);
+        data = remote.map(mapNormalizedPlace);
       }
 
       setResults(data);
       setShowDropdown(data.length > 0);
       if (data.length === 0) {
-        setErrorText('Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.');
+        setErrorText(
+          provider === 'local_catalog'
+            ? 'A lokális címtábla nem adott találatot. Az admin Import / Címkereső panelen töltsd újra a lokális adatokat, vagy válts másik providerre.'
+            : 'Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.'
+        );
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -131,39 +179,34 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     }, 400);
   };
 
-  const handleSelect = async (result: AwsSuggestResult) => {
-    const label = result.place?.label || result.text;
-    setQuery(label);
+  const handleSelect = async (result: AddressResult) => {
+    setQuery(result.label);
     setResults([]);
     setShowDropdown(false);
     setErrorText(null);
 
-    let city = result.place?.locality || '';
-    let district = result.place?.district || '';
-    let address = [result.place?.street, result.place?.addressNumber].filter(Boolean).join(' ').trim();
-    let lat = result.place?.position ? result.place.position[1] : 0;
-    let lon = result.place?.position ? result.place.position[0] : 0;
-
-    if (result.placeId && (!lat || !lon)) {
-      const details = await getPlace(result.placeId);
-      if (details) {
-        city = city || details.locality || '';
-        district = district || details.district || '';
-        address = address || [details.street, details.addressNumber].filter(Boolean).join(' ').trim();
-        if (details.position) {
-          lon = details.position[0];
-          lat = details.position[1];
-        }
+    let finalResult = result;
+    if (result.placeId && (!result.lat || !result.lon)) {
+      const details = await getPlace(result.placeId).catch(() => null);
+      if (details?.position) {
+        finalResult = {
+          ...result,
+          city: result.city || details.locality || '',
+          district: result.district || details.district || '',
+          address: result.address || [details.street, details.addressNumber].filter(Boolean).join(' ').trim() || details.label || '',
+          lat: details.position[1],
+          lon: details.position[0],
+        };
       }
     }
 
     onSelect({
-      displayName: label,
-      city,
-      district,
-      address,
-      lat,
-      lon,
+      displayName: finalResult.label,
+      city: finalResult.city,
+      district: finalResult.district,
+      address: finalResult.address,
+      lat: finalResult.lat,
+      lon: finalResult.lon,
     });
   };
 
@@ -183,15 +226,20 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
 
       {showDropdown && results.length > 0 && (
         <div className="absolute z-50 w-full mt-1 rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto">
-          {results.map((r, i) => (
+          {results.map((r) => (
             <button
-              key={`${r.suggestId || i}-${r.text}`}
+              key={r.key}
               type="button"
               className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors text-sm border-b last:border-0 flex items-start gap-2"
               onClick={() => handleSelect(r)}
             >
               <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-              <span className="text-foreground leading-snug">{r.place?.label || r.text}</span>
+              <div>
+                <span className="text-foreground leading-snug">{r.label}</span>
+                {(r.city || r.district) && (
+                  <p className="text-xs text-muted-foreground">{[r.city, r.district].filter(Boolean).join(' · ')}</p>
+                )}
+              </div>
             </button>
           ))}
         </div>
