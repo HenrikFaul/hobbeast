@@ -1,103 +1,27 @@
-# Kapakka PubApp — Changelog
+# Kapakka Hobbeast — Changelog
 
-Minden változtatás dátummal és leírással.
+Minden változtatás dátummal és leírással. Append-only — korábbi bejegyzés nem törölhető, nem írható felül.
 
 ---
 
-## [1.4.4] - 2026-04-03
+## [1.0.0] — 2026-03-28
 
-### 🐛 Eseményszűrés és helykereső stabilizálás
-- Az eseménykereső mostantól csak a **mai vagy jövőbeli dátumú** eseményeket mutatja.
-- A Hobbeast és a lokálisan tárolt külső események backend lekérése is kizárja a múltbeli dátumú elemeket.
-- A kliensoldali összefésülés is kapott egy második védelmi szűrőt, így a demo / importált múltbeli elemek sem csúsznak vissza a listába.
+### 🎉 Első kiadás
+- Vendég oldal: helyszín kereső, QR rendelés, rendeléskövetés, kocsmakvíz, játékok
+- Admin panel: kiszolgálás, rendelések, étlap, készlet, statisztikák, konfigurátor, segítség
+- Supabase auth + RLS
+- Valós idejű rendeléskezelés (Realtime)
+- PWA manifest
 
-### 🗺️ Mapy.cz túratervező keresés javítás
-- A túratervező autocomplete már **Magyarországra szűkítve** keres (`locality=hu`), így megszűnik a cseh / szlovák / irreleváns első találatok dominanciája.
-- A találati lista már a **tényleges helynevet / címet** mutatja elsődleges címként, nem a generikus típuscímkét (`Address`, `Town/city`, `Village`).
-- A suggest útvonal geocode fallbacket kapott, így gyengébb autocomplete találat esetén is van második keresési ág.
+---
 
-### 🔧 Provider és build stabilizálás
-- Az address provider resolver többé nem ragad hibás `aws` módba, ha az AWS kulcs nincs ténylegesen konfigurálva.
-- A kereső helper-ek használható providerre esnek vissza nem konfigurált AWS környezetben is.
-- A `place-search` és `seed-venues` funkciókból kikerült a problémás edge runtime típusimport, ami build közben a hiányzó `openai` npm típusfeloldást triggerelte.
+## [1.0.1] — 2026-03-29
 
-### ✅ Végellenőrzési checklist
-- [x] `codingLessonsLearnt.md` beolvasva
-- [x] `changelog.md` beolvasva
-- [x] hivatalos dokumentációs kutatás megtörtént (Mapy geocoding/suggest/search area, Amazon Location autocomplete/search text/get place)
-- [x] gyökérok detektálva
-- [x] legalább 2 megoldási koncepció kiértékelve
-- [x] a kisebb regressziós kockázatú javítás kiválasztva
-- [ ] build ellenőrzés lefuttatva
-
-
-## [1.4.1] - 2026-04-03
-
-### ✨ Hobbeast admin import és címkereső provider konfiguráció
-- Az admin `Import` panel többprovideres hubbá bővült:
-  - **Eventbrite** preview + token/szervezeti pull
-  - **Ticketmaster** preview + import
-  - **Ticketmaster source** választó: `ticketmaster`, `universe`, `frontgate`, `tmr`
-  - **SeatGeek** preview + import
-- Új admin funkcionalitás került az Import panelre a **címkereső provider runtime konfigurációjához**:
-  - választható provider: `AWS`, `Geoapify + TomTom`, `lokális címtábla`
-  - a választás **adatbázisban mentett konfiguráció**, nem kódcserés megoldás
-  - a kiválasztott provider adminból **tesztelhető** egy szabad szöveges kereséssel és találat preview-val
-- Új lokális címtábla infrastruktúra került be:
-  - `app_runtime_config`
-  - `places_local_catalog`
-  - `place_sync_state`
-  - `search_local_places(...)` RPC
-- Új `sync-local-places` edge function készült, ami adminból **manuálisan újratölthető** Geoapify és TomTom adatokkal, és visszaadja a betöltési státuszt / preview-t.
-
-### 🔧 Technikai módosítások
-- `src/lib/placeSearch.ts` runtime provider-aware kereső wrapper lett.
-- `src/components/AddressAutocomplete.tsx` most már ugyanazt a runtime provider konfigurációt követi, mint a venue/hely kereső.
-- `supabase/functions/place-search/index.ts` most már támogatja a `provider_mode` alapú útvonalválasztást és a lokális katalógusos keresést.
-- Új versioning dokumentumpár készült:
-  - `versioning/14040311_v1.4.1_business_request_summary.pdf`
-  - `versioning/14040311_v1.4.1_ai_dev_prompts.md`
-
-### ✅ Végellenőrzési checklist
-- [x] `codingLessonsLearnt.md` beolvasva
-- [x] `changelog.md` beolvasva
-- [x] hivatalos dokumentációs kutatás megtörtént (Ticketmaster, AWS Places V2, Geoapify, TomTom)
-- [x] legalább 2 megoldási koncepció összevetve
-- [x] a kisebb regressziós kockázatú, adminból konfigurálható megoldás kiválasztva
-- [x] Ticketmaster és egyéb integrált provider import UI visszakötve az admin panelre
-- [x] runtime címkereső provider választás implementálva kódcserementesen
-- [x] lokális címtábla újratöltés és ellenőrzés adminból megoldva
-- [x] TypeScript ellenőrzés lefuttatva (`tsc --noEmit`)
-
-
-## [1.3.8] — 2026-03-31
-
-### 🧭 Versioning és fejlesztési metodika
-- A fejlesztési workflow kiegészült azzal, hogy minden új üzleti kérés / hibajavítás előtt kötelező:
-  - `codingLessonsLearnt.md` és `changelog.md` beolvasása
-  - hivatalos internetes forráskutatás a gyökérok detektálásához
-  - megoldási koncepciók kiértékelése és regressziós kockázat szerinti választás
-- Új versioning dokumentumpár készült ehhez a hibajavításhoz:
-  - `versioning/13804152_v1.3.8_business_request_summary.pdf`
-  - `versioning/13804152_v1.3.8_ai_dev_prompts.md`
-
-### 🐛 Venue finder / place-search hibajavítás
-- A Geoapify Places integráció többé nem küld nem támogatott `text` paramétert a Places API felé; a helykeresés nearby + `name` alapú keresésre lett bontva.
-- A TomTom integráció a közeli kategóriaalapú venue-listákhoz `categorySearch` irányt használ a korábbi túl szűk keresési út helyett.
-- A `place-search` edge functionből kikerült a túl agresszív végszűrés, amely lenullázhatta a már megtalált provider venue-listát.
-- A válasz debug-safe meta mezőt is ad (`raw_candidate_count`, `strict_match_count`, `returned_count`, `used_lenient_mode`), így a következő hibakeresés gyorsabb.
-- A kliensoldali `searchPlaces()` helper puhább retry logikát kapott, és csak ezután esik vissza cache-re.
-
-### ✅ Végellenőrzési checklist
-- [x] `codingLessonsLearnt.md` beolvasva
-- [x] `changelog.md` beolvasva
-- [x] hivatalos internetes forráskutatás megtörtént
-- [x] gyökérok detektálva
-- [x] megoldási koncepciók összevetve
-- [x] regressziószegényebb megoldás kiválasztva
-- [x] korábbi működő funkciók search útvonala megőrizve
-- [x] lessons/changelog frissítve
-- [x] versioning dokumentumpár elkészítve
+### 🐛 Hibajavítások
+- Auth redirect loop javítása (middleware + page.tsx + customer/page.tsx + admin/layout.tsx egymásba irányított)
+- RLS policy javítás: profil olvasás engedélyezés minden bejelentkezett felhasználónak
+- Szerepkör hozzárendelés javítás: auth.users JOIN-nal email alapján
+- Email mező szinkronizálás: handle_new_user() trigger javítás
 
 ---
 
@@ -146,28 +70,6 @@ Minden változtatás dátummal és leírással.
 
 ---
 
-## [1.0.1] — 2026-03-29
-
-### 🐛 Hibajavítások
-- Auth redirect loop javítása (middleware + page.tsx + customer/page.tsx + admin/layout.tsx egymásba irányított)
-- RLS policy javítás: profil olvasás engedélyezés minden bejelentkezett felhasználónak
-- Szerepkör hozzárendelés javítás: auth.users JOIN-nal email alapján
-- Email mező szinkronizálás: handle_new_user() trigger javítás
-
----
-
-## [1.0.0] — 2026-03-28
-
-### 🎉 Első kiadás
-- Vendég oldal: helyszín kereső, QR rendelés, rendeléskövetés, kocsmakvíz, játékok
-- Admin panel: kiszolgálás, rendelések, étlap, készlet, statisztikák, konfigurátor, segítség
-- Supabase auth + RLS
-- Valós idejű rendeléskezelés (Realtime)
-- PWA manifest
-
-
----
-
 ## [1.3.6] — 2026-03-31
 
 ### 🐛 Regressziójavítások
@@ -175,7 +77,7 @@ Minden változtatás dátummal és leírással.
   - a page komponenseken belüli remountoló belső komponensek megszüntetve
   - a kereső- és jelszómezők már nem halnak meg 1 karakter után
 - **Venue finder stabilizálva**
-  - megszűnt a többször egymásra dobott „Nincs találat” toast
+  - megszűnt a többször egymásra dobott „Nincs találat" toast
   - a kereső már csak inline empty state-et mutat
   - a kliens oldali keresés szélesebb fallbackgel hívja a `place-search` edge functiont
 - **Select dropdown olvashatóság javítva**
@@ -197,43 +99,125 @@ Minden változtatás dátummal és leírással.
 
 ### 🔧 Technikai
 - `src/app/page.tsx` auth képernyő refaktor a fókuszvesztés megszüntetésére
-- `src/app/customer/page.tsx` teljes regressziófix:
-  - tabstruktúra helyreállítás
-  - discover / games / profile logika rendezése
-  - check-in context kezelés
+- `src/app/customer/page.tsx` teljes regressziófix
 - `src/components/PlaceAutocomplete.tsx` stabilabb controlled input viselkedés
-- `src/app/customer/scan/page.tsx` és `src/app/customer/pub/[id]/page.tsx` aktív venue context mentés
 - `src/lib/place-search.ts` szélesebb fallback keresés
 - `supabase/functions/place-search/index.ts` szélesebb provider lekérés és jobb geocode/nearby összevonás
 
 ### 📝 Megjegyzés
 - Ez a kiadás kifejezetten a korábban működő funkciók visszaállítására és a redesign regressziók megszüntetésére készült.
 
+---
+
+## [1.3.8] — 2026-03-31
+
+### 🧭 Versioning és fejlesztési metodika
+- A fejlesztési workflow kiegészült azzal, hogy minden új üzleti kérés / hibajavítás előtt kötelező:
+  - `codingLessonsLearnt.md` és `changelog.md` beolvasása
+  - hivatalos internetes forráskutatás a gyökérok detektálásához
+  - megoldási koncepciók kiértékelése és regressziós kockázat szerinti választás
+- Új versioning dokumentumpár készült ehhez a hibajavításhoz:
+  - `versioning/13804152_v1.3.8_business_request_summary.pdf`
+  - `versioning/13804152_v1.3.8_ai_dev_prompts.md`
+
+### 🐛 Venue finder / place-search hibajavítás
+- A Geoapify Places integráció többé nem küld nem támogatott `text` paramétert a Places API felé; a helykeresés nearby + `name` alapú keresésre lett bontva.
+- A TomTom integráció a közeli kategóriaalapú venue-listákhoz `categorySearch` irányt használ a korábbi túl szűk keresési út helyett.
+- A `place-search` edge functionből kikerült a túl agresszív végszűrés, amely lenullázhatta a már megtalált provider venue-listát.
+- A válasz debug-safe meta mezőt is ad (`raw_candidate_count`, `strict_match_count`, `returned_count`, `used_lenient_mode`).
+- A kliensoldali `searchPlaces()` helper puhább retry logikát kapott, és csak ezután esik vissza cache-re.
+
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos internetes forráskutatás megtörtént
+- [x] gyökérok detektálva
+- [x] megoldási koncepciók összevetve
+- [x] regressziószegényebb megoldás kiválasztva
+- [x] korábbi működő funkciók megőrizve
+- [x] lessons/changelog frissítve
+- [x] versioning dokumentumpár elkészítve
 
 ---
 
-## [1.4.3] - 2026-04-03
+## [1.4.1] — 2026-04-03
+
+### ✨ Hobbeast admin import és címkereső provider konfiguráció
+- Az admin `Import` panel többprovideres hubbá bővült:
+  - **Eventbrite** preview + token/szervezeti pull
+  - **Ticketmaster** preview + import
+  - **Ticketmaster source** választó: `ticketmaster`, `universe`, `frontgate`, `tmr`
+  - **SeatGeek** preview + import
+- Új admin funkcionalitás a **címkereső provider runtime konfigurációjához**:
+  - választható provider: `AWS`, `Geoapify + TomTom`, `lokális címtábla`
+  - adatbázisban mentett konfiguráció, nem kódcserés megoldás
+  - a kiválasztott provider adminból tesztelhető
+- Új lokális címtábla infrastruktúra: `app_runtime_config`, `places_local_catalog`, `place_sync_state`, `search_local_places(...)` RPC
+- Új `sync-local-places` edge function: adminból manuálisan újratölthető Geoapify és TomTom adatokkal
+
+### 🔧 Technikai
+- `src/lib/placeSearch.ts` runtime provider-aware kereső wrapper lett
+- `src/components/AddressAutocomplete.tsx` runtime provider konfigurációt követ
+- `supabase/functions/place-search/index.ts` támogatja a `provider_mode` alapú útvonalválasztást
+- Új versioning dokumentumpár:
+  - `versioning/14040311_v1.4.1_business_request_summary.pdf`
+  - `versioning/14040311_v1.4.1_ai_dev_prompts.md`
+
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos dokumentációs kutatás megtörtént (Ticketmaster, AWS Places V2, Geoapify, TomTom)
+- [x] legalább 2 megoldási koncepció összevetve
+- [x] runtime konfiguráció kódcserementesen megoldva
+- [x] TypeScript ellenőrzés lefuttatva (`tsc --noEmit`)
+
+---
+
+## [1.4.2] — 2026-04-03
+
+### 🧩 Common Admin baseline rollout
+- Az admin `Import` tab megtartva és működőképes maradt.
+- Új **Common Admin** tab hozzáadva a meglévő admin entry pointok megőrzésével.
+- Közös admin capability-k:
+  - **Integrációk és hosting inventory**
+  - **Alkalmazásverzió és deployment metaadatok**
+  - **Changelog-alapú leszállított funkciólista**
+  - **Külső szolgáltatók és provider inventory**
+- Governance `common_admin` canonical modellel szinkronizálva.
+- A provider runtime vezérlők és a lokális katalógus operációk megmaradtak.
+
+### 🔧 Technikai
+- Új versioning dokumentumpár:
+  - `versioning/14040321_v1.4.2_business_request_summary.pdf`
+  - `versioning/14040321_v1.4.2_ai_dev_prompts.md`
+
+### ✅ Végellenőrzési checklist
+- [x] Import tab megtartva és működőképes
+- [x] Common Admin tab hozzáadva, nem lecserélve
+- [x] Provider runtime controls megőrizve
+- [x] Governance common_admin canonical modellel szinkronizálva
+
+---
+
+## [1.4.3] — 2026-04-03
 
 ### 🧩 Common Admin rollout — append-only javítás
 - A közös adminmodell Hobbeast oldali rolloutja **append-only changelog** elv szerint került korrigálásra.
 - A korábbi közös adminfejlesztéshez tartozó változások nem felülírással, hanem új történeti bejegyzésként kerülnek nyilvántartásba.
 - Új **Common Admin** admin tab került bevezetésre a korábbi Import funkciók megőrzése mellett.
-- A közös adminfelület új, újrahasznosítható capability blokkjai:
+- A közös adminfelület capability blokkjai:
   - **Integrációk és hosting**
   - **Alkalmazásverzió és deployment metaadatok**
   - **Changelog-alapú leszállított funkciólista**
   - **Külső szolgáltatók és provider inventory**
-- A Hobbeast továbbra is megtartja a már korábban bekerült többprovideres import modult:
-  - Eventbrite
-  - Ticketmaster / Universe / FrontGate / TMR
-  - SeatGeek
-  - címkereső provider konfiguráció és teszt
-  - lokális címtábla újratöltés és státuszellenőrzés
+- A Hobbeast megtartja a már korábban bekerült többprovideres import modult:
+  - Eventbrite, Ticketmaster / Universe / FrontGate / TMR, SeatGeek
+  - Címkereső provider konfiguráció és teszt
+  - Lokális címtábla újratöltés és státuszellenőrzés
 
 ### 🔧 Technikai
-- Új közös admin komponens: `src/components/admin/CommonAdminPanel.tsx`
-- Új metaadat helper: `src/lib/commonAdminMetadata.ts`
-- Az admin főoldal új `Common Admin` tabot kapott a meglévő admin entry pointok megtartásával.
+- `src/components/admin/CommonAdminPanel.tsx`
+- `src/lib/commonAdminMetadata.ts`
 - Új versioning dokumentumpár:
   - `versioning/14040331_v1.4.3_business_request_summary.pdf`
   - `versioning/14040331_v1.4.3_ai_dev_prompts.md`
@@ -243,3 +227,52 @@ Minden változtatás dátummal és leírással.
 - [x] Az új admin capability-k hozzáappendelve, nem felülírva
 - [x] A korábban bekötött import/provider funkciók megőrizve
 - [x] A common_admin Hobbeast-admin felületbe illesztve
+
+---
+
+## [1.4.4] — 2026-04-03
+
+### 🐛 Eseményszűrés és helykereső stabilizálás
+- Az eseménykereső mostantól csak a **mai vagy jövőbeli dátumú** eseményeket mutatja.
+- A Hobbeast és a lokálisan tárolt külső események backend lekérése is kizárja a múltbeli dátumú elemeket.
+- A kliensoldali összefésülés is kapott egy második védelmi szűrőt.
+
+### 🗺️ Mapy.cz túratervező keresés javítás
+- A túratervező autocomplete már **Magyarországra szűkítve** keres (`locality=hu`).
+- A találati lista a **tényleges helynevet / címet** mutatja elsődleges címként.
+- A suggest útvonal geocode fallbacket kapott.
+
+### 🔧 Provider és build stabilizálás
+- Az address provider resolver többé nem ragad hibás `aws` módba konfigurált kulcs nélkül.
+- A `place-search` és `seed-venues` funkciókból kikerült a problémás edge runtime típusimport.
+
+### ✅ Végellenőrzési checklist
+- [x] `codingLessonsLearnt.md` beolvasva
+- [x] `changelog.md` beolvasva
+- [x] hivatalos dokumentációs kutatás megtörtént
+- [x] gyökérok detektálva
+- [x] legalább 2 megoldási koncepció kiértékelve
+- [x] kisebb regressziós kockázatú javítás kiválasztva
+
+---
+
+## [1.4.5] — 2026-04-03
+
+### 🔧 Governance integritás helyreállítása
+
+- **Changelog rendje helyreállítva**: a bejegyzések kronológiai sorrendbe kerültek (1.0.0 → legújabb), és a korábban kimaradt v1.4.2 entry hozzáadva a meglévő versioning pár alapján.
+- **Controller szinkronizálva**: `.governance/controller.md` kiegészítve a canonical governance controller hiányzó szekcióival (execution authority enforcement, common_admin canonical-source rule, append-only changelog rule).
+- **`codingLessonsLearnt.local.md` létrehozva**: a governance catalog `localLessonsFile` elvárásnak megfelelve; HIBA-051 (Shared admin capability drift) tartalommal.
+- **Root `codingLessonsLearnt.md` helyreállítva**: a helyes merged fájl (shared + local HIBA-051) lett.
+
+### 🐛 Gyökérok
+- A changelog bejegyzések vegyes sorrendbe kerültek (újak elejére kerültek, de a 1.3.6 kimaradt a helyes pozícióból).
+- A hobbeast `.governance/controller.md` az egyszerűbb korábbi controller verzión maradt, nem kapta meg a governance csomag frissebb szekcióit.
+- A `codingLessonsLearnt.local.md` a governance catalog elvárás ellenére soha nem jött létre.
+
+### ✅ Végellenőrzési checklist
+- [x] changelog kronológiai sorrend helyes
+- [x] v1.4.2 bejegyzés hozzáadva (versioning fájl alapján)
+- [x] controller szinkronizálva
+- [x] codingLessonsLearnt.local.md létrehozva
+- [x] korábbi history érintetlen
