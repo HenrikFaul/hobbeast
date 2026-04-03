@@ -182,3 +182,38 @@ Minden változtatás dátummal és leírással.
 
 ### 📝 Megjegyzés
 - Ez a kiadás kifejezetten a korábban működő funkciók visszaállítására és a redesign regressziók megszüntetésére készült.
+
+
+---
+
+## [1.4.3] - 2026-04-03
+
+### 🧩 Common Admin rollout — append-only javítás
+- A közös adminmodell Hobbeast oldali rolloutja **append-only changelog** elv szerint került korrigálásra.
+- A korábbi közös adminfejlesztéshez tartozó változások nem felülírással, hanem új történeti bejegyzésként kerülnek nyilvántartásba.
+- Új **Common Admin** admin tab került bevezetésre a korábbi Import funkciók megőrzése mellett.
+- A közös adminfelület új, újrahasznosítható capability blokkjai:
+  - **Integrációk és hosting**
+  - **Alkalmazásverzió és deployment metaadatok**
+  - **Changelog-alapú leszállított funkciólista**
+  - **Külső szolgáltatók és provider inventory**
+- A Hobbeast továbbra is megtartja a már korábban bekerült többprovideres import modult:
+  - Eventbrite
+  - Ticketmaster / Universe / FrontGate / TMR
+  - SeatGeek
+  - címkereső provider konfiguráció és teszt
+  - lokális címtábla újratöltés és státuszellenőrzés
+
+### 🔧 Technikai
+- Új közös admin komponens: `src/components/admin/CommonAdminPanel.tsx`
+- Új metaadat helper: `src/lib/commonAdminMetadata.ts`
+- Az admin főoldal új `Common Admin` tabot kapott a meglévő admin entry pointok megtartásával.
+- Új versioning dokumentumpár:
+  - `versioning/14040331_v1.4.3_business_request_summary.pdf`
+  - `versioning/14040331_v1.4.3_ai_dev_prompts.md`
+
+### ✅ Végellenőrzési checklist
+- [x] A changelog korábbi tartalma megőrizve
+- [x] Az új admin capability-k hozzáappendelve, nem felülírva
+- [x] A korábban bekötött import/provider funkciók megőrizve
+- [x] A common_admin Hobbeast-admin felületbe illesztve
