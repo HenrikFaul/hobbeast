@@ -225,12 +225,14 @@ serve(async (req) => {
     return jsonResponse({ ok: true, rowsWritten: rows.length, providerCounts, status: await getStatus() });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    await supabaseAdmin.from('place_sync_state').upsert({
-      key: 'local_places',
-      status: 'error',
-      last_error: message,
-      last_run_completed_at: new Date().toISOString(),
-    }).catch(() => undefined);
+    try {
+      await supabaseAdmin.from('place_sync_state').upsert({
+        key: 'local_places',
+        status: 'error',
+        last_error: message,
+        last_run_completed_at: new Date().toISOString(),
+      });
+    } catch (_) { /* swallow */ }
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
   }
