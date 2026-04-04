@@ -188,7 +188,7 @@ export function getMapyAttributionText() {
 }
 
 function buildMapySearchParams(query: string, locality = MAPY_DEFAULT_LOCALITY) {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+  const params = new URLSearchParams({ query: query.trim(), lang: 'cs', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
   return params;
 }
