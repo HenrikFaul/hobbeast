@@ -46,7 +46,10 @@ const ROUTE_TYPES: Array<{ value: MapyRouteType; label: string }> = [
 
 function pointToText(point?: TripPlanPoint | null) {
   if (!point) return 'Nincs kiválasztva';
-  return point.location ? `${point.label} — ${point.location}` : point.label;
+  if (point.location && !point.label.includes(point.location)) {
+    return `${point.label} — ${point.location}`;
+  }
+  return point.label;
 }
 
 function formatMeters(lengthM?: number | null) {
@@ -74,15 +77,21 @@ function MapySearchInput({
   onSelect: (point: TripPlanPoint | null) => void;
   disabled?: boolean;
 }) {
-  const [query, setQuery] = useState(value?.label ?? '');
+  const [query, setQuery] = useState(pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value));
   const [results, setResults] = useState<MapySuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const preserveTypedQueryRef = useRef(false);
 
   useEffect(() => {
-    setQuery(value?.label ?? '');
-  }, [value?.label]);
+    if (preserveTypedQueryRef.current && !value) {
+      preserveTypedQueryRef.current = false;
+      return;
+    }
+
+    setQuery(pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value));
+  }, [value]);
 
   useEffect(() => {
     if (disabled) return;
@@ -113,8 +122,9 @@ function MapySearchInput({
   }, [query, disabled]);
 
   const selectResult = (result: MapySuggestion | null) => {
+    preserveTypedQueryRef.current = false;
     onSelect(result);
-    setQuery(result?.label ?? '');
+    setQuery(result ? pointToText(result) : '');
     setResults([]);
     setOpen(false);
     setActiveIndex(-1);
@@ -128,8 +138,19 @@ function MapySearchInput({
           value={query}
           disabled={disabled}
           onChange={(event) => {
-            setQuery(event.target.value);
-            if (!event.target.value.trim()) {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+
+            const selectedText = value ? pointToText(value) : '';
+            if (value && nextQuery.trim() !== selectedText) {
+              preserveTypedQueryRef.current = true;
+              onSelect(null);
+              setResults([]);
+              setOpen(false);
+              setActiveIndex(-1);
+            }
+
+            if (!nextQuery.trim()) {
               setResults([]);
               selectResult(null);
             }
