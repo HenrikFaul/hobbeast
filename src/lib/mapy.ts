@@ -157,14 +157,19 @@ function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion
   const country = entity.regionalStructure?.find((item) => item.type === 'regional.country')?.isoCode ||
     entity.regionalStructure?.find((item) => item.type === 'regional.country')?.name || null;
 
+  const baseName = entity.name || entity.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  const loc = entity.location || null;
+  // Build a disambiguated label: "Name — Location" when location is available
+  const displayLabel = loc ? `${baseName} — ${loc}` : baseName;
+
   return {
     id: entity.id || fallbackId,
-    label: entity.name || entity.location || entity.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    label: displayLabel,
     lat,
     lon,
     type: inferResultType(entity.type),
     providerId: entity.id || null,
-    location: entity.location || null,
+    location: loc,
     region,
     country,
     bbox: entity.bbox || null,
