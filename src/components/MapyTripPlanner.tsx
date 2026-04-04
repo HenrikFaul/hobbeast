@@ -115,6 +115,7 @@ function MapySearchInput({
   const selectResult = (result: MapySuggestion | null) => {
     onSelect(result);
     setQuery(result?.label ?? '');
+    setResults([]);
     setOpen(false);
     setActiveIndex(-1);
   };
