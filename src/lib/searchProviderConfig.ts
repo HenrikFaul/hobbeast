@@ -37,7 +37,7 @@ export async function getAddressSearchProvider(force = false): Promise<AddressSe
     return fallback;
   }
 
-  const safeData = data as Record<string, unknown>;
+  const safeData = data as unknown as Record<string, unknown>;
   const providerValue = 'provider' in safeData ? safeData.provider : undefined;
 
   const provider = normalizeProvider(providerValue);
