@@ -129,7 +129,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setErrorText(null);
 
     try {
-      const provider = await getAddressSearchProvider();
+      const provider = await getAddressSearchProvider('personal');
       let data: AddressResult[] = [];
 
       if (provider === 'aws') {
