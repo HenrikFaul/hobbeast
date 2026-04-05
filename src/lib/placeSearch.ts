@@ -6,7 +6,7 @@
  */
 
 import { getPlace, isAwsLocationConfigured, searchTextPlaces, suggestPlaces } from '@/lib/awsLocation';
-import { getAddressSearchProvider, type AddressSearchProvider } from '@/lib/searchProviderConfig';
+import { getAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface NormalizedPlace {
@@ -128,9 +128,10 @@ export async function searchPlaces(
   bias?: { lat: number; lon: number },
   activityHint?: string,
   providerOverride?: AddressSearchProvider,
+  functionGroup?: AddressSearchFunctionGroup,
 ): Promise<NormalizedPlace[]> {
   if (!query || query.trim().length < 2) return [];
-  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider());
+  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider(functionGroup || 'default'));
 
   if (provider === 'aws') {
     return searchAwsPlaces(query);
