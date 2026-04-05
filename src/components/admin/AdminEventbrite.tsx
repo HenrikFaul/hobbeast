@@ -415,29 +415,44 @@ export function AdminEventbrite() {
               <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base"><MapPinned className="h-4 w-4 text-primary" /> Címkereső provider</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-base"><MapPinned className="h-4 w-4 text-primary" /> Címkereső provider — funkció csoportonként</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">Itt runtime konfigurációval választhatod, hogy a Hobbeast cím- és helykeresője AWS Locationt, Geoapify/TomTom Edge Functiont, vagy a lokális adatbázis katalógust használja.</p>
-                    <div className="space-y-2">
-                      {([
-                        { value: 'aws', label: 'Amazon AWS Places V2' },
-                        { value: 'geoapify_tomtom', label: 'Geoapify + TomTom orchestration' },
-                        { value: 'local_catalog', label: 'Lokális címtábla (places_local_catalog)' },
-                      ] as { value: AddressSearchProvider; label: string }[]).map((option) => (
-                        <label key={option.value} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
-                          <input type="radio" name="address-provider" className="h-4 w-4" checked={currentProvider === option.value} onChange={() => setCurrentProvider(option.value)} />
-                          <div>
-                            <p className="font-medium">{option.label}</p>
-                            <p className="text-xs text-muted-foreground">{option.value}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleSaveProvider} disabled={providerLoading || providerSaving}><Save className="mr-1 h-4 w-4" />Beállítás mentése</Button>
-                      <Badge variant="outline">Aktív provider: {currentProvider}</Badge>
-                    </div>
+                  <CardContent className="space-y-5">
+                    <p className="text-sm text-muted-foreground">Minden funkcióhoz külön kiválaszthatod, melyik provider szolgálja ki a címkeresést. Ha egy funkciónál nincs beállítva, az „Alapértelmezett" provider lesz használva.</p>
+
+                    {(['default', 'personal', 'venue', 'trip_planner'] as AddressSearchFunctionGroup[]).map((group) => (
+                      <div key={group} className="rounded-lg border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">{FUNCTION_GROUP_LABELS[group]}</p>
+                          <Badge variant="outline">{functionGroupProviders[group]}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            { value: 'aws' as AddressSearchProvider, label: 'AWS Places' },
+                            { value: 'geoapify_tomtom' as AddressSearchProvider, label: 'Geoapify+TomTom' },
+                            { value: 'local_catalog' as AddressSearchProvider, label: 'Lokális katalógus' },
+                          ]).map((opt) => (
+                            <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                              <input
+                                type="radio"
+                                name={`provider-${group}`}
+                                className="h-3 w-3"
+                                checked={functionGroupProviders[group] === opt.value}
+                                onChange={() => setFunctionGroupProviders((prev) => ({ ...prev, [group]: opt.value }))}
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => handleSaveProvider(group)} disabled={providerSaving}>
+                          <Save className="mr-1 h-3 w-3" /> Mentés
+                        </Button>
+                      </div>
+                    ))}
+
+                    <Button onClick={handleSaveAllProviders} disabled={providerLoading || providerSaving}>
+                      <Save className="mr-1 h-4 w-4" /> Összes mentése
+                    </Button>
                   </CardContent>
                 </Card>
 
@@ -479,14 +494,29 @@ export function AdminEventbrite() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Provider teszt és találat preview</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Provider teszt — funkció csoport szerint</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium">Funkció csoport:</span>
+                    {(['default', 'personal', 'venue', 'trip_planner'] as AddressSearchFunctionGroup[]).map((g) => (
+                      <Button
+                        key={g}
+                        size="sm"
+                        variant={testFunctionGroup === g ? 'default' : 'outline'}
+                        onClick={() => setTestFunctionGroup(g)}
+                      >
+                        {FUNCTION_GROUP_LABELS[g].split(' (')[0]}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Aktív provider ehhez a csoporthoz: <Badge variant="outline">{functionGroupProviders[testFunctionGroup]}</Badge>
+                  </p>
                   <div className="flex gap-2">
-                    <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Pl. Budapest társasjáték, Szeged kávézó, Debrecen koncert" onKeyDown={(e) => e.key === 'Enter' && handleTestProvider()} />
+                    <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Pl. Budapest társasjáték, Szeged kávézó" onKeyDown={(e) => e.key === 'Enter' && handleTestProvider()} />
                     <Button onClick={handleTestProvider} disabled={testLoading}><Search className="mr-1 h-4 w-4" />Teszt</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">A teszt a kiválasztott runtime providerrel fut, így rögtön látod, milyen cím/hely találatokat ad vissza az oldal aktuális beállítása.</p>
                   {testResults.length > 0 && (
                     <div className="max-h-80 space-y-2 overflow-y-auto">
                       {testResults.slice(0, 10).map((item) => (
