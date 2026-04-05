@@ -101,10 +101,16 @@ export function AdminEventbrite() {
   const [seatgeekLoading, setSeatGeekLoading] = useState(false);
   const [seatgeekInfo, setSeatGeekInfo] = useState<string | null>(null);
 
-  const [currentProvider, setCurrentProvider] = useState<AddressSearchProvider>('aws');
+  const [functionGroupProviders, setFunctionGroupProviders] = useState<Record<AddressSearchFunctionGroup, AddressSearchProvider>>({
+    default: 'aws',
+    personal: 'aws',
+    venue: 'aws',
+    trip_planner: 'aws',
+  });
   const [providerLoading, setProviderLoading] = useState(true);
   const [providerSaving, setProviderSaving] = useState(false);
   const [testQuery, setTestQuery] = useState('Budapest társasjáték');
+  const [testFunctionGroup, setTestFunctionGroup] = useState<AddressSearchFunctionGroup>('default');
   const [testResults, setTestResults] = useState<NormalizedPlace[]>([]);
   const [testLoading, setTestLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -114,8 +120,8 @@ export function AdminEventbrite() {
     void (async () => {
       setProviderLoading(true);
       try {
-        const provider = await getAddressSearchProvider(true);
-        setCurrentProvider(provider);
+        const providers = await getAllFunctionGroupProviders();
+        setFunctionGroupProviders(providers);
       } finally {
         setProviderLoading(false);
       }
