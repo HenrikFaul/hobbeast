@@ -253,13 +253,27 @@ export function AdminEventbrite() {
     setCatalogLoading(false);
   };
 
-  const handleSaveProvider = async () => {
+  const handleSaveProvider = async (group: AddressSearchFunctionGroup) => {
     setProviderSaving(true);
     try {
-      await setAddressSearchProvider(currentProvider);
-      toast.success('A címkereső provider beállítása elmentve');
+      await setAddressSearchProvider(functionGroupProviders[group], group);
+      toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve`);
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült menteni a provider beállítást');
+    }
+    setProviderSaving(false);
+  };
+
+  const handleSaveAllProviders = async () => {
+    setProviderSaving(true);
+    try {
+      const groups: AddressSearchFunctionGroup[] = ['default', 'personal', 'venue', 'trip_planner'];
+      for (const g of groups) {
+        await setAddressSearchProvider(functionGroupProviders[g], g);
+      }
+      toast.success('Minden provider beállítás elmentve');
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült menteni');
     }
     setProviderSaving(false);
   };
@@ -267,9 +281,10 @@ export function AdminEventbrite() {
   const handleTestProvider = async () => {
     setTestLoading(true);
     try {
-      const results = await searchPlaces(testQuery, undefined, undefined, currentProvider);
+      const provider = functionGroupProviders[testFunctionGroup];
+      const results = await searchPlaces(testQuery, undefined, undefined, provider);
       setTestResults(results);
-      toast.success(`${results.length} cím/hely találat érkezett`);
+      toast.success(`${results.length} találat (${FUNCTION_GROUP_LABELS[testFunctionGroup]} — ${provider})`);
     } catch (err: any) {
       toast.error(err.message || 'Provider tesztelési hiba');
       setTestResults([]);
