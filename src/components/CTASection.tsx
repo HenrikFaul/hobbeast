@@ -13,7 +13,7 @@ const CTASection = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative rounded-2xl gradient-primary p-12 md:p-16 text-center overflow-hidden"
+          className="relative rounded-2xl gradient-primary p-8 sm:p-12 md:p-16 text-center overflow-hidden"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(24_95%_62%/0.4),transparent_70%)]" />
           <div className="relative z-10">
