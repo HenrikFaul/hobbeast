@@ -627,7 +627,7 @@ const Events = () => {
           <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>
         )}
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filtered.map((event, i) => {
             const relation: EventRelation =
               user && event.created_by === user.id ? 'own' :
@@ -748,9 +748,9 @@ const Events = () => {
       </div>
 
       {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl">
-            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-6 py-4">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+          <div className="w-full sm:max-w-5xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border bg-card shadow-2xl">
+            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-4 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-display font-bold">Kategóriák</h2>
@@ -779,7 +779,7 @@ const Events = () => {
               </div>
             </div>
 
-            <div className="space-y-4 p-6">
+            <div className="space-y-4 p-4 sm:p-6">
               {HOBBY_CATALOG.map((category) => {
                 const categorySelected = selectedCategoryIds.has(category.id);
                 const categoryExpanded = expandedCategories.has(category.id);
