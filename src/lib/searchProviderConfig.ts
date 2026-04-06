@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isAwsLocationConfigured } from '@/lib/awsLocation';
 
-export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog';
+export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy';
 
 /**
  * Function groups for address search — each can have its own provider.
