@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isAwsLocationConfigured } from '@/lib/awsLocation';
 
-export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog';
+export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy';
 
 /**
  * Function groups for address search — each can have its own provider.
@@ -35,7 +35,7 @@ function getDefaultProvider(): AddressSearchProvider {
 }
 
 function normalizeProvider(value: unknown): AddressSearchProvider {
-  if (value === 'geoapify_tomtom' || value === 'local_catalog') return value;
+  if (value === 'geoapify_tomtom' || value === 'local_catalog' || value === 'mapy') return value;
   if (value === 'aws' && isAwsLocationConfigured()) return 'aws';
   return getDefaultProvider();
 }

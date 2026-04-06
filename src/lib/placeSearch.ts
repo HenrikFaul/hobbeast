@@ -7,6 +7,7 @@
 
 import { getPlace, isAwsLocationConfigured, searchTextPlaces, suggestPlaces } from '@/lib/awsLocation';
 import { getAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
+import { suggestMapyLocations, isMapyConfigured } from '@/lib/mapy';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface NormalizedPlace {
@@ -72,6 +73,7 @@ function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
 
 function resolveUsableProvider(provider: AddressSearchProvider): AddressSearchProvider {
   if (provider === 'aws' && !isAwsLocationConfigured()) return 'geoapify_tomtom';
+  if (provider === 'mapy' && !isMapyConfigured()) return 'geoapify_tomtom';
   return provider;
 }
 
@@ -123,6 +125,31 @@ async function searchAwsPlaces(query: string): Promise<NormalizedPlace[]> {
   return Array.from(deduped.values());
 }
 
+async function searchMapyPlaces(query: string): Promise<NormalizedPlace[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2 || !isMapyConfigured()) return [];
+  try {
+    const suggestions = await suggestMapyLocations(trimmed);
+    return suggestions.map((s) => ({
+      id: `mapy-${s.id}`,
+      name: s.label,
+      address: s.label,
+      city: s.location || '',
+      district: s.region || '',
+      country: s.country || 'Hungary',
+      postcode: '',
+      lat: s.lat,
+      lon: s.lon,
+      categories: [],
+      source: 'geoapify' as const,
+      sourceId: s.id,
+      confidence: 0.85,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function searchPlaces(
   query: string,
   bias?: { lat: number; lon: number },
@@ -132,6 +159,10 @@ export async function searchPlaces(
 ): Promise<NormalizedPlace[]> {
   if (!query || query.trim().length < 2) return [];
   const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider(functionGroup || 'default'));
+
+  if (provider === 'mapy') {
+    return searchMapyPlaces(query);
+  }
 
   if (provider === 'aws') {
     return searchAwsPlaces(query);

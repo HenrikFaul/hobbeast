@@ -26,6 +26,8 @@ import {
   type TripPlanDraft,
   type TripPlanPoint,
 } from '@/lib/mapy';
+import { searchPlaces } from '@/lib/placeSearch';
+import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
 import { cn } from '@/lib/utils';
 
 interface MapyTripPlannerProps {
@@ -105,7 +107,25 @@ function MapySearchInput({
     const handle = window.setTimeout(async () => {
       try {
         setLoading(true);
-        const items = await suggestMapyLocations(query);
+        const provider = await getAddressSearchProvider('trip_planner');
+        let items: MapySuggestion[];
+        if (provider === 'mapy' || !provider) {
+          items = await suggestMapyLocations(query);
+        } else {
+          const places = await searchPlaces(query, undefined, undefined, provider, 'trip_planner');
+          items = places.map((p) => ({
+            id: p.sourceId || p.id,
+            label: p.name,
+            lat: p.lat,
+            lon: p.lon,
+            type: 'poi' as const,
+            providerId: p.sourceId,
+            location: p.city || null,
+            region: p.district || null,
+            country: p.country || null,
+            bbox: null,
+          }));
+        }
         setResults(items);
         setOpen(items.length > 0);
         setActiveIndex(items.length > 0 ? 0 : -1);

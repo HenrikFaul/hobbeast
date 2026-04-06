@@ -662,7 +662,7 @@ const Events = () => {
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge variant="secondary" className="text-xs">{event.category}</Badge>
                     {event.source_label && event.source_label !== 'Hobbeast' && (
-                      <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
+                      <Badge variant="outline" className="text-xs border-accent bg-accent/10 text-accent">
                         {event.source_label}
                       </Badge>
                     )}

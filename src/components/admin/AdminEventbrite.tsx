@@ -431,6 +431,7 @@ export function AdminEventbrite() {
                             { value: 'aws' as AddressSearchProvider, label: 'AWS Places' },
                             { value: 'geoapify_tomtom' as AddressSearchProvider, label: 'Geoapify+TomTom' },
                             { value: 'local_catalog' as AddressSearchProvider, label: 'Lokális katalógus' },
+                            { value: 'mapy' as AddressSearchProvider, label: 'Mapy.cz' },
                           ]).map((opt) => (
                             <label key={opt.value} className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs">
                               <input
