@@ -26,6 +26,8 @@ import {
   type TripPlanDraft,
   type TripPlanPoint,
 } from '@/lib/mapy';
+import { searchPlaces } from '@/lib/placeSearch';
+import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
 import { cn } from '@/lib/utils';
 
 interface MapyTripPlannerProps {
