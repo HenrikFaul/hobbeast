@@ -77,14 +77,14 @@ const EventDetail = () => {
     }
 
     // Check if it's an external event (stored in sessionStorage from Events page)
-    if (id.startsWith('eb-')) {
+    if (id.startsWith('eb-') || id.startsWith('ext-')) {
       const stored = sessionStorage.getItem(`event-${id}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         setEvent(parsed);
         setIsExternal(true);
-        setExternalUrl(parsed.eventbrite_url || null);
-        setExternalSource(parsed.source_label || 'Eventbrite');
+        setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
+        setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
         setParticipantCount(parsed.participant_count || 0);
       }
       setLoading(false);
