@@ -7,6 +7,7 @@
 
 import { getPlace, isAwsLocationConfigured, searchTextPlaces, suggestPlaces } from '@/lib/awsLocation';
 import { getAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
+import { suggestMapyLocations, isMapyConfigured } from '@/lib/mapy';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface NormalizedPlace {
@@ -72,6 +73,7 @@ function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
 
 function resolveUsableProvider(provider: AddressSearchProvider): AddressSearchProvider {
   if (provider === 'aws' && !isAwsLocationConfigured()) return 'geoapify_tomtom';
+  if (provider === 'mapy' && !isMapyConfigured()) return 'geoapify_tomtom';
   return provider;
 }
 
