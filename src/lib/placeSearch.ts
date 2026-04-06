@@ -133,6 +133,10 @@ export async function searchPlaces(
   if (!query || query.trim().length < 2) return [];
   const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider(functionGroup || 'default'));
 
+  if (provider === 'mapy') {
+    return searchMapyPlaces(query);
+  }
+
   if (provider === 'aws') {
     return searchAwsPlaces(query);
   }

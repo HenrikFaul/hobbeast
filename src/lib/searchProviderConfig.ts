@@ -35,7 +35,7 @@ function getDefaultProvider(): AddressSearchProvider {
 }
 
 function normalizeProvider(value: unknown): AddressSearchProvider {
-  if (value === 'geoapify_tomtom' || value === 'local_catalog') return value;
+  if (value === 'geoapify_tomtom' || value === 'local_catalog' || value === 'mapy') return value;
   if (value === 'aws' && isAwsLocationConfigured()) return 'aws';
   return getDefaultProvider();
 }
