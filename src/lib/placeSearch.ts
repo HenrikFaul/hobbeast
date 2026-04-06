@@ -125,6 +125,31 @@ async function searchAwsPlaces(query: string): Promise<NormalizedPlace[]> {
   return Array.from(deduped.values());
 }
 
+async function searchMapyPlaces(query: string): Promise<NormalizedPlace[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2 || !isMapyConfigured()) return [];
+  try {
+    const suggestions = await suggestMapyLocations(trimmed);
+    return suggestions.map((s) => ({
+      id: `mapy-${s.id}`,
+      name: s.label,
+      address: s.label,
+      city: s.location || '',
+      district: s.region || '',
+      country: s.country || 'Hungary',
+      postcode: '',
+      lat: s.lat,
+      lon: s.lon,
+      categories: [],
+      source: 'geoapify' as const,
+      sourceId: s.id,
+      confidence: 0.85,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function searchPlaces(
   query: string,
   bias?: { lat: number; lon: number },
