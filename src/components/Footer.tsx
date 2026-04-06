@@ -6,8 +6,8 @@ const Footer = () => {
   return (
     <footer className="border-t bg-card py-12">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-4 gap-8 mb-8">
-          <div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8">
+          <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-3">
               <img src={logo} alt="Hobbeast" className="h-8 w-8" />
               <span className="font-display text-lg font-bold text-gradient">Hobbeast</span>

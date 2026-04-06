@@ -25,7 +25,7 @@ const About = () => {
         </motion.div>
 
         {/* Mission cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 mb-16">
           {[
             {
               icon: Target,
@@ -68,9 +68,9 @@ const About = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="rounded-2xl gradient-warm border p-8 md:p-12 mb-16"
+          className="rounded-2xl gradient-warm border p-6 sm:p-8 md:p-12 mb-16"
         >
-          <div className="grid md:grid-cols-2 gap-10">
+          <div className="grid sm:grid-cols-2 gap-8 sm:gap-10">
             <div>
               <h2 className="font-display text-2xl font-bold mb-4">A probléma</h2>
               <ul className="space-y-3 text-muted-foreground text-sm">
