@@ -66,7 +66,7 @@ const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="flex gap-4 sm:gap-6">
+            <div className="flex flex-wrap gap-3 sm:gap-4">
               {[
                 { icon: Users, label: "Közösség", value: "10K+" },
                 { icon: MapPin, label: "Események", value: "500+" },
