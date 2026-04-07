@@ -2,14 +2,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, jsonResponse, supabaseAdmin } from '../shared/providerFetch.ts';
 
-const CITY_CENTERS = [
-  { city: 'Budapest', lat: 47.4979, lon: 19.0402 },
-  { city: 'Debrecen', lat: 47.5316, lon: 21.6273 },
-  { city: 'Szeged', lat: 46.2530, lon: 20.1414 },
-  { city: 'Pécs', lat: 46.0727, lon: 18.2323 },
-  { city: 'Miskolc', lat: 48.1031, lon: 20.7784 },
-  { city: 'Győr', lat: 47.6875, lon: 17.6504 },
-] as const;
+const HUNGARY_BOUNDS = {
+  minLat: 45.74,
+  maxLat: 48.62,
+  minLon: 16.08,
+  maxLon: 22.91,
+} as const;
+
+const TILE_STEP_DEGREES = 0.55;
 
 const CATEGORY_GROUPS = [
   { key: 'restaurant', geo: 'catering.restaurant,catering.cafe,catering.bar,catering.pub', tomtom: 'restaurant' },
@@ -19,9 +19,10 @@ const CATEGORY_GROUPS = [
   { key: 'entertainment', geo: 'entertainment,tourism', tomtom: 'entertainment' },
 ] as const;
 
-const RADIUS_METERS = 30000;
+const RADIUS_METERS = 32000;
 const GEO_LIMIT = 120;
 const TOMTOM_LIMIT = 100;
+const PROVIDER_CONCURRENCY = 3;
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
   return {
@@ -115,6 +116,39 @@ async function fetchTomTom(center: { city: string; lat: number; lon: number }, g
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
 
+function roundCoord(value: number) {
+  return Number(value.toFixed(5));
+}
+
+function buildHungaryCenters() {
+  const centers: Array<{ city: string; lat: number; lon: number }> = [];
+  let row = 0;
+  for (let lat = HUNGARY_BOUNDS.minLat; lat <= HUNGARY_BOUNDS.maxLat; lat += TILE_STEP_DEGREES) {
+    const lonOffset = row % 2 === 0 ? 0 : TILE_STEP_DEGREES / 2;
+    for (let lon = HUNGARY_BOUNDS.minLon + lonOffset; lon <= HUNGARY_BOUNDS.maxLon; lon += TILE_STEP_DEGREES) {
+      centers.push({
+        city: `HU-TILE-${row + 1}`,
+        lat: roundCoord(lat),
+        lon: roundCoord(lon),
+      });
+    }
+    row += 1;
+  }
+  return centers;
+}
+
+async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency: number) {
+  let index = 0;
+  const worker = async () => {
+    while (index < tasks.length) {
+      const current = index;
+      index += 1;
+      await tasks[current]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, () => worker()));
+}
+
 function dedupe(rows: any[]) {
   const map = new Map<string, any>();
   for (const row of rows) {
@@ -184,16 +218,29 @@ serve(async (req) => {
       await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     }
 
+    const centers = buildHungaryCenters();
     const collected: any[] = [];
-    for (const center of CITY_CENTERS) {
+    const failures: string[] = [];
+    const tasks: Array<() => Promise<void>> = [];
+
+    for (const center of centers) {
       for (const group of CATEGORY_GROUPS) {
-        const [geoRows, tomtomRows] = await Promise.all([
-          fetchGeoapify(center, group, geoapifyKey),
-          fetchTomTom(center, group, tomtomKey),
-        ]);
-        collected.push(...geoRows, ...tomtomRows);
+        tasks.push(async () => {
+          try {
+            const [geoRows, tomtomRows] = await Promise.all([
+              fetchGeoapify(center, group, geoapifyKey),
+              fetchTomTom(center, group, tomtomKey),
+            ]);
+            collected.push(...geoRows, ...tomtomRows);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            failures.push(message);
+          }
+        });
       }
     }
+
+    await runWithConcurrency(tasks, PROVIDER_CONCURRENCY);
 
     const rows = dedupe(collected);
     if (rows.length > 0) {
@@ -214,15 +261,22 @@ serve(async (req) => {
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
-      status: 'idle',
+      status: failures.length > 0 ? 'partial' : 'idle',
       rows_written: rows.length,
       provider_counts: providerCounts,
       last_run_started_at: startedAt,
       last_run_completed_at: new Date().toISOString(),
-      last_error: null,
+      last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
     });
 
-    return jsonResponse({ ok: true, rowsWritten: rows.length, providerCounts, status: await getStatus() });
+    return jsonResponse({
+      ok: true,
+      rowsWritten: rows.length,
+      providerCounts,
+      centers: centers.length,
+      partialFailures: failures.length,
+      status: await getStatus(),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     try {

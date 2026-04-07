@@ -130,3 +130,19 @@ If the repository keeps:
 - `codingLessonsLearnt.local.md`
 
 then those should be treated as temporary feeder files only and merged back here quickly, not developed as independent long-term lesson histories.
+
+### [HIBA-051] Local catalog csak külön provider módban futott, local-first üzleti elv sérült
+- **Dátum**: 2026-04-07
+- **Fájl**: `supabase/functions/place-search/index.ts`
+- **Error / symptom**: A `geoapify_tomtom` provider módban a kereső nem használta a lokális katalógust, csak live provider hívásokat.
+- **Root cause**: A lokális RPC (`search_local_places`) meghívása kizárólag `local_catalog` provider ágon történt.
+- **Fix**: A place-search pipeline elején mindig lekérjük a lokális találatokat, majd merge-eljük a remote találatokkal; a lokális sorok extra score prioritást kaptak.
+- **Prevention**: Local-first követelménynél a lokális adatforrás mindig fusson az alap keresési ágon, ne külön feature flag mögött.
+
+### [HIBA-052] Városközpont-minta nem elég országos lefedéshez batch venue syncnél
+- **Dátum**: 2026-04-07
+- **Fájl**: `supabase/functions/sync-local-places/index.ts`
+- **Error / symptom**: A lokális HU katalógus sok megyében/településen hiányos maradt.
+- **Root cause**: A batch sync csak néhány nagyváros középpontjára kérdezett rá.
+- **Fix**: Tile-alapú országos HU rács bejárás, deduplikáció és részleges-hiba állapotvisszajelzés került be.
+- **Prevention**: Országos cél esetén ne városlista alapú mintavételt használj; legalább bounding-box + grid stratégia kell.
