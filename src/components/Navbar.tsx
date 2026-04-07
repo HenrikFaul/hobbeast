@@ -22,9 +22,9 @@ const Navbar = () => {
   const { mode, canUseOrganizerMode } = useOrganizerMode();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-strong border-b">
+    <nav className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-border/50">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2.5">
           <img src={logo} alt="Hobbeast" className="h-9 w-9" />
           <div className="flex items-center gap-2">
             <span className="font-display text-xl font-bold text-gradient">Hobbeast</span>
@@ -36,18 +36,29 @@ const Navbar = () => {
           </div>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.to ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div className="hidden md:flex items-center gap-1">
+          {navLinks.map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`relative px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                  isActive
+                    ? "text-primary bg-primary/5"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {link.label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-primary" />
+                )}
+              </Link>
+            );
+          })}
+
+          <div className="w-px h-6 bg-border mx-2" />
+
           {canUseOrganizerMode && user && (
             <Button
               variant={location.pathname.startsWith('/organizer') ? 'default' : 'outline'}
@@ -60,32 +71,32 @@ const Navbar = () => {
           )}
           {!loading && (
             user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-1">
                 <NotificationBell />
                 <ProfileMenu />
               </div>
             ) : (
-              <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => navigate('/auth')}>
+              <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-glow rounded-xl ml-1" onClick={() => navigate('/auth')}>
                 Csatlakozz
               </Button>
             )
           )}
         </div>
 
-        <button className="md:hidden p-2 text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
+        <button className="md:hidden p-2 text-foreground rounded-lg hover:bg-muted/50 transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden glass-strong border-t pb-4">
+        <div className="md:hidden glass-strong border-t border-border/50 pb-4">
           {navLinks.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               onClick={() => setMobileOpen(false)}
               className={`block px-6 py-3 text-sm font-medium transition-colors hover:text-primary ${
-                location.pathname === link.to ? "text-primary" : "text-muted-foreground"
+                location.pathname === link.to ? "text-primary bg-primary/5" : "text-muted-foreground"
               }`}
             >
               {link.label}
@@ -110,7 +121,7 @@ const Navbar = () => {
                 <ProfileMenu />
               </div>
             ) : (
-              <Button size="sm" className="w-full gradient-primary text-primary-foreground border-0" onClick={() => { navigate('/auth'); setMobileOpen(false); }}>
+              <Button size="sm" className="w-full gradient-primary text-primary-foreground border-0 rounded-xl" onClick={() => { navigate('/auth'); setMobileOpen(false); }}>
                 Csatlakozz
               </Button>
             )}
