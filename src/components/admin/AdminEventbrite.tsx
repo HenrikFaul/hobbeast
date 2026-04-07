@@ -295,11 +295,33 @@ export function AdminEventbrite() {
   const handleReloadLocalCatalog = async () => {
     setCatalogLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'sync', reset: true } });
-      if (error) throw error;
-      toast.success(`Lokális címtábla újratöltve. ${data?.rowsWritten || 0} rekord.`);
-      setCatalogStatus((data?.status as LocalCatalogStatus) || null);
+      let latest: any = null;
+      let iteration = 0;
+      let hasMore = true;
+
+      while (hasMore && iteration < 20) {
+        const { data, error } = await supabase.functions.invoke('sync-local-places', {
+          body: { action: 'sync', reset: iteration === 0 },
+        });
+        if (error) throw error;
+        latest = data;
+        hasMore = Boolean(data?.hasMore);
+        iteration += 1;
+        if (hasMore) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      }
+
+      if (latest?.status) {
+        setCatalogStatus(latest.status as LocalCatalogStatus);
+      }
       await refreshCatalogStatus();
+
+      if (latest?.hasMore) {
+        toast.warning(`A lokális címtábla szinkron több batchből áll. ${latest.nextCursor || 0}/${latest.totalTasks || 0} feladat készült el, indítsd újra a szinkront a folytatáshoz.`);
+      } else {
+        toast.success(`Lokális címtábla batch szinkron lefutott. Jelenlegi rekordok: ${latest?.status?.totalRows || 0}.`);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült újratölteni a lokális címtáblát');
     }

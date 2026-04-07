@@ -23,6 +23,7 @@ const RADIUS_METERS = 32000;
 const GEO_LIMIT = 120;
 const TOMTOM_LIMIT = 100;
 const PROVIDER_CONCURRENCY = 3;
+const TASK_BATCH_SIZE = 12;
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
   return {
@@ -137,6 +138,17 @@ function buildHungaryCenters() {
   return centers;
 }
 
+function buildTasks() {
+  const centers = buildHungaryCenters();
+  const tasks: Array<{ center: { city: string; lat: number; lon: number }; group: (typeof CATEGORY_GROUPS)[number] }> = [];
+  for (const center of centers) {
+    for (const group of CATEGORY_GROUPS) {
+      tasks.push({ center, group });
+    }
+  }
+  return tasks;
+}
+
 async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency: number) {
   let index = 0;
   const worker = async () => {
@@ -206,41 +218,52 @@ serve(async (req) => {
       throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
     }
 
+    const allTasks = buildTasks();
+    const totalTasks = allTasks.length;
+
+    const currentStateResult = await supabaseAdmin
+      .from('place_sync_state')
+      .select('*')
+      .eq('key', 'local_places')
+      .maybeSingle();
+
+    const currentState = currentStateResult.data || {};
+    const currentCursor = Number(currentState?.cursor || 0);
+
+    let startCursor = currentCursor;
+    if (body.reset) {
+      startCursor = 0;
+      await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    const batchTasks = allTasks.slice(startCursor, startCursor + TASK_BATCH_SIZE);
     const startedAt = new Date().toISOString();
+
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
       status: 'running',
+      task_count: totalTasks,
+      cursor: startCursor,
       last_run_started_at: startedAt,
       last_error: null,
     });
 
-    if (body.reset) {
-      await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    }
-
-    const centers = buildHungaryCenters();
     const collected: any[] = [];
     const failures: string[] = [];
-    const tasks: Array<() => Promise<void>> = [];
-
-    for (const center of centers) {
-      for (const group of CATEGORY_GROUPS) {
-        tasks.push(async () => {
-          try {
-            const [geoRows, tomtomRows] = await Promise.all([
-              fetchGeoapify(center, group, geoapifyKey),
-              fetchTomTom(center, group, tomtomKey),
-            ]);
-            collected.push(...geoRows, ...tomtomRows);
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            failures.push(message);
-          }
-        });
+    const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
+      try {
+        const [geoRows, tomtomRows] = await Promise.all([
+          fetchGeoapify(center, group, geoapifyKey),
+          fetchTomTom(center, group, tomtomKey),
+        ]);
+        collected.push(...geoRows, ...tomtomRows);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(message);
       }
-    }
+    });
 
-    await runWithConcurrency(tasks, PROVIDER_CONCURRENCY);
+    await runWithConcurrency(taskFns, PROVIDER_CONCURRENCY);
 
     const rows = dedupe(collected);
     if (rows.length > 0) {
@@ -254,16 +277,17 @@ serve(async (req) => {
       }
     }
 
-    const providerCounts = rows.reduce<Record<string, number>>((acc, row) => {
-      acc[row.provider] = (acc[row.provider] || 0) + 1;
-      return acc;
-    }, {});
+    const nextCursor = Math.min(totalTasks, startCursor + batchTasks.length);
+    const hasMore = nextCursor < totalTasks;
+    const liveStatus = await getStatus();
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
-      status: failures.length > 0 ? 'partial' : 'idle',
-      rows_written: rows.length,
-      provider_counts: providerCounts,
+      status: failures.length > 0 ? 'partial' : (hasMore ? 'running' : 'idle'),
+      rows_written: liveStatus.totalRows,
+      provider_counts: liveStatus.providerCounts,
+      task_count: totalTasks,
+      cursor: nextCursor,
       last_run_started_at: startedAt,
       last_run_completed_at: new Date().toISOString(),
       last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
@@ -271,10 +295,12 @@ serve(async (req) => {
 
     return jsonResponse({
       ok: true,
-      rowsWritten: rows.length,
-      providerCounts,
-      centers: centers.length,
+      processedTasks: batchTasks.length,
+      totalTasks,
+      nextCursor,
+      hasMore,
       partialFailures: failures.length,
+      rowsWrittenThisRun: rows.length,
       status: await getStatus(),
     });
   } catch (error) {
