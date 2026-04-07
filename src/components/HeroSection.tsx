@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Users, MapPin, Heart } from "lucide-react";
+import { Users, MapPin, Heart, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import heroImg from "@/assets/hero-community.jpg";
@@ -11,57 +11,82 @@ const HeroSection = () => {
     <section className="relative min-h-[80vh] md:min-h-[90vh] flex items-center overflow-hidden gradient-hero">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl animate-pulse-soft" />
-        <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-accent/5 blur-3xl animate-pulse-soft" style={{ animationDelay: "1.5s" }} />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl animate-pulse-soft" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl animate-pulse-soft" style={{ animationDelay: "1.5s" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/[0.02] blur-3xl" />
       </div>
 
-      <div className="container mx-auto px-4 pt-24 pb-12">
-        <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+      <div className="container mx-auto px-4 pt-28 pb-16 md:pt-32 md:pb-20">
+        <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
           {/* Text */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-              <Heart size={14} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8 shadow-soft"
+            >
+              <Heart size={14} className="animate-pulse" />
               Minden ami élmény
-            </div>
+            </motion.div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold leading-[1.1] mb-6">
               Találd meg a{" "}
               <span className="text-gradient">közösségedet</span>
               <br />
               a hobbid által
             </h1>
 
-            <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-6 md:mb-8 leading-relaxed">
+            <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-8 md:mb-10 leading-relaxed">
               A Hobbeast összeköt hasonló érdeklődésű embereket. Fedezz fel új hobbikat,
               csatlakozz eseményekhez, és építs valódi barátságokat közös élmények által.
             </p>
 
-            <div className="flex flex-wrap gap-4 mb-10">
+            <div className="flex flex-wrap gap-4 mb-12">
               <Button
                 size="lg"
-                className="gradient-primary text-primary-foreground border-0 shadow-glow gap-2 text-base"
+                className="gradient-primary text-primary-foreground border-0 shadow-glow gap-2 text-base px-8 h-12"
                 onClick={() => navigate('/events')}
               >
                 Események böngészése
+                <ArrowRight size={16} />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2 text-base h-12 px-8 border-border/60 hover:border-primary/30 hover:bg-primary/5"
+                onClick={() => navigate('/about')}
+              >
+                Tudj meg többet
               </Button>
             </div>
 
             {/* Stats */}
-            <div className="flex gap-6 sm:gap-8">
+            <div className="flex flex-wrap gap-3 sm:gap-4">
               {[
                 { icon: Users, label: "Közösség", value: "10K+" },
                 { icon: MapPin, label: "Események", value: "500+" },
                 { icon: Heart, label: "Hobbi kategória", value: "80+" },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <stat.icon size={20} className="mx-auto mb-1 text-primary" />
-                  <div className="text-xl font-bold font-display">{stat.value}</div>
-                  <div className="text-xs text-muted-foreground">{stat.label}</div>
-                </div>
+              ].map((stat, i) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.1 }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card shadow-soft border border-border/50"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <stat.icon size={16} className="text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold font-display leading-none">{stat.value}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{stat.label}</div>
+                  </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -73,27 +98,42 @@ const HeroSection = () => {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="relative"
           >
-            <div className="rounded-2xl overflow-hidden shadow-2xl">
+            <div className="rounded-2xl overflow-hidden shadow-2xl gradient-border">
               <img
                 src={heroImg}
                 alt="Közösség hobbikkal"
-                className="w-full h-[280px] sm:h-[350px] md:h-[400px] lg:h-[500px] object-cover"
+                className="w-full h-[280px] sm:h-[350px] md:h-[420px] lg:h-[520px] object-cover"
               />
+              {/* Image overlay */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-foreground/10 via-transparent to-transparent pointer-events-none" />
             </div>
             {/* Floating card */}
             <motion.div
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-4 left-2 sm:-left-4 glass-strong rounded-xl p-3 sm:p-4 shadow-lg border max-w-[calc(100%-1rem)]"
+              className="absolute -bottom-4 left-2 sm:-left-4 glass-strong rounded-2xl p-4 shadow-lg border border-border/50 max-w-[calc(100%-1rem)]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
+                <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
                   <Users size={18} className="text-primary-foreground" />
                 </div>
                 <div>
                   <div className="font-display font-semibold text-sm">Új közösségek várnak</div>
                   <div className="text-xs text-muted-foreground">Találj rád illő programokat</div>
                 </div>
+              </div>
+            </motion.div>
+
+            {/* Top-right decorative badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.8, type: "spring" }}
+              className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl gradient-accent flex items-center justify-center shadow-lg"
+            >
+              <div className="text-center text-accent-foreground">
+                <div className="text-lg sm:text-xl font-bold font-display leading-none">80+</div>
+                <div className="text-[9px] sm:text-[10px] opacity-80 leading-tight mt-0.5">hobbi</div>
               </div>
             </motion.div>
           </motion.div>

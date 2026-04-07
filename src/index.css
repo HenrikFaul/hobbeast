@@ -59,12 +59,15 @@
     --shadow-elevated: 0 8px 30px -4px hsl(16 85% 58% / 0.12), 0 4px 10px -2px hsl(0 0% 0% / 0.04);
     --shadow-modal: 0 25px 80px -12px hsl(0 0% 0% / 0.18);
     --shadow-glow: 0 0 24px hsl(16 85% 58% / 0.2);
+    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.06), 0 4px 16px -4px hsl(0 0% 0% / 0.04);
+    --shadow-card-hover: 0 12px 40px -8px hsl(16 85% 58% / 0.15), 0 4px 12px -2px hsl(0 0% 0% / 0.06);
 
     --gradient-primary: linear-gradient(135deg, hsl(16 85% 58%), hsl(24 95% 62%));
     --gradient-accent: linear-gradient(135deg, hsl(172 60% 40%), hsl(172 80% 50%));
     --gradient-hero: linear-gradient(160deg, hsl(16 85% 58% / 0.06), hsl(172 60% 40% / 0.04), hsl(30 25% 97%));
     --gradient-warm: linear-gradient(135deg, hsl(16 85% 58% / 0.08), hsl(38 92% 50% / 0.06));
     --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(30 25% 97%));
+    --gradient-subtle: linear-gradient(135deg, hsl(16 85% 58% / 0.03), hsl(172 60% 40% / 0.02));
   }
 }
 
@@ -119,6 +122,10 @@
     box-shadow: var(--shadow-glow);
   }
 
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
   .text-gradient {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -138,6 +145,36 @@
   }
   .hover-lift:hover {
     transform: translateY(-3px);
-    box-shadow: var(--shadow-elevated);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .card-premium {
+    @apply rounded-2xl border bg-card transition-all duration-300;
+    box-shadow: var(--shadow-soft);
+  }
+  .card-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+    border-color: hsl(var(--primary) / 0.15);
+  }
+
+  .section-padding {
+    @apply py-16 sm:py-20 md:py-24;
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(16 85% 58% / 0.2), hsl(172 60% 40% / 0.1), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 }
