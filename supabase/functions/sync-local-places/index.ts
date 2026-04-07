@@ -250,18 +250,30 @@ serve(async (req) => {
 
     const collected: any[] = [];
     const failures: string[] = [];
+    let successfulProviderCalls = 0;
+
     const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
-      try {
-        const [geoRows, tomtomRows] = await Promise.all([
-          fetchGeoapify(center, group, geoapifyKey),
-          fetchTomTom(center, group, tomtomKey),
-        ]);
-        collected.push(...geoRows, ...tomtomRows);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        failures.push(message);
-      }
-    });
+    const [geoResult, tomtomResult] = await Promise.allSettled([
+    fetchGeoapify(center, group, geoapifyKey),
+    fetchTomTom(center, group, tomtomKey),
+  ]);
+
+  if (geoResult.status === 'fulfilled') {
+    collected.push(...geoResult.value);
+    successfulProviderCalls += 1;
+  } else {
+    const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
+    failures.push(message);
+  }
+
+  if (tomtomResult.status === 'fulfilled') {
+    collected.push(...tomtomResult.value);
+    successfulProviderCalls += 1;
+  } else {
+    const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
+    failures.push(message);
+  }
+});
 
     await runWithConcurrency(taskFns, PROVIDER_CONCURRENCY);
 
@@ -277,7 +289,10 @@ serve(async (req) => {
       }
     }
 
-    const nextCursor = Math.min(totalTasks, startCursor + batchTasks.length);
+    const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
+    const nextCursor = shouldAdvanceCursor
+      ? Math.min(totalTasks, startCursor + batchTasks.length)
+      : startCursor;
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus();
 
