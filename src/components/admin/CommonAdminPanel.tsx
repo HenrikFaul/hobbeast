@@ -167,6 +167,11 @@ export function CommonAdminPanel() {
   };
 
   const groups = [...new Set(INTEGRATION_TESTS.map((t) => t.group))];
+  const integrationCategoryOrder = [
+    { key: 'events', title: 'Esemény providerek' },
+    { key: 'places', title: 'Hely / cím providerek' },
+    { key: 'infra', title: 'Alkalmazás infrastruktúra' },
+  ] as const;
 
   return (
     <div className="space-y-6">
@@ -187,11 +192,14 @@ export function CommonAdminPanel() {
             ))}
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
-            {COMMON_ADMIN_INTEGRATIONS.map((group) => (
-              <div key={group.title} className="rounded-lg border bg-card p-4">
+            {integrationCategoryOrder.map((group) => (
+              <div key={group.key} className="rounded-lg border bg-card p-4">
                 <p className="font-medium">{group.title}</p>
                 <div className="mt-3 space-y-2">
-                  {group.providers.map((provider) => (
+                  {COMMON_ADMIN_INTEGRATIONS
+                    .filter((provider) => provider.category === group.key)
+                    .sort((a, b) => a.name.localeCompare(b.name, 'hu'))
+                    .map((provider) => (
                     <div key={provider.name} className="flex items-start justify-between gap-3 rounded-md border p-2">
                       <div>
                         <p className="text-sm font-medium">{provider.name}</p>

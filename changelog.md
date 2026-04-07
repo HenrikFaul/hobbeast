@@ -112,3 +112,22 @@ After review, rename or replace the active root changelog with this canonical st
 - a commit preserving the full prior history
 - explicit append-only governance wording
 - no deletion of historic entries
+
+---
+
+## [1.4.4] — 2026-04-07
+### Hungary local-first venue catalog stabilization
+- `sync-local-places` edge function országos HU tile alapú lefedést kapott Geoapify + TomTom forrásokkal.
+- A sync pipeline deduplikálást és részleges hibák visszajelzését adja (`partial` státusz + hiba minták).
+- `place-search` local-first merge módra állt: lokális katalógus + Geoapify + TomTom közös rangsorolt lista.
+- A lokális találatok pontozási prioritást kaptak, így kereséskor elsődlegesek maradnak.
+
+### Scheduling és admin modellezés
+- Új SQL helper migráció készült napi sync ütemezéshez (`schedule_daily_local_places_sync`, `unschedule_daily_local_places_sync`).
+- A common admin integráció inventory machine-readable `category` mezőt használ, és ebből történik a stabil csoportosítás.
+
+### Versioning artifacts
+- `versioning/14040710_v1.4.4_business_request_summary.md`
+- `versioning/14040710_v1.4.4_business_request_summary.pdf`
+- `versioning/14040710_v1.4.4_ai_dev_prompts.md`
+- `versioning/14040710_v1.4.4_final_coder_prompt.md`

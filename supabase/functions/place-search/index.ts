@@ -405,15 +405,16 @@ Deno.serve(async (request) => {
 
     const providerMode = await resolveProviderMode(supabaseUrl, serviceRoleKey, body.provider_mode)
 
+    const localRows = await searchLocalCatalog(supabaseUrl, serviceRoleKey, body)
+    const normalizedLocal = localRows.map((row: any) => ({
+      ...row,
+      provider: row.provider || 'local_catalog',
+      match_type: 'local',
+    })) as ProviderPlace[]
+
     if (providerMode === 'local_catalog') {
-      const localRows = await searchLocalCatalog(supabaseUrl, serviceRoleKey, body)
-      const normalizedLocal = localRows.map((row: any) => ({
-        ...row,
-        provider: row.provider || 'local_catalog',
-        match_type: 'local',
-      })) as ProviderPlace[]
       const scoredLocal = normalizedLocal
-        .map((row) => ({ ...row, score: scoreRow(row, trimmedQuery, explicitCenter) }))
+        .map((row) => ({ ...row, score: scoreRow(row, trimmedQuery, explicitCenter) + 100 }))
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit)
       return json({
@@ -444,7 +445,7 @@ Deno.serve(async (request) => {
       resolvedCenter && tomtomKey ? searchTomTomNearby({ ...body, limit }, tomtomKey, resolvedCenter) : Promise.resolve([]),
     ])
 
-    const rawCandidates = dedupe([...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => ({
+    const rawCandidates = dedupe([...normalizedLocal, ...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => ({
       ...row,
       distance_km:
         typeof row.distance_km === 'number'
@@ -456,7 +457,7 @@ Deno.serve(async (request) => {
 
     let merged = rawCandidates.map((row) => ({
       ...row,
-      score: scoreRow(row, trimmedQuery, resolvedCenter),
+      score: scoreRow(row, trimmedQuery, resolvedCenter) + (row.match_type === 'local' ? 100 : 0),
     }))
 
     if (body.open_now) {
@@ -489,6 +490,7 @@ Deno.serve(async (request) => {
         returned_count: finalResults.length,
         used_lenient_mode: Boolean(body.lenient) || (strictMatches.length === 0 && merged.length > 0),
         resolved_center: resolvedCenter,
+        local_candidate_count: normalizedLocal.length,
       },
     })
   } catch (error) {
