@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
 import { VenueSuggestionsPanel, type VenueSelection } from '@/components/VenueSuggestionsPanel';
+import { EventTemplateSelector, SaveAsTemplateButton } from '@/components/EventTemplateSelector';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -207,6 +208,48 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         </div>
 
         <form onSubmit={handleCreate} className="space-y-4">
+          {/* Template selector + Save as template */}
+          <div className="flex flex-wrap items-center gap-2">
+            <EventTemplateSelector onSelect={(tpl) => {
+              // Pre-fill fields from template
+              const parts = tpl.category.split(' › ');
+              const cat = HOBBY_CATALOG.find(c => c.name === parts[0]);
+              if (cat) {
+                setSelectedCategoryId(cat.id);
+                const sub = cat.subcategories.find(s => s.name === parts[1]);
+                if (sub) {
+                  setSelectedSubcategoryId(sub.id);
+                  const act = sub.activities.find(a => a.name === parts[2]);
+                  if (act) setSelectedActivityId(act.id);
+                }
+              }
+              setDescription(tpl.description || '');
+              setImageEmoji(tpl.image_emoji || '🎉');
+              setTags((tpl.tags || []).join(', '));
+              setLocationType(tpl.location_type || 'city');
+              setLocationCity(tpl.location_city || '');
+              setLocationDistrict(tpl.location_district || '');
+              setLocationAddress(tpl.location_address || '');
+              setLocationFreeText(tpl.location_free_text || '');
+              setMaxAttendees(tpl.max_attendees ? String(tpl.max_attendees) : '');
+              setEventTime(tpl.event_time || '');
+              toast.info(`Sablon betöltve: ${tpl.template_name}`);
+            }} />
+            <SaveAsTemplateButton
+              category={categoryString}
+              description={description}
+              imageEmoji={imageEmoji}
+              tags={tags}
+              locationType={locationType}
+              locationCity={locationCity}
+              locationDistrict={locationDistrict}
+              locationAddress={locationAddress}
+              locationFreeText={locationFreeText}
+              maxAttendees={maxAttendees}
+              eventTime={eventTime}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve *</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
