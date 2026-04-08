@@ -327,13 +327,30 @@ const Events = () => {
         setDistanceError(null);
         return;
       }
-      const origin = profileLocation?.location_lat && profileLocation?.location_lon
-        ? { lat: profileLocation.location_lat, lon: profileLocation.location_lon }
-        : null;
+
+      // Priority 1: Browser geolocation
+      let origin: LatLng | null = null;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 300000 });
+          });
+          origin = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        } catch {
+          // Fallback to profile
+        }
+      }
+
+      // Fallback: profile location
+      if (!origin) {
+        origin = profileLocation?.location_lat && profileLocation?.location_lon
+          ? { lat: profileLocation.location_lat, lon: profileLocation.location_lon }
+          : null;
+      }
 
       if (!origin) {
         setDistanceFilteredIds(null);
-        setDistanceError('A távolságszűrőhöz előbb ments el egy várost vagy címet a profilodban.');
+        setDistanceError('A távolságszűrőhöz adj meg lokációt a profilodban, vagy engedélyezd a helymeghatározást.');
         return;
       }
 
@@ -582,7 +599,7 @@ const Events = () => {
             <div>
               <h2 className="font-semibold">Távolság alapú szűrés</h2>
               <p className="text-sm text-muted-foreground">
-                A profilodban megadott lokáció alapján szűr. Minél pontosabb a profilban mentett cím, annál pontosabban működik.
+                Először a böngésző helymeghatározásából, majd a profilodban megadott lokáció alapján szűr.
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm font-medium">
@@ -590,7 +607,6 @@ const Events = () => {
                 type="checkbox"
                 checked={distanceFilterEnabled}
                 onChange={(e) => setDistanceFilterEnabled(e.target.checked)}
-                disabled={!profileLocation?.location_lat || !profileLocation?.location_lon}
               />
               Bekapcsolva
             </label>
