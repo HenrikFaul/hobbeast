@@ -20,37 +20,151 @@ const CATEGORY_GROUPS = [
 ] as const;
 
 const DEFAULT_SYNC_CONFIG = {
-  radiusMeters: 16000,
-  geoLimit: 60,
-  tomtomLimit: 50,
-  providerConcurrency: 2,
-  taskBatchSize: 2,
+  enabled: false,
+  interval_minutes: 15,
+  task_batch_size: 2,
+  provider_concurrency: 2,
+  radius_meters: 16000,
+  geo_limit: 60,
+  tomtom_limit: 50,
 } as const;
 
 type SyncConfig = {
-  radiusMeters: number;
-  geoLimit: number;
-  tomtomLimit: number;
-  providerConcurrency: number;
-  taskBatchSize: number;
+  enabled: boolean;
+  interval_minutes: number;
+  task_batch_size: number;
+  provider_concurrency: number;
+  radius_meters: number;
+  geo_limit: number;
+  tomtom_limit: number;
 };
 
-async function loadSyncConfig(): Promise<SyncConfig> {
-  const { data } = await supabaseAdmin
+function sanitizeConfig(raw: Partial<SyncConfig> | null | undefined): SyncConfig {
+  return {
+    enabled: Boolean(raw?.enabled ?? DEFAULT_SYNC_CONFIG.enabled),
+    interval_minutes: Math.max(1, Math.min(60, Number(raw?.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes) || DEFAULT_SYNC_CONFIG.interval_minutes)),
+    task_batch_size: Math.max(1, Math.min(20, Number(raw?.task_batch_size ?? DEFAULT_SYNC_CONFIG.task_batch_size) || DEFAULT_SYNC_CONFIG.task_batch_size)),
+    provider_concurrency: Math.max(1, Math.min(10, Number(raw?.provider_concurrency ?? DEFAULT_SYNC_CONFIG.provider_concurrency) || DEFAULT_SYNC_CONFIG.provider_concurrency)),
+    radius_meters: Math.max(1000, Math.min(50000, Number(raw?.radius_meters ?? DEFAULT_SYNC_CONFIG.radius_meters) || DEFAULT_SYNC_CONFIG.radius_meters)),
+    geo_limit: Math.max(1, Math.min(200, Number(raw?.geo_limit ?? DEFAULT_SYNC_CONFIG.geo_limit) || DEFAULT_SYNC_CONFIG.geo_limit)),
+    tomtom_limit: Math.max(1, Math.min(200, Number(raw?.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtom_limit) || DEFAULT_SYNC_CONFIG.tomtom_limit)),
+  };
+}
+
+async function getConfigRow() {
+  const { data, error } = await supabaseAdmin
     .from('app_runtime_config')
     .select('options')
     .eq('key', 'local_places_sync')
     .maybeSingle();
 
-  const options = (data?.options || {}) as Record<string, unknown>;
+  if (error) {
+    console.warn('getConfigRow warning', error.message);
+    return null;
+  }
 
-  return {
-    radiusMeters: Number(options.radius_meters ?? DEFAULT_SYNC_CONFIG.radiusMeters),
-    geoLimit: Number(options.geo_limit ?? DEFAULT_SYNC_CONFIG.geoLimit),
-    tomtomLimit: Number(options.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtomLimit),
-    providerConcurrency: Number(options.provider_concurrency ?? DEFAULT_SYNC_CONFIG.providerConcurrency),
-    taskBatchSize: Number(options.task_batch_size ?? DEFAULT_SYNC_CONFIG.taskBatchSize),
-  };
+  return data;
+}
+
+async function loadSyncConfig(): Promise<SyncConfig> {
+  const data = await getConfigRow();
+  return sanitizeConfig((data as any)?.options || null);
+}
+
+async function saveSyncConfig(input: Partial<SyncConfig>) {
+  const config = sanitizeConfig(input);
+  const { error } = await supabaseAdmin
+    .from('app_runtime_config')
+    .upsert(
+      {
+        key: 'local_places_sync',
+        provider: 'local_catalog',
+        options: config,
+      },
+      { onConflict: 'key' },
+    );
+
+  if (error) throw error;
+  return config;
+}
+
+async function resolveProjectUrl() {
+  return (
+    Deno.env.get('SUPABASE_URL') ||
+    (await supabaseAdmin.rpc('noop' as any).then(() => null).catch(() => null), null) ||
+    null
+  );
+}
+
+async function resolveVaultSecret(name: string) {
+  const { data, error } = await supabaseAdmin
+    .from('decrypted_secrets' as any)
+    .select('decrypted_secret')
+    .eq('name', name)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as any)?.decrypted_secret || null;
+}
+
+async function resolveSelfCallConfig() {
+  const projectUrl =
+    Deno.env.get('SUPABASE_URL') ||
+    (await resolveVaultSecret('project_url')) ||
+    (await resolveVaultSecret('SUPABASE_URL'));
+
+  const serviceRoleKey =
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+    (await resolveVaultSecret('service_role_key')) ||
+    (await resolveVaultSecret('SUPABASE_SERVICE_ROLE_KEY'));
+
+  if (!projectUrl || !serviceRoleKey) {
+    throw new Error('Missing SUPABASE_URL/project_url or SUPABASE_SERVICE_ROLE_KEY/service_role_key for self-call.');
+  }
+
+  return { projectUrl: String(projectUrl).trim(), serviceRoleKey: String(serviceRoleKey).trim() };
+}
+
+async function enqueueBatch(reset = false) {
+  const { projectUrl, serviceRoleKey } = await resolveSelfCallConfig();
+
+  const promise = fetch(`${projectUrl.replace(/\/$/, '')}/functions/v1/sync-local-places`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+    },
+    body: JSON.stringify({ action: 'sync', reset }),
+  });
+
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(promise);
+  } else {
+    promise.catch((err: any) => console.error('enqueueBatch self-call error', err));
+  }
+
+  return { ok: true, enqueued: true };
+}
+
+async function scheduleSync(intervalMinutes: number) {
+  const safeMinutes = Math.max(1, Math.min(60, Number(intervalMinutes) || DEFAULT_SYNC_CONFIG.interval_minutes));
+  const { error } = await supabaseAdmin.rpc('schedule_local_places_interval' as any, { p_minutes: safeMinutes } as any);
+  if (error) throw error;
+
+  const latest = await loadSyncConfig();
+  const saved = await saveSyncConfig({ ...latest, enabled: true, interval_minutes: safeMinutes });
+  return { ok: true, config: saved };
+}
+
+async function unscheduleSync() {
+  const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval' as any);
+  if (error) throw error;
+
+  const latest = await loadSyncConfig();
+  const saved = await saveSyncConfig({ ...latest, enabled: false });
+  return { ok: true, config: saved };
 }
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
@@ -105,17 +219,12 @@ function normalizeTomTomRow(result: any, groupKey: string, centerCity: string) {
   };
 }
 
-async function fetchGeoapify(
-  center: { city: string; lat: number; lon: number },
-  group: (typeof CATEGORY_GROUPS)[number],
-  apiKey: string,
-  config: SyncConfig,
-) {
+async function fetchGeoapify(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string, config: SyncConfig) {
   const params = new URLSearchParams({
     categories: group.geo,
-    filter: `circle:${center.lon},${center.lat},${config.radiusMeters}`,
+    filter: `circle:${center.lon},${center.lat},${config.radius_meters}`,
     bias: `proximity:${center.lon},${center.lat}`,
-    limit: String(config.geoLimit),
+    limit: String(config.geo_limit),
     apiKey,
   });
   const res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`);
@@ -129,19 +238,14 @@ async function fetchGeoapify(
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
 
-async function fetchTomTom(
-  center: { city: string; lat: number; lon: number },
-  group: (typeof CATEGORY_GROUPS)[number],
-  apiKey: string,
-  config: SyncConfig,
-) {
+async function fetchTomTom(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string, config: SyncConfig) {
   const params = new URLSearchParams({
     key: apiKey,
     countrySet: 'HU',
-    limit: String(config.tomtomLimit),
+    limit: String(config.tomtom_limit),
     lat: String(center.lat),
     lon: String(center.lon),
-    radius: String(config.radiusMeters),
+    radius: String(config.radius_meters),
     openingHours: 'nextSevenDays',
   });
   const res = await fetch(`https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(group.tomtom)}.json?${params.toString()}`);
@@ -242,11 +346,41 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({})) as { action?: 'status' | 'sync'; reset?: boolean };
+    const body = await req.json().catch(() => ({})) as {
+      action?: 'status' | 'sync' | 'get_config' | 'save_config' | 'enqueue' | 'schedule' | 'unschedule';
+      reset?: boolean;
+      config?: Partial<SyncConfig>;
+      interval_minutes?: number;
+    };
     const action = body.action || 'status';
 
     if (action === 'status') {
       return jsonResponse(await getStatus());
+    }
+
+    if (action === 'get_config') {
+      const config = await loadSyncConfig();
+      return jsonResponse({ ok: true, config });
+    }
+
+    if (action === 'save_config') {
+      const config = await saveSyncConfig(body.config || {});
+      return jsonResponse({ ok: true, config });
+    }
+
+    if (action === 'enqueue') {
+      const result = await enqueueBatch(Boolean(body.reset));
+      return jsonResponse({ requestId: result.requestId || null, ok: true });
+    }
+
+    if (action === 'schedule') {
+      const result = await scheduleSync(Number(body.interval_minutes || DEFAULT_SYNC_CONFIG.interval_minutes));
+      return jsonResponse(result);
+    }
+
+    if (action === 'unschedule') {
+      const result = await unscheduleSync();
+      return jsonResponse(result);
     }
 
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
@@ -267,7 +401,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const currentState = currentStateResult.data || {};
-    const currentCursor = Number(currentState?.cursor || 0);
+    const currentCursor = Number((currentState as any)?.cursor || 0);
 
     let startCursor = currentCursor;
     if (body.reset) {
@@ -275,7 +409,7 @@ serve(async (req) => {
       await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     }
 
-    const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.taskBatchSize);
+    const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
     const startedAt = new Date().toISOString();
 
     await supabaseAdmin.from('place_sync_state').upsert({
@@ -314,7 +448,7 @@ serve(async (req) => {
       }
     });
 
-    await runWithConcurrency(taskFns, syncConfig.providerConcurrency);
+    await runWithConcurrency(taskFns, syncConfig.provider_concurrency);
 
     const rows = dedupe(collected);
     if (rows.length > 0) {
@@ -334,11 +468,10 @@ serve(async (req) => {
       : startCursor;
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus();
-    const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
-      status: finalStatus,
+      status: failures.length > 0 ? 'partial' : (hasMore ? 'running' : 'idle'),
       rows_written: liveStatus.totalRows,
       provider_counts: liveStatus.providerCounts,
       task_count: totalTasks,

@@ -141,20 +141,21 @@ export function AdminEventbrite() {
   const [syncSettingsSaving, setSyncSettingsSaving] = useState(false);
   const [syncSettings, setSyncSettings] = useState<LocalSyncSettings>(DEFAULT_LOCAL_SYNC_SETTINGS);
 
+  async function invokeLocalSync(action: string, extraBody: Record<string, unknown> = {}) {
+    const { data, error } = await supabase.functions.invoke('sync-local-places', {
+      body: { action, ...extraBody },
+    });
+    if (error) throw error;
+    return data as any;
+  }
+
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_runtime_config' as any)
-        .select('options')
-        .eq('key', 'local_places_sync')
-        .maybeSingle();
-
-      if (error) throw error;
-
+      const data = await invokeLocalSync('get_config');
       setSyncSettings({
         ...DEFAULT_LOCAL_SYNC_SETTINGS,
-        ...((data as any)?.options || {}),
+        ...(data?.config || {}),
       });
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült betölteni a lokális sync beállításokat');
@@ -168,8 +169,7 @@ export function AdminEventbrite() {
     if (!silent) setCatalogLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'status' } });
-      if (error) throw error;
+      const data = await invokeLocalSync('status');
       const typed = data as LocalCatalogStatus;
       setCatalogStatus(typed);
 
@@ -377,24 +377,12 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: upsertError } = await supabase
-        .from('app_runtime_config' as any)
-        .upsert({
-          key: 'local_places_sync',
-          provider: 'local_catalog',
-          options: syncSettings,
-        }, { onConflict: 'key' });
-
-      if (upsertError) throw upsertError;
+      await invokeLocalSync('save_config', { config: syncSettings });
 
       if (syncSettings.enabled) {
-        const { error: scheduleError } = await supabase.rpc('schedule_local_places_interval' as any, {
-          p_minutes: syncSettings.interval_minutes,
-        } as any);
-        if (scheduleError) throw scheduleError;
+        await invokeLocalSync('schedule', { interval_minutes: syncSettings.interval_minutes });
       } else {
-        const { error: unscheduleError } = await supabase.rpc('unschedule_local_places_interval' as any);
-        if (unscheduleError) throw unscheduleError;
+        await invokeLocalSync('unschedule');
       }
 
       toast.success('Lokális sync beállítások elmentve');
@@ -410,13 +398,8 @@ export function AdminEventbrite() {
   const handleReloadLocalCatalog = async (reset = false) => {
     setCatalogLoading(true);
     try {
-      const { data, error } = await supabase.rpc('enqueue_local_places_batch' as any, {
-        p_reset: reset,
-      } as any);
-
-      if (error) throw error;
-
-      toast.success(`Lokális batch elindítva (request_id: ${data})`);
+      const data = await invokeLocalSync('enqueue', { reset });
+      toast.success(`Lokális batch elindítva${data?.requestId ? ` (request_id: ${data.requestId})` : ''}`);
       setCatalogPolling(true);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
@@ -604,74 +587,32 @@ export function AdminEventbrite() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">Percenkénti ütemezés</div>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={60}
-                            value={syncSettings.interval_minutes}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, interval_minutes: Number(e.target.value) || 15 }))}
-                          />
+                          <Input type="number" min={1} max={60} value={syncSettings.interval_minutes} onChange={(e) => setSyncSettings((prev) => ({ ...prev, interval_minutes: Number(e.target.value) || 15 }))} />
                         </div>
-
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">Task batch size</div>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={syncSettings.task_batch_size}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, task_batch_size: Number(e.target.value) || 2 }))}
-                          />
+                          <Input type="number" min={1} max={20} value={syncSettings.task_batch_size} onChange={(e) => setSyncSettings((prev) => ({ ...prev, task_batch_size: Number(e.target.value) || 2 }))} />
                         </div>
-
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">Provider concurrency</div>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={syncSettings.provider_concurrency}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, provider_concurrency: Number(e.target.value) || 2 }))}
-                          />
+                          <Input type="number" min={1} max={10} value={syncSettings.provider_concurrency} onChange={(e) => setSyncSettings((prev) => ({ ...prev, provider_concurrency: Number(e.target.value) || 2 }))} />
                         </div>
-
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">Sugár (méter)</div>
-                          <Input
-                            type="number"
-                            min={1000}
-                            max={50000}
-                            value={syncSettings.radius_meters}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, radius_meters: Number(e.target.value) || 16000 }))}
-                          />
+                          <Input type="number" min={1000} max={50000} value={syncSettings.radius_meters} onChange={(e) => setSyncSettings((prev) => ({ ...prev, radius_meters: Number(e.target.value) || 16000 }))} />
                         </div>
-
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">Geoapify limit</div>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={200}
-                            value={syncSettings.geo_limit}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, geo_limit: Number(e.target.value) || 60 }))}
-                          />
+                          <Input type="number" min={1} max={200} value={syncSettings.geo_limit} onChange={(e) => setSyncSettings((prev) => ({ ...prev, geo_limit: Number(e.target.value) || 60 }))} />
                         </div>
-
                         <div>
                           <div className="mb-1 text-xs text-muted-foreground">TomTom limit</div>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={200}
-                            value={syncSettings.tomtom_limit}
-                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, tomtom_limit: Number(e.target.value) || 50 }))}
-                          />
+                          <Input type="number" min={1} max={200} value={syncSettings.tomtom_limit} onChange={(e) => setSyncSettings((prev) => ({ ...prev, tomtom_limit: Number(e.target.value) || 50 }))} />
                         </div>
                       </div>
 
                       <Button variant="outline" onClick={handleSaveLocalSyncSettings} disabled={syncSettingsLoading || syncSettingsSaving}>
-                        <Save className="mr-1 h-4 w-4" />
-                        Lokális sync beállítások mentése
+                        <Save className="mr-1 h-4 w-4" />Lokális sync beállítások mentése
                       </Button>
                     </div>
 
@@ -695,18 +636,15 @@ export function AdminEventbrite() {
 
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading}>
-                        <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
-                        Állapot frissítése
+                        <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />Állapot frissítése
                       </Button>
 
                       <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading}>
-                        <Database className="mr-1 h-4 w-4" />
-                        Következő batch indítása
+                        <Database className="mr-1 h-4 w-4" />Következő batch indítása
                       </Button>
 
                       <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading}>
-                        <Database className="mr-1 h-4 w-4" />
-                        Teljes újratöltés
+                        <Database className="mr-1 h-4 w-4" />Teljes újratöltés
                       </Button>
                     </div>
 
@@ -730,19 +668,12 @@ export function AdminEventbrite() {
                   <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-sm font-medium">Funkció csoport:</span>
                     {(['default', 'personal', 'venue', 'trip_planner'] as AddressSearchFunctionGroup[]).map((g) => (
-                      <Button
-                        key={g}
-                        size="sm"
-                        variant={testFunctionGroup === g ? 'default' : 'outline'}
-                        onClick={() => setTestFunctionGroup(g)}
-                      >
+                      <Button key={g} size="sm" variant={testFunctionGroup === g ? 'default' : 'outline'} onClick={() => setTestFunctionGroup(g)}>
                         {FUNCTION_GROUP_LABELS[g].split(' (')[0]}
                       </Button>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Aktív provider ehhez a csoporthoz: <Badge variant="outline">{functionGroupProviders[testFunctionGroup]}</Badge>
-                  </p>
+                  <p className="text-xs text-muted-foreground">Aktív provider ehhez a csoporthoz: <Badge variant="outline">{functionGroupProviders[testFunctionGroup]}</Badge></p>
                   <div className="flex gap-2">
                     <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Pl. Budapest társasjáték, Szeged kávézó" onKeyDown={(e) => e.key === 'Enter' && handleTestProvider()} />
                     <Button onClick={handleTestProvider} disabled={testLoading}><Search className="mr-1 h-4 w-4" />Teszt</Button>
