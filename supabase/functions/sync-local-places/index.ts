@@ -19,11 +19,39 @@ const CATEGORY_GROUPS = [
   { key: 'entertainment', geo: 'entertainment,tourism', tomtom: 'entertainment' },
 ] as const;
 
-const RADIUS_METERS = 32000;
-const GEO_LIMIT = 120;
-const TOMTOM_LIMIT = 100;
-const PROVIDER_CONCURRENCY = 3;
-const TASK_BATCH_SIZE = 12;
+const DEFAULT_SYNC_CONFIG = {
+  radiusMeters: 16000,
+  geoLimit: 60,
+  tomtomLimit: 50,
+  providerConcurrency: 2,
+  taskBatchSize: 2,
+} as const;
+
+type SyncConfig = {
+  radiusMeters: number;
+  geoLimit: number;
+  tomtomLimit: number;
+  providerConcurrency: number;
+  taskBatchSize: number;
+};
+
+async function loadSyncConfig(): Promise<SyncConfig> {
+  const { data } = await supabaseAdmin
+    .from('app_runtime_config')
+    .select('options')
+    .eq('key', 'local_places_sync')
+    .maybeSingle();
+
+  const options = (data?.options || {}) as Record<string, unknown>;
+
+  return {
+    radiusMeters: Number(options.radius_meters ?? DEFAULT_SYNC_CONFIG.radiusMeters),
+    geoLimit: Number(options.geo_limit ?? DEFAULT_SYNC_CONFIG.geoLimit),
+    tomtomLimit: Number(options.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtomLimit),
+    providerConcurrency: Number(options.provider_concurrency ?? DEFAULT_SYNC_CONFIG.providerConcurrency),
+    taskBatchSize: Number(options.task_batch_size ?? DEFAULT_SYNC_CONFIG.taskBatchSize),
+  };
+}
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
   return {
@@ -77,12 +105,17 @@ function normalizeTomTomRow(result: any, groupKey: string, centerCity: string) {
   };
 }
 
-async function fetchGeoapify(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string) {
+async function fetchGeoapify(
+  center: { city: string; lat: number; lon: number },
+  group: (typeof CATEGORY_GROUPS)[number],
+  apiKey: string,
+  config: SyncConfig,
+) {
   const params = new URLSearchParams({
     categories: group.geo,
-    filter: `circle:${center.lon},${center.lat},${RADIUS_METERS}`,
+    filter: `circle:${center.lon},${center.lat},${config.radiusMeters}`,
     bias: `proximity:${center.lon},${center.lat}`,
-    limit: String(GEO_LIMIT),
+    limit: String(config.geoLimit),
     apiKey,
   });
   const res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`);
@@ -96,14 +129,19 @@ async function fetchGeoapify(center: { city: string; lat: number; lon: number },
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
 
-async function fetchTomTom(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string) {
+async function fetchTomTom(
+  center: { city: string; lat: number; lon: number },
+  group: (typeof CATEGORY_GROUPS)[number],
+  apiKey: string,
+  config: SyncConfig,
+) {
   const params = new URLSearchParams({
     key: apiKey,
     countrySet: 'HU',
-    limit: String(TOMTOM_LIMIT),
+    limit: String(config.tomtomLimit),
     lat: String(center.lat),
     lon: String(center.lon),
-    radius: String(RADIUS_METERS),
+    radius: String(config.radiusMeters),
     openingHours: 'nextSevenDays',
   });
   const res = await fetch(`https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(group.tomtom)}.json?${params.toString()}`);
@@ -218,6 +256,7 @@ serve(async (req) => {
       throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
     }
 
+    const syncConfig = await loadSyncConfig();
     const allTasks = buildTasks();
     const totalTasks = allTasks.length;
 
@@ -236,7 +275,7 @@ serve(async (req) => {
       await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     }
 
-    const batchTasks = allTasks.slice(startCursor, startCursor + TASK_BATCH_SIZE);
+    const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.taskBatchSize);
     const startedAt = new Date().toISOString();
 
     await supabaseAdmin.from('place_sync_state').upsert({
@@ -253,29 +292,29 @@ serve(async (req) => {
     let successfulProviderCalls = 0;
 
     const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
-    const [geoResult, tomtomResult] = await Promise.allSettled([
-    fetchGeoapify(center, group, geoapifyKey),
-    fetchTomTom(center, group, tomtomKey),
-  ]);
+      const [geoResult, tomtomResult] = await Promise.allSettled([
+        fetchGeoapify(center, group, geoapifyKey, syncConfig),
+        fetchTomTom(center, group, tomtomKey, syncConfig),
+      ]);
 
-  if (geoResult.status === 'fulfilled') {
-    collected.push(...geoResult.value);
-    successfulProviderCalls += 1;
-  } else {
-    const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
-    failures.push(message);
-  }
+      if (geoResult.status === 'fulfilled') {
+        collected.push(...geoResult.value);
+        successfulProviderCalls += 1;
+      } else {
+        const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
+        failures.push(message);
+      }
 
-  if (tomtomResult.status === 'fulfilled') {
-    collected.push(...tomtomResult.value);
-    successfulProviderCalls += 1;
-  } else {
-    const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
-    failures.push(message);
-  }
-});
+      if (tomtomResult.status === 'fulfilled') {
+        collected.push(...tomtomResult.value);
+        successfulProviderCalls += 1;
+      } else {
+        const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
+        failures.push(message);
+      }
+    });
 
-    await runWithConcurrency(taskFns, PROVIDER_CONCURRENCY);
+    await runWithConcurrency(taskFns, syncConfig.providerConcurrency);
 
     const rows = dedupe(collected);
     if (rows.length > 0) {
@@ -295,10 +334,11 @@ serve(async (req) => {
       : startCursor;
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus();
+    const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
-      status: failures.length > 0 ? 'partial' : (hasMore ? 'running' : 'idle'),
+      status: finalStatus,
       rows_written: liveStatus.totalRows,
       provider_counts: liveStatus.providerCounts,
       task_count: totalTasks,
@@ -327,7 +367,9 @@ serve(async (req) => {
         last_error: message,
         last_run_completed_at: new Date().toISOString(),
       });
-    } catch (_) { /* swallow */ }
+    } catch (_) {
+      // swallow
+    }
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
   }

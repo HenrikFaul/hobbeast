@@ -13,7 +13,6 @@ import { mapExternalEventToCardLike } from '@/lib/external-events/normalize';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  getAddressSearchProvider,
   setAddressSearchProvider,
   getAllFunctionGroupProviders,
   FUNCTION_GROUP_LABELS,
@@ -31,10 +30,32 @@ interface LocalCatalogStatus {
     last_run_started_at?: string | null;
     last_run_completed_at?: string | null;
     last_error?: string | null;
+    cursor?: number;
+    task_count?: number;
   } | null;
   providerCounts: Record<string, number>;
   preview: Array<{ provider: string; name: string; city: string | null; category_group: string; synced_at: string }>;
 }
+
+interface LocalSyncSettings {
+  enabled: boolean;
+  interval_minutes: number;
+  task_batch_size: number;
+  provider_concurrency: number;
+  radius_meters: number;
+  geo_limit: number;
+  tomtom_limit: number;
+}
+
+const DEFAULT_LOCAL_SYNC_SETTINGS: LocalSyncSettings = {
+  enabled: false,
+  interval_minutes: 15,
+  task_batch_size: 2,
+  provider_concurrency: 2,
+  radius_meters: 16000,
+  geo_limit: 60,
+  tomtom_limit: 50,
+};
 
 function ExternalEventList({ events }: { events: ExternalEventNormalized[] }) {
   const mapped = useMemo(() => events.map(mapExternalEventToCardLike), [events]);
@@ -114,7 +135,58 @@ export function AdminEventbrite() {
   const [testResults, setTestResults] = useState<NormalizedPlace[]>([]);
   const [testLoading, setTestLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogPolling, setCatalogPolling] = useState(false);
   const [catalogStatus, setCatalogStatus] = useState<LocalCatalogStatus | null>(null);
+  const [syncSettingsLoading, setSyncSettingsLoading] = useState(false);
+  const [syncSettingsSaving, setSyncSettingsSaving] = useState(false);
+  const [syncSettings, setSyncSettings] = useState<LocalSyncSettings>(DEFAULT_LOCAL_SYNC_SETTINGS);
+
+  async function loadSyncSettings() {
+    setSyncSettingsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_runtime_config' as any)
+        .select('options')
+        .eq('key', 'local_places_sync')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setSyncSettings({
+        ...DEFAULT_LOCAL_SYNC_SETTINGS,
+        ...((data as any)?.options || {}),
+      });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült betölteni a lokális sync beállításokat');
+    } finally {
+      setSyncSettingsLoading(false);
+    }
+  }
+
+  async function refreshCatalogStatus(options?: { silent?: boolean }) {
+    const silent = options?.silent === true;
+    if (!silent) setCatalogLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'status' } });
+      if (error) throw error;
+      const typed = data as LocalCatalogStatus;
+      setCatalogStatus(typed);
+
+      const status = typed?.state?.status || 'idle';
+      const cursor = Number(typed?.state?.cursor || 0);
+      const taskCount = Number(typed?.state?.task_count || 0);
+      const stillRunning = status === 'running' || (status === 'partial' && taskCount > 0 && cursor < taskCount);
+      if (stillRunning) setCatalogPolling(true);
+
+      return typed;
+    } catch (err: any) {
+      if (!silent) toast.error(err.message || 'Nem sikerült lekérni a lokális címtábla állapotát');
+      return null;
+    } finally {
+      if (!silent) setCatalogLoading(false);
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -125,9 +197,31 @@ export function AdminEventbrite() {
       } finally {
         setProviderLoading(false);
       }
+      await loadSyncSettings();
       await refreshCatalogStatus();
     })();
   }, []);
+
+  useEffect(() => {
+    if (!catalogPolling) return;
+
+    const interval = setInterval(async () => {
+      const latest = await refreshCatalogStatus({ silent: true });
+      const state = latest?.state;
+      if (!state) return;
+
+      const status = state.status || 'idle';
+      const cursor = Number(state.cursor || 0);
+      const taskCount = Number(state.task_count || 0);
+      const stillRunning = status === 'running' || (status === 'partial' && taskCount > 0 && cursor < taskCount);
+
+      if (!stillRunning) {
+        setCatalogPolling(false);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [catalogPolling]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -241,18 +335,6 @@ export function AdminEventbrite() {
     setSeatGeekLoading(false);
   };
 
-  const refreshCatalogStatus = async () => {
-    setCatalogLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'status' } });
-      if (error) throw error;
-      setCatalogStatus(data as LocalCatalogStatus);
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült lekérni a lokális címtábla állapotát');
-    }
-    setCatalogLoading(false);
-  };
-
   const handleSaveProvider = async (group: AddressSearchFunctionGroup) => {
     setProviderSaving(true);
     try {
@@ -292,41 +374,64 @@ export function AdminEventbrite() {
     setTestLoading(false);
   };
 
-  const handleReloadLocalCatalog = async () => {
+  const handleSaveLocalSyncSettings = async () => {
+    setSyncSettingsSaving(true);
+    try {
+      const { error: upsertError } = await supabase
+        .from('app_runtime_config' as any)
+        .upsert({
+          key: 'local_places_sync',
+          provider: 'local_catalog',
+          options: syncSettings,
+        }, { onConflict: 'key' });
+
+      if (upsertError) throw upsertError;
+
+      if (syncSettings.enabled) {
+        const { error: scheduleError } = await supabase.rpc('schedule_local_places_interval' as any, {
+          p_minutes: syncSettings.interval_minutes,
+        } as any);
+        if (scheduleError) throw scheduleError;
+      } else {
+        const { error: unscheduleError } = await supabase.rpc('unschedule_local_places_interval' as any);
+        if (unscheduleError) throw unscheduleError;
+      }
+
+      toast.success('Lokális sync beállítások elmentve');
+      await loadSyncSettings();
+      await refreshCatalogStatus();
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült menteni a lokális sync beállításokat');
+    } finally {
+      setSyncSettingsSaving(false);
+    }
+  };
+
+  const handleReloadLocalCatalog = async (reset = false) => {
     setCatalogLoading(true);
     try {
-      let latest: any = null;
-      let iteration = 0;
-      let hasMore = true;
+      const { data, error } = await supabase.rpc('enqueue_local_places_batch' as any, {
+        p_reset: reset,
+      } as any);
 
-      while (hasMore && iteration < 20) {
-        const { data, error } = await supabase.functions.invoke('sync-local-places', {
-          body: { action: 'sync', reset: iteration === 0 },
-        });
-        if (error) throw error;
-        latest = data;
-        hasMore = Boolean(data?.hasMore);
-        iteration += 1;
-        if (hasMore) {
-          await new Promise((resolve) => setTimeout(resolve, 150));
-        }
-      }
+      if (error) throw error;
 
-      if (latest?.status) {
-        setCatalogStatus(latest.status as LocalCatalogStatus);
-      }
-      await refreshCatalogStatus();
-
-      if (latest?.hasMore) {
-        toast.warning(`A lokális címtábla szinkron több batchből áll. ${latest.nextCursor || 0}/${latest.totalTasks || 0} feladat készült el, indítsd újra a szinkront a folytatáshoz.`);
-      } else {
-        toast.success(`Lokális címtábla batch szinkron lefutott. Jelenlegi rekordok: ${latest?.status?.totalRows || 0}.`);
-      }
+      toast.success(`Lokális batch elindítva (request_id: ${data})`);
+      setCatalogPolling(true);
+      await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült újratölteni a lokális címtáblát');
+      toast.error(err.message || 'Nem sikerült elindítani a lokális batch szinkront');
+    } finally {
+      setCatalogLoading(false);
     }
-    setCatalogLoading(false);
   };
+
+  const syncProgressText = (() => {
+    const cursor = Number(catalogStatus?.state?.cursor || 0);
+    const taskCount = Number(catalogStatus?.state?.task_count || 0);
+    if (!taskCount) return 'Nincs aktív batch-folyamat';
+    return `${cursor}/${taskCount} feldolgozott feladat`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -484,6 +589,92 @@ export function AdminEventbrite() {
                     <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Lokális címtábla</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="space-y-3 rounded-lg border p-3">
+                      <p className="text-sm font-medium">Automatikus batch beállítások</p>
+
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={syncSettings.enabled}
+                          onChange={(e) => setSyncSettings((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        />
+                        Automatikus batch futtatás bekapcsolva
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">Percenkénti ütemezés</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={60}
+                            value={syncSettings.interval_minutes}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, interval_minutes: Number(e.target.value) || 15 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">Task batch size</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={20}
+                            value={syncSettings.task_batch_size}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, task_batch_size: Number(e.target.value) || 2 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">Provider concurrency</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={syncSettings.provider_concurrency}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, provider_concurrency: Number(e.target.value) || 2 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">Sugár (méter)</div>
+                          <Input
+                            type="number"
+                            min={1000}
+                            max={50000}
+                            value={syncSettings.radius_meters}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, radius_meters: Number(e.target.value) || 16000 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">Geoapify limit</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={200}
+                            value={syncSettings.geo_limit}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, geo_limit: Number(e.target.value) || 60 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 text-xs text-muted-foreground">TomTom limit</div>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={200}
+                            value={syncSettings.tomtom_limit}
+                            onChange={(e) => setSyncSettings((prev) => ({ ...prev, tomtom_limit: Number(e.target.value) || 50 }))}
+                          />
+                        </div>
+                      </div>
+
+                      <Button variant="outline" onClick={handleSaveLocalSyncSettings} disabled={syncSettingsLoading || syncSettingsSaving}>
+                        <Save className="mr-1 h-4 w-4" />
+                        Lokális sync beállítások mentése
+                      </Button>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-lg border p-3">
                         <div className="text-xs text-muted-foreground">Összes rekord</div>
@@ -494,15 +685,31 @@ export function AdminEventbrite() {
                         <div className="text-lg font-semibold">{catalogStatus?.state?.status || 'ismeretlen'}</div>
                       </div>
                     </div>
-                    <div className="space-y-1 text-xs text-muted-foreground">
+
+                    <div className="rounded-lg border p-3 text-xs text-muted-foreground space-y-1">
+                      <p>Progressz: {syncProgressText}</p>
                       <p>Utolsó start: {catalogStatus?.state?.last_run_started_at || '—'}</p>
                       <p>Utolsó befejezés: {catalogStatus?.state?.last_run_completed_at || '—'}</p>
                       {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
                     </div>
+
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={refreshCatalogStatus} disabled={catalogLoading}><RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />Állapot frissítése</Button>
-                      <Button onClick={handleReloadLocalCatalog} disabled={catalogLoading}><Database className="mr-1 h-4 w-4" />Lokális adatok újratöltése</Button>
+                      <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading}>
+                        <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
+                        Állapot frissítése
+                      </Button>
+
+                      <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading}>
+                        <Database className="mr-1 h-4 w-4" />
+                        Következő batch indítása
+                      </Button>
+
+                      <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading}>
+                        <Database className="mr-1 h-4 w-4" />
+                        Teljes újratöltés
+                      </Button>
                     </div>
+
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Provider szerinti rekordok</p>
                       <div className="flex flex-wrap gap-2">
