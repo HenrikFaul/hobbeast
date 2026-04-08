@@ -22,149 +22,98 @@ const CATEGORY_GROUPS = [
 const DEFAULT_SYNC_CONFIG = {
   enabled: false,
   interval_minutes: 15,
-  task_batch_size: 2,
-  provider_concurrency: 2,
   radius_meters: 16000,
   geo_limit: 60,
   tomtom_limit: 50,
+  provider_concurrency: 2,
+  task_batch_size: 2,
 } as const;
 
 type SyncConfig = {
   enabled: boolean;
   interval_minutes: number;
-  task_batch_size: number;
-  provider_concurrency: number;
   radius_meters: number;
   geo_limit: number;
   tomtom_limit: number;
+  provider_concurrency: number;
+  task_batch_size: number;
 };
 
-function sanitizeConfig(raw: Partial<SyncConfig> | null | undefined): SyncConfig {
+type SyncAction =
+  | 'status'
+  | 'sync'
+  | 'get_config'
+  | 'save_config'
+  | 'enqueue'
+  | 'schedule'
+  | 'unschedule';
+
+type SyncBody = {
+  action?: SyncAction;
+  reset?: boolean;
+  interval_minutes?: number;
+  config?: Partial<SyncConfig>;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
+  const raw = input || {};
   return {
-    enabled: Boolean(raw?.enabled ?? DEFAULT_SYNC_CONFIG.enabled),
-    interval_minutes: Math.max(1, Math.min(60, Number(raw?.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes) || DEFAULT_SYNC_CONFIG.interval_minutes)),
-    task_batch_size: Math.max(1, Math.min(20, Number(raw?.task_batch_size ?? DEFAULT_SYNC_CONFIG.task_batch_size) || DEFAULT_SYNC_CONFIG.task_batch_size)),
-    provider_concurrency: Math.max(1, Math.min(10, Number(raw?.provider_concurrency ?? DEFAULT_SYNC_CONFIG.provider_concurrency) || DEFAULT_SYNC_CONFIG.provider_concurrency)),
-    radius_meters: Math.max(1000, Math.min(50000, Number(raw?.radius_meters ?? DEFAULT_SYNC_CONFIG.radius_meters) || DEFAULT_SYNC_CONFIG.radius_meters)),
-    geo_limit: Math.max(1, Math.min(200, Number(raw?.geo_limit ?? DEFAULT_SYNC_CONFIG.geo_limit) || DEFAULT_SYNC_CONFIG.geo_limit)),
-    tomtom_limit: Math.max(1, Math.min(200, Number(raw?.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtom_limit) || DEFAULT_SYNC_CONFIG.tomtom_limit)),
+    enabled: Boolean(raw.enabled ?? DEFAULT_SYNC_CONFIG.enabled),
+    interval_minutes: clamp(Number(raw.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60),
+    radius_meters: clamp(Number(raw.radius_meters ?? DEFAULT_SYNC_CONFIG.radius_meters), 1000, 50000),
+    geo_limit: clamp(Number(raw.geo_limit ?? DEFAULT_SYNC_CONFIG.geo_limit), 1, 200),
+    tomtom_limit: clamp(Number(raw.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtom_limit), 1, 200),
+    provider_concurrency: clamp(Number(raw.provider_concurrency ?? DEFAULT_SYNC_CONFIG.provider_concurrency), 1, 10),
+    task_batch_size: clamp(Number(raw.task_batch_size ?? DEFAULT_SYNC_CONFIG.task_batch_size), 1, 20),
   };
 }
 
-async function getConfigRow() {
-  const { data, error } = await supabaseAdmin
+async function loadSyncConfig(): Promise<SyncConfig> {
+  const { data } = await supabaseAdmin
     .from('app_runtime_config')
     .select('options')
     .eq('key', 'local_places_sync')
     .maybeSingle();
 
-  if (error) {
-    console.warn('getConfigRow warning', error.message);
-    return null;
-  }
-
-  return data;
+  return sanitizeSyncConfig((data?.options || {}) as Partial<SyncConfig>);
 }
 
-async function loadSyncConfig(): Promise<SyncConfig> {
-  const data = await getConfigRow();
-  return sanitizeConfig((data as any)?.options || null);
-}
-
-async function saveSyncConfig(input: Partial<SyncConfig>) {
-  const config = sanitizeConfig(input);
+async function saveSyncConfig(config: Partial<SyncConfig>) {
+  const safe = sanitizeSyncConfig(config);
   const { error } = await supabaseAdmin
     .from('app_runtime_config')
-    .upsert(
-      {
-        key: 'local_places_sync',
-        provider: 'local_catalog',
-        options: config,
-      },
-      { onConflict: 'key' },
-    );
+    .upsert({
+      key: 'local_places_sync',
+      provider: 'local_catalog',
+      options: safe,
+    }, { onConflict: 'key' });
 
   if (error) throw error;
-  return config;
+  return safe;
 }
 
-async function resolveProjectUrl() {
-  return (
-    Deno.env.get('SUPABASE_URL') ||
-    (await supabaseAdmin.rpc('noop' as any).then(() => null).catch(() => null), null) ||
-    null
-  );
-}
-
-async function resolveVaultSecret(name: string) {
-  const { data, error } = await supabaseAdmin
-    .from('decrypted_secrets' as any)
-    .select('decrypted_secret')
-    .eq('name', name)
-    .limit(1)
-    .maybeSingle();
-  if (error) return null;
-  return (data as any)?.decrypted_secret || null;
-}
-
-async function resolveSelfCallConfig() {
-  const projectUrl =
-    Deno.env.get('SUPABASE_URL') ||
-    (await resolveVaultSecret('project_url')) ||
-    (await resolveVaultSecret('SUPABASE_URL'));
-
-  const serviceRoleKey =
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
-    (await resolveVaultSecret('service_role_key')) ||
-    (await resolveVaultSecret('SUPABASE_SERVICE_ROLE_KEY'));
-
-  if (!projectUrl || !serviceRoleKey) {
-    throw new Error('Missing SUPABASE_URL/project_url or SUPABASE_SERVICE_ROLE_KEY/service_role_key for self-call.');
+async function appendLog(
+  level: 'info' | 'warn' | 'error' | 'success',
+  event: string,
+  message: string,
+  details: Record<string, unknown> = {},
+  runId?: string,
+) {
+  try {
+    await supabaseAdmin.from('place_sync_logs').insert({
+      run_id: runId ?? null,
+      level,
+      event,
+      message,
+      details,
+    });
+  } catch (error) {
+    console.error('place_sync_logs insert failed', error);
   }
-
-  return { projectUrl: String(projectUrl).trim(), serviceRoleKey: String(serviceRoleKey).trim() };
-}
-
-async function enqueueBatch(reset = false) {
-  const { projectUrl, serviceRoleKey } = await resolveSelfCallConfig();
-
-  const promise = fetch(`${projectUrl.replace(/\/$/, '')}/functions/v1/sync-local-places`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-    },
-    body: JSON.stringify({ action: 'sync', reset }),
-  });
-
-  const edgeRuntime = (globalThis as any).EdgeRuntime;
-  if (edgeRuntime?.waitUntil) {
-    edgeRuntime.waitUntil(promise);
-  } else {
-    promise.catch((err: any) => console.error('enqueueBatch self-call error', err));
-  }
-
-  return { ok: true, enqueued: true };
-}
-
-async function scheduleSync(intervalMinutes: number) {
-  const safeMinutes = Math.max(1, Math.min(60, Number(intervalMinutes) || DEFAULT_SYNC_CONFIG.interval_minutes));
-  const { error } = await supabaseAdmin.rpc('schedule_local_places_interval' as any, { p_minutes: safeMinutes } as any);
-  if (error) throw error;
-
-  const latest = await loadSyncConfig();
-  const saved = await saveSyncConfig({ ...latest, enabled: true, interval_minutes: safeMinutes });
-  return { ok: true, config: saved };
-}
-
-async function unscheduleSync() {
-  const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval' as any);
-  if (error) throw error;
-
-  const latest = await loadSyncConfig();
-  const saved = await saveSyncConfig({ ...latest, enabled: false });
-  return { ok: true, config: saved };
 }
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
@@ -219,7 +168,12 @@ function normalizeTomTomRow(result: any, groupKey: string, centerCity: string) {
   };
 }
 
-async function fetchGeoapify(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string, config: SyncConfig) {
+async function fetchGeoapify(
+  center: { city: string; lat: number; lon: number },
+  group: (typeof CATEGORY_GROUPS)[number],
+  apiKey: string,
+  config: SyncConfig,
+) {
   const params = new URLSearchParams({
     categories: group.geo,
     filter: `circle:${center.lon},${center.lat},${config.radius_meters}`,
@@ -238,7 +192,12 @@ async function fetchGeoapify(center: { city: string; lat: number; lon: number },
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
 
-async function fetchTomTom(center: { city: string; lat: number; lon: number }, group: (typeof CATEGORY_GROUPS)[number], apiKey: string, config: SyncConfig) {
+async function fetchTomTom(
+  center: { city: string; lat: number; lon: number },
+  group: (typeof CATEGORY_GROUPS)[number],
+  apiKey: string,
+  config: SyncConfig,
+) {
   const params = new URLSearchParams({
     key: apiKey,
     countrySet: 'HU',
@@ -312,11 +271,26 @@ function dedupe(rows: any[]) {
   return Array.from(map.values());
 }
 
+async function getRecentLogs() {
+  const { data } = await supabaseAdmin
+    .from('place_sync_logs')
+    .select('id, created_at, level, event, message, details')
+    .order('created_at', { ascending: false })
+    .limit(40);
+
+  return data || [];
+}
+
 async function getStatus() {
-  const [{ count }, stateResult, providerCountResult] = await Promise.all([
+  const [{ count }, stateResult, providerCountResult, preview, logs] = await Promise.all([
     supabaseAdmin.from('places_local_catalog').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('place_sync_state').select('*').eq('key', 'local_places').maybeSingle(),
     supabaseAdmin.from('places_local_catalog').select('provider, id'),
+    supabaseAdmin.from('places_local_catalog')
+      .select('provider, name, city, category_group, synced_at')
+      .order('synced_at', { ascending: false })
+      .limit(8),
+    getRecentLogs(),
   ]);
 
   const providerCounts = Array.isArray(providerCountResult.data)
@@ -326,18 +300,21 @@ async function getStatus() {
       }, {})
     : {};
 
-  const preview = await supabaseAdmin
-    .from('places_local_catalog')
-    .select('provider, name, city, category_group, synced_at')
-    .order('synced_at', { ascending: false })
-    .limit(8);
-
   return {
     totalRows: count || 0,
     state: stateResult.data || null,
     providerCounts,
     preview: preview.data || [],
+    logs,
   };
+}
+
+async function enqueueBatch(reset = false) {
+  const { data, error } = await supabaseAdmin.rpc('enqueue_local_places_batch', {
+    p_reset: reset,
+  });
+  if (error) throw error;
+  return data;
 }
 
 serve(async (req) => {
@@ -345,14 +322,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const runId = crypto.randomUUID();
+
   try {
-    const body = await req.json().catch(() => ({})) as {
-      action?: 'status' | 'sync' | 'get_config' | 'save_config' | 'enqueue' | 'schedule' | 'unschedule';
-      reset?: boolean;
-      config?: Partial<SyncConfig>;
-      interval_minutes?: number;
-    };
-    const action = body.action || 'status';
+    const body = await req.json().catch(() => ({})) as SyncBody;
+    const action = (body.action || 'status') as SyncAction;
 
     if (action === 'status') {
       return jsonResponse(await getStatus());
@@ -360,27 +334,34 @@ serve(async (req) => {
 
     if (action === 'get_config') {
       const config = await loadSyncConfig();
-      return jsonResponse({ ok: true, config });
+      return jsonResponse({ config });
     }
 
     if (action === 'save_config') {
       const config = await saveSyncConfig(body.config || {});
+      await appendLog('info', 'config_saved', 'Lokális sync konfiguráció elmentve', config as unknown as Record<string, unknown>, runId);
       return jsonResponse({ ok: true, config });
     }
 
-    if (action === 'enqueue') {
-      const result = await enqueueBatch(Boolean(body.reset));
-      return jsonResponse({ requestId: result.requestId || null, ok: true });
-    }
-
     if (action === 'schedule') {
-      const result = await scheduleSync(Number(body.interval_minutes || DEFAULT_SYNC_CONFIG.interval_minutes));
-      return jsonResponse(result);
+      const minutes = clamp(Number(body.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
+      const { error } = await supabaseAdmin.rpc('schedule_local_places_interval', { p_minutes: minutes });
+      if (error) throw error;
+      await appendLog('success', 'schedule_enabled', `Automatikus batch ütemezés beállítva: ${minutes} percenként`, { interval_minutes: minutes }, runId);
+      return jsonResponse({ ok: true, interval_minutes: minutes });
     }
 
     if (action === 'unschedule') {
-      const result = await unscheduleSync();
-      return jsonResponse(result);
+      const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval');
+      if (error) throw error;
+      await appendLog('warn', 'schedule_disabled', 'Automatikus batch ütemezés kikapcsolva', {}, runId);
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === 'enqueue') {
+      const requestId = await enqueueBatch(Boolean(body.reset));
+      await appendLog('info', 'batch_enqueued', 'Lokális batch elindítva háttérhívással', { reset: Boolean(body.reset), request_id: requestId }, runId);
+      return jsonResponse({ ok: true, requestId });
     }
 
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
@@ -401,16 +382,36 @@ serve(async (req) => {
       .maybeSingle();
 
     const currentState = currentStateResult.data || {};
-    const currentCursor = Number((currentState as any)?.cursor || 0);
+    const currentCursor = Number(currentState?.cursor || 0);
 
     let startCursor = currentCursor;
     if (body.reset) {
       startCursor = 0;
       await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await appendLog('warn', 'catalog_reset', 'Lokális címtábla teljes újratöltése indult', {}, runId);
     }
 
     const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
     const startedAt = new Date().toISOString();
+
+    if (batchTasks.length === 0) {
+      await supabaseAdmin.from('place_sync_state').upsert({
+        key: 'local_places',
+        status: 'idle',
+        task_count: totalTasks,
+        cursor: totalTasks,
+        last_run_completed_at: new Date().toISOString(),
+      });
+      await appendLog('success', 'sync_complete', 'Nincs több feldolgozandó batch. A lokális címtábla szinkron kész.', { total_tasks: totalTasks }, runId);
+      return jsonResponse({
+        ok: true,
+        processedTasks: 0,
+        totalTasks,
+        nextCursor: totalTasks,
+        hasMore: false,
+        status: await getStatus(),
+      });
+    }
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
@@ -420,6 +421,19 @@ serve(async (req) => {
       last_run_started_at: startedAt,
       last_error: null,
     });
+
+    await appendLog(
+      'info',
+      'batch_started',
+      'Lokális címbatch feldolgozás elindult',
+      {
+        start_cursor: startCursor,
+        batch_size: batchTasks.length,
+        total_tasks: totalTasks,
+        config: syncConfig,
+      },
+      runId,
+    );
 
     const collected: any[] = [];
     const failures: string[] = [];
@@ -468,10 +482,11 @@ serve(async (req) => {
       : startCursor;
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus();
+    const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
-      status: failures.length > 0 ? 'partial' : (hasMore ? 'running' : 'idle'),
+      status: finalStatus,
       rows_written: liveStatus.totalRows,
       provider_counts: liveStatus.providerCounts,
       task_count: totalTasks,
@@ -480,6 +495,22 @@ serve(async (req) => {
       last_run_completed_at: new Date().toISOString(),
       last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
     });
+
+    await appendLog(
+      failures.length > 0 ? 'warn' : 'success',
+      'batch_completed',
+      failures.length > 0 ? 'Lokális batch részlegesen lefutott' : 'Lokális batch sikeresen lefutott',
+      {
+        processed_tasks: batchTasks.length,
+        total_tasks: totalTasks,
+        next_cursor: nextCursor,
+        has_more: hasMore,
+        rows_written_this_run: rows.length,
+        provider_counts: liveStatus.providerCounts,
+        partial_failures: failures.slice(0, 5),
+      },
+      runId,
+    );
 
     return jsonResponse({
       ok: true,
@@ -503,6 +534,7 @@ serve(async (req) => {
     } catch (_) {
       // swallow
     }
+    await appendLog('error', 'sync_error', 'Lokális címszinkron hiba történt', { error: message }, runId);
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
   }
