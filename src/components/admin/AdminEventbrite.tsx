@@ -154,17 +154,15 @@ export function AdminEventbrite() {
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_runtime_config' as any)
-        .select('options')
-        .eq('key', 'local_places_sync')
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'get_config' },
+      });
 
       if (error) throw error;
 
       setSyncSettings({
         ...DEFAULT_LOCAL_SYNC_SETTINGS,
-        ...((data as any)?.options || {}),
+        ...(((data as { config?: Partial<LocalSyncSettings> } | null)?.config) || {}),
       });
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült betölteni a lokális sync beállításokat');
@@ -387,23 +385,29 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: upsertError } = await supabase
-        .from('app_runtime_config' as any)
-        .upsert({
-          key: 'local_places_sync',
-          provider: 'local_catalog',
-          options: syncSettings,
-        }, { onConflict: 'key' });
+      const { error: saveError } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action: 'save_config',
+          config: syncSettings,
+        },
+      });
 
-      if (upsertError) throw upsertError;
+      if (saveError) throw saveError;
 
       if (syncSettings.enabled) {
-        const { error: scheduleError } = await supabase.rpc('schedule_local_places_interval' as any, {
-          p_minutes: syncSettings.interval_minutes,
-        } as any);
+        const { error: scheduleError } = await supabase.functions.invoke('sync-local-places', {
+          body: {
+            action: 'schedule',
+            interval_minutes: syncSettings.interval_minutes,
+          },
+        });
         if (scheduleError) throw scheduleError;
       } else {
-        const { error: unscheduleError } = await supabase.rpc('unschedule_local_places_interval' as any);
+        const { error: unscheduleError } = await supabase.functions.invoke('sync-local-places', {
+          body: {
+            action: 'unschedule',
+          },
+        });
         if (unscheduleError) throw unscheduleError;
       }
 
