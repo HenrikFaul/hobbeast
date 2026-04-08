@@ -80,12 +80,28 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
   const [maxDistanceKm, setMaxDistanceKm] = useState(50);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [showFilters, setShowFilters] = useState(false);
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
 
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
-      // Derive bias from city name if no explicit bias
+      // Priority 1: Browser geolocation
       let useBias = bias;
+      if (!useBias && navigator.geolocation) {
+        setGeoStatus('requesting');
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 300000 });
+          });
+          useBias = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+          setEffectiveBias(useBias);
+          setGeoStatus('granted');
+        } catch {
+          setGeoStatus('denied');
+        }
+      }
+
+      // Fallback: city name geocoding
       if (!useBias && cityName) {
         const { geocodePlace } = await import('@/lib/placeSearch');
         const geo = await geocodePlace(cityName);

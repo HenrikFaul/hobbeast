@@ -132,6 +132,63 @@ export type Database = {
           },
         ]
       }
+      event_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          event_time: string | null
+          id: string
+          image_emoji: string | null
+          location_address: string | null
+          location_city: string | null
+          location_district: string | null
+          location_free_text: string | null
+          location_type: string | null
+          max_attendees: number | null
+          tags: string[] | null
+          template_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          event_time?: string | null
+          id?: string
+          image_emoji?: string | null
+          location_address?: string | null
+          location_city?: string | null
+          location_district?: string | null
+          location_free_text?: string | null
+          location_type?: string | null
+          max_attendees?: number | null
+          tags?: string[] | null
+          template_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_time?: string | null
+          id?: string
+          image_emoji?: string | null
+          location_address?: string | null
+          location_city?: string | null
+          location_district?: string | null
+          location_free_text?: string | null
+          location_type?: string | null
+          max_attendees?: number | null
+          tags?: string[] | null
+          template_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_trip_plans: {
         Row: {
           created_at: string

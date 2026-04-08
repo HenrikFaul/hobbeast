@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, BookOpen, Users, Calendar, BarChart3, RefreshCw, Settings } from "lucide-react";
+import { Shield, BookOpen, Users, Calendar, BarChart3, RefreshCw, Settings, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { AdminCatalog } from "@/components/admin/AdminCatalog";
@@ -10,6 +10,7 @@ import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminMetrics } from "@/components/admin/AdminMetrics";
 import { AdminEventbrite } from "@/components/admin/AdminEventbrite";
 import { CommonAdminPanel } from "@/components/admin/CommonAdminPanel";
+import { AdminMassUsers } from "@/components/admin/AdminMassUsers";
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -23,8 +24,8 @@ const Admin = () => {
   if (!isAdmin) return null;
   return (
     <main className="pt-24 pb-16 min-h-screen"><div className="container mx-auto px-4"><div className="flex items-center gap-3 mb-8"><Shield className="h-7 w-7 text-primary" /><h1 className="text-2xl sm:text-3xl font-bold font-display">Admin felület</h1></div>
-      <Tabs defaultValue="catalog" className="w-full"><TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-6"><TabsTrigger value="catalog" className="text-xs sm:text-sm"><BookOpen className="h-4 w-4 mr-1 hidden sm:inline" /> Katalógus</TabsTrigger><TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="h-4 w-4 mr-1 hidden sm:inline" /> Felhasználók</TabsTrigger><TabsTrigger value="events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> Események</TabsTrigger><TabsTrigger value="metrics" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Metrikák</TabsTrigger><TabsTrigger value="eventbrite" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Import</TabsTrigger><TabsTrigger value="common-admin" className="text-xs sm:text-sm"><Settings className="h-4 w-4 mr-1 hidden sm:inline" /> Common Admin</TabsTrigger></TabsList>
-      <TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent></Tabs></div></main>
+      <Tabs defaultValue="catalog" className="w-full"><TabsList className="grid w-full grid-cols-4 md:grid-cols-7 mb-6"><TabsTrigger value="catalog" className="text-xs sm:text-sm"><BookOpen className="h-4 w-4 mr-1 hidden sm:inline" /> Katalógus</TabsTrigger><TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="h-4 w-4 mr-1 hidden sm:inline" /> Felhasználók</TabsTrigger><TabsTrigger value="events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> Események</TabsTrigger><TabsTrigger value="metrics" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Metrikák</TabsTrigger><TabsTrigger value="eventbrite" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Import</TabsTrigger><TabsTrigger value="common-admin" className="text-xs sm:text-sm"><Settings className="h-4 w-4 mr-1 hidden sm:inline" /> Common Admin</TabsTrigger><TabsTrigger value="mass-users" className="text-xs sm:text-sm"><UserPlus className="h-4 w-4 mr-1 hidden sm:inline" /> Generátor</TabsTrigger></TabsList>
+      <TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent><TabsContent value="mass-users"><AdminMassUsers /></TabsContent></Tabs></div></main>
   );
 };
 export default Admin;

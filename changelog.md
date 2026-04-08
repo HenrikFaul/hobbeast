@@ -131,3 +131,18 @@ After review, rename or replace the active root changelog with this canonical st
 - `versioning/14040710_v1.4.4_business_request_summary.pdf`
 - `versioning/14040710_v1.4.4_ai_dev_prompts.md`
 - `versioning/14040710_v1.4.4_final_coder_prompt.md`
+
+---
+
+## [1.4.8] — 2026-04-08
+### Added
+- **Event Templates**: Users can save event configurations as templates and reuse them when creating new events. Templates store category, description, location, tags, and other settings.
+- **Mass User Generator** (Admin): Admin tool to generate up to 1000 simulated users with realistic Hungarian/European names, geographical distribution across Hungary and neighboring countries, and random hobbies from the system taxonomy. Users are editable before creation. Backend batch insert via `mass-create-users` edge function.
+- **Proximity-based venue sorting**: Venue suggestions now use Browser Geolocation API as Priority 1 source, with profile location as fallback.
+
+### Fixed
+- **Map Layer Z-index**: Fixed stacking context issue in the Create Event flow where the Leaflet map layer would obscure selected location data. Applied `isolation: isolate` and proper z-index containment.
+
+### Improved
+- **Distance filter**: Events distance filter now uses browser geolocation first, with profile location fallback. Removed the requirement of having a profile location set to enable the filter.
+- **Admin panel**: Added "Generátor" tab for mass user creation tool alongside existing admin tabs.
