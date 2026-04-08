@@ -5,10 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-type ProviderMode = 'geoapify_tomtom' | 'local_catalog'
+type ProviderMode = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy'
+
+type ProviderConfigAction =
+  | 'autocomplete'
+  | 'geocode'
+  | 'reverse'
+  | 'get_provider_config'
+  | 'get_all_provider_configs'
+  | 'save_provider_config'
 
 interface SearchBody {
-  action?: 'autocomplete' | 'geocode' | 'reverse'
+  action?: ProviderConfigAction
   query?: string
   category?: string
   activityHint?: string
@@ -22,6 +30,8 @@ interface SearchBody {
   limit?: number
   lenient?: boolean
   provider_mode?: ProviderMode
+  group?: 'default' | 'personal' | 'venue' | 'trip_planner'
+  provider?: ProviderMode
 }
 
 interface Coordinates {
@@ -72,6 +82,79 @@ function bodyCenter(body: SearchBody): Coordinates | null {
     return { latitude: Number(body.bias?.lat), longitude: Number(body.bias?.lon) }
   }
   return null
+}
+
+
+const PROVIDER_CONFIG_KEY_PREFIX = 'address_search'
+const PROVIDER_GROUPS = ['default', 'personal', 'venue', 'trip_planner'] as const
+type ProviderConfigGroup = typeof PROVIDER_GROUPS[number]
+
+function configKey(group: ProviderConfigGroup = 'default') {
+  return group === 'default' ? PROVIDER_CONFIG_KEY_PREFIX : `${PROVIDER_CONFIG_KEY_PREFIX}:${group}`
+}
+
+function normalizeProviderConfigValue(value: unknown): ProviderMode {
+  if (value === 'aws' || value === 'geoapify_tomtom' || value === 'local_catalog' || value === 'mapy') return value
+  return 'geoapify_tomtom'
+}
+
+function normalizeProviderModeForSearch(value: ProviderMode): 'geoapify_tomtom' | 'local_catalog' {
+  return value === 'local_catalog' ? 'local_catalog' : 'geoapify_tomtom'
+}
+
+async function getProviderConfigRow(supabaseUrl: string, serviceRoleKey: string, key: string) {
+  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?key=eq.${encodeURIComponent(key)}&select=key,provider&limit=1`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+  })
+  const rows = await response.json()
+  return Array.isArray(rows) && rows[0] ? rows[0] : null
+}
+
+async function getProviderConfigValue(supabaseUrl: string, serviceRoleKey: string, group: ProviderConfigGroup) {
+  const specific = await getProviderConfigRow(supabaseUrl, serviceRoleKey, configKey(group)).catch(() => null)
+  if (specific?.provider) return normalizeProviderConfigValue(specific.provider)
+  if (group !== 'default') {
+    const fallback = await getProviderConfigRow(supabaseUrl, serviceRoleKey, configKey('default')).catch(() => null)
+    if (fallback?.provider) return normalizeProviderConfigValue(fallback.provider)
+  }
+  return 'geoapify_tomtom'
+}
+
+async function getAllProviderConfigValues(supabaseUrl: string, serviceRoleKey: string) {
+  const values = {} as Record<ProviderConfigGroup, ProviderMode>
+  for (const group of PROVIDER_GROUPS) {
+    values[group] = await getProviderConfigValue(supabaseUrl, serviceRoleKey, group)
+  }
+  return values
+}
+
+async function saveProviderConfigValue(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  group: ProviderConfigGroup,
+  provider: ProviderMode,
+) {
+  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify([
+      {
+        key: configKey(group),
+        provider,
+        options: {},
+      },
+    ]),
+  })
+  const rows = await response.json()
+  return Array.isArray(rows) && rows[0]?.provider ? normalizeProviderConfigValue(rows[0].provider) : provider
 }
 
 function normalizeCategory(category?: string, activityHint?: string) {
@@ -159,18 +242,11 @@ async function restFetch(url: string, init: RequestInit = {}) {
   return response
 }
 
-async function resolveProviderMode(supabaseUrl: string, serviceRoleKey: string, requested?: ProviderMode): Promise<ProviderMode> {
-  if (requested === 'geoapify_tomtom' || requested === 'local_catalog') return requested
+async function resolveProviderMode(supabaseUrl: string, serviceRoleKey: string, requested?: ProviderMode): Promise<'geoapify_tomtom' | 'local_catalog'> {
+  if (requested) return normalizeProviderModeForSearch(requested)
   try {
-    const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?key=eq.address_search&select=provider&limit=1`, {
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-      },
-    })
-    const rows = await response.json()
-    const provider = Array.isArray(rows) && rows[0]?.provider ? String(rows[0].provider) : 'geoapify_tomtom'
-    return provider === 'local_catalog' ? 'local_catalog' : 'geoapify_tomtom'
+    const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, 'default')
+    return normalizeProviderModeForSearch(provider)
   } catch {
     return 'geoapify_tomtom'
   }
@@ -393,7 +469,9 @@ Deno.serve(async (request) => {
     const explicitCenter = bodyCenter(body)
     const limit = Math.min(Math.max(Number(body.limit || 24), 1), 48)
 
-    if (!explicitCenter && !trimmedQuery) {
+    const action = body.action || 'autocomplete'
+
+    if (action !== 'get_provider_config' && action !== 'get_all_provider_configs' && action !== 'save_provider_config' && !explicitCenter && !trimmedQuery) {
       return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0 } }, 400)
     }
 
@@ -401,6 +479,29 @@ Deno.serve(async (request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     if (!supabaseUrl || !serviceRoleKey) {
       return json({ results: [], error: 'Missing Supabase service env', debug: { raw_candidate_count: 0 } }, 500)
+    }
+
+    const requestedGroup = (body.group || 'default') as ProviderConfigGroup
+
+    if (action === 'get_provider_config') {
+      const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, requestedGroup)
+      return json({ group: requestedGroup, provider })
+    }
+
+    if (action === 'get_all_provider_configs') {
+      const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
+      return json({ providers })
+    }
+
+    if (action === 'save_provider_config') {
+      if (!body.provider) return json({ error: 'provider is required' }, 400)
+      const provider = await saveProviderConfigValue(
+        supabaseUrl,
+        serviceRoleKey,
+        requestedGroup,
+        normalizeProviderConfigValue(body.provider),
+      )
+      return json({ group: requestedGroup, provider })
     }
 
     const providerMode = await resolveProviderMode(supabaseUrl, serviceRoleKey, body.provider_mode)

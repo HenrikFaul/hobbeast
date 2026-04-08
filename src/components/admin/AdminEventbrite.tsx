@@ -154,17 +154,15 @@ export function AdminEventbrite() {
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_runtime_config' as any)
-        .select('options')
-        .eq('key', 'local_places_sync')
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'get_config' },
+      });
 
       if (error) throw error;
 
       setSyncSettings({
         ...DEFAULT_LOCAL_SYNC_SETTINGS,
-        ...((data as any)?.options || {}),
+        ...((data as any)?.config || {}),
       });
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült betölteni a lokális sync beállításokat');
@@ -387,23 +385,21 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: upsertError } = await supabase
-        .from('app_runtime_config' as any)
-        .upsert({
-          key: 'local_places_sync',
-          provider: 'local_catalog',
-          options: syncSettings,
-        }, { onConflict: 'key' });
+      const { error: saveError } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'save_config', config: syncSettings },
+      });
 
-      if (upsertError) throw upsertError;
+      if (saveError) throw saveError;
 
       if (syncSettings.enabled) {
-        const { error: scheduleError } = await supabase.rpc('schedule_local_places_interval' as any, {
-          p_minutes: syncSettings.interval_minutes,
-        } as any);
+        const { error: scheduleError } = await supabase.functions.invoke('sync-local-places', {
+          body: { action: 'schedule', interval_minutes: syncSettings.interval_minutes },
+        });
         if (scheduleError) throw scheduleError;
       } else {
-        const { error: unscheduleError } = await supabase.rpc('unschedule_local_places_interval' as any);
+        const { error: unscheduleError } = await supabase.functions.invoke('sync-local-places', {
+          body: { action: 'unschedule' },
+        });
         if (unscheduleError) throw unscheduleError;
       }
 
@@ -420,13 +416,13 @@ export function AdminEventbrite() {
   const handleReloadLocalCatalog = async (reset = false) => {
     setCatalogLoading(true);
     try {
-      const { data, error } = await supabase.rpc('enqueue_local_places_batch' as any, {
-        p_reset: reset,
-      } as any);
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'enqueue', reset },
+      });
 
       if (error) throw error;
 
-      toast.success(`Lokális batch elindítva (request_id: ${data})`);
+      toast.success(`Lokális batch elindítva (request_id: ${(data as any)?.requestId ?? 'n/a'})`);
       setCatalogPolling(true);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
@@ -720,8 +716,8 @@ export function AdminEventbrite() {
 
                     <div className="rounded-lg border p-3 text-xs text-muted-foreground space-y-1">
                       <p>Progressz: {syncProgressText}</p>
-                      <p>Utolsó start: {catalogStatus?.state?.last_run_started_at || '—'}</p>
-                      <p>Utolsó befejezés: {catalogStatus?.state?.last_run_completed_at || '—'}</p>
+                      <p>Utolsó start: {formatLogTimestamp(catalogStatus?.state?.last_run_started_at || null)}</p>
+                      <p>Utolsó befejezés: {formatLogTimestamp(catalogStatus?.state?.last_run_completed_at || null)}</p>
                       {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
                     </div>
 
