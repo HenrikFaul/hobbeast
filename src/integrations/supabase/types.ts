@@ -1143,6 +1143,68 @@ export type Database = {
         }
         Relationships: []
       }
+      virtual_hub_members: {
+        Row: {
+          hub_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          hub_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          hub_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_hub_members_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_hubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtual_hubs: {
+        Row: {
+          city: string | null
+          created_at: string
+          hobby_activity: string | null
+          hobby_category: string
+          hobby_subcategory: string | null
+          id: string
+          member_count: number
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          hobby_activity?: string | null
+          hobby_category: string
+          hobby_subcategory?: string | null
+          id?: string
+          member_count?: number
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          hobby_activity?: string | null
+          hobby_category?: string
+          hobby_subcategory?: string | null
+          id?: string
+          member_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1155,6 +1217,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      refresh_virtual_hubs: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
