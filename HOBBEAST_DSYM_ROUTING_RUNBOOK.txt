@@ -1,0 +1,21 @@
+HOBBEAST DSYM ROUTING PATCH
+
+Goal
+Route all web-app database calls and function calls to the dsymdijzydaehntlmfzl Supabase project.
+
+Files included
+- .env
+- src/integrations/supabase/client.ts
+- supabase/config.toml
+- supabase/migrations/20260409083000_local_places_internal_edge_url_fix.sql
+
+What changed
+1. Frontend VITE Supabase URL/key/project id now point to dsymdijzydaehntlmfzl
+2. Local Supabase CLI project_id now points to dsymdijzydaehntlmfzl
+3. Runtime config migration now stores dsymdijzydaehntlmfzl as internal edge-function base URL
+
+After replacing the files
+1. Redeploy/rebuild the Hobbeast frontend
+2. Re-run the SQL migration in the target project if needed
+3. Re-deploy the relevant Edge Functions from the repo root if needed
+4. Hard refresh / test in an incognito browser session

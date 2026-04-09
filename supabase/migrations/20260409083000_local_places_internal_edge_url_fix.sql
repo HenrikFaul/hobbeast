@@ -1,4 +1,4 @@
--- Keep local-places sync/search on the active Lovable/Supabase project.
+-- Route local-places sync/search to the dsymdijzydaehntlmfzl Supabase project.
 -- This stores the internal edge-function base URL in runtime config and makes
 -- scheduler/enqueue helpers prefer that value before falling back to Vault.
 
@@ -6,7 +6,7 @@ insert into public.app_runtime_config (key, provider, options)
 values (
   'internal_edge_function_base_url',
   'supabase',
-  jsonb_build_object('url', 'https://olzvughcoqnfkdpvbwjy.supabase.co')
+  jsonb_build_object('url', 'https://dsymdijzydaehntlmfzl.supabase.co')
 )
 on conflict (key) do update
 set provider = excluded.provider,

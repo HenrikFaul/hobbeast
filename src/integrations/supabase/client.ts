@@ -2,6 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+/**
+ * IMPORTANT:
+ * All web-app database queries and Edge Function calls must target the dsymdijzydaehntlmfzl
+ * Supabase project via the VITE_* frontend environment variables.
+ */
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
