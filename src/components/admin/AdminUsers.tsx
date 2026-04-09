@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Eye, Calendar, MapPin, Clock } from "lucide-react";
+import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { AdminMassUsers } from "./AdminMassUsers";
 
 interface ProfileRow {
   id: string;
@@ -35,6 +37,14 @@ interface EventParticipation {
   };
 }
 
+interface VirtualHub {
+  id: string;
+  hobby_category: string;
+  city: string | null;
+  member_count: number;
+  created_at: string;
+}
+
 export function AdminUsers() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,16 +52,46 @@ export function AdminUsers() {
   const [participations, setParticipations] = useState<EventParticipation[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Virtual hubs state
+  const [hubs, setHubs] = useState<VirtualHub[]>([]);
+  const [hubsLoading, setHubsLoading] = useState(false);
+  const [refreshingHubs, setRefreshingHubs] = useState(false);
+
   useEffect(() => {
-    supabase
+    loadProfiles();
+    loadHubs();
+  }, []);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase
       .from('profiles')
       .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setProfiles((data as ProfileRow[]) || []);
-        setLoading(false);
-      });
-  }, []);
+      .order('created_at', { ascending: false });
+    setProfiles((data as ProfileRow[]) || []);
+    setLoading(false);
+  };
+
+  const loadHubs = async () => {
+    setHubsLoading(true);
+    const { data } = await supabase
+      .from('virtual_hubs' as any)
+      .select('*')
+      .order('member_count', { ascending: false });
+    setHubs((data as unknown as VirtualHub[]) || []);
+    setHubsLoading(false);
+  };
+
+  const refreshHubs = async () => {
+    setRefreshingHubs(true);
+    const { error } = await supabase.rpc('refresh_virtual_hubs' as any);
+    if (error) {
+      toast.error('Hiba a hubók frissítésekor.');
+    } else {
+      toast.success('Virtuális hubók frissítve!');
+      await loadHubs();
+    }
+    setRefreshingHubs(false);
+  };
 
   const openDetail = async (profile: ProfileRow) => {
     setSelectedUser(profile);
@@ -76,7 +116,8 @@ export function AdminUsers() {
   };
 
   return (
-    <>
+    <div className="space-y-8">
+      {/* Registered users */}
       <Card>
         <CardHeader>
           <CardTitle className="font-display text-lg flex items-center gap-2">
@@ -138,6 +179,72 @@ export function AdminUsers() {
         </CardContent>
       </Card>
 
+      {/* Mass user generator */}
+      <AdminMassUsers />
+
+      {/* Virtual Hubs */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-display text-lg flex items-center gap-2">
+              <Network className="h-5 w-5 text-primary" /> Virtuális közösségek ({hubs.length})
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl gap-1.5"
+              onClick={refreshHubs}
+              disabled={refreshingHubs}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} />
+              {refreshingHubs ? 'Frissítés...' : 'Hubók újraszámolása'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            A virtuális közösségek automatikusan jönnek létre a felhasználók érdeklődési körei és városuk alapján.
+            Ezek láthatatlanok a felhasználók számára – kizárólag admin célra.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {hubsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+            </div>
+          ) : hubs.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              Nincsenek virtuális hubók. Kattints a „Hubók újraszámolása" gombra a generáláshoz.
+            </p>
+          ) : (
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Érdeklődési kör</TableHead>
+                    <TableHead>Város</TableHead>
+                    <TableHead>Tagok száma</TableHead>
+                    <TableHead>Létrehozva</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {hubs.map((hub) => (
+                    <TableRow key={hub.id}>
+                      <TableCell className="font-medium">{hub.hobby_category}</TableCell>
+                      <TableCell>{hub.city || 'Országos'}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{hub.member_count} fő</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(hub.created_at).toLocaleDateString('hu-HU')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Detail dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
@@ -149,7 +256,6 @@ export function AdminUsers() {
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-5">
-              {/* Profile info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground text-xs">Város</p>
@@ -181,7 +287,6 @@ export function AdminUsers() {
                 </div>
               </div>
 
-              {/* Hobbies */}
               <div>
                 <p className="text-xs text-muted-foreground mb-2">Hobbik ({(selectedUser.hobbies || []).length})</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -192,7 +297,6 @@ export function AdminUsers() {
                 </div>
               </div>
 
-              {/* Event participations */}
               <div>
                 <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" /> Esemény részvételek ({participations.length})
@@ -226,6 +330,6 @@ export function AdminUsers() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
