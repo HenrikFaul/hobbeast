@@ -64,6 +64,30 @@ interface ProviderPlace {
   match_type?: 'query' | 'nearby' | 'local'
 }
 
+
+function normalizeInternalUrl(value?: string | null) {
+  return String(value || '').trim().replace(/\/+$/, '')
+}
+
+function resolveInternalSupabaseUrl(request: Request) {
+  const requestOrigin = normalizeInternalUrl(new URL(request.url).origin)
+  if (requestOrigin) {
+    try {
+      const hostname = new URL(requestOrigin).hostname
+      if (/\.supabase\.co$/i.test(hostname)) {
+        return requestOrigin
+      }
+    } catch {
+      // ignore invalid URL and fall back to env
+    }
+  }
+
+  const envUrl = normalizeInternalUrl(Deno.env.get('SUPABASE_URL'))
+  if (envUrl) return envUrl
+
+  throw new Error('Missing internal Supabase project URL')
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -476,7 +500,7 @@ Deno.serve(async (request) => {
     }
 
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const supabaseUrl = resolveInternalSupabaseUrl(request)
     if (!supabaseUrl || !serviceRoleKey) {
       return json({ results: [], error: 'Missing Supabase service env', debug: { raw_candidate_count: 0 } }, 500)
     }
