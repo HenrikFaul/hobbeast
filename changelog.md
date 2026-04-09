@@ -145,4 +145,17 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Improved
 - **Distance filter**: Events distance filter now uses browser geolocation first, with profile location fallback. Removed the requirement of having a profile location set to enable the filter.
-- **Admin panel**: Added "Generátor" tab for mass user creation tool alongside existing admin tabs.
+- **Admin panel**: Mass user generator merged into Felhasználók tab. Removed separate Generátor tab.
+
+---
+
+## [1.4.9] — 2026-04-09
+### Added
+- **Virtual Hubs (Admin)**: Invisible interest-based communities auto-generated from user hobbies and cities. Admin-only visibility in Felhasználók tab with refresh/recalculate function.
+- **Favorite category event notifications**: Database trigger automatically notifies users when a new event is created matching their favorite activity categories (if notification preference enabled).
+
+### Fixed
+- **Invalid API key**: Fixed `supabase/config.toml` project_id pointing to wrong Supabase project, causing authentication failures across the entire app.
+
+### Improved
+- **Security**: Enabled leaked password protection (HIBP check) for signup.
