@@ -31,7 +31,7 @@ export function AdminEvents() {
   useEffect(() => {
     void supabase
       .from('events')
-      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, created_by')
+      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, created_by, outcome_status, registrations_count, cancellations_count, attended_count, average_rating')
       .order('created_at', { ascending: false })
       .then(async ({ data, error }) => {
         if (error) {
@@ -41,7 +41,7 @@ export function AdminEvents() {
           return;
         }
         const statsMap = await getParticipantStatsMap((data ?? []).map((row: any) => row.id));
-        setEvents(((data as unknown as EventRow[]) || []).map((row) => ({ ...row, participant_count: statsMap.get(row.id)?.total || 0 })));
+        setEvents(((data as EventRow[]) || []).map((row) => ({ ...row, participant_count: statsMap.get(row.id)?.total || row.registrations_count || 0 })));
         setLoading(false);
       });
   }, []);
