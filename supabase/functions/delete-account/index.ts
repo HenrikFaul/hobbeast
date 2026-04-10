@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     // Delete user data
     await adminClient.from("event_participants").delete().eq("user_id", user.id);
 
-    const { data: ownEvents } = await adminClient.from("events").select("id").eq("organizer_id", user.id);
+    const { data: ownEvents } = await adminClient.from("events").select("id").eq("created_by", user.id);
     if (ownEvents && ownEvents.length > 0) {
       const eventIds = ownEvents.map((e) => e.id);
       await adminClient.from("event_participants").delete().in("event_id", eventIds);

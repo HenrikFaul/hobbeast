@@ -295,10 +295,10 @@ async function getStatus(supabaseAdmin: any) {
   ]);
 
   const providerCounts = Array.isArray(providerCountResult.data)
-    ? providerCountResult.data.reduce<Record<string, number>>((acc, row: any) => {
+    ? providerCountResult.data.reduce((acc: Record<string, number>, row: any) => {
         acc[row.provider] = (acc[row.provider] || 0) + 1;
         return acc;
-      }, {})
+      }, {} as Record<string, number>)
     : {};
 
   return {

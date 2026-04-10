@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -17,12 +18,26 @@ type Filters = {
 };
 type Mode = 'preview' | 'apply';
 type Action = 'delete' | 'activate' | 'deactivate';
+type AdminClient = any;
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
-async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
+function isMissingColumnError(error: any, columns: string[]) {
+  const message = String(error?.message || error?.details || '');
+  return columns.some((column) => message.includes(column));
+}
+
+function getUserOrigin(profile: any, authUser: any): Exclude<UserType, 'all'> {
+  const metadata = authUser?.user_metadata || {};
+  if (profile?.user_origin === 'generated' || metadata.user_origin === 'generated' || metadata.is_test_user === true) {
+    return 'generated';
+  }
+  return 'real';
+}
+
+async function listAllAuthUsers(adminClient: AdminClient) {
   const users: any[] = [];
   let page = 1;
   while (true) {
@@ -36,7 +51,7 @@ async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
   return users;
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: ReturnType<typeof createClient>) {
+async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: AdminClient) {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return null;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -48,20 +63,33 @@ async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: Retur
   return user;
 }
 
-async function previewSelection(adminClient: ReturnType<typeof createClient>, filters: Filters) {
-  const { data: profiles, error } = await adminClient
+async function loadProfiles(adminClient: AdminClient) {
+  const extendedResult = await adminClient
     .from('profiles')
     .select('id,user_id,user_origin,is_active,created_at');
-  if (error) throw error;
+
+  if (!extendedResult.error) return extendedResult.data || [];
+  if (!isMissingColumnError(extendedResult.error, ['user_origin', 'is_active'])) throw extendedResult.error;
+
+  const fallbackResult = await adminClient
+    .from('profiles')
+    .select('id,user_id,created_at');
+
+  if (fallbackResult.error) throw fallbackResult.error;
+  return fallbackResult.data || [];
+}
+
+async function previewSelection(adminClient: AdminClient, filters: Filters) {
+  const profiles = await loadProfiles(adminClient);
 
   const authUsers = await listAllAuthUsers(adminClient);
   const authMap = new Map(authUsers.map((user) => [user.id, user]));
-  const selected = [...(profiles || [])].filter((profile: any) => Boolean(profile.user_id));
+  const selected = [...profiles].filter((profile: any) => Boolean(profile.user_id));
 
   let filtered = selected;
 
   if (filters.userType && filters.userType !== 'all') {
-    filtered = filtered.filter((profile: any) => (profile.user_origin || 'real') === filters.userType);
+    filtered = filtered.filter((profile: any) => getUserOrigin(profile, authMap.get(profile.user_id)) === filters.userType);
   }
 
   if (filters.registeredOlderThanDays && filters.registeredOlderThanDays > 0) {
@@ -94,7 +122,7 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
   return filtered.map((profile: any) => ({ profileId: profile.id, userId: profile.user_id }));
 }
 
-async function resolveProfiles(adminClient: ReturnType<typeof createClient>, profileIds: string[]) {
+async function resolveProfiles(adminClient: AdminClient, profileIds: string[]) {
   const { data, error } = await adminClient
     .from('profiles')
     .select('id,user_id')
@@ -103,16 +131,45 @@ async function resolveProfiles(adminClient: ReturnType<typeof createClient>, pro
   return (data || []).filter((row: any) => Boolean(row.user_id));
 }
 
-async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, profileIds: string[]) {
+async function syncAuthActiveState(adminClient: AdminClient, userId: string, isActive: boolean) {
+  const { data, error } = await adminClient.auth.admin.getUserById(userId);
+  if (error) throw error;
+
+  const currentMetadata = data.user?.user_metadata || {};
+  const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentMetadata,
+      is_active: isActive,
+    },
+  });
+
+  if (updateError) throw updateError;
+}
+
+async function applyAction(adminClient: AdminClient, action: Action, profileIds: string[]) {
   const profiles = await resolveProfiles(adminClient, profileIds);
   const userIds = profiles.map((profile: any) => profile.user_id);
   let affected = 0;
   let failures = 0;
 
   if (action === 'activate' || action === 'deactivate') {
-    const { error } = await adminClient.from('profiles').update({ is_active: action === 'activate' }).in('id', profileIds);
-    if (error) throw error;
-    affected = profileIds.length;
+    const isActive = action === 'activate';
+
+    for (const userId of userIds) {
+      try {
+        await syncAuthActiveState(adminClient, userId, isActive);
+        affected += 1;
+      } catch (error) {
+        console.error('admin bulk user status update failed', userId, error);
+        failures += 1;
+      }
+    }
+
+    const profileUpdateResult = await adminClient.from('profiles').update({ is_active: isActive }).in('id', profileIds);
+    if (profileUpdateResult.error && !isMissingColumnError(profileUpdateResult.error, ['is_active'])) {
+      throw profileUpdateResult.error;
+    }
+
     return { affected, failures };
   }
 
