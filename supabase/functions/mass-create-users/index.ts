@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 interface GeneratedUser {
@@ -14,6 +16,14 @@ interface GeneratedUser {
   gender: string;
   age: number;
   bio: string;
+}
+
+function normalizeGender(value: string): "male" | "female" | "other" | "prefer_not_to_say" {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "férfi" || v === "ferfi" || v === "male") return "male";
+  if (v === "nő" || v === "no" || v === "female") return "female";
+  if (v === "other") return "other";
+  return "prefer_not_to_say";
 }
 
 Deno.serve(async (req) => {
@@ -89,7 +99,7 @@ Deno.serve(async (req) => {
           location_lat: u.lat,
           location_lon: u.lon,
           hobbies: u.hobbies,
-          gender: u.gender,
+          gender: normalizeGender(u.gender),
           date_of_birth: dobStr,
           bio: u.bio,
         }, { onConflict: "user_id" });
