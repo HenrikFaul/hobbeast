@@ -1,6 +1,6 @@
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/delete-account/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/delete-account/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/delete-account/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/delete-account/index.ts	2026-04-09 21:36:36.303261777 +0000
+diff -ruN /hobbeast-main/supabase/functions/delete-account/index.ts supabase/functions/delete-account/index.ts
+--- /hobbeast-main/supabase/functions/delete-account/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ supabase/functions/delete-account/index.ts	2026-04-09 21:36:36.303261777 +0000
 @@ -5,6 +5,7 @@
    "Access-Control-Allow-Headers":
      "authorization, x-client-info, apikey, content-type",
@@ -9,9 +9,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/delete-accou
  };
  
  Deno.serve(async (req) => {
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/eventbrite-import/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/eventbrite-import/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/eventbrite-import/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/eventbrite-import/index.ts	2026-04-09 21:35:34.272019559 +0000
+diff -ruN /hobbeast-main/supabase/functions/eventbrite-import/index.ts supabase/functions/eventbrite-import/index.ts
+--- /hobbeast-main/supabase/functions/eventbrite-import/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ supabase/functions/eventbrite-import/index.ts	2026-04-09 21:35:34.272019559 +0000
 @@ -3,6 +3,8 @@
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
@@ -21,9 +21,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/eventbrite-i
  };
  
  const EVENTBRITE_BASE = 'https://www.eventbriteapi.com/v3';
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mapy-routing/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mapy-routing/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mapy-routing/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mapy-routing/index.ts	2026-04-09 21:35:34.273456308 +0000
+diff -ruN /hobbeast-main/supabase/functions/mapy-routing/index.ts /supabase/functions/mapy-routing/index.ts
+--- /hobbeast-main/supabase/functions/mapy-routing/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/mapy-routing/index.ts	2026-04-09 21:35:34.273456308 +0000
 @@ -3,6 +3,8 @@
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
@@ -33,9 +33,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mapy-routing
  };
  
  serve(async (req) => {
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mass-create-users/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mass-create-users/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mass-create-users/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mass-create-users/index.ts	2026-04-09 21:35:34.271484760 +0000
+diff -ruN /hobbeast-main/supabase/functions/mass-create-users/index.ts /supabase/functions/mass-create-users/index.ts
+--- /hobbeast-main/supabase/functions/mass-create-users/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/mass-create-users/index.ts	2026-04-09 21:35:34.271484760 +0000
 @@ -3,6 +3,8 @@
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -69,9 +69,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mass-create-
            date_of_birth: dobStr,
            bio: u.bio,
          }, { onConflict: "user_id" });
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/place-search/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/place-search/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/place-search/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/place-search/index.ts	2026-04-09 21:36:36.302114180 +0000
+diff -ruN /hobbeast-main/supabase/functions/place-search/index.ts /supabase/functions/place-search/index.ts
+--- /hobbeast-main/supabase/functions/place-search/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/place-search/index.ts	2026-04-09 21:36:36.302114180 +0000
 @@ -3,6 +3,8 @@
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
@@ -81,9 +81,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/place-search
  }
  
  type ProviderMode = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy'
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/seed-venues/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/seed-venues/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/seed-venues/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/seed-venues/index.ts	2026-04-09 21:36:36.302601693 +0000
+diff -ruN /hobbeast-main/supabase/functions/seed-venues/index.ts /supabase/functions/seed-venues/index.ts
+--- /hobbeast-main/supabase/functions/seed-venues/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/seed-venues/index.ts	2026-04-09 21:36:36.302601693 +0000
 @@ -4,6 +4,8 @@
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
@@ -93,9 +93,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/seed-venues/
  }
  
  function json(data: unknown, status = 200) {
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/shared/providerFetch.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/shared/providerFetch.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/shared/providerFetch.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/shared/providerFetch.ts	2026-04-09 21:35:34.270716602 +0000
+diff -ruN /hobbeast-main/supabase/functions/shared/providerFetch.ts /supabase/functions/shared/providerFetch.ts
+--- /hobbeast-main/supabase/functions/shared/providerFetch.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/shared/providerFetch.ts	2026-04-09 21:35:34.270716602 +0000
 @@ -3,6 +3,8 @@
  export const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
@@ -105,9 +105,9 @@ diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/shared/provi
  };
  
  export function jsonResponse(body: unknown, status = 200) {
-diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/sync-external-events/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/sync-external-events/index.ts
---- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/sync-external-events/index.ts	2026-04-09 18:26:04.000000000 +0000
-+++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/sync-external-events/index.ts	2026-04-09 21:35:34.275967534 +0000
+diff -ruN /hobbeast-main/supabase/functions/sync-external-events/index.ts /supabase/functions/sync-external-events/index.ts
+--- /hobbeast-main/supabase/functions/sync-external-events/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /supabase/functions/sync-external-events/index.ts	2026-04-09 21:35:34.275967534 +0000
 @@ -4,6 +4,8 @@
  const corsHeaders = {
    'Access-Control-Allow-Origin': '*',
