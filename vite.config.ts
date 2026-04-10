@@ -18,37 +18,16 @@ function extractProjectRef(url?: string) {
   }
 }
 
-function createSupabaseClientOverridePlugin(supabaseUrl: string, supabaseKey: string) {
-  return {
-    name: "supabase-client-override",
-    enforce: "pre" as const,
-    load(id: string) {
-      const normalizedId = id.replace(/\\/g, "/");
-      if (!normalizedId.endsWith("/src/integrations/supabase/client.ts")) return null;
-
-      return `import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
-
-const SUPABASE_URL = ${JSON.stringify(supabaseUrl)};
-const SUPABASE_PUBLISHABLE_KEY = ${JSON.stringify(supabaseKey)};
-
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
-`;
-    },
-  };
-}
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const resolvedSupabaseUrl = normalizeUrl(env.SUPABASE_URL || env.VITE_SUPABASE_URL);
   const resolvedSupabaseKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
+  const resolvedProjectId = extractProjectRef(resolvedSupabaseUrl) || String(env.SUPABASE_PROJECT_ID || env.VITE_SUPABASE_PROJECT_ID || "").trim();
+
+  if (resolvedSupabaseUrl) process.env.VITE_SUPABASE_URL = resolvedSupabaseUrl;
+  if (resolvedSupabaseKey) process.env.VITE_SUPABASE_PUBLISHABLE_KEY = resolvedSupabaseKey;
+  if (resolvedProjectId) process.env.VITE_SUPABASE_PROJECT_ID = resolvedProjectId;
 
   return {
     server: {
@@ -58,7 +37,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [createSupabaseClientOverridePlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
