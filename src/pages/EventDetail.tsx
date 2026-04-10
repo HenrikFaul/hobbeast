@@ -13,7 +13,7 @@ import { EditEventDialog } from "@/components/EditEventDialog";
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
-import { getParticipantStats } from '@/lib/eventParticipantStats';
+import { getParticipantStatsMap, type ParticipantStats } from '@/lib/eventParticipantStats';
 
 interface EventData {
   id: string;
