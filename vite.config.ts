@@ -10,6 +10,24 @@ const extractSupabaseProjectId = (url?: string) => {
   return match?.[1] ?? "";
 };
 
+const forceSupabaseClientTarget = (url: string, publishableKey: string) => ({
+  name: "force-supabase-client-target",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    if (!id.endsWith("/src/integrations/supabase/client.ts")) return null;
+
+    return code
+      .replace(
+        'const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;',
+        `const SUPABASE_URL = ${JSON.stringify(url)};`
+      )
+      .replace(
+        'const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;',
+        `const SUPABASE_PUBLISHABLE_KEY = ${JSON.stringify(publishableKey)};`
+      );
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -26,7 +44,11 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [
+      forceSupabaseClientTarget(resolvedSupabaseUrl, resolvedSupabasePublishableKey),
+      react(),
+      mode === "development" && componentTagger(),
+    ].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
