@@ -32,7 +32,7 @@ export function OrganizerModeProvider({ children }: { children: ReactNode }) {
     void supabase
       .from('events')
       .select('id', { count: 'exact', head: true })
-      .eq('created_by', user.id)
+      .eq('organizer_id', user.id)
       .then(({ count }) => {
         if (!active) return;
         setOwnedEventCount(count ?? 0);

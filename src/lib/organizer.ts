@@ -54,7 +54,7 @@ export async function getOwnedEvents(userId: string): Promise<OrganizerEventSumm
   const { data, error } = await supabase
     .from('events')
     .select('id,title,event_date,event_time,location_city,category,image_emoji,max_attendees,waitlist_enabled,event_participants(status,checked_in_at)')
-    .eq('created_by', userId)
+    .eq('organizer_id', userId)
     .order('event_date', { ascending: true, nullsFirst: false });
 
   if (error) throw error;

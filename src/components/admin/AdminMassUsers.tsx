@@ -139,11 +139,16 @@ export function AdminMassUsers() {
       if (error) throw error;
       const result = data as { created: number; errors: string[] };
       if (result.errors?.length > 0) {
-        toast.warning(`${result.created} felhasználó létrehozva, ${result.errors.length} hiba.`);
+        console.error('mass-create-users partial errors', result.errors);
+        if (result.created > 0) {
+          toast.warning(`${result.created} felhasználó létrehozva, ${result.errors.length} részleges hiba.`);
+        } else {
+          toast.error(`A létrehozás sikertelen, ${result.errors.length} hiba.`);
+        }
       } else {
         toast.success(`${result.created} felhasználó sikeresen létrehozva!`);
+        setGenerated([]);
       }
-      setGenerated([]);
     } catch (err: any) {
       toast.error(`Hiba: ${err.message || 'Ismeretlen hiba'}`);
     }

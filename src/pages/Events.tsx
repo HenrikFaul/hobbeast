@@ -38,6 +38,7 @@ interface EventData {
   tags: string[] | null;
   description: string | null;
   created_by: string;
+  organizer_id?: string | null;
   participant_count?: number;
   source?: 'hobbeast' | 'eventbrite';
   source_label?: string;
@@ -385,7 +386,7 @@ const Events = () => {
   const filtered = useMemo(() => {
     return allEvents.filter((ev) => {
       const relation: EventRelation =
-        user && ev.created_by === user.id ? 'own' :
+        user && ((ev.organizer_id ?? ev.created_by) === user.id) ? 'own' :
         joinedEventIds.has(ev.id) ? 'joined' :
         eventMatchesFavorites(ev, favorites) ? 'interest' :
         'default';
@@ -646,7 +647,7 @@ const Events = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filtered.map((event, i) => {
             const relation: EventRelation =
-              user && event.created_by === user.id ? 'own' :
+              user && ((event.organizer_id ?? event.created_by) === user.id) ? 'own' :
               joinedEventIds.has(event.id) ? 'joined' :
               eventMatchesFavorites(event, favorites) ? 'interest' :
               'default';

@@ -146,34 +146,36 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
 
     setLoading(true);
+    const eventInsertPayload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      category: categoryString,
+      event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
+      event_time: eventTime || null,
+      location_type: locationType,
+      location_city: locationCity || null,
+      location_district: locationDistrict || null,
+      location_address: locationAddress || null,
+      location_free_text: locationFreeText || null,
+      location_lat: locationLat,
+      location_lon: locationLon,
+      max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
+      image_emoji: imageEmoji,
+      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      organizer_id: user.id,
+      // Place data from normalized search
+      place_name: placeData?.displayName || null,
+      place_address: placeData?.address || null,
+      place_city: placeData?.city || null,
+      place_lat: placeData?.lat || null,
+      place_lon: placeData?.lon || null,
+      place_source: placeData?.source || null,
+      place_categories: placeData?.categories || null,
+    } as any;
+
     const { data, error } = await supabase
       .from('events')
-      .insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        category: categoryString,
-        event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
-        event_time: eventTime || null,
-        location_type: locationType,
-        location_city: locationCity || null,
-        location_district: locationDistrict || null,
-        location_address: locationAddress || null,
-        location_free_text: locationFreeText || null,
-        location_lat: locationLat,
-        location_lon: locationLon,
-        max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
-        image_emoji: imageEmoji,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-        created_by: user.id,
-        // Place data from normalized search
-        place_name: placeData?.displayName || null,
-        place_address: placeData?.address || null,
-        place_city: placeData?.city || null,
-        place_lat: placeData?.lat || null,
-        place_lon: placeData?.lon || null,
-        place_source: placeData?.source || null,
-        place_categories: placeData?.categories || null,
-      })
+      .insert(eventInsertPayload)
       .select('id')
       .single();
 

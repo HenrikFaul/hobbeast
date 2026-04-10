@@ -18,12 +18,26 @@ interface GeneratedUser {
   bio: string;
 }
 
-function normalizeGender(value: string): "male" | "female" | "other" | "prefer_not_to_say" {
+function normalizeGender(value: string): string {
   const v = String(value || "").trim().toLowerCase();
   if (v === "férfi" || v === "ferfi" || v === "male") return "male";
   if (v === "nő" || v === "no" || v === "female") return "female";
   if (v === "other") return "other";
   return "prefer_not_to_say";
+}
+
+function normalizeHobbies(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const maybe = (item as Record<string, unknown>).name ?? (item as Record<string, unknown>).label;
+        return typeof maybe === "string" ? maybe.trim() : "";
+      }
+      return String(item ?? "").trim();
+    })
+    .filter(Boolean);
 }
 
 Deno.serve(async (req) => {
@@ -70,7 +84,7 @@ Deno.serve(async (req) => {
       const batch = users.slice(i, i + BATCH_SIZE);
       
       for (const u of batch) {
-        const email = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@hobbeast-test.local`;
+        const email = `test-${crypto.randomUUID()}@example.com`;
         const password = `TestUser_${Math.random().toString(36).slice(2, 14)}!`;
 
         // Create auth user
@@ -86,28 +100,66 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        created += 1;
+
         // Calculate date of birth from age
         const dob = new Date();
         dob.setFullYear(dob.getFullYear() - u.age);
         const dobStr = dob.toISOString().split("T")[0];
+        const normalizedHobbies = normalizeHobbies(u.hobbies);
+        const normalizedGender = normalizeGender(u.gender);
 
-        // Create profile
-        const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+        const profilePayload = {
+          id: authUser.user.id,
           user_id: authUser.user.id,
           display_name: u.display_name,
           city: u.city,
           location_lat: u.lat,
           location_lon: u.lon,
-          hobbies: u.hobbies,
-          gender: normalizeGender(u.gender),
+          hobbies: normalizedHobbies,
+          gender: normalizedGender,
           date_of_birth: dobStr,
           bio: u.bio,
-        }, { onConflict: "user_id" });
+        };
+
+        let profileError: { message: string } | null = null;
+
+        // First try the current schema style (existing trigger-created row keyed by id).
+        {
+          const { error } = await supabaseAdmin
+            .from("profiles")
+            .upsert(profilePayload, { onConflict: "id" });
+          profileError = error ? { message: error.message } : null;
+        }
+
+        // Fallback for older schema variants keyed by user_id.
+        if (profileError) {
+          const { error } = await supabaseAdmin
+            .from("profiles")
+            .upsert(profilePayload, { onConflict: "user_id" });
+          profileError = error ? { message: error.message } : null;
+        }
+
+        // Final fallback: update in place in case the trigger already created a sparse row.
+        if (profileError) {
+          const { error } = await supabaseAdmin
+            .from("profiles")
+            .update({
+              display_name: u.display_name,
+              city: u.city,
+              location_lat: u.lat,
+              location_lon: u.lon,
+              hobbies: normalizedHobbies,
+              gender: normalizedGender,
+              date_of_birth: dobStr,
+              bio: u.bio,
+            })
+            .eq("id", authUser.user.id);
+          profileError = error ? { message: error.message } : null;
+        }
 
         if (profileError) {
           errors.push(`${u.display_name} profile: ${profileError.message}`);
-        } else {
-          created++;
         }
       }
     }

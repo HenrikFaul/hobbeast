@@ -30,6 +30,7 @@ interface EventData {
   tags: string[] | null;
   description: string | null;
   created_by: string;
+  organizer_id?: string | null;
   is_active?: boolean;
   created_at?: string;
   waitlist_enabled?: boolean | null;
@@ -182,7 +183,7 @@ const EventDetail = () => {
     return d.toLocaleDateString('hu-HU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const isOwner = user && event && event.created_by === user.id;
+  const isOwner = user && event && ((event.organizer_id ?? event.created_by) === user.id);
   const isSample = id?.startsWith('sample-');
 
   if (loading) {
