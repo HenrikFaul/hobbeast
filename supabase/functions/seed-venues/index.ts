@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8'
+import { getSupabaseAdmin } from '../shared/providerFetch.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,12 +174,8 @@ Deno.serve(async (request) => {
     const body = await request.json().catch(() => ({})) as { cityFilter?: string; batch?: number; allCities?: boolean }
     const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseAdmin = getSupabaseAdmin(request)
 
-    if (!supabaseUrl || !serviceRoleKey) {
-      return json({ error: 'Missing Supabase config' }, 500)
-    }
     if (!tomtomKey && !geoapifyKey) {
       return json({ error: 'No API keys configured' }, 500)
     }
@@ -204,10 +200,6 @@ Deno.serve(async (request) => {
     if (queryBatch.length === 0) {
       return json({ success: true, message: 'No more batches', total_batches: Math.ceil(VENUE_QUERIES.length / batchSize) })
     }
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
 
     let totalInserted = 0
     const errors: string[] = []
