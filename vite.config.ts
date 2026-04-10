@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+const VIRTUAL_SUPABASE_CLIENT_ID = "\0virtual:app-supabase-client";
+
 function normalizeUrl(value?: string) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
@@ -16,6 +18,34 @@ function extractProjectRef(url?: string) {
   } catch {
     return "";
   }
+}
+
+function createSupabaseClientVirtualPlugin(supabaseUrl: string, supabaseKey: string) {
+  return {
+    name: "virtual-supabase-client",
+    enforce: "pre" as const,
+    resolveId(source: string) {
+      if (source === "@/integrations/supabase/client") {
+        return VIRTUAL_SUPABASE_CLIENT_ID;
+      }
+      return null;
+    },
+    load(id: string) {
+      if (id !== VIRTUAL_SUPABASE_CLIENT_ID) return null;
+
+      return `import { createClient } from '@supabase/supabase-js';
+import type { Database } from '/src/integrations/supabase/types.ts';
+
+export const supabase = createClient<Database>(${JSON.stringify(supabaseUrl)}, ${JSON.stringify(supabaseKey)}, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
+`;
+    },
+  };
 }
 
 // https://vitejs.dev/config/
@@ -37,7 +67,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [createSupabaseClientVirtualPlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
