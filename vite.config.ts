@@ -18,12 +18,37 @@ function extractProjectRef(url?: string) {
   }
 }
 
+function createSupabaseClientOverridePlugin(supabaseUrl: string, supabaseKey: string) {
+  return {
+    name: "supabase-client-override",
+    enforce: "pre" as const,
+    load(id: string) {
+      const normalizedId = id.replace(/\\/g, "/");
+      if (!normalizedId.endsWith("/src/integrations/supabase/client.ts")) return null;
+
+      return `import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
+
+const SUPABASE_URL = ${JSON.stringify(supabaseUrl)};
+const SUPABASE_PUBLISHABLE_KEY = ${JSON.stringify(supabaseKey)};
+
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
+`;
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const resolvedSupabaseUrl = normalizeUrl(env.SUPABASE_URL || env.VITE_SUPABASE_URL);
   const resolvedSupabaseKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
-  const resolvedProjectId = extractProjectRef(resolvedSupabaseUrl) || String(env.VITE_SUPABASE_PROJECT_ID || "").trim();
 
   return {
     server: {
@@ -33,23 +58,11 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    define: {
-      __APP_SUPABASE_URL__: JSON.stringify(resolvedSupabaseUrl),
-      __APP_SUPABASE_PUBLISHABLE_KEY__: JSON.stringify(resolvedSupabaseKey),
-      __APP_SUPABASE_PROJECT_ID__: JSON.stringify(resolvedProjectId),
-    },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [createSupabaseClientOverridePlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
-      alias: [
-        {
-          find: "@/integrations/supabase/client",
-          replacement: path.resolve(__dirname, "./src/integrations/supabase/runtime-client.ts"),
-        },
-        {
-          find: "@",
-          replacement: path.resolve(__dirname, "./src"),
-        },
-      ],
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
   };
 });
