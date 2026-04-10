@@ -1,0 +1,119 @@
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/delete-account/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/delete-account/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/delete-account/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/delete-account/index.ts	2026-04-09 21:36:36.303261777 +0000
+@@ -5,6 +5,7 @@
+   "Access-Control-Allow-Headers":
+     "authorization, x-client-info, apikey, content-type",
+   "Access-Control-Allow-Methods": "POST, OPTIONS",
++  "Access-Control-Max-Age": "86400",
+ };
+ 
+ Deno.serve(async (req) => {
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/eventbrite-import/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/eventbrite-import/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/eventbrite-import/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/eventbrite-import/index.ts	2026-04-09 21:35:34.272019559 +0000
+@@ -3,6 +3,8 @@
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ };
+ 
+ const EVENTBRITE_BASE = 'https://www.eventbriteapi.com/v3';
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mapy-routing/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mapy-routing/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mapy-routing/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mapy-routing/index.ts	2026-04-09 21:35:34.273456308 +0000
+@@ -3,6 +3,8 @@
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ };
+ 
+ serve(async (req) => {
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mass-create-users/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mass-create-users/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/mass-create-users/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/mass-create-users/index.ts	2026-04-09 21:35:34.271484760 +0000
+@@ -3,6 +3,8 @@
+ const corsHeaders = {
+   "Access-Control-Allow-Origin": "*",
+   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
++  "Access-Control-Allow-Methods": "POST, OPTIONS",
++  "Access-Control-Max-Age": "86400",
+ };
+ 
+ interface GeneratedUser {
+@@ -16,6 +18,14 @@
+   bio: string;
+ }
+ 
++function normalizeGender(value: string): "male" | "female" | "other" | "prefer_not_to_say" {
++  const v = String(value || "").trim().toLowerCase();
++  if (v === "férfi" || v === "ferfi" || v === "male") return "male";
++  if (v === "nő" || v === "no" || v === "female") return "female";
++  if (v === "other") return "other";
++  return "prefer_not_to_say";
++}
++
+ Deno.serve(async (req) => {
+   if (req.method === "OPTIONS") {
+     return new Response("ok", { headers: corsHeaders });
+@@ -89,7 +99,7 @@
+           location_lat: u.lat,
+           location_lon: u.lon,
+           hobbies: u.hobbies,
+-          gender: u.gender,
++          gender: normalizeGender(u.gender),
+           date_of_birth: dobStr,
+           bio: u.bio,
+         }, { onConflict: "user_id" });
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/place-search/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/place-search/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/place-search/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/place-search/index.ts	2026-04-09 21:36:36.302114180 +0000
+@@ -3,6 +3,8 @@
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ }
+ 
+ type ProviderMode = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy'
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/seed-venues/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/seed-venues/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/seed-venues/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/seed-venues/index.ts	2026-04-09 21:36:36.302601693 +0000
+@@ -4,6 +4,8 @@
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ }
+ 
+ function json(data: unknown, status = 200) {
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/shared/providerFetch.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/shared/providerFetch.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/shared/providerFetch.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/shared/providerFetch.ts	2026-04-09 21:35:34.270716602 +0000
+@@ -3,6 +3,8 @@
+ export const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ };
+ 
+ export function jsonResponse(body: unknown, status = 200) {
+diff -ruN /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/sync-external-events/index.ts /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/sync-external-events/index.ts
+--- /mnt/data/hobbeast_orig2/hobbeast-main/supabase/functions/sync-external-events/index.ts	2026-04-09 18:26:04.000000000 +0000
++++ /mnt/data/hobbeast_unz/hobbeast-main/supabase/functions/sync-external-events/index.ts	2026-04-09 21:35:34.275967534 +0000
+@@ -4,6 +4,8 @@
+ const corsHeaders = {
+   'Access-Control-Allow-Origin': '*',
+   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
++  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
++  'Access-Control-Max-Age': '86400',
+ };
+ 
+ serve(async (req) => {
