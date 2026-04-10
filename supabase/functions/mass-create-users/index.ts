@@ -44,7 +44,7 @@ function normalizeHobbies(input: unknown): string[] {
     .filter(Boolean);
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: ReturnType<typeof createClient>) {
+async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: AdminClient) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
 
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
-          user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated', is_active: true },
+        user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated', is_active: true },
       });
 
       if (authError || !authUser.user) {
