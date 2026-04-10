@@ -9,14 +9,12 @@ const corsHeaders = {
 
 type UserType = 'all' | 'real' | 'generated';
 type HasOpenOwnedEvents = 'all' | 'yes' | 'no';
-
 type Filters = {
   userType?: UserType;
   registeredOlderThanDays?: number | null;
   inactiveDays?: number | null;
   hasOpenOwnedEvents?: HasOpenOwnedEvents;
 };
-
 type Mode = 'preview' | 'apply';
 type Action = 'delete' | 'activate' | 'deactivate';
 
@@ -38,39 +36,42 @@ async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
   return users;
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: ReturnType<typeof createClient>) {
+async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: ReturnType<typeof createClient>) {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return null;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const callerClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: { user } } = await callerClient.auth.getUser();
   if (!user) return null;
-  const { data: isAdmin, error } = await supabaseAdmin.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+  const { data: isAdmin, error } = await adminClient.rpc('has_role', { _user_id: user.id, _role: 'admin' });
   if (error || !isAdmin) return null;
   return user;
 }
 
 async function previewSelection(adminClient: ReturnType<typeof createClient>, filters: Filters) {
-  const { data: profiles, error } = await adminClient.from('profiles').select('id,user_id,user_origin,created_at');
+  const { data: profiles, error } = await adminClient
+    .from('profiles')
+    .select('id,user_id,user_origin,is_active,created_at');
   if (error) throw error;
 
-  let selected = profiles || [];
+  const authUsers = await listAllAuthUsers(adminClient);
+  const authMap = new Map(authUsers.map((user) => [user.id, user]));
+  const selected = [...(profiles || [])].filter((profile: any) => Boolean(profile.user_id));
+
+  let filtered = selected;
 
   if (filters.userType && filters.userType !== 'all') {
-    selected = selected.filter((profile: any) => (profile.user_origin || 'real') === filters.userType);
+    filtered = filtered.filter((profile: any) => (profile.user_origin || 'real') === filters.userType);
   }
 
   if (filters.registeredOlderThanDays && filters.registeredOlderThanDays > 0) {
     const threshold = daysAgo(filters.registeredOlderThanDays);
-    selected = selected.filter((profile: any) => new Date(profile.created_at) <= threshold);
+    filtered = filtered.filter((profile: any) => new Date(profile.created_at) <= threshold);
   }
-
-  const authUsers = await listAllAuthUsers(adminClient);
-  const authMap = new Map(authUsers.map((user) => [user.id, user]));
 
   if (filters.inactiveDays && filters.inactiveDays > 0) {
     const threshold = daysAgo(filters.inactiveDays);
-    selected = selected.filter((profile: any) => {
+    filtered = filtered.filter((profile: any) => {
       const authUser = authMap.get(profile.user_id);
       const lastSignIn = authUser?.last_sign_in_at ? new Date(authUser.last_sign_in_at) : null;
       return !lastSignIn || lastSignIn <= threshold;
@@ -78,51 +79,67 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
   }
 
   if (filters.hasOpenOwnedEvents && filters.hasOpenOwnedEvents !== 'all') {
-    const selectedIds = selected.map((profile: any) => profile.user_id);
-    if (selectedIds.length > 0) {
-      const { data: events, error: eventsError } = await adminClient.from('events').select('created_by,is_active').in('created_by', selectedIds);
+    const ownerIds = filtered.map((profile: any) => profile.user_id);
+    if (ownerIds.length > 0) {
+      const { data: events, error: eventsError } = await adminClient
+        .from('events')
+        .select('id,created_by,is_active')
+        .in('created_by', ownerIds);
       if (eventsError) throw eventsError;
-      const openOwners = new Set((events || []).filter((event: any) => event.is_active).map((event: any) => event.created_by));
-      selected = selected.filter((profile: any) => filters.hasOpenOwnedEvents === 'yes' ? openOwners.has(profile.user_id) : !openOwners.has(profile.user_id));
+      const openOwnerIds = new Set((events || []).filter((event: any) => event.is_active).map((event: any) => event.created_by));
+      filtered = filtered.filter((profile: any) => filters.hasOpenOwnedEvents === 'yes' ? openOwnerIds.has(profile.user_id) : !openOwnerIds.has(profile.user_id));
     }
   }
 
-  return selected.map((profile: any) => profile.user_id);
+  return filtered.map((profile: any) => ({ profileId: profile.id, userId: profile.user_id }));
 }
 
-async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, userIds: string[]) {
+async function resolveProfiles(adminClient: ReturnType<typeof createClient>, profileIds: string[]) {
+  const { data, error } = await adminClient
+    .from('profiles')
+    .select('id,user_id')
+    .in('id', profileIds);
+  if (error) throw error;
+  return (data || []).filter((row: any) => Boolean(row.user_id));
+}
+
+async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, profileIds: string[]) {
+  const profiles = await resolveProfiles(adminClient, profileIds);
+  const userIds = profiles.map((profile: any) => profile.user_id);
   let affected = 0;
   let failures = 0;
 
   if (action === 'activate' || action === 'deactivate') {
-    const { error } = await adminClient.from('profiles').update({ is_active: action === 'activate' }).in('user_id', userIds);
+    const { error } = await adminClient.from('profiles').update({ is_active: action === 'activate' }).in('id', profileIds);
     if (error) throw error;
-    affected = userIds.length;
+    affected = profileIds.length;
     return { affected, failures };
   }
 
-  for (const userId of userIds) {
+  for (const profile of profiles) {
     try {
+      const userId = profile.user_id;
+      const { data: authUserData } = await adminClient.auth.admin.getUserById(userId);
       await adminClient.from('account_deletions').insert({
         user_id: userId,
-        email: `${userId}@unknown.local`,
-        account_created_at: null,
+        email: authUserData.user?.email || `${userId}@unknown.local`,
+        account_created_at: authUserData.user?.created_at || null,
         deletion_reason: 'admin_batch_delete',
       });
-
+      await adminClient.from('event_participants').delete().eq('user_id', userId);
       const { data: ownEvents } = await adminClient.from('events').select('id').eq('created_by', userId);
       const eventIds = (ownEvents || []).map((event: any) => event.id);
       if (eventIds.length > 0) {
         await adminClient.from('event_participants').delete().in('event_id', eventIds);
         await adminClient.from('events').delete().in('id', eventIds);
       }
-
-      await adminClient.from('event_participants').delete().eq('user_id', userId);
-      await adminClient.from('profiles').delete().eq('user_id', userId);
+      await adminClient.from('notification_preferences').delete().eq('user_id', userId);
+      await adminClient.from('notifications').delete().eq('user_id', userId);
+      await adminClient.from('profiles').delete().eq('id', profile.id);
       await adminClient.auth.admin.deleteUser(userId);
       affected += 1;
     } catch (error) {
-      console.error('admin bulk delete failed for user', userId, error);
+      console.error('admin bulk action failed', profile.id, error);
       failures += 1;
     }
   }
@@ -132,29 +149,29 @@ async function applyAction(adminClient: ReturnType<typeof createClient>, action:
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
     const caller = await ensureAdmin(req, supabaseUrl, adminClient);
     if (!caller) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { mode, filters, action, userIds } = await req.json() as { mode: Mode; filters?: Filters; action?: Action; userIds?: string[] };
+    const { mode, filters, action, profileIds } = await req.json() as { mode: Mode; filters?: Filters; action?: Action; profileIds?: string[] };
 
     if (mode === 'preview') {
-      const selectedUserIds = await previewSelection(adminClient, filters || {});
-      return new Response(JSON.stringify({ selectedUserIds, selectedCount: selectedUserIds.length }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const rows = await previewSelection(adminClient, filters || {});
+      return new Response(JSON.stringify({ selectedProfileIds: rows.map((row) => row.profileId), selectedCount: rows.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (mode === 'apply') {
-      if (!action || !userIds?.length) {
-        return new Response(JSON.stringify({ error: 'Action and userIds are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!action || !profileIds?.length) {
+        return new Response(JSON.stringify({ error: 'Action and profileIds are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      const result = await applyAction(adminClient, action, userIds);
+      const result = await applyAction(adminClient, action, profileIds);
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

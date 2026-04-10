@@ -32,7 +32,8 @@ function normalizeHobbies(input: unknown): string[] {
     .map((item) => {
       if (typeof item === "string") return item.trim();
       if (item && typeof item === "object") {
-        const candidate = (item as Record<string, unknown>).name ?? (item as Record<string, unknown>).label;
+        const record = item as Record<string, unknown>;
+        const candidate = record.name ?? record.label;
         return typeof candidate === "string" ? candidate.trim() : "";
       }
       return String(item ?? "").trim();
@@ -40,10 +41,25 @@ function normalizeHobbies(input: unknown): string[] {
     .filter(Boolean);
 }
 
-async function upsertProfile(supabaseAdmin: ReturnType<typeof createClient>, authUserId: string, u: GeneratedUser, dobStr: string) {
+async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: ReturnType<typeof createClient>) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) return null;
+
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const callerClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user } } = await callerClient.auth.getUser();
+  if (!user) return null;
+
+  const { data: isAdmin, error } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+  if (error || !isAdmin) return null;
+  return user;
+}
+
+async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, authUserId: string, u: GeneratedUser, dobStr: string) {
   const payload = {
-    id: authUserId,
-    user_id: authUserId,
     display_name: u.display_name,
     city: u.city,
     location_lat: u.lat,
@@ -57,14 +73,27 @@ async function upsertProfile(supabaseAdmin: ReturnType<typeof createClient>, aut
     updated_at: new Date().toISOString(),
   };
 
-  let { error } = await supabaseAdmin.from("profiles").upsert(payload, { onConflict: "user_id" });
-  if (!error) return null;
+  const existing = await supabaseAdmin
+    .from('profiles')
+    .select('id,user_id')
+    .eq('user_id', authUserId)
+    .maybeSingle();
 
-  const retry = await supabaseAdmin.from("profiles").upsert(payload, { onConflict: "id" });
-  if (!retry.error) return null;
+  if (existing.error) return existing.error;
 
-  const fallback = await supabaseAdmin.from("profiles").update(payload).eq("user_id", authUserId);
-  return fallback.error ?? retry.error;
+  if (existing.data) {
+    const updateResult = await supabaseAdmin
+      .from('profiles')
+      .update(payload)
+      .eq('user_id', authUserId);
+    return updateResult.error;
+  }
+
+  const insertResult = await supabaseAdmin
+    .from('profiles')
+    .insert({ id: authUserId, user_id: authUserId, ...payload });
+
+  return insertResult.error;
 }
 
 Deno.serve(async (req) => {
@@ -77,73 +106,62 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller } } = await callerClient.auth.getUser();
+    const caller = await ensureAdmin(req, supabaseUrl, supabaseAdmin);
     if (!caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const { data: isAdmin, error: roleError } = await supabaseAdmin.rpc("has_role", { _user_id: caller.id, _role: "admin" });
-    if (roleError || !isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { users } = await req.json() as { users: GeneratedUser[] };
     if (!users || !Array.isArray(users) || users.length === 0) {
-      return new Response(JSON.stringify({ error: "No users provided" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "No users provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     let created = 0;
     const errors: string[] = [];
+    const profileErrors: string[] = [];
 
     for (const u of users) {
-      const email = `generated-${crypto.randomUUID()}@example.com`;
-      const password = `TestUser_${crypto.randomUUID().slice(0, 12)}!`;
+      const email = `test-${crypto.randomUUID()}@example.com`;
+      const password = `TestUser_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}!`;
 
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: {
-          display_name: u.display_name,
-          is_test_user: true,
-          generated_user: true,
-        },
+        user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated' },
       });
 
       if (authError || !authUser.user) {
-        errors.push(`${u.display_name}: ${authError?.message || "auth create failed"}`);
+        errors.push(`${u.display_name}: ${authError?.message || 'unknown auth error'}`);
         continue;
       }
 
       created += 1;
 
       const dob = new Date();
-      dob.setFullYear(dob.getFullYear() - u.age);
-      const dobStr = dob.toISOString().split("T")[0];
+      dob.setFullYear(dob.getFullYear() - Number(u.age || 18));
+      const dobStr = dob.toISOString().split('T')[0];
 
-      const profileError = await upsertProfile(supabaseAdmin, authUser.user.id, u, dobStr);
+      const profileError = await persistProfile(supabaseAdmin, authUser.user.id, u, dobStr);
       if (profileError) {
-        errors.push(`${u.display_name} profile: ${profileError.message}`);
+        profileErrors.push(`${u.display_name} profile: ${profileError.message}`);
       }
     }
 
-    return new Response(JSON.stringify({ created, errors }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ created, profileErrors, errors }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

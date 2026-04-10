@@ -8,14 +8,12 @@ export interface ParticipantStats {
   cancelled: number;
 }
 
+const EMPTY_STATS: ParticipantStats = { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 };
+
 export async function getParticipantStatsMap(eventIds: string[]): Promise<Map<string, ParticipantStats>> {
   const uniqueIds = Array.from(new Set(eventIds.filter(Boolean)));
   const statsMap = new Map<string, ParticipantStats>();
-
-  uniqueIds.forEach((id) => {
-    statsMap.set(id, { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 });
-  });
-
+  uniqueIds.forEach((id) => statsMap.set(id, { ...EMPTY_STATS }));
   if (uniqueIds.length === 0) return statsMap;
 
   const { data, error } = await supabase
@@ -23,10 +21,13 @@ export async function getParticipantStatsMap(eventIds: string[]): Promise<Map<st
     .select('event_id,status')
     .in('event_id', uniqueIds);
 
-  if (error) throw error;
+  if (error) {
+    console.error('participant stats failed', error);
+    return statsMap;
+  }
 
   (data ?? []).forEach((row: any) => {
-    const current = statsMap.get(row.event_id) ?? { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 };
+    const current = { ...(statsMap.get(row.event_id) ?? EMPTY_STATS) };
     current.total += 1;
     if (row.status === 'going') current.going += 1;
     if (row.status === 'waitlist') current.waitlist += 1;
@@ -36,9 +37,4 @@ export async function getParticipantStatsMap(eventIds: string[]): Promise<Map<st
   });
 
   return statsMap;
-}
-
-export async function getParticipantStats(eventId: string): Promise<ParticipantStats> {
-  const map = await getParticipantStatsMap([eventId]);
-  return map.get(eventId) ?? { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 };
 }

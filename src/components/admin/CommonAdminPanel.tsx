@@ -130,19 +130,20 @@ export function CommonAdminPanel() {
   const [loading, setLoading] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
 
-  const refreshStatus = async () => {
+  const refreshStatus = async (silent = false) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'status' } });
       if (error) throw error;
       setCatalogStatus((data as LocalStatus) || null);
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült lekérni a common admin státuszt');
+      if (!silent) toast.error(err.message || 'Nem sikerült lekérni a common admin státuszt');
+      else console.error('common admin status failed', err);
     }
     setLoading(false);
   };
 
-  useEffect(() => { void refreshStatus(); }, []);
+  useEffect(() => { void refreshStatus(true); }, []);
 
   const runSingleTest = async (key: string, name: string) => {
     setTestResults((prev) => ({ ...prev, [key]: { name, status: 'running' } }));

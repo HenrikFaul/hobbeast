@@ -75,7 +75,7 @@ export function AdminUsers() {
   const [hubs, setHubs] = useState<VirtualHub[]>([]);
   const [hubsLoading, setHubsLoading] = useState(false);
   const [refreshingHubs, setRefreshingHubs] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedProfileIds, setSelectedProfileIds] = useState<Set<string>>(new Set());
   const [bulkFilters, setBulkFilters] = useState<BulkFilters>(EMPTY_FILTERS);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
@@ -158,21 +158,21 @@ export function AdminUsers() {
     });
   }, [profiles, search]);
 
-  const allVisibleSelected = visibleProfiles.length > 0 && visibleProfiles.every((profile) => selectedIds.has(profile.user_id));
+  const allVisibleSelected = visibleProfiles.length > 0 && visibleProfiles.every((profile) => selectedProfileIds.has(profile.id));
 
   const toggleVisible = (checked: boolean) => {
-    setSelectedIds((prev) => {
+    setSelectedProfileIds((prev) => {
       const next = new Set(prev);
       visibleProfiles.forEach((profile) => {
-        if (checked) next.add(profile.user_id);
-        else next.delete(profile.user_id);
+        if (checked) next.add(profile.id);
+        else next.delete(profile.id);
       });
       return next;
     });
   };
 
   const toggleSingle = (userId: string, checked: boolean) => {
-    setSelectedIds((prev) => {
+    setSelectedProfileIds((prev) => {
       const next = new Set(prev);
       if (checked) next.add(userId);
       else next.delete(userId);
@@ -197,8 +197,8 @@ export function AdminUsers() {
     if (error) {
       toast.error(`Tömeges kijelölés hiba: ${error.message}`);
     } else {
-      const ids = new Set<string>((data?.selectedUserIds || []) as string[]);
-      setSelectedIds(ids);
+      const ids = new Set<string>((data?.selectedProfileIds || []) as string[]);
+      setSelectedProfileIds(ids);
       setBulkMatchedCount(ids.size);
       toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
     }
@@ -206,13 +206,13 @@ export function AdminUsers() {
   };
 
   const runBulkAction = async (action: 'delete' | 'activate' | 'deactivate') => {
-    if (selectedIds.size === 0) return;
+    if (selectedProfileIds.size === 0) return;
     setBulkApplying(true);
     const { data, error } = await supabase.functions.invoke('admin-bulk-user-actions', {
       body: {
         mode: 'apply',
         action,
-        userIds: Array.from(selectedIds),
+        profileIds: Array.from(selectedProfileIds),
       },
     });
 
@@ -223,7 +223,7 @@ export function AdminUsers() {
       const failures = Number(data?.failures || 0);
       toast.success(`${affected} profil művelete lefutott.${failures ? ` ${failures} hiba történt.` : ''}`);
       setPendingAction(null);
-      setSelectedIds(new Set());
+      setSelectedProfileIds(new Set());
       setBulkMatchedCount(0);
       await loadProfiles();
     }
@@ -248,19 +248,19 @@ export function AdminUsers() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="destructive" size="sm" className="rounded-xl gap-2" disabled={selectedIds.size === 0} onClick={() => setPendingAction('delete')}>
+            <Button variant="destructive" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('delete')}>
               <Trash2 className="h-4 w-4" /> Törlés
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedIds.size === 0} onClick={() => setPendingAction('activate')}>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('activate')}>
               <CheckCircle2 className="h-4 w-4" /> Aktiválás
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedIds.size === 0} onClick={() => setPendingAction('deactivate')}>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('deactivate')}>
               <Ban className="h-4 w-4" /> Deaktiválás
             </Button>
             <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled>
               <Mail className="h-4 w-4" /> Emlékeztető kiküldése
             </Button>
-            <Badge variant="outline">Kijelölve: {selectedIds.size}</Badge>
+            <Badge variant="outline">Kijelölve: {selectedProfileIds.size}</Badge>
           </div>
           {loading ? (
             <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
@@ -285,7 +285,7 @@ export function AdminUsers() {
                 <TableBody>
                   {visibleProfiles.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell><Checkbox checked={selectedIds.has(p.user_id)} onCheckedChange={(v) => toggleSingle(p.user_id, Boolean(v))} /></TableCell>
+                      <TableCell><Checkbox checked={selectedProfileIds.has(p.id)} onCheckedChange={(v) => toggleSingle(p.id, Boolean(v))} /></TableCell>
                       <TableCell className="font-medium">{p.display_name || '—'}</TableCell>
                       <TableCell>
                         <Badge variant={p.user_origin === 'generated' ? 'secondary' : 'outline'}>{p.user_origin === 'generated' ? 'Generált' : 'Igazi'}</Badge>
@@ -387,8 +387,8 @@ export function AdminUsers() {
             </div>
             <div className="flex items-center gap-3">
               <Button className="rounded-xl gap-2" disabled={bulkApplying} onClick={applyBulkSelection}><Filter className="h-4 w-4" /> Szűrés</Button>
-              <Button variant="outline" className="rounded-xl" onClick={() => { setBulkFilters(EMPTY_FILTERS); setSelectedIds(new Set()); setBulkMatchedCount(0); }}>Szűrők törlése</Button>
-              <Badge variant="secondary">Kijelölt profilok száma: {bulkMatchedCount || selectedIds.size}</Badge>
+              <Button variant="outline" className="rounded-xl" onClick={() => { setBulkFilters(EMPTY_FILTERS); setSelectedProfileIds(new Set()); setBulkMatchedCount(0); }}>Szűrők törlése</Button>
+              <Badge variant="secondary">Kijelölt profilok száma: {selectedProfileIds.size}</Badge>
             </div>
           </div>
         </DialogContent>
@@ -438,7 +438,7 @@ export function AdminUsers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Biztosan végrehajtod a műveletet?</AlertDialogTitle>
             <AlertDialogDescription>
-              A kijelölt profilokra fut le a művelet. Kijelölt profilok száma: {selectedIds.size}. Ez a művelet különösen törlés esetén nem visszavonható.
+              A kijelölt profilokra fut le a művelet. Kijelölt profilok száma: {selectedProfileIds.size}. Ez a művelet különösen törlés esetén nem visszavonható.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -31,25 +31,24 @@ export function OrganizerModeProvider({ children }: { children: ReactNode }) {
 
     void supabase
       .from('events')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('created_by', user.id)
-      .then(({ count, error }) => {
+      .then(({ data, error }) => {
         if (!active) return;
         if (error) {
           console.error('owned events count failed', error);
           setOwnedEventCount(0);
           return;
         }
-        setOwnedEventCount(count ?? 0);
-        if ((count ?? 0) === 0 && mode === 'organizer') {
+        const count = (data || []).length;
+        setOwnedEventCount(count);
+        if (count === 0 && mode === 'organizer') {
           setModeState('community');
           window.localStorage.setItem(STORAGE_KEY, 'community');
         }
       });
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [user, mode]);
 
   const setMode = (nextMode: 'community' | 'organizer') => {

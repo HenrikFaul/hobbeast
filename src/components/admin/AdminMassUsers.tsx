@@ -131,10 +131,12 @@ export function AdminMassUsers({ onUsersCreated }: Props) {
       const { data, error } = await supabase.functions.invoke('mass-create-users', { body: { users: generated } });
       if (error) throw error;
 
-      const result = data as { created: number; errors: string[] };
-      if (result.errors?.length) {
-        console.error('mass-create-users errors', result.errors);
-        toast.warning(`${result.created} felhasználó létrehozva, ${result.errors.length} részleges hiba.`);
+      const result = data as { created: number; errors?: string[]; profileErrors?: string[] };
+      const authErrors = result.errors || [];
+      const profileErrors = result.profileErrors || [];
+      if (authErrors.length || profileErrors.length) {
+        console.error('mass-create-users errors', { authErrors, profileErrors });
+        toast.warning(`${result.created} felhasználó auth szinten létrejött, ${authErrors.length + profileErrors.length} részleges hiba.`);
       } else {
         toast.success(`${result.created} felhasználó sikeresen létrehozva!`);
         setGenerated([]);
@@ -142,6 +144,10 @@ export function AdminMassUsers({ onUsersCreated }: Props) {
 
       if (result.created > 0) {
         await onUsersCreated?.();
+      }
+
+      if (!authErrors.length && !profileErrors.length) {
+        setGenerated([]);
       }
     } catch (err: any) {
       console.error(err);
