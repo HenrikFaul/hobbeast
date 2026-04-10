@@ -2,3 +2,6 @@ project_id = "dsymdijzydaehntlmfzl"
 
 [functions.mass-create-users]
 verify_jwt = false
+
+[functions.admin-bulk-user-actions]
+verify_jwt = false

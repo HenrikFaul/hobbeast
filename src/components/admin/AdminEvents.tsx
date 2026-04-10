@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "lucide-react";
+import { getParticipantStatsMap } from "@/lib/eventParticipantStats";
 
 interface EventRow {
   id: string;
@@ -14,7 +15,13 @@ interface EventRow {
   is_active: boolean;
   created_at: string;
   image_emoji: string | null;
-  event_participants: { count: number }[];
+  created_by: string;
+  outcome_status?: string | null;
+  registrations_count?: number | null;
+  cancellations_count?: number | null;
+  attended_count?: number | null;
+  average_rating?: number | null;
+  participant_count?: number;
 }
 
 export function AdminEvents() {
@@ -22,12 +29,19 @@ export function AdminEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
+    void supabase
       .from('events')
-      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, event_participants(count)')
+      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, created_by, outcome_status, registrations_count, cancellations_count, attended_count, average_rating')
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setEvents((data as unknown as EventRow[]) || []);
+      .then(async ({ data, error }) => {
+        if (error) {
+          console.error('admin events fetch failed', error);
+          setEvents([]);
+          setLoading(false);
+          return;
+        }
+        const statsMap = await getParticipantStatsMap((data ?? []).map((row: any) => row.id));
+        setEvents(((data as EventRow[]) || []).map((row) => ({ ...row, participant_count: statsMap.get(row.id)?.total || row.registrations_count || 0 })));
         setLoading(false);
       });
   }, []);
@@ -41,9 +55,7 @@ export function AdminEvents() {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-          </div>
+          <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
         ) : events.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">Nincs esemény az adatbázisban.</p>
         ) : (
@@ -55,27 +67,28 @@ export function AdminEvents() {
                   <TableHead>Kategória</TableHead>
                   <TableHead>Dátum</TableHead>
                   <TableHead>Város</TableHead>
-                  <TableHead>Résztvevők</TableHead>
+                  <TableHead>Létrehozó</TableHead>
+                  <TableHead>Jelentkezők</TableHead>
+                  <TableHead>Lemondás</TableHead>
+                  <TableHead>Részt vett</TableHead>
+                  <TableHead>Értékelés</TableHead>
                   <TableHead>Státusz</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {events.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell className="font-medium">
-                      <span className="mr-1">{e.image_emoji || '🎉'}</span>
-                      {e.title}
-                    </TableCell>
+                    <TableCell className="font-medium"><span className="mr-1">{e.image_emoji || '🎉'}</span>{e.title}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-xs">{e.category}</Badge></TableCell>
-                    <TableCell className="text-xs">
-                      {e.event_date ? new Date(e.event_date).toLocaleDateString('hu-HU') : '—'}
-                    </TableCell>
+                    <TableCell className="text-xs">{e.event_date ? new Date(e.event_date).toLocaleDateString('hu-HU') : '—'}</TableCell>
                     <TableCell>{e.location_city || '—'}</TableCell>
-                    <TableCell>{e.event_participants?.[0]?.count || 0}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{e.created_by}</TableCell>
+                    <TableCell>{e.participant_count || 0}</TableCell>
+                    <TableCell>{e.cancellations_count || 0}</TableCell>
+                    <TableCell>{e.attended_count || 0}</TableCell>
+                    <TableCell>{e.average_rating ? Number(e.average_rating).toFixed(1) : '—'}</TableCell>
                     <TableCell>
-                      <Badge variant={e.is_active ? "default" : "outline"} className={e.is_active ? "bg-success text-success-foreground" : ""}>
-                        {e.is_active ? 'Aktív' : 'Inaktív'}
-                      </Badge>
+                      <Badge variant={e.is_active ? 'default' : 'outline'}>{e.outcome_status || (e.is_active ? 'Aktív' : 'Inaktív')}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}

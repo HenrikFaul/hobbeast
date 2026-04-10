@@ -6,18 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Users, Wand2, Save, LogIn, Trash2, Edit2 } from 'lucide-react';
+import { Users, Wand2, Save, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HOBBY_CATALOG } from '@/lib/hobbyCategories';
 
-// Hungarian and European first/last names for realistic generation
 const FIRST_NAMES_HU = ['Anna', 'Béla', 'Csaba', 'Dóra', 'Eszter', 'Ferenc', 'Gábor', 'Hajnalka', 'István', 'Judit', 'Katalin', 'László', 'Márton', 'Nóra', 'Olga', 'Péter', 'Réka', 'Sándor', 'Tamás', 'Vera', 'Zoltán', 'Ágnes', 'Balázs', 'Emese', 'Gergő', 'Ildikó', 'Krisztina', 'Miklós', 'Nikolett', 'Rita', 'Szilvia', 'Tibor', 'Zsófia', 'Attila', 'Boglárka', 'Dániel', 'Erika', 'Flóra', 'Henrik', 'Julianna'];
 const LAST_NAMES_HU = ['Nagy', 'Kovács', 'Tóth', 'Szabó', 'Horváth', 'Varga', 'Kiss', 'Molnár', 'Németh', 'Farkas', 'Balogh', 'Papp', 'Takács', 'Juhász', 'Lakatos', 'Mészáros', 'Oláh', 'Simon', 'Rácz', 'Fekete', 'Szűcs', 'Török', 'Fehér', 'Balázs', 'Gál', 'Pintér', 'Szalai', 'Budai', 'Szilágyi', 'Vincze'];
 const FIRST_NAMES_EU = ['Sophie', 'Maximilian', 'Lukas', 'Emma', 'Jan', 'Marie', 'Thomas', 'Laura', 'Martin', 'Katarina', 'Pavel', 'Ivana', 'Marco', 'Elena', 'Hans', 'Julia', 'Stefan', 'Ana', 'Aleksander', 'Marta'];
 const LAST_NAMES_EU = ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker', 'Novák', 'Dvořák', 'Horák', 'Kučera', 'Kowalski', 'Wiśniewski', 'Popescu', 'Ionescu', 'Marinov', 'Petrov', 'Jovanović', 'Horvat'];
 
 const CITIES_HU = [
-  { name: 'Budapest', lat: 47.497, lon: 19.040 },
+  { name: 'Budapest', lat: 47.497, lon: 19.04 },
   { name: 'Debrecen', lat: 47.531, lon: 21.625 },
   { name: 'Szeged', lat: 46.253, lon: 20.148 },
   { name: 'Miskolc', lat: 48.103, lon: 20.778 },
@@ -26,7 +25,7 @@ const CITIES_HU = [
   { name: 'Nyíregyháza', lat: 47.955, lon: 21.717 },
   { name: 'Kecskemét', lat: 46.906, lon: 19.691 },
   { name: 'Székesfehérvár', lat: 47.186, lon: 18.421 },
-  { name: 'Szombathely', lat: 47.230, lon: 16.621 },
+  { name: 'Szombathely', lat: 47.23, lon: 16.621 },
 ];
 
 const CITIES_EU = [
@@ -36,18 +35,16 @@ const CITIES_EU = [
   { name: 'Zagreb', lat: 45.815, lon: 15.982 },
   { name: 'Ljubljana', lat: 46.056, lon: 14.508 },
   { name: 'Košice', lat: 48.716, lon: 21.261 },
-  { name: 'Timișoara', lat: 45.760, lon: 21.226 },
-  { name: 'Graz', lat: 47.070, lon: 15.439 },
+  { name: 'Timișoara', lat: 45.76, lon: 21.226 },
+  { name: 'Graz', lat: 47.07, lon: 15.439 },
 ];
-
-const ALL_CITIES = [...CITIES_HU, ...CITIES_EU];
 
 function randomFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function randomHobbies(): string[] {
-  const allActivities = HOBBY_CATALOG.flatMap(c => c.subcategories.flatMap(s => s.activities.map(a => a.name)));
+  const allActivities = HOBBY_CATALOG.flatMap((c) => c.subcategories.flatMap((s) => s.activities.map((a) => a.name)));
   const count = 1 + Math.floor(Math.random() * 5);
   const shuffled = [...allActivities].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
@@ -72,7 +69,7 @@ interface GeneratedUser {
 let idCounter = 0;
 function generateUsers(count: number): GeneratedUser[] {
   const users: GeneratedUser[] = [];
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count; i += 1) {
     const isHungarian = Math.random() < 0.7;
     const firstName = isHungarian ? randomFrom(FIRST_NAMES_HU) : randomFrom(FIRST_NAMES_EU);
     const lastName = isHungarian ? randomFrom(LAST_NAMES_HU) : randomFrom(LAST_NAMES_EU);
@@ -94,7 +91,11 @@ function generateUsers(count: number): GeneratedUser[] {
   return users;
 }
 
-export function AdminMassUsers() {
+interface Props {
+  onUsersCreated?: () => Promise<void> | void;
+}
+
+export function AdminMassUsers({ onUsersCreated }: Props) {
   const [count, setCount] = useState(10);
   const [generated, setGenerated] = useState<GeneratedUser[]>([]);
   const [creating, setCreating] = useState(false);
@@ -106,14 +107,11 @@ export function AdminMassUsers() {
       toast.error('1 és 1000 közötti számot adj meg!');
       return;
     }
-    const newUsers = generateUsers(count);
-    setGenerated(prev => [...prev, ...newUsers]);
+    setGenerated((prev) => [...prev, ...generateUsers(count)]);
     toast.success(`${count} felhasználó generálva (előnézet).`);
   };
 
-  const handleRemove = (id: string) => {
-    setGenerated(prev => prev.filter(u => u.id !== id));
-  };
+  const handleRemove = (id: string) => setGenerated((prev) => prev.filter((u) => u.id !== id));
 
   const startEdit = (user: GeneratedUser) => {
     setEditingId(user.id);
@@ -121,7 +119,7 @@ export function AdminMassUsers() {
   };
 
   const saveEdit = (id: string) => {
-    setGenerated(prev => prev.map(u => u.id === id ? { ...u, ...editValue } : u));
+    setGenerated((prev) => prev.map((u) => (u.id === id ? { ...u, ...editValue, hobbies: editValue.hobbies ?? u.hobbies } as GeneratedUser : u)));
     setEditingId(null);
     setEditValue({});
   };
@@ -129,35 +127,28 @@ export function AdminMassUsers() {
   const handleCreateAll = async () => {
     if (generated.length === 0) return;
     setCreating(true);
-
     try {
-      // Batch insert via edge function
-      const { data, error } = await supabase.functions.invoke('mass-create-users', {
-        body: { users: generated },
-      });
-
+      const { data, error } = await supabase.functions.invoke('mass-create-users', { body: { users: generated } });
       if (error) throw error;
+
       const result = data as { created: number; errors: string[] };
-      if (result.errors?.length > 0) {
-        console.error('mass-create-users partial errors', result.errors);
-        if (result.created > 0) {
-          toast.warning(`${result.created} felhasználó létrehozva, ${result.errors.length} részleges hiba.`);
-        } else {
-          toast.error(`A létrehozás sikertelen, ${result.errors.length} hiba.`);
-        }
+      if (result.errors?.length) {
+        console.error('mass-create-users errors', result.errors);
+        toast.warning(`${result.created} felhasználó létrehozva, ${result.errors.length} részleges hiba.`);
       } else {
         toast.success(`${result.created} felhasználó sikeresen létrehozva!`);
         setGenerated([]);
       }
-    } catch (err: any) {
-      toast.error(`Hiba: ${err.message || 'Ismeretlen hiba'}`);
-    }
-    setCreating(false);
-  };
 
-  const handleViewAs = async (userId: string) => {
-    // This would require an admin impersonation endpoint
-    toast.info('A "View As" funkció az admin impersonation edge function-ön keresztül fog működni. Fejlesztés alatt.');
+      if (result.created > 0) {
+        await onUsersCreated?.();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Hiba: ${err.message || 'Ismeretlen hiba'}`);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -169,18 +160,10 @@ export function AdminMassUsers() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Generator controls */}
         <div className="flex items-end gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Generálandó felhasználók száma</Label>
-            <Input
-              type="number"
-              min={1}
-              max={1000}
-              value={count}
-              onChange={e => setCount(parseInt(e.target.value) || 0)}
-              className="w-32 rounded-xl h-10"
-            />
+            <Input type="number" min={1} max={1000} value={count} onChange={(e) => setCount(parseInt(e.target.value, 10) || 0)} className="w-32 rounded-xl h-10" />
           </div>
           <Button onClick={handleGenerate} className="rounded-xl h-10 gap-1.5">
             <Wand2 className="h-4 w-4" /> Generálás
@@ -197,7 +180,6 @@ export function AdminMassUsers() {
           Létrehozás előtt szerkesztheted az adatokat.
         </p>
 
-        {/* Preview table */}
         {generated.length > 0 && (
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
             <Table>
@@ -212,40 +194,26 @@ export function AdminMassUsers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {generated.map(u => (
+                {generated.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell>
                       {editingId === u.id ? (
-                        <Input
-                          value={editValue.display_name || ''}
-                          onChange={e => setEditValue(prev => ({ ...prev, display_name: e.target.value }))}
-                          className="h-8 text-sm"
-                        />
+                        <Input value={editValue.display_name || ''} onChange={(e) => setEditValue((prev) => ({ ...prev, display_name: e.target.value }))} className="h-8 text-sm" />
                       ) : (
                         <span className="font-medium">{u.display_name}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {editingId === u.id ? (
-                        <Input
-                          value={editValue.city || ''}
-                          onChange={e => setEditValue(prev => ({ ...prev, city: e.target.value }))}
-                          className="h-8 text-sm w-28"
-                        />
-                      ) : (
-                        u.city
-                      )}
+                        <Input value={editValue.city || ''} onChange={(e) => setEditValue((prev) => ({ ...prev, city: e.target.value }))} className="h-8 text-sm w-28" />
+                      ) : u.city}
                     </TableCell>
                     <TableCell>{u.age}</TableCell>
                     <TableCell>{u.gender}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {u.hobbies.slice(0, 2).map(h => (
-                          <Badge key={h} variant="secondary" className="text-[10px]">{h}</Badge>
-                        ))}
-                        {u.hobbies.length > 2 && (
-                          <Badge variant="outline" className="text-[10px]">+{u.hobbies.length - 2}</Badge>
-                        )}
+                      <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        {u.hobbies.slice(0, 2).map((h) => <Badge key={h} variant="secondary" className="text-[10px]">{h}</Badge>)}
+                        {u.hobbies.length > 2 && <Badge variant="outline" className="text-[10px]">+{u.hobbies.length - 2}</Badge>}
                       </div>
                     </TableCell>
                     <TableCell>

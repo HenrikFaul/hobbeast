@@ -15,6 +15,7 @@ import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
+import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
@@ -38,7 +39,6 @@ interface EventData {
   tags: string[] | null;
   description: string | null;
   created_by: string;
-  organizer_id?: string | null;
   participant_count?: number;
   source?: 'hobbeast' | 'eventbrite';
   source_label?: string;
@@ -240,15 +240,24 @@ const Events = () => {
 
   const fetchEvents = async () => {
     const today = getTodayDateString();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('events')
-      .select('*, event_participants(count)')
+      .select('*')
       .eq('is_active', true)
       .gte('event_date', today);
 
-    if (data) {
-      setDbEvents(data.map((e: any) => ({ ...e, participant_count: e.event_participants?.[0]?.count || 0, source: 'hobbeast' as const, source_label: 'Hobbeast' })));
+    if (error) {
+      console.error('events fetch failed', error);
+      return;
     }
+
+    const statsMap = await getParticipantStatsMap((data ?? []).map((event: any) => event.id));
+    setDbEvents((data ?? []).map((e: any) => ({
+      ...e,
+      participant_count: statsMap.get(e.id)?.total || 0,
+      source: 'hobbeast' as const,
+      source_label: 'Hobbeast',
+    })));
   };
 
   const fetchExternalDbEvents = async () => {
@@ -386,7 +395,7 @@ const Events = () => {
   const filtered = useMemo(() => {
     return allEvents.filter((ev) => {
       const relation: EventRelation =
-        user && ((ev.organizer_id ?? ev.created_by) === user.id) ? 'own' :
+        user && ev.created_by === user.id ? 'own' :
         joinedEventIds.has(ev.id) ? 'joined' :
         eventMatchesFavorites(ev, favorites) ? 'interest' :
         'default';
@@ -647,7 +656,7 @@ const Events = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filtered.map((event, i) => {
             const relation: EventRelation =
-              user && ((event.organizer_id ?? event.created_by) === user.id) ? 'own' :
+              user && event.created_by === user.id ? 'own' :
               joinedEventIds.has(event.id) ? 'joined' :
               eventMatchesFavorites(event, favorites) ? 'interest' :
               'default';
