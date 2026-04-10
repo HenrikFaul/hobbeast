@@ -13,7 +13,7 @@ import { EditEventDialog } from "@/components/EditEventDialog";
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
-import { getParticipantStats } from '@/lib/eventParticipantStats';
+import { getParticipantStatsMap, type ParticipantStats } from '@/lib/eventParticipantStats';
 
 interface EventData {
   id: string;
@@ -101,8 +101,8 @@ const EventDetail = () => {
         .single();
       if (data) {
         setEvent(data);
-        const stats = await getParticipantStats(id);
-        setParticipantCount(stats.total);
+        const statsMap = await getParticipantStatsMap([id]);
+        setParticipantCount(statsMap.get(id)?.total || 0);
         try {
           const loadedTripPlan = await getEventTripPlan(id);
           setTripPlan(loadedTripPlan);
@@ -394,8 +394,8 @@ const EventDetail = () => {
                 .then(async ({ data }) => {
                   if (data) {
                     setEvent(data);
-                    const stats = await getParticipantStats(id);
-                    setParticipantCount(stats.total);
+                    const statsMap = await getParticipantStatsMap([id]);
+                    setParticipantCount(statsMap.get(id)?.total || 0);
                     getEventTripPlan(id)
                       .then((plan) => setTripPlan(plan))
                       .catch((error) => console.error('Failed to refresh trip plan', error));

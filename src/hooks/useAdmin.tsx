@@ -16,8 +16,9 @@ export function useAdmin() {
     }
 
     setLoading(true);
-    supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' })
-      .then(({ data, error }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
         if (!active) return;
         if (error) {
           console.error('has_role failed', error);
@@ -25,10 +26,10 @@ export function useAdmin() {
         } else {
           setIsAdmin(Boolean(data));
         }
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       active = false;

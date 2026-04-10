@@ -322,7 +322,7 @@ export function CommonAdminPanel() {
               {catalogStatus?.state?.last_error ? <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p> : null}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={refreshStatus} disabled={loading}>
+              <Button variant="outline" onClick={() => refreshStatus()} disabled={loading}>
                 <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Állapot frissítése
               </Button>
               <Badge variant="secondary">A provider választás és import tesztek az Import tabon élnek</Badge>
