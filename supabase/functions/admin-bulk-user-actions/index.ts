@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseAdmin, resolveInternalSupabaseUrl } from "../shared/providerFetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -207,9 +208,8 @@ async function applyAction(adminClient: AdminClient, action: Action, profileIds:
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const supabaseUrl = resolveInternalSupabaseUrl(req);
+    const adminClient = getSupabaseAdmin(req);
     const caller = await ensureAdmin(req, supabaseUrl, adminClient);
     if (!caller) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

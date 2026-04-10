@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseAdmin, resolveInternalSupabaseUrl } from "../shared/providerFetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,11 +124,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const supabaseUrl = resolveInternalSupabaseUrl(req);
+    const supabaseAdmin = getSupabaseAdmin(req);
 
     const caller = await ensureAdmin(req, supabaseUrl, supabaseAdmin);
     if (!caller) {
