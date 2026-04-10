@@ -34,15 +34,22 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(resolvedSupabaseUrl),
-      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(resolvedSupabaseKey),
-      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(resolvedProjectId),
+      __APP_SUPABASE_URL__: JSON.stringify(resolvedSupabaseUrl),
+      __APP_SUPABASE_PUBLISHABLE_KEY__: JSON.stringify(resolvedSupabaseKey),
+      __APP_SUPABASE_PROJECT_ID__: JSON.stringify(resolvedProjectId),
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-      },
+      alias: [
+        {
+          find: "@/integrations/supabase/client",
+          replacement: path.resolve(__dirname, "./src/integrations/supabase/runtime-client.ts"),
+        },
+        {
+          find: "@",
+          replacement: path.resolve(__dirname, "./src"),
+        },
+      ],
     },
   };
 });
