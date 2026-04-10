@@ -3,8 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-const VIRTUAL_SUPABASE_CLIENT_ID = "\0virtual:app-supabase-client";
-
 function normalizeUrl(value?: string) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
@@ -20,30 +18,20 @@ function extractProjectRef(url?: string) {
   }
 }
 
-function createSupabaseClientVirtualPlugin(supabaseUrl: string, supabaseKey: string) {
+function createSupabaseClientTransformPlugin(supabaseUrl: string, supabaseKey: string) {
   return {
-    name: "virtual-supabase-client",
+    name: "transform-supabase-client-env",
     enforce: "pre" as const,
-    resolveId(source: string) {
-      if (source === "@/integrations/supabase/client") {
-        return VIRTUAL_SUPABASE_CLIENT_ID;
-      }
-      return null;
-    },
-    load(id: string) {
-      if (id !== VIRTUAL_SUPABASE_CLIENT_ID) return null;
+    transform(code: string, id: string) {
+      const normalizedId = id.replace(/\\/g, "/");
+      if (!normalizedId.endsWith("/src/integrations/supabase/client.ts")) return null;
 
-      return `import { createClient } from '@supabase/supabase-js';
-import type { Database } from '/src/integrations/supabase/types.ts';
-
-export const supabase = createClient<Database>(${JSON.stringify(supabaseUrl)}, ${JSON.stringify(supabaseKey)}, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
-`;
+      return {
+        code: code
+          .replace(/import\.meta\.env\.VITE_SUPABASE_URL/g, JSON.stringify(supabaseUrl))
+          .replace(/import\.meta\.env\.VITE_SUPABASE_PUBLISHABLE_KEY/g, JSON.stringify(supabaseKey)),
+        map: null,
+      };
     },
   };
 }
@@ -67,7 +55,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [createSupabaseClientVirtualPlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [createSupabaseClientTransformPlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
