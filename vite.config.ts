@@ -18,12 +18,34 @@ function extractProjectRef(url?: string) {
   }
 }
 
+function createSupabaseClientTransformPlugin(supabaseUrl: string, supabaseKey: string) {
+  return {
+    name: "transform-supabase-client-env",
+    enforce: "pre" as const,
+    transform(code: string, id: string) {
+      const normalizedId = id.replace(/\\/g, "/");
+      if (!normalizedId.endsWith("/src/integrations/supabase/client.ts")) return null;
+
+      return {
+        code: code
+          .replace(/import\.meta\.env\.VITE_SUPABASE_URL/g, JSON.stringify(supabaseUrl))
+          .replace(/import\.meta\.env\.VITE_SUPABASE_PUBLISHABLE_KEY/g, JSON.stringify(supabaseKey)),
+        map: null,
+      };
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const resolvedSupabaseUrl = normalizeUrl(env.SUPABASE_URL || env.VITE_SUPABASE_URL);
   const resolvedSupabaseKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
-  const resolvedProjectId = extractProjectRef(resolvedSupabaseUrl) || String(env.VITE_SUPABASE_PROJECT_ID || "").trim();
+  const resolvedProjectId = extractProjectRef(resolvedSupabaseUrl) || String(env.SUPABASE_PROJECT_ID || env.VITE_SUPABASE_PROJECT_ID || "").trim();
+
+  if (resolvedSupabaseUrl) process.env.VITE_SUPABASE_URL = resolvedSupabaseUrl;
+  if (resolvedSupabaseKey) process.env.VITE_SUPABASE_PUBLISHABLE_KEY = resolvedSupabaseKey;
+  if (resolvedProjectId) process.env.VITE_SUPABASE_PROJECT_ID = resolvedProjectId;
 
   return {
     server: {
@@ -33,23 +55,11 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    define: {
-      __APP_SUPABASE_URL__: JSON.stringify(resolvedSupabaseUrl),
-      __APP_SUPABASE_PUBLISHABLE_KEY__: JSON.stringify(resolvedSupabaseKey),
-      __APP_SUPABASE_PROJECT_ID__: JSON.stringify(resolvedProjectId),
-    },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [createSupabaseClientTransformPlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
-      alias: [
-        {
-          find: "@/integrations/supabase/client",
-          replacement: path.resolve(__dirname, "./src/integrations/supabase/runtime-client.ts"),
-        },
-        {
-          find: "@",
-          replacement: path.resolve(__dirname, "./src"),
-        },
-      ],
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
   };
 });
