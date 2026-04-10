@@ -50,7 +50,7 @@ async function runIntegrationTest(key: string): Promise<{ ok: boolean; message: 
 
       case 'ticketmaster_preview': {
         const { data, error } = await supabase.functions.invoke('sync-ticketmaster-events', {
-          body: { keyword: 'Budapest', countryCode: 'HU', size: 2, page: 0, dryRun: true },
+          body: { action: 'search_preview', params: { keyword: 'Budapest', countryCode: 'HU', size: 2, page: 0 } },
         });
         if (error) throw new Error(error.message);
         const count = Array.isArray(data?.events) ? data.events.length : 0;
@@ -60,7 +60,7 @@ async function runIntegrationTest(key: string): Promise<{ ok: boolean; message: 
 
       case 'seatgeek_preview': {
         const { data, error } = await supabase.functions.invoke('sync-seatgeek-events', {
-          body: { q: 'Budapest', perPage: 2, page: 1, dryRun: true },
+          body: { action: 'search_preview', params: { q: 'Budapest', perPage: 2, page: 1 } },
         });
         if (error) throw new Error(error.message);
         const count = Array.isArray(data?.events) ? data.events.length : 0;
@@ -322,7 +322,7 @@ export function CommonAdminPanel() {
               {catalogStatus?.state?.last_error ? <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p> : null}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={refreshStatus} disabled={loading}>
+              <Button variant="outline" onClick={() => { void refreshStatus(); }} disabled={loading}>
                 <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Állapot frissítése
               </Button>
               <Badge variant="secondary">A provider választás és import tesztek az Import tabon élnek</Badge>

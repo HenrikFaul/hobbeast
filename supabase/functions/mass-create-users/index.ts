@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -17,6 +18,8 @@ interface GeneratedUser {
   age: number;
   bio: string;
 }
+
+type AdminClient = any;
 
 function normalizeGender(value: string): string {
   const v = String(value || "").trim().toLowerCase();
@@ -58,8 +61,13 @@ async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: Ret
   return user;
 }
 
-async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, authUserId: string, u: GeneratedUser, dobStr: string) {
-  const payload = {
+function isMissingColumnError(error: any, columns: string[]) {
+  const message = String(error?.message || error?.details || '');
+  return columns.some((column) => message.includes(column));
+}
+
+async function persistProfile(supabaseAdmin: AdminClient, authUserId: string, u: GeneratedUser, dobStr: string) {
+  const basePayload = {
     display_name: u.display_name,
     city: u.city,
     location_lat: u.lat,
@@ -68,9 +76,13 @@ async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, au
     gender: normalizeGender(u.gender),
     date_of_birth: dobStr,
     bio: u.bio,
+    updated_at: new Date().toISOString(),
+  };
+
+  const extendedPayload = {
+    ...basePayload,
     user_origin: 'generated',
     is_active: true,
-    updated_at: new Date().toISOString(),
   };
 
   const existing = await supabaseAdmin
@@ -81,19 +93,28 @@ async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, au
 
   if (existing.error) return existing.error;
 
-  if (existing.data) {
-    const updateResult = await supabaseAdmin
+  const saveProfile = async (payload: Record<string, unknown>) => {
+    if (existing.data) {
+      const updateResult = await supabaseAdmin
+        .from('profiles')
+        .update(payload)
+        .eq('user_id', authUserId);
+      return updateResult.error;
+    }
+
+    const insertResult = await supabaseAdmin
       .from('profiles')
-      .update(payload)
-      .eq('user_id', authUserId);
-    return updateResult.error;
+      .insert({ id: authUserId, user_id: authUserId, ...payload });
+
+    return insertResult.error;
+  };
+
+  let profileError = await saveProfile(extendedPayload);
+  if (profileError && isMissingColumnError(profileError, ['user_origin', 'is_active'])) {
+    profileError = await saveProfile(basePayload);
   }
 
-  const insertResult = await supabaseAdmin
-    .from('profiles')
-    .insert({ id: authUserId, user_id: authUserId, ...payload });
-
-  return insertResult.error;
+  return profileError;
 }
 
 Deno.serve(async (req) => {
@@ -104,7 +125,9 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const caller = await ensureAdmin(req, supabaseUrl, supabaseAdmin);
     if (!caller) {
@@ -134,7 +157,7 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
-        user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated' },
+          user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated', is_active: true },
       });
 
       if (authError || !authUser.user) {

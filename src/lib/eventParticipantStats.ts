@@ -10,6 +10,11 @@ export interface ParticipantStats {
 
 const EMPTY_STATS: ParticipantStats = { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 };
 
+export async function getParticipantStats(eventId: string): Promise<ParticipantStats> {
+  const statsMap = await getParticipantStatsMap([eventId]);
+  return statsMap.get(eventId) ?? { ...EMPTY_STATS };
+}
+
 export async function getParticipantStatsMap(eventIds: string[]): Promise<Map<string, ParticipantStats>> {
   const uniqueIds = Array.from(new Set(eventIds.filter(Boolean)));
   const statsMap = new Map<string, ParticipantStats>();
