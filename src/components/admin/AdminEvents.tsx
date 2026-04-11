@@ -41,7 +41,7 @@ export function AdminEvents() {
           return;
         }
         const statsMap = await getParticipantStatsMap((data ?? []).map((row: any) => row.id));
-        setEvents(((data as EventRow[]) || []).map((row) => ({ ...row, participant_count: statsMap.get(row.id)?.total || row.registrations_count || 0 })));
+        setEvents(((data as unknown as EventRow[]) || []).map((row) => ({ ...row, participant_count: statsMap.get(row.id)?.total || 0 })));
         setLoading(false);
       });
   }, []);
