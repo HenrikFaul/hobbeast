@@ -9,31 +9,26 @@ export function useAdmin() {
 
   useEffect(() => {
     let active = true;
+    if (!user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
 
-    const checkAdmin = async () => {
-      if (!user) {
-        setIsAdmin(false);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+    setLoading(true);
+    supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' })
+      .then(({ data, error }) => {
         if (!active) return;
-
         if (error) {
           console.error('has_role failed', error);
           setIsAdmin(false);
         } else {
           setIsAdmin(Boolean(data));
         }
-      } finally {
+      })
+      .finally(() => {
         if (active) setLoading(false);
-      }
-    };
-
-    void checkAdmin();
+      });
 
     return () => {
       active = false;

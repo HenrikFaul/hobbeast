@@ -146,3 +146,28 @@ then those should be treated as temporary feeder files only and merged back here
 - **Root cause**: A batch sync csak néhány nagyváros középpontjára kérdezett rá.
 - **Fix**: Tile-alapú országos HU rács bejárás, deduplikáció és részleges-hiba állapotvisszajelzés került be.
 - **Prevention**: Országos cél esetén ne városlista alapú mintavételt használj; legalább bounding-box + grid stratégia kell.
+
+
+### [HIBA-053] Batch user generator profile upsert nem épülhet kizárólag ON CONFLICT-specifikációra
+- **Dátum**: 2026-04-10
+- **Fájl**: `supabase/functions/mass-create-users/index.ts`
+- **Error / symptom**: A tömeges user generálás auth usert létrehozott, de a profile mentés `there is no unique or exclusion constraint matching the ON CONFLICT specification` hibával elhasalt.
+- **Root cause**: A function vakon `upsert(..., { onConflict: 'user_id' / 'id' })` logikára támaszkodott, miközben a tényleges DB állapotban a konfliktuskezelés nem volt garantáltan szinkronban a várt constraint-tel.
+- **Fix**: A profile mentés select-then-update/insert flowra váltott, így nem függ közvetlenül az `ON CONFLICT` feltételtől.
+- **Prevention**: Admin/service-role tömeges írásnál ne kizárólag `upsert onConflict`-ra építs, ha a projektben több migration/patch ág miatt a constraint drift reális kockázat.
+
+### [HIBA-054] Tömeges kijelölésnél UI selection state nem használhat kevert azonosítót
+- **Dátum**: 2026-04-10
+- **Fájl**: `src/components/admin/AdminUsers.tsx`, `supabase/functions/admin-bulk-user-actions/index.ts`
+- **Error / symptom**: A szűrés után a UI több sort kijelöltnek mutatott, miközben a darabszám hibás volt, és egyetlen sor deselect művelete minden kijelölést lenullázott.
+- **Root cause**: A preview, row checkbox és bulk action state keverte a `profile.id` és `user_id` azonosítókat.
+- **Fix**: A frontend selection state és a preview válasz is `profile.id` alapú lett; a backend apply fázis külön oldja fel a kiválasztott profile-okhoz tartozó `user_id` értékeket.
+- **Prevention**: Tömeges UI műveleteknél a kijelölő állapot mindig egyetlen, a megjelenített sorhoz tartozó kanonikus kulcsot használjon.
+
+### [HIBA-055] Hidden admin panelek ne dobjanak startup toastot háttérintegrációs hibák miatt
+- **Dátum**: 2026-04-10
+- **Fájl**: `src/components/admin/CommonAdminPanel.tsx`
+- **Error / symptom**: A felhasználói admin tab megnyitásakor generikus edge-function hiba toast jelent meg akkor is, amikor a problémás hívás valójában háttérben mountolt másik admin panelhez tartozott.
+- **Root cause**: A hidden panel induláskor user-facing toasttal reagált a státuszlekérés hibájára.
+- **Fix**: Az induló állapotlekérés silent módot kapott; háttérhiba logolódik, de nem zavarja a felhasználót általános hibatoasttal.
+- **Prevention**: Rejtett vagy nem aktív admin panelek automatikus háttérhívásai ne dobjanak user-facing toastot inicializáció közben.

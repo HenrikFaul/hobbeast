@@ -159,3 +159,20 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Improved
 - **Security**: Enabled leaked password protection (HIBP check) for signup.
+
+
+## [1.5.2] — 2026-04-10
+### Fixed
+- **Mass user generator profile persistence**: Removed fragile `upsert(..., { onConflict })` dependency from `mass-create-users`; profile enrichment now uses safe select-then-update/insert flow, eliminating `no unique or exclusion constraint matching the ON CONFLICT specification` runtime errors.
+- **Admin bulk selection stability**: Switched batch-selection UI state from `user_id`-based selection to `profile.id`-based selection so filtered multi-select count, partial deselect, and single-row deselect no longer collapse into shared state glitches.
+- **Organizer mode owned event count**: Replaced `HEAD + count exact` query with safe `select('id')` length-based count to avoid admin-side `events ... 500` failures during mode detection.
+- **Notification/admin hook resilience**: `has_role`, notifications, and notification preferences now fail softly with logging instead of destabilizing the whole admin page.
+- **Common Admin startup noise**: Initial hidden-panel status polling no longer raises a user-facing generic edge-function toast on background failure.
+
+### Added
+- **Admin bulk user actions edge function**: Added `admin-bulk-user-actions` for preview/apply flows covering filtered selection, activate/deactivate, and delete operations.
+- **Schema hardening migration**: Added v1.5.2 migration to ensure `profiles.user_origin`, `profiles.is_active`, and unique indexes required by admin/user flows remain present.
+
+### Versioning artifacts
+- `versioning/15041003_v1.5.2_business_request_summary.pdf`
+- `versioning/15041003_v1.5.2_ai_dev_prompts.md`

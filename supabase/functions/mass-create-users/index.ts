@@ -1,6 +1,4 @@
-// deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSupabaseAdmin, resolveInternalSupabaseUrl } from "../shared/providerFetch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,8 +17,6 @@ interface GeneratedUser {
   age: number;
   bio: string;
 }
-
-type AdminClient = any;
 
 function normalizeGender(value: string): string {
   const v = String(value || "").trim().toLowerCase();
@@ -45,7 +41,7 @@ function normalizeHobbies(input: unknown): string[] {
     .filter(Boolean);
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: AdminClient) {
+async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: ReturnType<typeof createClient>) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
 
@@ -62,13 +58,8 @@ async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: Adm
   return user;
 }
 
-function isMissingColumnError(error: any, columns: string[]) {
-  const message = String(error?.message || error?.details || '');
-  return columns.some((column) => message.includes(column));
-}
-
-async function persistProfile(supabaseAdmin: AdminClient, authUserId: string, u: GeneratedUser, dobStr: string) {
-  const basePayload = {
+async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, authUserId: string, u: GeneratedUser, dobStr: string) {
+  const payload = {
     display_name: u.display_name,
     city: u.city,
     location_lat: u.lat,
@@ -77,13 +68,9 @@ async function persistProfile(supabaseAdmin: AdminClient, authUserId: string, u:
     gender: normalizeGender(u.gender),
     date_of_birth: dobStr,
     bio: u.bio,
-    updated_at: new Date().toISOString(),
-  };
-
-  const extendedPayload = {
-    ...basePayload,
     user_origin: 'generated',
     is_active: true,
+    updated_at: new Date().toISOString(),
   };
 
   const existing = await supabaseAdmin
@@ -94,28 +81,19 @@ async function persistProfile(supabaseAdmin: AdminClient, authUserId: string, u:
 
   if (existing.error) return existing.error;
 
-  const saveProfile = async (payload: Record<string, unknown>) => {
-    if (existing.data) {
-      const updateResult = await supabaseAdmin
-        .from('profiles')
-        .update(payload)
-        .eq('user_id', authUserId);
-      return updateResult.error;
-    }
-
-    const insertResult = await supabaseAdmin
+  if (existing.data) {
+    const updateResult = await supabaseAdmin
       .from('profiles')
-      .insert({ id: authUserId, user_id: authUserId, ...payload });
-
-    return insertResult.error;
-  };
-
-  let profileError = await saveProfile(extendedPayload);
-  if (profileError && isMissingColumnError(profileError, ['user_origin', 'is_active'])) {
-    profileError = await saveProfile(basePayload);
+      .update(payload)
+      .eq('user_id', authUserId);
+    return updateResult.error;
   }
 
-  return profileError;
+  const insertResult = await supabaseAdmin
+    .from('profiles')
+    .insert({ id: authUserId, user_id: authUserId, ...payload });
+
+  return insertResult.error;
 }
 
 Deno.serve(async (req) => {
@@ -124,8 +102,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = resolveInternalSupabaseUrl(req);
-    const supabaseAdmin = getSupabaseAdmin(req);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const caller = await ensureAdmin(req, supabaseUrl, supabaseAdmin);
     if (!caller) {
@@ -155,7 +134,7 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
-        user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated', is_active: true },
+        user_metadata: { display_name: u.display_name, is_test_user: true, user_origin: 'generated' },
       });
 
       if (authError || !authUser.user) {
