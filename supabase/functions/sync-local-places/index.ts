@@ -1,6 +1,9 @@
+console.log("DEBUG ACTION:", action, "QUERY:", queryAction, "BODY:", body);
+
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
+
 
 const HUNGARY_BOUNDS = {
   minLat: 45.74,
