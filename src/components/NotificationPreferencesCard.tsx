@@ -47,28 +47,24 @@ export function NotificationPreferencesCard() {
     if (!user) return;
     setPrefs((prev) => ({ ...prev, [key]: value }));
 
-    const { data: existing, error: selectError } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('notification_preferences')
       .select('id')
       .eq('user_id', user.id)
-      .limit(1);
+      .limit(1)
+      .maybeSingle();
 
-    if (selectError) {
-      console.error('notification preferences select failed', selectError);
+    if (existingError) {
       toast.error('Hiba a mentés során.');
       return;
     }
 
-    const payload = { user_id: user.id, [key]: value } as any;
-    const existingRow = Array.isArray(existing) ? existing[0] : null;
-    const response = existingRow
-      ? await supabase.from('notification_preferences').update(payload).eq('id', existingRow.id)
-      : await supabase.from('notification_preferences').insert(payload);
+    const query = existing?.id
+      ? supabase.from('notification_preferences').update({ [key]: value } as any).eq('id', (existing as any).id)
+      : supabase.from('notification_preferences').insert({ user_id: user.id, [key]: value } as any);
 
-    if (response.error) {
-      console.error('notification preferences update failed', response.error);
-      toast.error('Hiba a mentés során.');
-    }
+    const { error } = await query;
+    if (error) toast.error('Hiba a mentés során.');
   };
 
   if (!loaded) return null;

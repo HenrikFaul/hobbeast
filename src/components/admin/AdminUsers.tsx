@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
@@ -158,7 +158,10 @@ export function AdminUsers() {
     });
   }, [profiles, search]);
 
-  const allVisibleSelected = visibleProfiles.length > 0 && visibleProfiles.every((profile) => selectedProfileIds.has(profile.id));
+  const selectedCount = selectedProfileIds.size;
+
+  const allVisibleSelected =
+    visibleProfiles.length > 0 && visibleProfiles.every((profile) => selectedProfileIds.has(profile.id));
 
   const toggleVisible = (checked: boolean) => {
     setSelectedProfileIds((prev) => {
@@ -171,11 +174,11 @@ export function AdminUsers() {
     });
   };
 
-  const toggleSingle = (userId: string, checked: boolean) => {
+  const toggleSingle = (profile: ProfileRow, checked: boolean) => {
     setSelectedProfileIds((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(userId);
-      else next.delete(userId);
+      if (checked) next.add(profile.id);
+      else next.delete(profile.id);
       return next;
     });
   };
@@ -197,9 +200,15 @@ export function AdminUsers() {
     if (error) {
       toast.error(`Tömeges kijelölés hiba: ${error.message}`);
     } else {
-      const ids = new Set<string>((data?.selectedProfileIds || []) as string[]);
+      const rawProfileIds = Array.isArray(data?.selectedProfileIds)
+        ? (data.selectedProfileIds as Array<string | null | undefined>)
+        : Array.isArray(data?.selectedUserIds)
+          ? ((data.selectedUserIds as Array<string | null | undefined>)
+              .map((userId) => profiles.find((profile) => profile.user_id === userId)?.id ?? null))
+          : [];
+      const ids = new Set<string>(rawProfileIds.filter((value): value is string => typeof value === 'string' && value.length > 0));
       setSelectedProfileIds(ids);
-      setBulkMatchedCount(ids.size);
+      setBulkMatchedCount(Number(data?.selectedCount || ids.size));
       toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
     }
     setBulkApplying(false);
@@ -248,19 +257,19 @@ export function AdminUsers() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="destructive" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('delete')}>
+            <Button variant="destructive" size="sm" className="rounded-xl gap-2" disabled={selectedCount === 0} onClick={() => setPendingAction('delete')}>
               <Trash2 className="h-4 w-4" /> Törlés
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('activate')}>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedCount === 0} onClick={() => setPendingAction('activate')}>
               <CheckCircle2 className="h-4 w-4" /> Aktiválás
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedProfileIds.size === 0} onClick={() => setPendingAction('deactivate')}>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedCount === 0} onClick={() => setPendingAction('deactivate')}>
               <Ban className="h-4 w-4" /> Deaktiválás
             </Button>
             <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled>
               <Mail className="h-4 w-4" /> Emlékeztető kiküldése
             </Button>
-            <Badge variant="outline">Kijelölve: {selectedProfileIds.size}</Badge>
+            <Badge variant="outline">Kijelölve: {selectedCount}</Badge>
           </div>
           {loading ? (
             <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
@@ -285,7 +294,7 @@ export function AdminUsers() {
                 <TableBody>
                   {visibleProfiles.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell><Checkbox checked={selectedProfileIds.has(p.id)} onCheckedChange={(v) => toggleSingle(p.id, Boolean(v))} /></TableCell>
+                      <TableCell><Checkbox checked={selectedProfileIds.has(p.id)} onCheckedChange={(v) => toggleSingle(p, Boolean(v))} /></TableCell>
                       <TableCell className="font-medium">{p.display_name || '—'}</TableCell>
                       <TableCell>
                         <Badge variant={p.user_origin === 'generated' ? 'secondary' : 'outline'}>{p.user_origin === 'generated' ? 'Generált' : 'Igazi'}</Badge>
@@ -351,7 +360,9 @@ export function AdminUsers() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Tömeges kijelölés szűrőkkel</DialogTitle>
-            <DialogDescription className="sr-only">Szűrés felhasználótípus, aktivitás és nyitott esemény alapján.</DialogDescription>
+            <DialogDescription>
+              Szűrj felhasználótípus, aktivitás és eseménygazda státusz alapján, majd jelöld ki a találatokat tömeges művelethez.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -389,7 +400,7 @@ export function AdminUsers() {
             <div className="flex items-center gap-3">
               <Button className="rounded-xl gap-2" disabled={bulkApplying} onClick={applyBulkSelection}><Filter className="h-4 w-4" /> Szűrés</Button>
               <Button variant="outline" className="rounded-xl" onClick={() => { setBulkFilters(EMPTY_FILTERS); setSelectedProfileIds(new Set()); setBulkMatchedCount(0); }}>Szűrők törlése</Button>
-              <Badge variant="secondary">Kijelölt profilok száma: {selectedProfileIds.size}</Badge>
+              <Badge variant="secondary">Kijelölt profilok száma: {selectedCount}</Badge>
             </div>
           </div>
         </DialogContent>
@@ -397,7 +408,7 @@ export function AdminUsers() {
 
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-display flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> {selectedUser?.display_name || 'Felhasználó'}</DialogTitle><DialogDescription className="sr-only">Felhasználói profil részletek, hobbik és eseményrészvételek.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> {selectedUser?.display_name || 'Felhasználó'}</DialogTitle><DialogDescription>Felhasználói profiladatok, hobbik és eseményrészvételek részletes megtekintése.</DialogDescription></DialogHeader>
           {selectedUser && (
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -439,7 +450,7 @@ export function AdminUsers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Biztosan végrehajtod a műveletet?</AlertDialogTitle>
             <AlertDialogDescription>
-              A kijelölt profilokra fut le a művelet. Kijelölt profilok száma: {selectedProfileIds.size}. Ez a művelet különösen törlés esetén nem visszavonható.
+              A kijelölt profilokra fut le a művelet. Kijelölt profilok száma: {selectedCount}. Ez a művelet különösen törlés esetén nem visszavonható.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

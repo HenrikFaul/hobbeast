@@ -178,23 +178,21 @@ After review, rename or replace the active root changelog with this canonical st
 - `versioning/15041003_v1.5.2_ai_dev_prompts.md`
 
 
-## [1.5.3] — 2026-04-11
+## [1.5.4] — 2026-04-11
 ### Fixed
-- **Frontend-invoked edge functions**: Added explicit function config for `sync-local-places` and `place-search` so frontend utility calls are no longer blocked by implicit JWT verification.
-- **Event creation payload stability**: `CreateEventDialog` now writes `created_by` consistently and sends `place_categories` as an empty array instead of `null`, preventing `events.place_categories` NOT NULL failures during create flow.
-- **Event edit payload stability**: `EditEventDialog` now normalizes `place_categories` to a non-null array when provider data is missing categories.
-- **Catalog sync reliability**: Removed fragile `upsert(..., { onConflict: 'slug' })` dependency from admin catalog seeding; category / subcategory / activity sync now uses safe select-then-update/insert behavior.
-- **Notification preferences persistence**: Replaced fragile `upsert(..., { onConflict: 'user_id' })` with select-then-update/insert to avoid runtime failures when uniqueness assumptions drift.
-- **Dialog accessibility warnings**: Added missing dialog descriptions to patched dialog flows and command dialog usage.
+- **Admin bulk selection highlight mismatch**: Bulk preview and UI row selection were re-aligned so the preview response now carries `selectedProfileIds`, and the Felhasználók table highlights rows using the same profile-row identifier.
+- **Admin bulk apply compatibility**: `admin-bulk-user-actions` now accepts both `profileIds` and `userIds`, resolves profiles safely, and handles profile-only records without collapsing the whole batch flow.
+- **Real-user preview null-selection bug**: Preview no longer emits unusable null-only selections for profile rows; the response keeps `selectedProfileIds` canonical and surfaces `selectedUserIds` only as secondary data.
+- **Catalog sync 42P10 errors**: Removed fragile `upsert(... onConflict: slug)` writes from hobby catalog sync in favor of select-then-update/insert logic, eliminating repeated `there is no unique or exclusion constraint matching the ON CONFLICT specification` failures.
+- **Notification preferences persistence hardening**: Preference save no longer depends on `onConflict: user_id`; it now uses safe select-then-update/insert logic.
+- **Edge function auth config coverage**: `sync-local-places` and `place-search` were added to `supabase/config.toml` with `verify_jwt = false`, so admin-side invoke calls can be redeployed consistently with the intended gateway behavior.
+- **Dialog accessibility warnings**: Added missing dialog title/description coverage for command palette and admin dialogs to reduce recurring `aria-describedby` / Description warnings.
 
-### Added
-- **Log-driven integrity migration**: Added `20260411143000_log_driven_integrity_fixes.sql` to normalize `events.place_categories` defaults and backfill required unique indexes for catalog and notification-related flows.
-
-### Validation
-- `npm install` completed successfully.
-- `npm run build` completed successfully.
+### Improved
+- **Admin user bulk UX**: Selection count, per-row checkbox state, visible-all toggle, and preview feedback now all use the same row identity logic, reducing desync between backend preview and UI state.
+- **Validation / delivery evidence**: The repo was revalidated with a successful production build after the patch set.
 
 ### Versioning artifacts
-- `versioning/15041105_v1.5.3_business_request_summary.md`
-- `versioning/15041105_v1.5.3_business_request_summary.pdf`
-- `versioning/15041105_v1.5.3_ai_dev_prompts.md`
+- `versioning/15041106_v1.5.4_business_request_summary.md`
+- `versioning/15041106_v1.5.4_business_request_summary.pdf`
+- `versioning/15041106_v1.5.4_ai_dev_prompts.md`

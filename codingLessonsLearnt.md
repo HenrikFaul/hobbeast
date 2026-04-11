@@ -173,42 +173,34 @@ then those should be treated as temporary feeder files only and merged back here
 - **Prevention**: Rejtett vagy nem aktív admin panelek automatikus háttérhívásai ne dobjanak user-facing toastot inicializáció közben.
 
 
-### [HIBA-056] Frontend által hívott utility edge functionök ne maradjanak implicit JWT gate mögött
+### [HIBA-056] Bulk preview response and table checkbox state must use the same row identity
 - **Dátum**: 2026-04-11
-- **Fájl**: `supabase/config.toml`, `src/components/admin/CommonAdminPanel.tsx`, `src/components/admin/AdminEventbrite.tsx`, `src/lib/placeSearch.ts`
-- **Error / symptom**: A logok ismétlődő `sync-local-places 401` és `place-search 401` hibákat mutattak frontend utility hívásokból.
-- **Root cause**: A functionök a frontendből közvetlenül invoke-olva futottak, miközben a gateway oldali JWT verifikáció aktív maradt.
-- **Fix**: Function config szinten `verify_jwt = false` került be az érintett utility functionökhöz.
-- **Prevention**: Minden frontendből közvetlenül invoke-olt utility/admin helper functionnél explicit dönteni kell a gateway auth modellről; ezt nem szabad implicit defaulton hagyni.
+- **Fájl**: `src/components/admin/AdminUsers.tsx`, `supabase/functions/admin-bulk-user-actions/index.ts`
+- **Error / symptom**: A backend preview kiválasztott ID-ket adott vissza, de az UI nem jelölte ki a sorokat vagy hibás darabszámot mutatott.
+- **Root cause**: A preview response és a frontend checkbox state más azonosítót használt (`selectedUserIds` vs. `selectedProfileIds` / `profile.id`).
+- **Fix**: A preview kanonikus mezője ismét a `selectedProfileIds`, az UI ezt használja a megjelenített sorok kijelölésére, miközben a backend másodlagosan továbbra is tud `userId`-t kezelni az apply műveletekhez.
+- **Prevention**: Tömeges kijelölésnél a preview response, a sor kulcsa, a checkbox checked állapota és a batch action payload ugyanarra a megjelenített rekordazonosítóra épüljön.
 
-### [HIBA-057] Event create/edit payload nem küldhet null place_categories értéket, ha az oszlop nem-nullos
+### [HIBA-057] Admin bulk delete/activate flow must tolerate profile-only rows without auth-linked user_id
 - **Dátum**: 2026-04-11
-- **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
-- **Error / symptom**: Esemény létrehozáskor `null value in column "place_categories" violates not-null constraint` hiba jött.
-- **Root cause**: A kliens `null`-t küldött opcionális place kategóriák esetén, miközben a DB oldali szerződés nem-nullos tömböt várt.
-- **Fix**: A kliens mindenhol `[]` fallbackre váltott, a migration pedig DB defaultot is adott az oszlopnak.
-- **Prevention**: Tömb típusú mezőknél a UI/edge/database réteg ugyanarra a kanonikus üres értékre (`[]`) épüljön, ne `null`-ra.
+- **Fájl**: `supabase/functions/admin-bulk-user-actions/index.ts`
+- **Error / symptom**: Egyes rekordoknál a preview null user ID-ket adott, és az apply ág auth-függő törlés/aktiválás miatt instabillá vált.
+- **Root cause**: A rendszer feltételezte, hogy minden profile rekordhoz kötelezően tartozik használható `user_id`.
+- **Fix**: A backend külön kezeli a profile-szintű és auth-szintű feloldást; ha nincs `user_id`, a profile rekord akkor is kezelhető marad profile-ID alapon.
+- **Prevention**: Admin batch logikában ne feltételezd, hogy minden historikus/importált profile rekord auth-userrel is össze van kötve.
 
-### [HIBA-058] Admin katalogus szinkron ne függjön kizárólag slug alapú ON CONFLICT feltételtől
+### [HIBA-058] Catalog seed and preference save should not rely on unverified ON CONFLICT constraints
 - **Dátum**: 2026-04-11
-- **Fájl**: `src/components/admin/AdminCatalog.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
-- **Error / symptom**: `hobby_categories?on_conflict=slug` hívások `42P10` hibával elhasaltak.
-- **Root cause**: A kliens vakon feltételezte a slug mező mögötti unique/exclusion constraint meglétét.
-- **Fix**: A seed flow select-then-update/insert logikára váltott, a migration pedig a hiányzó unique indexeket is létrehozza.
-- **Prevention**: Seed/import admin flowknál a kliensoldali logika ne csak `upsert onConflict`-ra építsen; drift-érzékeny tábláknál legyen explicit fallback mentési stratégia.
+- **Fájl**: `src/components/admin/AdminCatalog.tsx`, `src/components/NotificationPreferencesCard.tsx`
+- **Error / symptom**: `42P10` hibák jelentek meg `hobby_categories?on_conflict=slug` és hasonló mentéseknél.
+- **Root cause**: A kliens olyan `onConflict` mezőkre támaszkodott, amelyekhez a tényleges adatbázisban nem volt garantált unique/exclusion constraint.
+- **Fix**: A mentési utak select-then-update/insert mintára váltottak.
+- **Prevention**: Ha a constraint drift reális, kliensoldalon ne építs vak `upsert(... onConflict ...)` logikára.
 
-### [HIBA-059] Notification preference mentésnél user_id-alapú upsert csak garantált unique index mellett biztonságos
+### [HIBA-059] Edge function verify_jwt config drift can keep admin invoke flows in permanent 401 state
 - **Dátum**: 2026-04-11
-- **Fájl**: `src/components/NotificationPreferencesCard.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
-- **Error / symptom**: A notification preference mentés drift esetén törékeny maradt.
-- **Root cause**: A kliens `upsert(..., { onConflict: 'user_id' })` logikát használt garantált unique index és deduplikáció nélkül.
-- **Fix**: A kliens select-then-update/insert mentésre váltott, a migration unique indexet és deduplikációt ad a táblához.
-- **Prevention**: User preference tábláknál vagy biztosíts unique constraintet migrationnel, vagy ne használj vak upsertet.
-
-### [HIBA-060] Dialog warningok nem maradhatnak ismétlődő accessibility zajként a logokban
-- **Dátum**: 2026-04-11
-- **Fájl**: `src/components/admin/AdminUsers.tsx`, `src/components/admin/AdminCatalog.tsx`, `src/components/ui/command.tsx`
-- **Error / symptom**: Ismétlődő `Missing Description or aria-describedby` warningok jelentek meg.
-- **Root cause**: Több dialog megnyílt leíró szöveg nélkül.
-- **Fix**: Rejtett, de szabványos `DialogDescription` elemek kerültek a releváns dialogokba.
-- **Prevention**: Új dialog komponens csak cím + description párral kerülhet a kódba, még akkor is, ha a leírás vizuálisan rejtett.
+- **Fájl**: `supabase/config.toml`
+- **Error / symptom**: `sync-local-places` és `place-search` admin invoke hívások 401-et adtak, miközben az admin UI ezeket háttér- vagy tooling műveletként használta.
+- **Root cause**: A function config nem tartalmazta következetesen a várt `verify_jwt = false` beállítást minden érintett functionre.
+- **Fix**: A config kiterjesztve lett `sync-local-places` és `place-search` function blokkokkal is.
+- **Prevention**: Ha admin tooling session nélküli vagy lazább gateway-auth modellt igényel, a config és a redeploy együtt legyen frissítve; a kódmódosítás önmagában nem elég.
