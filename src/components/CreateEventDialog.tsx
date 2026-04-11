@@ -162,7 +162,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      organizer_id: user.id,
+      created_by: user.id,
       // Place data from normalized search
       place_name: placeData?.displayName || null,
       place_address: placeData?.address || null,
@@ -170,7 +170,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       place_lat: placeData?.lat || null,
       place_lon: placeData?.lon || null,
       place_source: placeData?.source || null,
-      place_categories: placeData?.categories || null,
+      place_categories: placeData?.categories ?? [],
     } as any;
 
     const { data, error } = await supabase

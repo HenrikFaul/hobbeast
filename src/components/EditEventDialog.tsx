@@ -112,7 +112,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       updatePayload.place_lat = placeSel.lat;
       updatePayload.place_lon = placeSel.lon;
       updatePayload.place_source = placeSel.source;
-      updatePayload.place_categories = placeSel.categories;
+      updatePayload.place_categories = placeSel.categories ?? [];
     }
 
     const { error } = await supabase.from('events').update(updatePayload).eq('id', event.id);

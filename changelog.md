@@ -176,3 +176,25 @@ After review, rename or replace the active root changelog with this canonical st
 ### Versioning artifacts
 - `versioning/15041003_v1.5.2_business_request_summary.pdf`
 - `versioning/15041003_v1.5.2_ai_dev_prompts.md`
+
+
+## [1.5.3] — 2026-04-11
+### Fixed
+- **Frontend-invoked edge functions**: Added explicit function config for `sync-local-places` and `place-search` so frontend utility calls are no longer blocked by implicit JWT verification.
+- **Event creation payload stability**: `CreateEventDialog` now writes `created_by` consistently and sends `place_categories` as an empty array instead of `null`, preventing `events.place_categories` NOT NULL failures during create flow.
+- **Event edit payload stability**: `EditEventDialog` now normalizes `place_categories` to a non-null array when provider data is missing categories.
+- **Catalog sync reliability**: Removed fragile `upsert(..., { onConflict: 'slug' })` dependency from admin catalog seeding; category / subcategory / activity sync now uses safe select-then-update/insert behavior.
+- **Notification preferences persistence**: Replaced fragile `upsert(..., { onConflict: 'user_id' })` with select-then-update/insert to avoid runtime failures when uniqueness assumptions drift.
+- **Dialog accessibility warnings**: Added missing dialog descriptions to patched dialog flows and command dialog usage.
+
+### Added
+- **Log-driven integrity migration**: Added `20260411143000_log_driven_integrity_fixes.sql` to normalize `events.place_categories` defaults and backfill required unique indexes for catalog and notification-related flows.
+
+### Validation
+- `npm install` completed successfully.
+- `npm run build` completed successfully.
+
+### Versioning artifacts
+- `versioning/15041105_v1.5.3_business_request_summary.md`
+- `versioning/15041105_v1.5.3_business_request_summary.pdf`
+- `versioning/15041105_v1.5.3_ai_dev_prompts.md`

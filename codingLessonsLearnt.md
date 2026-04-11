@@ -171,3 +171,44 @@ then those should be treated as temporary feeder files only and merged back here
 - **Root cause**: A hidden panel induláskor user-facing toasttal reagált a státuszlekérés hibájára.
 - **Fix**: Az induló állapotlekérés silent módot kapott; háttérhiba logolódik, de nem zavarja a felhasználót általános hibatoasttal.
 - **Prevention**: Rejtett vagy nem aktív admin panelek automatikus háttérhívásai ne dobjanak user-facing toastot inicializáció közben.
+
+
+### [HIBA-056] Frontend által hívott utility edge functionök ne maradjanak implicit JWT gate mögött
+- **Dátum**: 2026-04-11
+- **Fájl**: `supabase/config.toml`, `src/components/admin/CommonAdminPanel.tsx`, `src/components/admin/AdminEventbrite.tsx`, `src/lib/placeSearch.ts`
+- **Error / symptom**: A logok ismétlődő `sync-local-places 401` és `place-search 401` hibákat mutattak frontend utility hívásokból.
+- **Root cause**: A functionök a frontendből közvetlenül invoke-olva futottak, miközben a gateway oldali JWT verifikáció aktív maradt.
+- **Fix**: Function config szinten `verify_jwt = false` került be az érintett utility functionökhöz.
+- **Prevention**: Minden frontendből közvetlenül invoke-olt utility/admin helper functionnél explicit dönteni kell a gateway auth modellről; ezt nem szabad implicit defaulton hagyni.
+
+### [HIBA-057] Event create/edit payload nem küldhet null place_categories értéket, ha az oszlop nem-nullos
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
+- **Error / symptom**: Esemény létrehozáskor `null value in column "place_categories" violates not-null constraint` hiba jött.
+- **Root cause**: A kliens `null`-t küldött opcionális place kategóriák esetén, miközben a DB oldali szerződés nem-nullos tömböt várt.
+- **Fix**: A kliens mindenhol `[]` fallbackre váltott, a migration pedig DB defaultot is adott az oszlopnak.
+- **Prevention**: Tömb típusú mezőknél a UI/edge/database réteg ugyanarra a kanonikus üres értékre (`[]`) épüljön, ne `null`-ra.
+
+### [HIBA-058] Admin katalogus szinkron ne függjön kizárólag slug alapú ON CONFLICT feltételtől
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/admin/AdminCatalog.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
+- **Error / symptom**: `hobby_categories?on_conflict=slug` hívások `42P10` hibával elhasaltak.
+- **Root cause**: A kliens vakon feltételezte a slug mező mögötti unique/exclusion constraint meglétét.
+- **Fix**: A seed flow select-then-update/insert logikára váltott, a migration pedig a hiányzó unique indexeket is létrehozza.
+- **Prevention**: Seed/import admin flowknál a kliensoldali logika ne csak `upsert onConflict`-ra építsen; drift-érzékeny tábláknál legyen explicit fallback mentési stratégia.
+
+### [HIBA-059] Notification preference mentésnél user_id-alapú upsert csak garantált unique index mellett biztonságos
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/NotificationPreferencesCard.tsx`, `supabase/migrations/20260411143000_log_driven_integrity_fixes.sql`
+- **Error / symptom**: A notification preference mentés drift esetén törékeny maradt.
+- **Root cause**: A kliens `upsert(..., { onConflict: 'user_id' })` logikát használt garantált unique index és deduplikáció nélkül.
+- **Fix**: A kliens select-then-update/insert mentésre váltott, a migration unique indexet és deduplikációt ad a táblához.
+- **Prevention**: User preference tábláknál vagy biztosíts unique constraintet migrationnel, vagy ne használj vak upsertet.
+
+### [HIBA-060] Dialog warningok nem maradhatnak ismétlődő accessibility zajként a logokban
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/admin/AdminUsers.tsx`, `src/components/admin/AdminCatalog.tsx`, `src/components/ui/command.tsx`
+- **Error / symptom**: Ismétlődő `Missing Description or aria-describedby` warningok jelentek meg.
+- **Root cause**: Több dialog megnyílt leíró szöveg nélkül.
+- **Fix**: Rejtett, de szabványos `DialogDescription` elemek kerültek a releváns dialogokba.
+- **Prevention**: Új dialog komponens csak cím + description párral kerülhet a kódba, még akkor is, ha a leírás vizuálisan rejtett.

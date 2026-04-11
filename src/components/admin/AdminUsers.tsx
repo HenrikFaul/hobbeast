@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
@@ -351,6 +351,7 @@ export function AdminUsers() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Tömeges kijelölés szűrőkkel</DialogTitle>
+            <DialogDescription className="sr-only">Szűrés felhasználótípus, aktivitás és nyitott esemény alapján.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -396,7 +397,7 @@ export function AdminUsers() {
 
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-display flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> {selectedUser?.display_name || 'Felhasználó'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> {selectedUser?.display_name || 'Felhasználó'}</DialogTitle><DialogDescription className="sr-only">Felhasználói profil részletek, hobbik és eseményrészvételek.</DialogDescription></DialogHeader>
           {selectedUser && (
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-3 text-sm">

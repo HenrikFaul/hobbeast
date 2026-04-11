@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.admin-bulk-user-actions]
 verify_jwt = false
+
+[functions.sync-local-places]
+verify_jwt = false
+
+[functions.place-search]
+verify_jwt = false

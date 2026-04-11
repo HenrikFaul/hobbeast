@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronRight, Layers, FolderTree, Activity, Plus, Pencil, Trash2, Upload, Database } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -45,6 +45,37 @@ interface DbActivity {
 
 type EditMode = 'category' | 'subcategory' | 'activity';
 
+
+async function getExistingRowIdBySlug(table: 'hobby_categories' | 'hobby_subcategories' | 'hobby_activities', slug: string) {
+  const { data, error } = await supabase
+    .from(table)
+    .select('id')
+    .eq('slug', slug)
+    .limit(1);
+
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0 ? (data[0] as { id: string }).id : null;
+}
+
+async function saveBySlug(
+  table: 'hobby_categories' | 'hobby_subcategories' | 'hobby_activities',
+  slug: string,
+  payload: Record<string, unknown>,
+) {
+  const existingId = await getExistingRowIdBySlug(table, slug);
+
+  if (existingId) {
+    const { data, error } = await supabase.from(table).update(payload as any).eq('id', existingId).select().single();
+    if (error) throw error;
+    return data as { id: string };
+  }
+
+  const { data, error } = await supabase.from(table).insert({ slug, ...(payload as any) }).select().single();
+  if (error) throw error;
+  return data as { id: string };
+}
+
+
 export function AdminCatalog() {
   const codeStats = getCatalogStats();
   const [categories, setCategories] = useState<DbCategory[]>([]);
@@ -80,21 +111,26 @@ export function AdminCatalog() {
     try {
       let sortCat = 0;
       for (const cat of HOBBY_CATALOG) {
-        const { data: catData, error: catErr } = await supabase
-          .from('hobby_categories')
-          .upsert({ slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ }, { onConflict: 'slug' })
-          .select()
-          .single();
-        if (catErr) { console.error(catErr); continue; }
+        let catData: { id: string } | null = null;
+        try {
+          catData = await saveBySlug('hobby_categories', cat.id, {
+            name: cat.name,
+            emoji: cat.emoji,
+            description: cat.description,
+            sort_order: sortCat++,
+          });
+        } catch (catErr) {
+          console.error(catErr);
+          continue;
+        }
 
         let sortSub = 0;
         for (const sub of cat.subcategories) {
           const profile = sub.profile;
-          const { data: subData, error: subErr } = await supabase
-            .from('hobby_subcategories')
-            .upsert({
+          let subData: { id: string } | null = null;
+          try {
+            subData = await saveBySlug('hobby_subcategories', sub.id, {
               category_id: catData.id,
-              slug: sub.id,
               name: sub.name,
               emoji: sub.emoji || null,
               sort_order: sortSub++,
@@ -111,18 +147,17 @@ export function AdminCatalog() {
               is_team_based: profile.isTeamBased,
               can_be_online: profile.canBeOnline,
               suggested_duration_min: profile.suggestedDurationMin || 90,
-            }, { onConflict: 'slug' })
-            .select()
-            .single();
-          if (subErr) { console.error(subErr); continue; }
+            });
+          } catch (subErr) {
+            console.error(subErr);
+            continue;
+          }
 
           let sortAct = 0;
           for (const act of sub.activities) {
-            await supabase
-              .from('hobby_activities')
-              .upsert({
+            try {
+              await saveBySlug('hobby_activities', act.id, {
                 subcategory_id: subData.id,
-                slug: act.id,
                 name: act.name,
                 emoji: act.emoji || null,
                 keywords: act.keywords || [],
@@ -131,7 +166,10 @@ export function AdminCatalog() {
                 is_team_based: act.profile?.isTeamBased ?? null,
                 can_be_online: act.profile?.canBeOnline ?? null,
                 age_restriction: act.profile?.ageRestriction || null,
-              }, { onConflict: 'slug' });
+              });
+            } catch (actErr) {
+              console.error(actErr);
+            }
           }
         }
       }
@@ -346,6 +384,7 @@ export function AdminCatalog() {
             <DialogTitle className="font-display">
               {editItem ? 'Szerkesztés' : 'Hozzáadás'}: {editMode === 'category' ? 'Kategória' : editMode === 'subcategory' ? 'Alkategória' : 'Tevékenység'}
             </DialogTitle>
+            <DialogDescription className="sr-only">Kategória, alkategória vagy tevékenység létrehozása és szerkesztése.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
