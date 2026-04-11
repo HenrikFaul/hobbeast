@@ -492,8 +492,21 @@ serve(async (req) => {
   const supabaseAdmin = getSupabaseAdmin(req);
 
   try {
+    // Query paramok előre, mert SQL-ből a body gyakran üres
+    const url = new URL(req.url);
+    const queryAction = url.searchParams.get('action');
+    const queryReset = url.searchParams.get('reset');
+
     const body = await req.json().catch(() => ({})) as SyncBody;
-    const action = (body.action || 'status') as SyncAction;
+
+    const action = (queryAction || body.action || 'status') as SyncAction;
+    const reset = queryReset === 'true' || body.reset === true;
+
+    const effectiveBody: SyncBody = {
+      ...body,
+      action,
+      reset,
+    };
 
     if (action === 'status') {
       return jsonResponse(await getStatus(supabaseAdmin));
@@ -506,7 +519,14 @@ serve(async (req) => {
 
     if (action === 'save_config') {
       const config = await saveSyncConfig(supabaseAdmin, body.config || {});
-      await appendLog(supabaseAdmin, 'info', 'config_saved', 'Lokális sync konfiguráció elmentve', config as unknown as Record<string, unknown>, runId);
+      await appendLog(
+        supabaseAdmin,
+        'info',
+        'config_saved',
+        'Lokális sync konfiguráció elmentve',
+        config as unknown as Record<string, unknown>,
+        runId,
+      );
       return jsonResponse({ ok: true, config });
     }
 
@@ -514,14 +534,28 @@ serve(async (req) => {
       const minutes = clamp(Number(body.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
       const { error } = await supabaseAdmin.rpc('schedule_local_places_interval', { p_minutes: minutes });
       if (error) throw error;
-      await appendLog(supabaseAdmin, 'success', 'schedule_enabled', `Automatikus batch ütemezés beállítva: ${minutes} percenként`, { interval_minutes: minutes }, runId);
+      await appendLog(
+        supabaseAdmin,
+        'success',
+        'schedule_enabled',
+        `Automatikus batch ütemezés beállítva: ${minutes} percenként`,
+        { interval_minutes: minutes },
+        runId,
+      );
       return jsonResponse({ ok: true, interval_minutes: minutes });
     }
 
     if (action === 'unschedule') {
       const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval');
       if (error) throw error;
-      await appendLog(supabaseAdmin, 'warn', 'schedule_disabled', 'Automatikus batch ütemezés kikapcsolva', {}, runId);
+      await appendLog(
+        supabaseAdmin,
+        'warn',
+        'schedule_disabled',
+        'Automatikus batch ütemezés kikapcsolva',
+        {},
+        runId,
+      );
       return jsonResponse({ ok: true });
     }
 
@@ -531,15 +565,15 @@ serve(async (req) => {
         'info',
         'batch_enqueued',
         'Lokális batch közvetlen futtatással elindítva',
-        { reset: Boolean(body.reset), mode: 'inline_execute', request_id: runId },
+        { reset, mode: 'inline_execute', request_id: runId },
         runId,
       );
 
-      const result = await executeSyncBatch(supabaseAdmin, body, runId);
+      const result = await executeSyncBatch(supabaseAdmin, effectiveBody, runId);
       return jsonResponse({ ...result, requestId: runId, enqueueMode: 'inline_execute' });
     }
 
-    const result = await executeSyncBatch(supabaseAdmin, body, runId);
+    const result = await executeSyncBatch(supabaseAdmin, effectiveBody, runId);
     return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
