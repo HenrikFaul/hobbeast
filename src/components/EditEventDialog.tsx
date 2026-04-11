@@ -83,9 +83,28 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
     };
   }, [event.id]);
 
+  const isLocationValid = (() => {
+    if (locationType === 'online') return true;
+    if (locationType === 'city') return Boolean(locationCity.trim());
+    if (locationType === 'address') return Boolean(locationAddress.trim() || placeSel?.displayName);
+    if (locationType === 'free') return Boolean(locationFreeText.trim());
+    return false;
+  })();
+
+  const isFormValid = Boolean(title.trim() && eventDate && eventTime && isLocationValid);
+
+  const buildStartTimeIso = () => {
+    if (!eventDate || !eventTime) return null;
+    const dateStr = format(eventDate, 'yyyy-MM-dd');
+    return new Date(`${dateStr}T${eventTime}:00`).toISOString();
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!isFormValid) {
+      toast.error('Töltsd ki az összes kötelező mezőt.');
+      return;
+    }
 
     setLoading(true);
     const updatePayload: any = {
@@ -93,6 +112,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
+      start_time: buildStartTimeIso(),
       location_type: locationType,
       location_city: locationCity || null,
       location_district: locationDistrict || null,
@@ -103,6 +123,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      place_categories: placeSel?.categories || [],
     };
 
     if (placeSel) {
@@ -112,13 +133,13 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       updatePayload.place_lat = placeSel.lat;
       updatePayload.place_lon = placeSel.lon;
       updatePayload.place_source = placeSel.source;
-      updatePayload.place_categories = placeSel.categories ?? [];
     }
 
     const { error } = await supabase.from('events').update(updatePayload).eq('id', event.id);
 
     if (error) {
-      toast.error('Hiba a mentés során.');
+      console.error('edit event failed', error);
+      toast.error(error?.message || 'Hiba a mentés során.');
     } else {
       try {
         await upsertEventTripPlan(event.id, tripPlan);
@@ -144,8 +165,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} required className="rounded-xl h-11" />
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} required className={cn("rounded-xl h-11", !title.trim() && "border-destructive focus-visible:ring-destructive")} />
           </div>
 
           <div className="flex gap-3 items-end">
@@ -167,10 +188,10 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground", !eventDate && "border-destructive")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {eventDate ? format(eventDate, 'yyyy. MM. dd.', { locale: hu }) : 'Válassz...'}
                   </Button>
@@ -181,8 +202,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont</Label>
-              <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
+              <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className={cn("rounded-xl h-11", !eventTime && "border-destructive focus-visible:ring-destructive")} />
             </div>
           </div>
 
@@ -192,7 +213,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
           </div>
 
           <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
             <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
@@ -206,7 +227,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
                 setLocationFreeText('');
               }
             }}>
-              <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className={cn("rounded-xl h-11", !isLocationValid && "border-destructive")}><SelectValue /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>

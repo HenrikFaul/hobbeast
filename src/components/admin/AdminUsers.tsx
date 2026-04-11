@@ -158,6 +158,24 @@ export function AdminUsers() {
     });
   }, [profiles, search]);
 
+  const mapBackendSelectionToProfileIds = (data: any) => {
+    const rawProfileIds = Array.isArray(data?.selectedProfileIds)
+      ? data.selectedProfileIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+      : [];
+    const rawUserIds = Array.isArray(data?.selectedUserIds)
+      ? data.selectedUserIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+      : [];
+
+    const matched = profiles.filter((profile) =>
+      rawProfileIds.includes(profile.id)
+      || rawProfileIds.includes(profile.user_id)
+      || rawUserIds.includes(profile.user_id)
+      || rawUserIds.includes(profile.id)
+    );
+
+    return new Set(matched.map((profile) => profile.id));
+  };
+
   const selectedCount = selectedProfileIds.size;
 
   const allVisibleSelected =
@@ -185,6 +203,21 @@ export function AdminUsers() {
 
   const applyBulkSelection = async () => {
     setBulkApplying(true);
+
+    const isDefaultFilter = bulkFilters.userType === 'all'
+      && bulkFilters.hasOpenOwnedEvents === 'all'
+      && !bulkFilters.registeredOlderThanDays
+      && !bulkFilters.inactiveDays;
+
+    if (isDefaultFilter) {
+      const ids = new Set(profiles.map((profile) => profile.id));
+      setSelectedProfileIds(ids);
+      setBulkMatchedCount(ids.size);
+      toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
+      setBulkApplying(false);
+      return;
+    }
+
     const { data, error } = await supabase.functions.invoke('admin-bulk-user-actions', {
       body: {
         mode: 'preview',
@@ -200,15 +233,9 @@ export function AdminUsers() {
     if (error) {
       toast.error(`Tömeges kijelölés hiba: ${error.message}`);
     } else {
-      const rawProfileIds = Array.isArray(data?.selectedProfileIds)
-        ? (data.selectedProfileIds as Array<string | null | undefined>)
-        : Array.isArray(data?.selectedUserIds)
-          ? ((data.selectedUserIds as Array<string | null | undefined>)
-              .map((userId) => profiles.find((profile) => profile.user_id === userId)?.id ?? null))
-          : [];
-      const ids = new Set<string>(rawProfileIds.filter((value): value is string => typeof value === 'string' && value.length > 0));
+      const ids = mapBackendSelectionToProfileIds(data);
       setSelectedProfileIds(ids);
-      setBulkMatchedCount(Number(data?.selectedCount || ids.size));
+      setBulkMatchedCount(ids.size);
       toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
     }
     setBulkApplying(false);

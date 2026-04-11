@@ -204,3 +204,28 @@ then those should be treated as temporary feeder files only and merged back here
 - **Root cause**: A function config nem tartalmazta következetesen a várt `verify_jwt = false` beállítást minden érintett functionre.
 - **Fix**: A config kiterjesztve lett `sync-local-places` és `place-search` function blokkokkal is.
 - **Prevention**: Ha admin tooling session nélküli vagy lazább gateway-auth modellt igényel, a config és a redeploy együtt legyen frissítve; a kódmódosítás önmagában nem elég.
+
+### [HIBA-060] Bulk preview selection must resolve both profile IDs and user IDs before applying checkbox state
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/admin/AdminUsers.tsx`, `supabase/functions/admin-bulk-user-actions/index.ts`
+- **Error / symptom**: A preview response-ben nagy `selectedCount` jött vissza, de az UI csak kevés vagy nulla sort jelölt ki; a “mindegy / mindegy” szűrés sem jelölte ki az összes profilt.
+- **Root cause**: A backend és a frontend nem konzisztensen ugyanazt az azonosítómezőt használta. A response-ben visszajövő értékek részben `user_id`, részben `profile.id` logikát követtek, az UI viszont közvetlenül `profile.id` checkbox state-re próbálta alkalmazni őket.
+- **Fix**: A frontend most lokálisan minden profilt kijelöl, ha nincs tényleges szűrő. Szűrt preview esetén a response-ben kapott ID-ket mind `profiles.id`, mind `profiles.user_id` mentén feloldja checkbox-sorokra. A backend a preview-ból kiszűri a null ID-ket.
+- **Prevention**: Tömeges kijelölésnél mindig legyen egyetlen kanonikus row-selection kulcs, és backendből jövő preview eredményt minden támogatott azonosítómező mentén oldj fel a lokális UI listára.
+
+### [HIBA-061] Event create/edit flows must not allow submission while mandatory datetime and location fields are empty
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`
+- **Error / symptom**: A felhasználó kitöltetlen kötelező mezőkkel is el tudta indítani az esemény mentését, ami adatbázis oldalon `null value` jellegű hibákhoz vezetett.
+- **Root cause**: A formok csak részleges kliensoldali validációt használtak, miközben a tényleges adatbázis-kötelezettségek szigorúbbak voltak.
+- **Fix**: A kötelező mezők megjelölést kaptak, hibaállapotban kiemelést kapnak, és a submit gomb addig inaktív, amíg a minimálisan szükséges mezők nincsenek kitöltve.
+- **Prevention**: A not-null vagy üzletileg kötelező mezőknek minden formban vizuális jelölés, hibaállapot és submit-lock kell.
+
+### [HIBA-062] Legacy and current event datetime fields must be written together during transition period
+- **Dátum**: 2026-04-11
+- **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`, `supabase/migrations/20260411153000_event_start_time_and_bulk_preview_alignment.sql`
+- **Error / symptom**: Esemény mentéskor a rendszer `start_time` hiányára panaszkodott, miközben a UI csak `event_date` és `event_time` mezőket töltött.
+- **Root cause**: A frontend és az adatbázis/deploy állapot között átmeneti sémaeltérés maradt fenn: a runtime környezet részben `start_time` kompatibilitást várt.
+- **Fix**: A frontend most `start_time` / `end_time` kompatibilitási mezőket is ír, a migration pedig backfill + trigger alapú szinkront biztosít.
+- **Prevention**: Sémamigrációs átmenet alatt a write-path legyen kétoldalúan kompatibilis, és triggerrel legyen levédve a kötelező legacy/current mezőpár.
+

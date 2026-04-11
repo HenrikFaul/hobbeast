@@ -141,17 +141,57 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     selectedActivity?.name,
   ].filter(Boolean).join(' › ');
 
+  const isLocationValid = useMemo(() => {
+    if (locationType === 'online') return true;
+    if (locationType === 'city') return Boolean(locationCity.trim());
+    if (locationType === 'address') return Boolean(locationAddress.trim() || placeData?.displayName);
+    if (locationType === 'free') return Boolean(locationFreeText.trim());
+    return false;
+  }, [locationType, locationCity, locationAddress, locationFreeText, placeData]);
+
+  const requiredFieldErrors = useMemo(() => ({
+    title: !title.trim(),
+    category: !selectedCategoryId || !selectedSubcategoryId,
+    eventDate: !eventDate,
+    eventTime: !eventTime,
+    location: !isLocationValid,
+  }), [title, selectedCategoryId, selectedSubcategoryId, eventDate, eventTime, isLocationValid]);
+
+  const isFormValid = !Object.values(requiredFieldErrors).some(Boolean);
+
+  const buildStartTimeIso = () => {
+    if (!eventDate || !eventTime) return null;
+    const dateStr = format(eventDate, 'yyyy-MM-dd');
+    return new Date(`${dateStr}T${eventTime}:00`).toISOString();
+  };
+
+  const buildEndTimeIso = () => {
+    const startIso = buildStartTimeIso();
+    if (!startIso) return null;
+    const minutes = Number(duration);
+    if (!Number.isFinite(minutes) || minutes <= 0) return null;
+    const end = new Date(startIso);
+    end.setMinutes(end.getMinutes() + minutes);
+    return end.toISOString();
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
+    if (!user) return;
+    if (!isFormValid) {
+      toast.error('Töltsd ki az összes kötelező mezőt.');
+      return;
+    }
 
     setLoading(true);
-    const eventInsertPayload = {
+    const eventInsertPayload: any = {
       title: title.trim(),
       description: description.trim() || null,
       category: categoryString,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
+      start_time: buildStartTimeIso(),
+      end_time: buildEndTimeIso(),
       location_type: locationType,
       location_city: locationCity || null,
       location_district: locationDistrict || null,
@@ -163,6 +203,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       created_by: user.id,
+      organizer_id: user.id,
       // Place data from normalized search
       place_name: placeData?.displayName || null,
       place_address: placeData?.address || null,
@@ -170,8 +211,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       place_lat: placeData?.lat || null,
       place_lon: placeData?.lon || null,
       place_source: placeData?.source || null,
-      place_categories: placeData?.categories ?? [],
-    } as any;
+      place_categories: placeData?.categories || [],
+    };
 
     const { data, error } = await supabase
       .from('events')
@@ -180,7 +221,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
       .single();
 
     if (error || !data) {
-      toast.error('Hiba az esemény létrehozásakor.');
+      console.error('create event failed', error);
+      toast.error(error?.message || 'Hiba az esemény létrehozásakor.');
     } else {
       try {
         await upsertEventTripPlan(data.id, tripPlan);
@@ -254,7 +296,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve *</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás (kötelező)" required className={cn("rounded-xl h-11", requiredFieldErrors.title && "border-destructive focus-visible:ring-destructive")} />
           </div>
 
           {/* Quick activity search */}
@@ -271,7 +313,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
           <div className="space-y-3">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kategória *</Label>
             <Select value={selectedCategoryId} onValueChange={handleCategoryChange}>
-              <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Főkategória..." /></SelectTrigger>
+              <SelectTrigger className={cn("rounded-xl h-11", requiredFieldErrors.category && "border-destructive")}><SelectValue placeholder="Főkategória kiválasztása..." /></SelectTrigger>
               <SelectContent className="rounded-xl max-h-60">
                 {HOBBY_CATALOG.map(cat => (
                   <SelectItem key={cat.id} value={cat.id} className="rounded-lg">
@@ -283,7 +325,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
             {selectedCategory && (
               <Select value={selectedSubcategoryId} onValueChange={handleSubcategoryChange}>
-                <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Alkategória..." /></SelectTrigger>
+                <SelectTrigger className={cn("rounded-xl h-11", requiredFieldErrors.category && "border-destructive")}><SelectValue placeholder="Alkategória kiválasztása..." /></SelectTrigger>
                 <SelectContent className="rounded-xl max-h-60">
                   {selectedCategory.subcategories.map(sub => (
                     <SelectItem key={sub.id} value={sub.id} className="rounded-lg">
@@ -351,10 +393,10 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground")}>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground", requiredFieldErrors.eventDate && "border-destructive")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {eventDate ? format(eventDate, 'yyyy. MM. dd.', { locale: hu }) : 'Válassz...'}
                   </Button>
@@ -365,8 +407,8 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont</Label>
-              <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
+              <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className={cn("rounded-xl h-11", requiredFieldErrors.eventTime && "border-destructive focus-visible:ring-destructive")} />
             </div>
           </div>
 
@@ -424,7 +466,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
           {/* Location */}
           <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa és megadása * <span className="text-[10px] normal-case text-muted-foreground">(kötelező)</span></Label>
             <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
@@ -438,7 +480,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                 setLocationFreeText('');
               }
             }}>
-              <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className={cn("rounded-xl h-11", requiredFieldErrors.location && "border-destructive")}><SelectValue /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {LOCATION_TYPES.map(lt => <SelectItem key={lt.value} value={lt.value} className="rounded-lg">{lt.label}</SelectItem>)}
               </SelectContent>
@@ -456,12 +498,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
                   setLocationLon(sel.lon || null);
                   setPlaceData(sel);
                 }}
-                placeholder={venueSearchHint ? `Keress helyszínt: ${venueSearchHint}...` : 'Keress rá egy helyszínre...'}
+                placeholder={venueSearchHint ? `Keress helyszínt: ${venueSearchHint}... (kötelező)` : 'Keress rá egy helyszínre... (kötelező)'}
                 activityHint={venueSearchHint}
               />
             )}
             {locationType === 'free' && (
-              <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín..." className="rounded-xl h-11" />
+              <Input value={locationFreeText} onChange={e => setLocationFreeText(e.target.value)} placeholder="Szabadon megadott helyszín... (kötelező)" className={cn("rounded-xl h-11", requiredFieldErrors.location && "border-destructive focus-visible:ring-destructive")} />
             )}
           </div>
 
@@ -487,8 +529,11 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="pl. Kezdő-barát, Reggeli, Ingyenes" className="rounded-xl h-11" />
           </div>
 
+          {!isFormValid && (
+            <p className="text-xs text-muted-foreground">A * jelölt mezők kötelezők. Az esemény létrehozása csak ezek kitöltése után aktív.</p>
+          )}
           <Button type="submit" className="w-full h-11 rounded-xl gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold"
-            disabled={loading || !title.trim() || !selectedCategoryId || !selectedSubcategoryId}>
+            disabled={loading || !isFormValid}>
             {loading ? 'Létrehozás...' : 'Esemény létrehozása'}
           </Button>
         </form>

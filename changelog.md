@@ -196,3 +196,18 @@ After review, rename or replace the active root changelog with this canonical st
 - `versioning/15041106_v1.5.4_business_request_summary.md`
 - `versioning/15041106_v1.5.4_business_request_summary.pdf`
 - `versioning/15041106_v1.5.4_ai_dev_prompts.md`
+
+## [1.5.5] — 2026-04-11
+### Fixed
+- **Bulk preview / UI selection parity**: The bulk selection modal now treats the “no filters / all” case as a local full-selection of all loaded profiles, and preview mapping now resolves backend IDs against both `profiles.id` and `profiles.user_id` before applying checkbox state.
+- **Bulk preview response hardening**: `admin-bulk-user-actions` now filters null IDs out of preview payloads and returns both canonical `selectedProfileIds` and secondary `selectedUserIds`, plus `selectedRows` for safer debugging.
+- **Open-owned-event filter compatibility**: The admin bulk preview function now checks both `events.organizer_id` and `events.created_by`, reducing schema-drift issues in owner-based filtering.
+- **Event creation required-field protection**: Create Event now visually marks required fields, highlights missing required inputs, and keeps the submit button disabled until the mandatory fields are filled.
+- **Event datetime compatibility write path**: Event creation now writes `start_time` and `end_time` compatibility fields in addition to `event_date` / `event_time`, and guarantees non-null `place_categories` payloads.
+- **Event edit consistency**: Event editing now follows the same required-field and `start_time` compatibility logic, reducing create/edit drift.
+- **Database compatibility migration**: Added a migration that backfills `start_time`, normalizes `place_categories`, syncs `organizer_id`, and installs a compatibility trigger for future writes.
+
+### Versioning artifacts
+- `versioning/15041107_v1.5.5_business_request_summary.md`
+- `versioning/15041107_v1.5.5_business_request_summary.pdf`
+- `versioning/15041107_v1.5.5_ai_dev_prompts.md`

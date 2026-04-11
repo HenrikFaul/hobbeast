@@ -83,18 +83,34 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
     if (ownerIds.length > 0) {
       const { data: events, error: eventsError } = await adminClient
         .from('events')
-        .select('id,created_by,is_active')
-        .in('created_by', ownerIds);
+        .select('id,created_by,organizer_id,is_active')
+        .or(`created_by.in.(${ownerIds.join(',')}),organizer_id.in.(${ownerIds.join(',')})`);
       if (eventsError) throw eventsError;
-      const openOwnerIds = new Set((events || []).filter((event: any) => event.is_active).map((event: any) => event.created_by));
+      const openOwnerIds = new Set(
+        (events || [])
+          .filter((event: any) => event.is_active)
+          .map((event: any) => event.organizer_id || event.created_by)
+          .filter(Boolean)
+      );
       filtered = filtered.filter((profile: any) => filters.hasOpenOwnedEvents === 'yes' ? openOwnerIds.has(profile.user_id) : !openOwnerIds.has(profile.user_id));
     }
   }
 
-  return filtered.map((profile: any) => ({
-    profileId: profile.id,
-    userId: typeof profile.user_id === 'string' && profile.user_id.length > 0 ? profile.user_id : null,
-  })).filter((row: any) => typeof row.profileId === 'string' && row.profileId.length > 0);
+  const rows = filtered
+    .map((profile: any) => ({
+      profileId: typeof profile.id === 'string' && profile.id.length > 0 ? profile.id : null,
+      userId: typeof profile.user_id === 'string' && profile.user_id.length > 0 ? profile.user_id : null,
+    }))
+    .filter((row: any) => row.profileId || row.userId);
+
+  const unique = new Map<string, { profileId: string | null; userId: string | null }>();
+  for (const row of rows) {
+    const key = row.profileId || row.userId;
+    if (!key) continue;
+    unique.set(key, row);
+  }
+
+  return [...unique.values()];
 }
 
 async function resolveProfilesByUserIds(adminClient: ReturnType<typeof createClient>, userIds: string[]) {
@@ -149,7 +165,7 @@ async function applyAction(adminClient: ReturnType<typeof createClient>, action:
           deletion_reason: 'admin_batch_delete',
         });
         await adminClient.from('event_participants').delete().eq('user_id', userId);
-        const { data: ownEvents } = await adminClient.from('events').select('id').eq('created_by', userId);
+        const { data: ownEvents } = await adminClient.from('events').select('id,created_by,organizer_id').or(`created_by.eq.${userId},organizer_id.eq.${userId}`);
         const eventIds = (ownEvents || []).map((event: any) => event.id);
         if (eventIds.length > 0) {
           await adminClient.from('event_participants').delete().in('event_id', eventIds);
@@ -188,9 +204,10 @@ Deno.serve(async (req) => {
     if (mode === 'preview') {
       const rows = await previewSelection(adminClient, filters || {});
       return new Response(JSON.stringify({
-        selectedProfileIds: rows.map((row) => row.profileId),
-        selectedUserIds: rows.map((row) => row.userId),
+        selectedProfileIds: rows.map((row) => row.profileId).filter((value): value is string => typeof value === 'string' && value.length > 0),
+        selectedUserIds: rows.map((row) => row.userId).filter((value): value is string => typeof value === 'string' && value.length > 0),
         selectedCount: rows.length,
+        selectedRows: rows,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
