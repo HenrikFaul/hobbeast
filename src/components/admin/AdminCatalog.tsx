@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronRight, Layers, FolderTree, Activity, Plus, Pencil, Trash2, Upload, Database } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -45,6 +45,20 @@ interface DbActivity {
 
 type EditMode = 'category' | 'subcategory' | 'activity';
 
+
+async function saveBySlug(table: 'hobby_categories' | 'hobby_subcategories' | 'hobby_activities', slug: string, payload: Record<string, unknown>) {
+  const { data: existing } = await supabase.from(table).select('id').eq('slug', slug).maybeSingle();
+  if (existing?.id) {
+    const { data, error } = await supabase.from(table).update(payload).eq('id', existing.id).select().single();
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await supabase.from(table).insert(payload).select().single();
+  if (error) throw error;
+  return data as any;
+}
+
+
 export function AdminCatalog() {
   const codeStats = getCatalogStats();
   const [categories, setCategories] = useState<DbCategory[]>([]);
@@ -75,62 +89,22 @@ export function AdminCatalog() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-
-  const upsertBySlug = async <T extends Record<string, any>>(table: 'hobby_categories' | 'hobby_subcategories' | 'hobby_activities', slug: string, payload: T) => {
-    const { data: existing, error: existingError } = await supabase
-      .from(table)
-      .select('id')
-      .eq('slug', slug)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingError) throw existingError;
-
-    if ((existing as any)?.id) {
-      const { data, error } = await supabase
-        .from(table)
-        .update(payload)
-        .eq('id', (existing as any).id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    }
-
-    const { data, error } = await supabase
-      .from(table)
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  };
-
   const seedFromCode = async () => {
     setSeeding(true);
     try {
       let sortCat = 0;
       for (const cat of HOBBY_CATALOG) {
-        let catData: any;
+        let catData;
         try {
-          catData = await upsertBySlug('hobby_categories', cat.id, {
-            slug: cat.id,
-            name: cat.name,
-            emoji: cat.emoji,
-            description: cat.description,
-            sort_order: sortCat++,
-          });
-        } catch (catErr) {
-          console.error(catErr);
-          continue;
-        }
+          catData = await saveBySlug('hobby_categories', cat.id, { slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ });
+        } catch (catErr) { console.error(catErr); continue; }
 
         let sortSub = 0;
         for (const sub of cat.subcategories) {
           const profile = sub.profile;
-          let subData: any;
+          let subData;
           try {
-            subData = await upsertBySlug('hobby_subcategories', sub.id, {
+            subData = await saveBySlug('hobby_subcategories', sub.id, {
               category_id: catData.id,
               slug: sub.id,
               name: sub.name,
@@ -150,15 +124,12 @@ export function AdminCatalog() {
               can_be_online: profile.canBeOnline,
               suggested_duration_min: profile.suggestedDurationMin || 90,
             });
-          } catch (subErr) {
-            console.error(subErr);
-            continue;
-          }
+          } catch (subErr) { console.error(subErr); continue; }
 
           let sortAct = 0;
           for (const act of sub.activities) {
             try {
-              await upsertBySlug('hobby_activities', act.id, {
+              await saveBySlug('hobby_activities', act.id, {
                 subcategory_id: subData.id,
                 slug: act.id,
                 name: act.name,
@@ -387,9 +358,6 @@ export function AdminCatalog() {
             <DialogTitle className="font-display">
               {editItem ? 'Szerkesztés' : 'Hozzáadás'}: {editMode === 'category' ? 'Kategória' : editMode === 'subcategory' ? 'Alkategória' : 'Tevékenység'}
             </DialogTitle>
-            <DialogDescription>
-              Katalóguselem létrehozása vagy szerkesztése. A mentés a slug alapján frissít vagy új rekordot hoz létre.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

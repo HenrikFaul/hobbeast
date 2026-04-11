@@ -137,6 +137,7 @@ export function CommonAdminPanel() {
       if (error) throw error;
       setCatalogStatus((data as LocalStatus) || null);
     } catch (err: any) {
+      console.warn('common admin status failed', err);
       if (!silent) toast.error(err.message || 'Nem sikerült lekérni a common admin státuszt');
       else console.error('common admin status failed', err);
     }

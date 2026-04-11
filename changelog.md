@@ -178,36 +178,12 @@ After review, rename or replace the active root changelog with this canonical st
 - `versioning/15041003_v1.5.2_ai_dev_prompts.md`
 
 
-## [1.5.4] — 2026-04-11
+## [1.5.6] — 2026-04-11
 ### Fixed
-- **Admin bulk selection highlight mismatch**: Bulk preview and UI row selection were re-aligned so the preview response now carries `selectedProfileIds`, and the Felhasználók table highlights rows using the same profile-row identifier.
-- **Admin bulk apply compatibility**: `admin-bulk-user-actions` now accepts both `profileIds` and `userIds`, resolves profiles safely, and handles profile-only records without collapsing the whole batch flow.
-- **Real-user preview null-selection bug**: Preview no longer emits unusable null-only selections for profile rows; the response keeps `selectedProfileIds` canonical and surfaces `selectedUserIds` only as secondary data.
-- **Catalog sync 42P10 errors**: Removed fragile `upsert(... onConflict: slug)` writes from hobby catalog sync in favor of select-then-update/insert logic, eliminating repeated `there is no unique or exclusion constraint matching the ON CONFLICT specification` failures.
-- **Notification preferences persistence hardening**: Preference save no longer depends on `onConflict: user_id`; it now uses safe select-then-update/insert logic.
-- **Edge function auth config coverage**: `sync-local-places` and `place-search` were added to `supabase/config.toml` with `verify_jwt = false`, so admin-side invoke calls can be redeployed consistently with the intended gateway behavior.
-- **Dialog accessibility warnings**: Added missing dialog title/description coverage for command palette and admin dialogs to reduce recurring `aria-describedby` / Description warnings.
+- **Admin bulk selection contract alignment**: Bulk preview/apply now supports `userIds` and `profileIds`, uses canonical `user_id` selection in the UI, and keeps backend count aligned with the modal badge even when no filters are applied.
+- **Event create required-field hardening**: Event create/edit now computes and writes `start_time`, protects `place_categories` from `null`, surfaces backend error messages, and disables submit until mandatory inputs are present.
+- **Catalog / notification preference writes**: Removed fragile `upsert(... onConflict: 'slug'/'user_id')` dependency from admin catalog seeding and notification preference saves.
+- **Dialog accessibility**: Added missing descriptions to command palette and admin dialogs to prevent repeated `DialogContent` accessibility warnings.
 
-### Improved
-- **Admin user bulk UX**: Selection count, per-row checkbox state, visible-all toggle, and preview feedback now all use the same row identity logic, reducing desync between backend preview and UI state.
-- **Validation / delivery evidence**: The repo was revalidated with a successful production build after the patch set.
-
-### Versioning artifacts
-- `versioning/15041106_v1.5.4_business_request_summary.md`
-- `versioning/15041106_v1.5.4_business_request_summary.pdf`
-- `versioning/15041106_v1.5.4_ai_dev_prompts.md`
-
-## [1.5.5] — 2026-04-11
-### Fixed
-- **Bulk preview / UI selection parity**: The bulk selection modal now treats the “no filters / all” case as a local full-selection of all loaded profiles, and preview mapping now resolves backend IDs against both `profiles.id` and `profiles.user_id` before applying checkbox state.
-- **Bulk preview response hardening**: `admin-bulk-user-actions` now filters null IDs out of preview payloads and returns both canonical `selectedProfileIds` and secondary `selectedUserIds`, plus `selectedRows` for safer debugging.
-- **Open-owned-event filter compatibility**: The admin bulk preview function now checks both `events.organizer_id` and `events.created_by`, reducing schema-drift issues in owner-based filtering.
-- **Event creation required-field protection**: Create Event now visually marks required fields, highlights missing required inputs, and keeps the submit button disabled until the mandatory fields are filled.
-- **Event datetime compatibility write path**: Event creation now writes `start_time` and `end_time` compatibility fields in addition to `event_date` / `event_time`, and guarantees non-null `place_categories` payloads.
-- **Event edit consistency**: Event editing now follows the same required-field and `start_time` compatibility logic, reducing create/edit drift.
-- **Database compatibility migration**: Added a migration that backfills `start_time`, normalizes `place_categories`, syncs `organizer_id`, and installs a compatibility trigger for future writes.
-
-### Versioning artifacts
-- `versioning/15041107_v1.5.5_business_request_summary.md`
-- `versioning/15041107_v1.5.5_business_request_summary.pdf`
-- `versioning/15041107_v1.5.5_ai_dev_prompts.md`
+### Added
+- **Compatibility migration**: Added `20260411162000_event_start_time_bulk_and_catalog_fixes.sql` to harden event compatibility columns and unique indexes required by current frontend logic.

@@ -56,9 +56,8 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
 
   const authUsers = await listAllAuthUsers(adminClient);
   const authMap = new Map(authUsers.map((user) => [user.id, user]));
-  const selected = [...(profiles || [])];
 
-  let filtered = selected;
+  let filtered = [...(profiles || [])].filter((profile: any) => Boolean(profile.user_id));
 
   if (filters.userType && filters.userType !== 'all') {
     filtered = filtered.filter((profile: any) => (profile.user_origin || 'real') === filters.userType);
@@ -79,105 +78,92 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
   }
 
   if (filters.hasOpenOwnedEvents && filters.hasOpenOwnedEvents !== 'all') {
-    const ownerIds = filtered.map((profile: any) => profile.user_id);
+    const ownerIds = filtered.map((profile: any) => profile.user_id).filter(Boolean);
     if (ownerIds.length > 0) {
+      const ownerIdCsv = ownerIds.join(',');
       const { data: events, error: eventsError } = await adminClient
         .from('events')
         .select('id,created_by,organizer_id,is_active')
-        .or(`created_by.in.(${ownerIds.join(',')}),organizer_id.in.(${ownerIds.join(',')})`);
+        .or(`created_by.in.(${ownerIdCsv}),organizer_id.in.(${ownerIdCsv})`);
       if (eventsError) throw eventsError;
-      const openOwnerIds = new Set(
-        (events || [])
-          .filter((event: any) => event.is_active)
-          .map((event: any) => event.organizer_id || event.created_by)
-          .filter(Boolean)
+      const openOwnerIds = new Set((events || [])
+        .filter((event: any) => event.is_active !== false)
+        .flatMap((event: any) => [event.created_by, event.organizer_id])
+        .filter(Boolean));
+      filtered = filtered.filter((profile: any) =>
+        filters.hasOpenOwnedEvents === 'yes'
+          ? openOwnerIds.has(profile.user_id)
+          : !openOwnerIds.has(profile.user_id)
       );
-      filtered = filtered.filter((profile: any) => filters.hasOpenOwnedEvents === 'yes' ? openOwnerIds.has(profile.user_id) : !openOwnerIds.has(profile.user_id));
     }
   }
 
-  const rows = filtered
-    .map((profile: any) => ({
-      profileId: typeof profile.id === 'string' && profile.id.length > 0 ? profile.id : null,
-      userId: typeof profile.user_id === 'string' && profile.user_id.length > 0 ? profile.user_id : null,
-    }))
-    .filter((row: any) => row.profileId || row.userId);
+  const selectedUserIds = filtered.map((profile: any) => profile.user_id).filter(Boolean);
+  const selectedProfileIds = filtered.map((profile: any) => profile.id).filter(Boolean);
+  return { selectedUserIds, selectedProfileIds, selectedCount: selectedUserIds.length };
+}
 
-  const unique = new Map<string, { profileId: string | null; userId: string | null }>();
-  for (const row of rows) {
-    const key = row.profileId || row.userId;
-    if (!key) continue;
-    unique.set(key, row);
-  }
-
-  return [...unique.values()];
+async function resolveProfilesByIds(adminClient: ReturnType<typeof createClient>, profileIds: string[]) {
+  if (!profileIds.length) return [];
+  const { data, error } = await adminClient
+    .from('profiles')
+    .select('id,user_id')
+    .in('id', profileIds);
+  if (error) throw error;
+  return (data || []).filter((row: any) => Boolean(row.user_id));
 }
 
 async function resolveProfilesByUserIds(adminClient: ReturnType<typeof createClient>, userIds: string[]) {
-  const uniqueUserIds = [...new Set((userIds || []).filter((value) => typeof value === 'string' && value.length > 0))];
-  if (uniqueUserIds.length === 0) return [];
+  if (!userIds.length) return [];
   const { data, error } = await adminClient
     .from('profiles')
     .select('id,user_id')
-    .in('user_id', uniqueUserIds);
+    .in('user_id', userIds);
   if (error) throw error;
-  return data || [];
+  return (data || []).filter((row: any) => Boolean(row.user_id));
 }
 
-async function resolveProfilesByProfileIds(adminClient: ReturnType<typeof createClient>, profileIds: string[]) {
-  const uniqueProfileIds = [...new Set((profileIds || []).filter((value) => typeof value === 'string' && value.length > 0))];
-  if (uniqueProfileIds.length === 0) return [];
-  const { data, error } = await adminClient
-    .from('profiles')
-    .select('id,user_id')
-    .in('id', uniqueProfileIds);
-  if (error) throw error;
-  return data || [];
-}
-
-async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, profileIds: string[], userIds: string[]) {
-  const profiles = profileIds.length > 0
-    ? await resolveProfilesByProfileIds(adminClient, profileIds)
-    : await resolveProfilesByUserIds(adminClient, userIds);
-  const uniqueUserIds = [...new Set(profiles.map((profile: any) => profile.user_id).filter(Boolean))];
-  const uniqueProfileIds = [...new Set(profiles.map((profile: any) => profile.id).filter(Boolean))];
+async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, ids: { profileIds?: string[]; userIds?: string[] }) {
+  const byProfile = await resolveProfilesByIds(adminClient, ids.profileIds || []);
+  const byUser = await resolveProfilesByUserIds(adminClient, ids.userIds || []);
+  const profileMap = new Map<string, any>();
+  [...byProfile, ...byUser].forEach((row: any) => {
+    if (row.user_id) profileMap.set(row.user_id, row);
+  });
+  const profiles = [...profileMap.values()];
+  const userIds = profiles.map((profile: any) => profile.user_id);
   let affected = 0;
   let failures = 0;
 
   if (action === 'activate' || action === 'deactivate') {
-    const column = uniqueUserIds.length > 0 ? 'user_id' : 'id';
-    const values = uniqueUserIds.length > 0 ? uniqueUserIds : uniqueProfileIds;
-    const { error } = await adminClient.from('profiles').update({ is_active: action === 'activate' }).in(column as any, values as any);
+    if (!userIds.length) return { affected: 0, failures: 0 };
+    const { error } = await adminClient.from('profiles').update({ is_active: action === 'activate' }).in('user_id', userIds);
     if (error) throw error;
-    affected = values.length;
+    affected = userIds.length;
     return { affected, failures };
   }
 
   for (const profile of profiles) {
     try {
       const userId = profile.user_id;
-      if (userId) {
-        const { data: authUserData } = await adminClient.auth.admin.getUserById(userId);
-        await adminClient.from('account_deletions').insert({
-          user_id: userId,
-          email: authUserData.user?.email || `${userId}@unknown.local`,
-          account_created_at: authUserData.user?.created_at || null,
-          deletion_reason: 'admin_batch_delete',
-        });
-        await adminClient.from('event_participants').delete().eq('user_id', userId);
-        const { data: ownEvents } = await adminClient.from('events').select('id,created_by,organizer_id').or(`created_by.eq.${userId},organizer_id.eq.${userId}`);
-        const eventIds = (ownEvents || []).map((event: any) => event.id);
-        if (eventIds.length > 0) {
-          await adminClient.from('event_participants').delete().in('event_id', eventIds);
-          await adminClient.from('events').delete().in('id', eventIds);
-        }
-        await adminClient.from('notification_preferences').delete().eq('user_id', userId);
-        await adminClient.from('notifications').delete().eq('user_id', userId);
-        await adminClient.from('profiles').delete().eq('user_id', userId);
-        await adminClient.auth.admin.deleteUser(userId);
-      } else {
-        await adminClient.from('profiles').delete().eq('id', profile.id);
+      const { data: authUserData } = await adminClient.auth.admin.getUserById(userId);
+      await adminClient.from('account_deletions').insert({
+        user_id: userId,
+        email: authUserData.user?.email || `${userId}@unknown.local`,
+        account_created_at: authUserData.user?.created_at || null,
+        deletion_reason: 'admin_batch_delete',
+      });
+      await adminClient.from('event_participants').delete().eq('user_id', userId);
+      const { data: ownEvents } = await adminClient.from('events').select('id').or(`created_by.eq.${userId},organizer_id.eq.${userId}`);
+      const eventIds = (ownEvents || []).map((event: any) => event.id);
+      if (eventIds.length > 0) {
+        await adminClient.from('event_participants').delete().in('event_id', eventIds);
+        await adminClient.from('events').delete().in('id', eventIds);
       }
+      await adminClient.from('notification_preferences').delete().eq('user_id', userId);
+      await adminClient.from('notifications').delete().eq('user_id', userId);
+      await adminClient.from('profiles').delete().eq('user_id', userId);
+      await adminClient.auth.admin.deleteUser(userId);
       affected += 1;
     } catch (error) {
       console.error('admin bulk action failed', profile.id, error);
@@ -199,27 +185,20 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { mode, filters, action, userIds, profileIds } = await req.json() as { mode: Mode; filters?: Filters; action?: Action; userIds?: string[]; profileIds?: string[] };
+    const { mode, filters, action, profileIds, userIds } = await req.json() as { mode: Mode; filters?: Filters; action?: Action; profileIds?: string[]; userIds?: string[] };
 
     if (mode === 'preview') {
       const rows = await previewSelection(adminClient, filters || {});
-      return new Response(JSON.stringify({
-        selectedProfileIds: rows.map((row) => row.profileId).filter((value): value is string => typeof value === 'string' && value.length > 0),
-        selectedUserIds: rows.map((row) => row.userId).filter((value): value is string => typeof value === 'string' && value.length > 0),
-        selectedCount: rows.length,
-        selectedRows: rows,
-      }), {
+      return new Response(JSON.stringify(rows), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (mode === 'apply') {
-      const resolvedUserIds: string[] = Array.isArray(userIds) ? userIds.filter((value): value is string => typeof value === 'string' && value.length > 0) : [];
-      const resolvedProfileIds: string[] = Array.isArray(profileIds) ? profileIds.filter((value): value is string => typeof value === 'string' && value.length > 0) : [];
-      if (!action || (resolvedUserIds.length === 0 && resolvedProfileIds.length === 0)) {
-        return new Response(JSON.stringify({ error: 'Action and profileIds or userIds are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!action || (!(profileIds?.length) && !(userIds?.length))) {
+        return new Response(JSON.stringify({ error: 'Action and userIds are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      const result = await applyAction(adminClient, action, resolvedProfileIds, resolvedUserIds);
+      const result = await applyAction(adminClient, action, { profileIds, userIds });
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

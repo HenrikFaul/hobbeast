@@ -173,59 +173,18 @@ then those should be treated as temporary feeder files only and merged back here
 - **Prevention**: Rejtett vagy nem aktív admin panelek automatikus háttérhívásai ne dobjanak user-facing toastot inicializáció közben.
 
 
-### [HIBA-056] Bulk preview response and table checkbox state must use the same row identity
+### [HIBA-056] Bulk preview és UI badge nem épülhet eltérő azonosítóhalmazra
 - **Dátum**: 2026-04-11
 - **Fájl**: `src/components/admin/AdminUsers.tsx`, `supabase/functions/admin-bulk-user-actions/index.ts`
-- **Error / symptom**: A backend preview kiválasztott ID-ket adott vissza, de az UI nem jelölte ki a sorokat vagy hibás darabszámot mutatott.
-- **Root cause**: A preview response és a frontend checkbox state más azonosítót használt (`selectedUserIds` vs. `selectedProfileIds` / `profile.id`).
-- **Fix**: A preview kanonikus mezője ismét a `selectedProfileIds`, az UI ezt használja a megjelenített sorok kijelölésére, miközben a backend másodlagosan továbbra is tud `userId`-t kezelni az apply műveletekhez.
-- **Prevention**: Tömeges kijelölésnél a preview response, a sor kulcsa, a checkbox checked állapota és a batch action payload ugyanarra a megjelenített rekordazonosítóra épüljön.
+- **Error / symptom**: A backend preview 202 találatot adott vissza, miközben a modal badge és a látható kijelölés csak töredékértéket mutatott.
+- **Root cause**: A preview response és az UI selection state eltérő kulcsot használt (`selectedUserIds` vs `selectedProfileIds`, `user_id` vs `profile.id`).
+- **Fix**: Az admin bulk flow most `user_id` alapú kanonikus selection state-et használ, a backend mindkét azonosítómezőt visszaadja és az apply ág is mindkettőt elfogadja.
+- **Prevention**: Tömeges kijelölésnél a backend truth count és a frontend badge csak ugyanarra a kanonikus kulcsra épülhet.
 
-### [HIBA-057] Admin bulk delete/activate flow must tolerate profile-only rows without auth-linked user_id
-- **Dátum**: 2026-04-11
-- **Fájl**: `supabase/functions/admin-bulk-user-actions/index.ts`
-- **Error / symptom**: Egyes rekordoknál a preview null user ID-ket adott, és az apply ág auth-függő törlés/aktiválás miatt instabillá vált.
-- **Root cause**: A rendszer feltételezte, hogy minden profile rekordhoz kötelezően tartozik használható `user_id`.
-- **Fix**: A backend külön kezeli a profile-szintű és auth-szintű feloldást; ha nincs `user_id`, a profile rekord akkor is kezelhető marad profile-ID alapon.
-- **Prevention**: Admin batch logikában ne feltételezd, hogy minden historikus/importált profile rekord auth-userrel is össze van kötve.
-
-### [HIBA-058] Catalog seed and preference save should not rely on unverified ON CONFLICT constraints
-- **Dátum**: 2026-04-11
-- **Fájl**: `src/components/admin/AdminCatalog.tsx`, `src/components/NotificationPreferencesCard.tsx`
-- **Error / symptom**: `42P10` hibák jelentek meg `hobby_categories?on_conflict=slug` és hasonló mentéseknél.
-- **Root cause**: A kliens olyan `onConflict` mezőkre támaszkodott, amelyekhez a tényleges adatbázisban nem volt garantált unique/exclusion constraint.
-- **Fix**: A mentési utak select-then-update/insert mintára váltottak.
-- **Prevention**: Ha a constraint drift reális, kliensoldalon ne építs vak `upsert(... onConflict ...)` logikára.
-
-### [HIBA-059] Edge function verify_jwt config drift can keep admin invoke flows in permanent 401 state
-- **Dátum**: 2026-04-11
-- **Fájl**: `supabase/config.toml`
-- **Error / symptom**: `sync-local-places` és `place-search` admin invoke hívások 401-et adtak, miközben az admin UI ezeket háttér- vagy tooling műveletként használta.
-- **Root cause**: A function config nem tartalmazta következetesen a várt `verify_jwt = false` beállítást minden érintett functionre.
-- **Fix**: A config kiterjesztve lett `sync-local-places` és `place-search` function blokkokkal is.
-- **Prevention**: Ha admin tooling session nélküli vagy lazább gateway-auth modellt igényel, a config és a redeploy együtt legyen frissítve; a kódmódosítás önmagában nem elég.
-
-### [HIBA-060] Bulk preview selection must resolve both profile IDs and user IDs before applying checkbox state
-- **Dátum**: 2026-04-11
-- **Fájl**: `src/components/admin/AdminUsers.tsx`, `supabase/functions/admin-bulk-user-actions/index.ts`
-- **Error / symptom**: A preview response-ben nagy `selectedCount` jött vissza, de az UI csak kevés vagy nulla sort jelölt ki; a “mindegy / mindegy” szűrés sem jelölte ki az összes profilt.
-- **Root cause**: A backend és a frontend nem konzisztensen ugyanazt az azonosítómezőt használta. A response-ben visszajövő értékek részben `user_id`, részben `profile.id` logikát követtek, az UI viszont közvetlenül `profile.id` checkbox state-re próbálta alkalmazni őket.
-- **Fix**: A frontend most lokálisan minden profilt kijelöl, ha nincs tényleges szűrő. Szűrt preview esetén a response-ben kapott ID-ket mind `profiles.id`, mind `profiles.user_id` mentén feloldja checkbox-sorokra. A backend a preview-ból kiszűri a null ID-ket.
-- **Prevention**: Tömeges kijelölésnél mindig legyen egyetlen kanonikus row-selection kulcs, és backendből jövő preview eredményt minden támogatott azonosítómező mentén oldj fel a lokális UI listára.
-
-### [HIBA-061] Event create/edit flows must not allow submission while mandatory datetime and location fields are empty
+### [HIBA-057] Event create flowban a NOT NULL kompatibilitási mezőket kliensoldalon is védeni kell
 - **Dátum**: 2026-04-11
 - **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`
-- **Error / symptom**: A felhasználó kitöltetlen kötelező mezőkkel is el tudta indítani az esemény mentését, ami adatbázis oldalon `null value` jellegű hibákhoz vezetett.
-- **Root cause**: A formok csak részleges kliensoldali validációt használtak, miközben a tényleges adatbázis-kötelezettségek szigorúbbak voltak.
-- **Fix**: A kötelező mezők megjelölést kaptak, hibaállapotban kiemelést kapnak, és a submit gomb addig inaktív, amíg a minimálisan szükséges mezők nincsenek kitöltve.
-- **Prevention**: A not-null vagy üzletileg kötelező mezőknek minden formban vizuális jelölés, hibaállapot és submit-lock kell.
-
-### [HIBA-062] Legacy and current event datetime fields must be written together during transition period
-- **Dátum**: 2026-04-11
-- **Fájl**: `src/components/CreateEventDialog.tsx`, `src/components/EditEventDialog.tsx`, `supabase/migrations/20260411153000_event_start_time_and_bulk_preview_alignment.sql`
-- **Error / symptom**: Esemény mentéskor a rendszer `start_time` hiányára panaszkodott, miközben a UI csak `event_date` és `event_time` mezőket töltött.
-- **Root cause**: A frontend és az adatbázis/deploy állapot között átmeneti sémaeltérés maradt fenn: a runtime környezet részben `start_time` kompatibilitást várt.
-- **Fix**: A frontend most `start_time` / `end_time` kompatibilitási mezőket is ír, a migration pedig backfill + trigger alapú szinkront biztosít.
-- **Prevention**: Sémamigrációs átmenet alatt a write-path legyen kétoldalúan kompatibilis, és triggerrel legyen levédve a kötelező legacy/current mezőpár.
-
+- **Error / symptom**: A felhasználó kitöltött dátum/idő mezők mellett is `null value in column "start_time" of relation "events"` hibát kapott.
+- **Root cause**: A form `event_date` és `event_time` mezőket mentett, de a jelenlegi DB kompatibilitási állapotban a backend `start_time` mezőt is elvárt.
+- **Fix**: A dialog most ISO `start_time` értéket képez, a kötelező mezőket jelöli, és a submit gomb csak teljes minimális kitöltés mellett aktív.
+- **Prevention**: Ha a DB-ben legacy és új mezőnevek együtt élnek, a kliens csak olyan payloadot küldhet, amely mindkét kompatibilitási elvárást kielégíti.
