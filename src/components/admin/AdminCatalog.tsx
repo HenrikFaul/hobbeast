@@ -47,11 +47,7 @@ interface DbActivity {
 type EditMode = 'category' | 'subcategory' | 'activity';
 
 
-async function saveBySlug(
-  table: 'hobby_categories',
-  slug: string,
-  payload: TablesInsert<'hobby_categories'>,
-) {
+async function saveCategoryBySlug(slug: string, payload: TablesInsert<'hobby_categories'>) {
   const { data: existing } = await supabase.from('hobby_categories').select('id').eq('slug', slug).maybeSingle();
   if (existing?.id) {
     const { data, error } = await supabase.from('hobby_categories').update(payload).eq('id', existing.id).select().single();
@@ -63,11 +59,7 @@ async function saveBySlug(
   return data;
 }
 
-async function saveBySlug(
-  table: 'hobby_subcategories',
-  slug: string,
-  payload: TablesInsert<'hobby_subcategories'>,
-) {
+async function saveSubcategoryBySlug(slug: string, payload: TablesInsert<'hobby_subcategories'>) {
   const { data: existing } = await supabase.from('hobby_subcategories').select('id').eq('slug', slug).maybeSingle();
   if (existing?.id) {
     const { data, error } = await supabase.from('hobby_subcategories').update(payload).eq('id', existing.id).select().single();
@@ -79,11 +71,7 @@ async function saveBySlug(
   return data;
 }
 
-async function saveBySlug(
-  table: 'hobby_activities',
-  slug: string,
-  payload: TablesInsert<'hobby_activities'>,
-) {
+async function saveActivityBySlug(slug: string, payload: TablesInsert<'hobby_activities'>) {
   const { data: existing } = await supabase.from('hobby_activities').select('id').eq('slug', slug).maybeSingle();
   if (existing?.id) {
     const { data, error } = await supabase.from('hobby_activities').update(payload).eq('id', existing.id).select().single();
@@ -133,7 +121,7 @@ export function AdminCatalog() {
       for (const cat of HOBBY_CATALOG) {
         let catData;
         try {
-          catData = await saveBySlug('hobby_categories', cat.id, { slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ });
+          catData = await saveCategoryBySlug(cat.id, { slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ });
         } catch (catErr) { console.error(catErr); continue; }
 
         let sortSub = 0;
@@ -141,7 +129,7 @@ export function AdminCatalog() {
           const profile = sub.profile;
           let subData;
           try {
-            subData = await saveBySlug('hobby_subcategories', sub.id, {
+            subData = await saveSubcategoryBySlug(sub.id, {
               category_id: catData.id,
               slug: sub.id,
               name: sub.name,
@@ -166,7 +154,7 @@ export function AdminCatalog() {
           let sortAct = 0;
           for (const act of sub.activities) {
             try {
-              await saveBySlug('hobby_activities', act.id, {
+              await saveActivityBySlug(act.id, {
                 subcategory_id: subData.id,
                 slug: act.id,
                 name: act.name,
