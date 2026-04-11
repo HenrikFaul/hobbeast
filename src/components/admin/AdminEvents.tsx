@@ -31,7 +31,7 @@ export function AdminEvents() {
   useEffect(() => {
     void supabase
       .from('events')
-      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, created_by, outcome_status, registrations_count, cancellations_count, attended_count, average_rating')
+      .select('id, title, category, event_date, location_city, is_active, created_at, image_emoji, created_by')
       .order('created_at', { ascending: false })
       .then(async ({ data, error }) => {
         if (error) {
