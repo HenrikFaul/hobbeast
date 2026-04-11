@@ -362,7 +362,13 @@ async function getStatus(supabaseAdmin: any) {
   };
 }
 
-async function dispatchSyncInBackground(req: Request, reset = false) {
+async function dispatchSyncInBackground(
+  req: Request,
+  options: {
+    reset?: boolean;
+    enqueueRequestId?: string;
+  } = {},
+) {
   const internalUrl = `${resolveInternalSupabaseUrl(req)}/functions/v1/sync-local-places`;
   const serviceRoleKey = String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
 
@@ -370,7 +376,7 @@ async function dispatchSyncInBackground(req: Request, reset = false) {
     throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Edge Function environment.');
   }
 
-  const requestId = crypto.randomUUID();
+  const requestId = options.enqueueRequestId || crypto.randomUUID();
 
   const dispatchPromise = fetch(internalUrl, {
     method: 'POST',
@@ -382,7 +388,7 @@ async function dispatchSyncInBackground(req: Request, reset = false) {
     },
     body: JSON.stringify({
       action: 'sync',
-      reset,
+      reset: Boolean(options.reset),
       enqueue_request_id: requestId,
     } satisfies SyncBody),
   }).then(async (response) => {
@@ -417,10 +423,9 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({})) as SyncBody;
-    const requestedAction = (body.action || 'status') as SyncAction;
+    const action = (body.action || 'status') as SyncAction;
     const workingBody: SyncBody = { ...body };
     let requestId: string | null = null;
-    let action = requestedAction;
 
     if (action === 'status') {
       return jsonResponse(await getStatus(supabaseAdmin));
@@ -458,7 +463,7 @@ serve(async (req) => {
       requestId = crypto.randomUUID();
       workingBody.enqueue_request_id = requestId;
 
-      await supabaseAdmin.from('place_sync_state').upsert({
+      const { error: enqueueStateError } = await supabaseAdmin.from('place_sync_state').upsert({
         key: 'local_places',
         status: 'queued',
         rows_written: Boolean(workingBody.reset) ? 0 : liveStatus.totalRows,
@@ -470,16 +475,29 @@ serve(async (req) => {
         last_error: null,
       }, { onConflict: 'key' });
 
+      if (enqueueStateError) throw enqueueStateError;
+
       await appendLog(
         supabaseAdmin,
         'info',
         'batch_enqueued',
-        'Lokális batch elindítva közvetlen végrehajtással',
+        'Lokális batch-sorozat sorba állítva háttérfeldolgozásra',
         { reset: Boolean(workingBody.reset), request_id: requestId },
         runId,
       );
 
-      action = 'sync';
+      await dispatchSyncInBackground(req, {
+        reset: Boolean(workingBody.reset),
+        enqueueRequestId: requestId,
+      });
+
+      return jsonResponse({
+        ok: true,
+        requestId,
+        queued: true,
+        totalTasks,
+        status: await getStatus(supabaseAdmin),
+      });
     }
 
     const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
@@ -633,12 +651,18 @@ serve(async (req) => {
     }
 
     const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
+    const didStall = !shouldAdvanceCursor && failures.length > 0;
     const nextCursor = shouldAdvanceCursor
       ? Math.min(totalTasks, startCursor + batchTasks.length)
       : startCursor;
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus(supabaseAdmin);
-    const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'queued') : (failures.length > 0 ? 'partial' : 'idle');
+    const shouldQueueNextBatch = hasMore && !didStall;
+    const finalStatus = didStall
+      ? 'error'
+      : hasMore
+        ? (failures.length > 0 ? 'partial' : 'queued')
+        : (failures.length > 0 ? 'partial' : 'idle');
 
     console.log('[sync-local-places] sync:before-final-state-update', {
       runId,
@@ -679,13 +703,46 @@ serve(async (req) => {
       runId,
     );
 
+    if (shouldQueueNextBatch) {
+      await appendLog(
+        supabaseAdmin,
+        'info',
+        'next_batch_enqueued',
+        'A következő lokális batch automatikusan sorba állítva',
+        {
+          next_cursor: nextCursor,
+          total_tasks: totalTasks,
+          request_id: workingBody.enqueue_request_id ?? runId,
+        },
+        runId,
+      );
+
+      await dispatchSyncInBackground(req, {
+        reset: false,
+        enqueueRequestId: workingBody.enqueue_request_id ?? runId,
+      });
+    } else if (didStall) {
+      await appendLog(
+        supabaseAdmin,
+        'error',
+        'batch_stalled',
+        'A lokális batch megállt, mert minden provider hívás hibával tért vissza ennél a cursor pozíciónál',
+        {
+          stalled_cursor: startCursor,
+          partial_failures: failures.slice(0, 5),
+        },
+        runId,
+      );
+    }
+
     return jsonResponse({
       ok: true,
-      requestId,
+      requestId: workingBody.enqueue_request_id ?? requestId,
       processedTasks: batchTasks.length,
       totalTasks,
       nextCursor,
       hasMore,
+      queuedNextBatch: shouldQueueNextBatch,
       partialFailures: failures.length,
       rowsWrittenThisRun: rows.length,
       status: await getStatus(supabaseAdmin),
