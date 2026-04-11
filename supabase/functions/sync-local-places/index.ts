@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse, resolveInternalSupabaseUrl } from '../shared/providerFetch.ts';
+import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
 
 const HUNGARY_BOUNDS = {
   minLat: 45.74,
@@ -53,62 +53,10 @@ type SyncBody = {
   reset?: boolean;
   interval_minutes?: number;
   config?: Partial<SyncConfig>;
-  enqueue_request_id?: string;
-};
-
-type NormalizedError = {
-  message: string;
-  stack: string | null;
-  code: string | null;
-  details: string | null;
-  hint: string | null;
-  raw: unknown;
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeError(error: unknown): NormalizedError {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      stack: error.stack ?? null,
-      code: null,
-      details: null,
-      hint: null,
-      raw: null,
-    };
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    const candidate = error as Record<string, unknown>;
-    const rawMessage = candidate.message;
-    const fallbackError = candidate.error;
-
-    return {
-      message:
-        typeof rawMessage === 'string'
-          ? rawMessage
-          : typeof fallbackError === 'string'
-            ? fallbackError
-            : JSON.stringify(candidate),
-      stack: typeof candidate.stack === 'string' ? candidate.stack : null,
-      code: typeof candidate.code === 'string' ? candidate.code : null,
-      details: typeof candidate.details === 'string' ? candidate.details : null,
-      hint: typeof candidate.hint === 'string' ? candidate.hint : null,
-      raw: candidate,
-    };
-  }
-
-  return {
-    message: String(error),
-    stack: null,
-    code: null,
-    details: null,
-    hint: null,
-    raw: error,
-  };
 }
 
 function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
@@ -362,55 +310,177 @@ async function getStatus(supabaseAdmin: any) {
   };
 }
 
-async function dispatchSyncInBackground(
-  req: Request,
-  options: {
-    reset?: boolean;
-    enqueueRequestId?: string;
-  } = {},
+async function executeSyncBatch(
+  supabaseAdmin: any,
+  body: SyncBody,
+  runId: string,
 ) {
-  const internalUrl = `${resolveInternalSupabaseUrl(req)}/functions/v1/sync-local-places`;
-  const serviceRoleKey = String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+  const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
+  const tomtomKey = Deno.env.get('TOMTOM_API_KEY');
 
-  if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Edge Function environment.');
+  if (!geoapifyKey || !tomtomKey) {
+    throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
   }
 
-  const requestId = options.enqueueRequestId || crypto.randomUUID();
+  const syncConfig = await loadSyncConfig(supabaseAdmin);
+  const allTasks = buildTasks();
+  const totalTasks = allTasks.length;
 
-  const dispatchPromise = fetch(internalUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-      'x-enqueue-request-id': requestId,
+  const currentStateResult = await supabaseAdmin
+    .from('place_sync_state')
+    .select('*')
+    .eq('key', 'local_places')
+    .maybeSingle();
+
+  const currentState = currentStateResult.data || {};
+  const currentCursor = Number(currentState?.cursor || 0);
+
+  let startCursor = currentCursor;
+  if (body.reset) {
+    startCursor = 0;
+    const { error: resetError } = await supabaseAdmin
+      .from('places_local_catalog')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    if (resetError) throw resetError;
+    await appendLog(supabaseAdmin, 'warn', 'catalog_reset', 'Lokális címtábla teljes újratöltése indult', {}, runId);
+  }
+
+  const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
+  const startedAt = new Date().toISOString();
+
+  if (batchTasks.length === 0) {
+    await supabaseAdmin.from('place_sync_state').upsert({
+      key: 'local_places',
+      status: 'idle',
+      task_count: totalTasks,
+      cursor: totalTasks,
+      last_run_completed_at: new Date().toISOString(),
+      last_error: null,
+    });
+    await appendLog(supabaseAdmin, 'success', 'sync_complete', 'Nincs több feldolgozandó batch. A lokális címtábla szinkron kész.', { total_tasks: totalTasks }, runId);
+    return {
+      ok: true,
+      processedTasks: 0,
+      totalTasks,
+      nextCursor: totalTasks,
+      hasMore: false,
+      status: await getStatus(supabaseAdmin),
+    };
+  }
+
+  await supabaseAdmin.from('place_sync_state').upsert({
+    key: 'local_places',
+    status: 'running',
+    task_count: totalTasks,
+    cursor: startCursor,
+    last_run_started_at: startedAt,
+    last_run_completed_at: null,
+    last_error: null,
+  });
+
+  await appendLog(
+    supabaseAdmin,
+    'info',
+    'batch_started',
+    'Lokális címbatch feldolgozás elindult',
+    {
+      start_cursor: startCursor,
+      batch_size: batchTasks.length,
+      total_tasks: totalTasks,
+      config: syncConfig,
     },
-    body: JSON.stringify({
-      action: 'sync',
-      reset: Boolean(options.reset),
-      enqueue_request_id: requestId,
-    } satisfies SyncBody),
-  }).then(async (response) => {
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      throw new Error(`Background sync dispatch failed: ${response.status}${body ? ` ${body}` : ''}`);
+    runId,
+  );
+
+  const collected: any[] = [];
+  const failures: string[] = [];
+  let successfulProviderCalls = 0;
+
+  const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
+    const [geoResult, tomtomResult] = await Promise.allSettled([
+      fetchGeoapify(center, group, geoapifyKey, syncConfig),
+      fetchTomTom(center, group, tomtomKey, syncConfig),
+    ]);
+
+    if (geoResult.status === 'fulfilled') {
+      collected.push(...geoResult.value);
+      successfulProviderCalls += 1;
+    } else {
+      const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
+      failures.push(message);
+    }
+
+    if (tomtomResult.status === 'fulfilled') {
+      collected.push(...tomtomResult.value);
+      successfulProviderCalls += 1;
+    } else {
+      const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
+      failures.push(message);
     }
   });
 
-  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  await runWithConcurrency(taskFns, syncConfig.provider_concurrency);
 
-  if (runtime?.waitUntil) {
-    runtime.waitUntil(
-      dispatchPromise.catch((error) => {
-        console.error('sync-local-places background dispatch failed', normalizeError(error));
-      }),
-    );
-    return requestId;
+  const rows = dedupe(collected);
+  if (rows.length > 0) {
+    const chunkSize = 250;
+    for (let index = 0; index < rows.length; index += chunkSize) {
+      const chunk = rows.slice(index, index + chunkSize);
+      const { error } = await supabaseAdmin
+        .from('places_local_catalog')
+        .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false });
+      if (error) throw error;
+    }
   }
 
-  await dispatchPromise;
-  return requestId;
+  const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
+  const nextCursor = shouldAdvanceCursor
+    ? Math.min(totalTasks, startCursor + batchTasks.length)
+    : startCursor;
+  const hasMore = nextCursor < totalTasks;
+  const liveStatus = await getStatus(supabaseAdmin);
+  const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
+
+  await supabaseAdmin.from('place_sync_state').upsert({
+    key: 'local_places',
+    status: finalStatus,
+    rows_written: liveStatus.totalRows,
+    provider_counts: liveStatus.providerCounts,
+    task_count: totalTasks,
+    cursor: nextCursor,
+    last_run_started_at: startedAt,
+    last_run_completed_at: new Date().toISOString(),
+    last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
+  });
+
+  await appendLog(
+    supabaseAdmin,
+    failures.length > 0 ? 'warn' : 'success',
+    'batch_completed',
+    failures.length > 0 ? 'Lokális batch részlegesen lefutott' : 'Lokális batch sikeresen lefutott',
+    {
+      processed_tasks: batchTasks.length,
+      total_tasks: totalTasks,
+      next_cursor: nextCursor,
+      has_more: hasMore,
+      rows_written_this_run: rows.length,
+      provider_counts: liveStatus.providerCounts,
+      partial_failures: failures.slice(0, 5),
+    },
+    runId,
+  );
+
+  return {
+    ok: true,
+    processedTasks: batchTasks.length,
+    totalTasks,
+    nextCursor,
+    hasMore,
+    partialFailures: failures.length,
+    rowsWrittenThisRun: rows.length,
+    status: await getStatus(supabaseAdmin),
+  };
 }
 
 serve(async (req) => {
@@ -424,8 +494,6 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({})) as SyncBody;
     const action = (body.action || 'status') as SyncAction;
-    const workingBody: SyncBody = { ...body };
-    let requestId: string | null = null;
 
     if (action === 'status') {
       return jsonResponse(await getStatus(supabaseAdmin));
@@ -437,13 +505,13 @@ serve(async (req) => {
     }
 
     if (action === 'save_config') {
-      const config = await saveSyncConfig(supabaseAdmin, workingBody.config || {});
+      const config = await saveSyncConfig(supabaseAdmin, body.config || {});
       await appendLog(supabaseAdmin, 'info', 'config_saved', 'Lokális sync konfiguráció elmentve', config as unknown as Record<string, unknown>, runId);
       return jsonResponse({ ok: true, config });
     }
 
     if (action === 'schedule') {
-      const minutes = clamp(Number(workingBody.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
+      const minutes = clamp(Number(body.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
       const { error } = await supabaseAdmin.rpc('schedule_local_places_interval', { p_minutes: minutes });
       if (error) throw error;
       await appendLog(supabaseAdmin, 'success', 'schedule_enabled', `Automatikus batch ütemezés beállítva: ${minutes} percenként`, { interval_minutes: minutes }, runId);
@@ -458,319 +526,35 @@ serve(async (req) => {
     }
 
     if (action === 'enqueue') {
-      const liveStatus = await getStatus(supabaseAdmin);
-      const totalTasks = buildTasks().length;
-      requestId = crypto.randomUUID();
-      workingBody.enqueue_request_id = requestId;
-
-      const { error: enqueueStateError } = await supabaseAdmin.from('place_sync_state').upsert({
-        key: 'local_places',
-        status: 'queued',
-        rows_written: Boolean(workingBody.reset) ? 0 : liveStatus.totalRows,
-        provider_counts: Boolean(workingBody.reset) ? {} : liveStatus.providerCounts,
-        task_count: totalTasks,
-        cursor: Boolean(workingBody.reset) ? 0 : Number(liveStatus.state?.cursor || 0),
-        last_run_started_at: new Date().toISOString(),
-        last_run_completed_at: Boolean(workingBody.reset) ? null : liveStatus.state?.last_run_completed_at ?? null,
-        last_error: null,
-      }, { onConflict: 'key' });
-
-      if (enqueueStateError) throw enqueueStateError;
-
       await appendLog(
         supabaseAdmin,
         'info',
         'batch_enqueued',
-        'Lokális batch-sorozat sorba állítva háttérfeldolgozásra',
-        { reset: Boolean(workingBody.reset), request_id: requestId },
+        'Lokális batch közvetlen futtatással elindítva',
+        { reset: Boolean(body.reset), mode: 'inline_execute', request_id: runId },
         runId,
       );
 
-      await dispatchSyncInBackground(req, {
-        reset: Boolean(workingBody.reset),
-        enqueueRequestId: requestId,
-      });
-
-      return jsonResponse({
-        ok: true,
-        requestId,
-        queued: true,
-        totalTasks,
-        status: await getStatus(supabaseAdmin),
-      });
+      const result = await executeSyncBatch(supabaseAdmin, body, runId);
+      return jsonResponse({ ...result, requestId: runId, enqueueMode: 'inline_execute' });
     }
 
-    const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
-    const tomtomKey = Deno.env.get('TOMTOM_API_KEY');
-
-    if (!geoapifyKey || !tomtomKey) {
-      throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
-    }
-
-    const syncConfig = await loadSyncConfig(supabaseAdmin);
-    const allTasks = buildTasks();
-    const totalTasks = allTasks.length;
-
-    const currentStateResult = await supabaseAdmin
-      .from('place_sync_state')
-      .select('*')
-      .eq('key', 'local_places')
-      .maybeSingle();
-
-    const currentState = currentStateResult.data || {};
-    const currentCursor = Number(currentState?.cursor || 0);
-
-    let startCursor = currentCursor;
-    if (workingBody.reset) {
-      console.log('[sync-local-places] sync:before-reset', { runId, enqueueRequestId: workingBody.enqueue_request_id ?? null });
-      startCursor = 0;
-      await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      console.log('[sync-local-places] sync:after-reset', { runId });
-      await appendLog(supabaseAdmin, 'warn', 'catalog_reset', 'Lokális címtábla teljes újratöltése indult', {}, runId);
-    }
-
-    const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
-    const startedAt = new Date().toISOString();
-
-    console.log('[sync-local-places] sync:batch-selected', {
-      runId,
-      enqueueRequestId: workingBody.enqueue_request_id ?? null,
-      startCursor,
-      batchTaskCount: batchTasks.length,
-      totalTasks,
-      reset: Boolean(workingBody.reset),
-    });
-
-    if (batchTasks.length === 0) {
-      const liveStatus = await getStatus(supabaseAdmin);
-      await supabaseAdmin.from('place_sync_state').upsert({
-        key: 'local_places',
-        status: 'idle',
-        rows_written: liveStatus.totalRows,
-        provider_counts: liveStatus.providerCounts,
-        task_count: totalTasks,
-        cursor: totalTasks,
-        last_run_completed_at: new Date().toISOString(),
-        last_error: null,
-      }, { onConflict: 'key' });
-      await appendLog(supabaseAdmin, 'success', 'sync_complete', 'Nincs több feldolgozandó batch. A lokális címtábla szinkron kész.', { total_tasks: totalTasks }, runId);
-      return jsonResponse({
-        ok: true,
-        processedTasks: 0,
-        totalTasks,
-        nextCursor: totalTasks,
-        hasMore: false,
-        status: await getStatus(supabaseAdmin),
-      });
-    }
-
-    console.log('[sync-local-places] sync:before-state-update', { runId, status: 'running', startCursor, totalTasks });
-
-    await supabaseAdmin.from('place_sync_state').upsert({
-      key: 'local_places',
-      status: 'running',
-      rows_written: Number(currentState?.rows_written || 0),
-      provider_counts: currentState?.provider_counts || {},
-      task_count: totalTasks,
-      cursor: startCursor,
-      last_run_started_at: startedAt,
-      last_run_completed_at: null,
-      last_error: null,
-    }, { onConflict: 'key' });
-
-    console.log('[sync-local-places] sync:after-state-update', { runId, startedAt });
-
-    await appendLog(
-      supabaseAdmin,
-      'info',
-      'batch_started',
-      'Lokális címbatch feldolgozás elindult',
-      {
-        start_cursor: startCursor,
-        batch_size: batchTasks.length,
-        total_tasks: totalTasks,
-        config: syncConfig,
-      },
-      runId,
-    );
-
-    const collected: any[] = [];
-    const failures: string[] = [];
-    let successfulProviderCalls = 0;
-
-    const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
-      const [geoResult, tomtomResult] = await Promise.allSettled([
-        fetchGeoapify(center, group, geoapifyKey, syncConfig),
-        fetchTomTom(center, group, tomtomKey, syncConfig),
-      ]);
-
-      if (geoResult.status === 'fulfilled') {
-        collected.push(...geoResult.value);
-        successfulProviderCalls += 1;
-      } else {
-        const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
-        failures.push(message);
-      }
-
-      if (tomtomResult.status === 'fulfilled') {
-        collected.push(...tomtomResult.value);
-        successfulProviderCalls += 1;
-      } else {
-        const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
-        failures.push(message);
-      }
-    });
-
-    console.log('[sync-local-places] sync:before-provider-fetch', {
-      runId,
-      batchTaskCount: batchTasks.length,
-      providerConcurrency: syncConfig.provider_concurrency,
-    });
-
-    await runWithConcurrency(taskFns, syncConfig.provider_concurrency);
-
-    console.log('[sync-local-places] sync:after-provider-fetch', {
-      runId,
-      collectedRows: collected.length,
-      failures: failures.length,
-      successfulProviderCalls,
-    });
-
-    const rows = dedupe(collected);
-    if (rows.length > 0) {
-      console.log('[sync-local-places] sync:before-upsert', { runId, dedupedRows: rows.length });
-      const chunkSize = 250;
-      for (let index = 0; index < rows.length; index += chunkSize) {
-        const chunk = rows.slice(index, index + chunkSize);
-        const { error } = await supabaseAdmin
-          .from('places_local_catalog')
-          .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false });
-        if (error) throw error;
-      }
-      console.log('[sync-local-places] sync:after-upsert', { runId, dedupedRows: rows.length });
-    }
-
-    const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
-    const didStall = !shouldAdvanceCursor && failures.length > 0;
-    const nextCursor = shouldAdvanceCursor
-      ? Math.min(totalTasks, startCursor + batchTasks.length)
-      : startCursor;
-    const hasMore = nextCursor < totalTasks;
-    const liveStatus = await getStatus(supabaseAdmin);
-    const shouldQueueNextBatch = hasMore && !didStall;
-    const finalStatus = didStall
-      ? 'error'
-      : hasMore
-        ? (failures.length > 0 ? 'partial' : 'queued')
-        : (failures.length > 0 ? 'partial' : 'idle');
-
-    console.log('[sync-local-places] sync:before-final-state-update', {
-      runId,
-      finalStatus,
-      nextCursor,
-      hasMore,
-      liveRows: liveStatus.totalRows,
-    });
-
-    await supabaseAdmin.from('place_sync_state').upsert({
-      key: 'local_places',
-      status: finalStatus,
-      rows_written: liveStatus.totalRows,
-      provider_counts: liveStatus.providerCounts,
-      task_count: totalTasks,
-      cursor: nextCursor,
-      last_run_started_at: startedAt,
-      last_run_completed_at: new Date().toISOString(),
-      last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
-    }, { onConflict: 'key' });
-
-    console.log('[sync-local-places] sync:after-final-state-update', { runId, finalStatus, nextCursor, hasMore });
-
-    await appendLog(
-      supabaseAdmin,
-      failures.length > 0 ? 'warn' : 'success',
-      'batch_completed',
-      failures.length > 0 ? 'Lokális batch részlegesen lefutott' : (hasMore ? 'Lokális batch lefutott, további batch-ek még hátra vannak' : 'Lokális batch sikeresen lefutott'),
-      {
-        processed_tasks: batchTasks.length,
-        total_tasks: totalTasks,
-        next_cursor: nextCursor,
-        has_more: hasMore,
-        rows_written_this_run: rows.length,
-        provider_counts: liveStatus.providerCounts,
-        partial_failures: failures.slice(0, 5),
-      },
-      runId,
-    );
-
-    if (shouldQueueNextBatch) {
-      await appendLog(
-        supabaseAdmin,
-        'info',
-        'next_batch_enqueued',
-        'A következő lokális batch automatikusan sorba állítva',
-        {
-          next_cursor: nextCursor,
-          total_tasks: totalTasks,
-          request_id: workingBody.enqueue_request_id ?? runId,
-        },
-        runId,
-      );
-
-      await dispatchSyncInBackground(req, {
-        reset: false,
-        enqueueRequestId: workingBody.enqueue_request_id ?? runId,
-      });
-    } else if (didStall) {
-      await appendLog(
-        supabaseAdmin,
-        'error',
-        'batch_stalled',
-        'A lokális batch megállt, mert minden provider hívás hibával tért vissza ennél a cursor pozíciónál',
-        {
-          stalled_cursor: startCursor,
-          partial_failures: failures.slice(0, 5),
-        },
-        runId,
-      );
-    }
-
-    return jsonResponse({
-      ok: true,
-      requestId: workingBody.enqueue_request_id ?? requestId,
-      processedTasks: batchTasks.length,
-      totalTasks,
-      nextCursor,
-      hasMore,
-      queuedNextBatch: shouldQueueNextBatch,
-      partialFailures: failures.length,
-      rowsWrittenThisRun: rows.length,
-      status: await getStatus(supabaseAdmin),
-    });
+    const result = await executeSyncBatch(supabaseAdmin, body, runId);
+    return jsonResponse(result);
   } catch (error) {
-    const normalized = normalizeError(error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     try {
       await supabaseAdmin.from('place_sync_state').upsert({
         key: 'local_places',
         status: 'error',
-        last_error: normalized.message,
+        last_error: message,
         last_run_completed_at: new Date().toISOString(),
-      }, { onConflict: 'key' });
+      });
     } catch (_) {
       // swallow
     }
-    await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', {
-      error: normalized.message,
-      code: normalized.code,
-      details: normalized.details,
-      hint: normalized.hint,
-    }, runId);
-    console.error('sync-local-places error', normalized);
-    return jsonResponse({
-      error: normalized.message,
-      code: normalized.code,
-      details: normalized.details,
-      hint: normalized.hint,
-    }, 500);
+    await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', { error: message }, runId);
+    console.error('sync-local-places error', error);
+    return jsonResponse({ error: message }, 500);
   }
 });
