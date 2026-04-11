@@ -41,6 +41,7 @@ interface LocalCatalogStatus {
     last_error?: string | null;
     cursor?: number;
     task_count?: number;
+    updated_at?: string | null;
   } | null;
   providerCounts: Record<string, number>;
   preview: Array<{ provider: string; name: string; city: string | null; category_group: string; synced_at: string }>;
@@ -66,6 +67,27 @@ const DEFAULT_LOCAL_SYNC_SETTINGS: LocalSyncSettings = {
   geo_limit: 60,
   tomtom_limit: 50,
 };
+
+const LOCAL_CATALOG_ACTIVE_WINDOW_MS = 45_000;
+
+function isCatalogStateActivelyRunning(state: LocalCatalogStatus['state']) {
+  if (!state) return false;
+
+  const status = state.status || 'idle';
+  const cursor = Number(state.cursor || 0);
+  const taskCount = Number(state.task_count || 0);
+  const isRunningStatus = status === 'running' || (status === 'partial' && taskCount > 0 && cursor < taskCount) || status === 'queued';
+
+  if (!isRunningStatus) return false;
+
+  const updatedAt = state.updated_at || state.last_run_completed_at || state.last_run_started_at;
+  if (!updatedAt) return status === 'queued';
+
+  const updatedAtMs = new Date(updatedAt).getTime();
+  if (Number.isNaN(updatedAtMs)) return false;
+
+  return Date.now() - updatedAtMs <= LOCAL_CATALOG_ACTIVE_WINDOW_MS;
+}
 
 function ExternalEventList({ events }: { events: ExternalEventNormalized[] }) {
   const mapped = useMemo(() => events.map(mapExternalEventToCardLike), [events]);
@@ -171,8 +193,9 @@ export function AdminEventbrite() {
     }
   }
 
-  async function refreshCatalogStatus(options?: { silent?: boolean }) {
+  async function refreshCatalogStatus(options?: { silent?: boolean; allowPollingStart?: boolean }) {
     const silent = options?.silent === true;
+    const allowPollingStart = options?.allowPollingStart === true;
     if (!silent) setCatalogLoading(true);
 
     try {
@@ -181,11 +204,9 @@ export function AdminEventbrite() {
       const typed = data as LocalCatalogStatus;
       setCatalogStatus(typed);
 
-      const status = typed?.state?.status || 'idle';
-      const cursor = Number(typed?.state?.cursor || 0);
-      const taskCount = Number(typed?.state?.task_count || 0);
-      const stillRunning = status === 'running' || (status === 'partial' && taskCount > 0 && cursor < taskCount);
-      if (stillRunning) setCatalogPolling(true);
+      if (allowPollingStart && isCatalogStateActivelyRunning(typed?.state)) {
+        setCatalogPolling(true);
+      }
 
       return typed;
     } catch (err: any) {
@@ -218,12 +239,7 @@ export function AdminEventbrite() {
       const state = latest?.state;
       if (!state) return;
 
-      const status = state.status || 'idle';
-      const cursor = Number(state.cursor || 0);
-      const taskCount = Number(state.task_count || 0);
-      const stillRunning = status === 'running' || (status === 'partial' && taskCount > 0 && cursor < taskCount);
-
-      if (!stillRunning) {
+      if (!isCatalogStateActivelyRunning(state)) {
         setCatalogPolling(false);
       }
     }, 3000);
@@ -432,6 +448,7 @@ export function AdminEventbrite() {
       });
 
       if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
 
       const requestId = (data as { requestId?: number | string } | null)?.requestId;
       toast.success(`Lokális batch elindítva (request_id: ${requestId ?? 'n/a'})`);
@@ -440,6 +457,7 @@ export function AdminEventbrite() {
         void refreshCatalogStatus({ silent: true });
       }, 800);
     } catch (err: any) {
+      setCatalogPolling(false);
       toast.error(err.message || 'Nem sikerült elindítani a lokális batch szinkront');
     } finally {
       setCatalogLoading(false);

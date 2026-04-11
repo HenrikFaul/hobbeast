@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
+import { corsHeaders, getSupabaseAdmin, jsonResponse, resolveInternalSupabaseUrl } from '../shared/providerFetch.ts';
 
 const HUNGARY_BOUNDS = {
   minLat: 45.74,
@@ -53,10 +53,62 @@ type SyncBody = {
   reset?: boolean;
   interval_minutes?: number;
   config?: Partial<SyncConfig>;
+  enqueue_request_id?: string;
+};
+
+type NormalizedError = {
+  message: string;
+  stack: string | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+  raw: unknown;
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeError(error: unknown): NormalizedError {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack ?? null,
+      code: null,
+      details: null,
+      hint: null,
+      raw: null,
+    };
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const candidate = error as Record<string, unknown>;
+    const rawMessage = candidate.message;
+    const fallbackError = candidate.error;
+
+    return {
+      message:
+        typeof rawMessage === 'string'
+          ? rawMessage
+          : typeof fallbackError === 'string'
+            ? fallbackError
+            : JSON.stringify(candidate),
+      stack: typeof candidate.stack === 'string' ? candidate.stack : null,
+      code: typeof candidate.code === 'string' ? candidate.code : null,
+      details: typeof candidate.details === 'string' ? candidate.details : null,
+      hint: typeof candidate.hint === 'string' ? candidate.hint : null,
+      raw: candidate,
+    };
+  }
+
+  return {
+    message: String(error),
+    stack: null,
+    code: null,
+    details: null,
+    hint: null,
+    raw: error,
+  };
 }
 
 function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
@@ -310,12 +362,49 @@ async function getStatus(supabaseAdmin: any) {
   };
 }
 
-async function enqueueBatch(supabaseAdmin: any, reset = false) {
-  const { data, error } = await supabaseAdmin.rpc('enqueue_local_places_batch', {
-    p_reset: reset,
+async function dispatchSyncInBackground(req: Request, reset = false) {
+  const internalUrl = `${resolveInternalSupabaseUrl(req)}/functions/v1/sync-local-places`;
+  const serviceRoleKey = String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+
+  if (!serviceRoleKey) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Edge Function environment.');
+  }
+
+  const requestId = crypto.randomUUID();
+
+  const dispatchPromise = fetch(internalUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      'x-enqueue-request-id': requestId,
+    },
+    body: JSON.stringify({
+      action: 'sync',
+      reset,
+      enqueue_request_id: requestId,
+    } satisfies SyncBody),
+  }).then(async (response) => {
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Background sync dispatch failed: ${response.status}${body ? ` ${body}` : ''}`);
+    }
   });
-  if (error) throw error;
-  return data;
+
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(
+      dispatchPromise.catch((error) => {
+        console.error('sync-local-places background dispatch failed', normalizeError(error));
+      }),
+    );
+    return requestId;
+  }
+
+  await dispatchPromise;
+  return requestId;
 }
 
 serve(async (req) => {
@@ -361,7 +450,16 @@ serve(async (req) => {
     }
 
     if (action === 'enqueue') {
-      const requestId = await enqueueBatch(supabaseAdmin, Boolean(body.reset));
+      const requestId = await dispatchSyncInBackground(req, Boolean(body.reset));
+
+      await supabaseAdmin.from('place_sync_state').upsert({
+        key: 'local_places',
+        status: 'queued',
+        last_error: null,
+        task_count: buildTasks().length,
+        cursor: Boolean(body.reset) ? 0 : undefined,
+      });
+
       await appendLog(supabaseAdmin, 'info', 'batch_enqueued', 'Lokális batch elindítva háttérhívással', { reset: Boolean(body.reset), request_id: requestId }, runId);
       return jsonResponse({ ok: true, requestId });
     }
@@ -388,13 +486,24 @@ serve(async (req) => {
 
     let startCursor = currentCursor;
     if (body.reset) {
+      console.log('[sync-local-places] sync:before-reset', { runId, enqueueRequestId: body.enqueue_request_id ?? null });
       startCursor = 0;
       await supabaseAdmin.from('places_local_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      console.log('[sync-local-places] sync:after-reset', { runId });
       await appendLog(supabaseAdmin, 'warn', 'catalog_reset', 'Lokális címtábla teljes újratöltése indult', {}, runId);
     }
 
     const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
     const startedAt = new Date().toISOString();
+
+    console.log('[sync-local-places] sync:batch-selected', {
+      runId,
+      enqueueRequestId: body.enqueue_request_id ?? null,
+      startCursor,
+      batchTaskCount: batchTasks.length,
+      totalTasks,
+      reset: Boolean(body.reset),
+    });
 
     if (batchTasks.length === 0) {
       await supabaseAdmin.from('place_sync_state').upsert({
@@ -415,6 +524,8 @@ serve(async (req) => {
       });
     }
 
+    console.log('[sync-local-places] sync:before-state-update', { runId, status: 'running', startCursor, totalTasks });
+
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
       status: 'running',
@@ -423,6 +534,8 @@ serve(async (req) => {
       last_run_started_at: startedAt,
       last_error: null,
     });
+
+    console.log('[sync-local-places] sync:after-state-update', { runId, startedAt });
 
     await appendLog(
       supabaseAdmin,
@@ -465,10 +578,24 @@ serve(async (req) => {
       }
     });
 
+    console.log('[sync-local-places] sync:before-provider-fetch', {
+      runId,
+      batchTaskCount: batchTasks.length,
+      providerConcurrency: syncConfig.provider_concurrency,
+    });
+
     await runWithConcurrency(taskFns, syncConfig.provider_concurrency);
+
+    console.log('[sync-local-places] sync:after-provider-fetch', {
+      runId,
+      collectedRows: collected.length,
+      failures: failures.length,
+      successfulProviderCalls,
+    });
 
     const rows = dedupe(collected);
     if (rows.length > 0) {
+      console.log('[sync-local-places] sync:before-upsert', { runId, dedupedRows: rows.length });
       const chunkSize = 250;
       for (let index = 0; index < rows.length; index += chunkSize) {
         const chunk = rows.slice(index, index + chunkSize);
@@ -477,6 +604,7 @@ serve(async (req) => {
           .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false });
         if (error) throw error;
       }
+      console.log('[sync-local-places] sync:after-upsert', { runId, dedupedRows: rows.length });
     }
 
     const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
@@ -486,6 +614,14 @@ serve(async (req) => {
     const hasMore = nextCursor < totalTasks;
     const liveStatus = await getStatus(supabaseAdmin);
     const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
+
+    console.log('[sync-local-places] sync:before-final-state-update', {
+      runId,
+      finalStatus,
+      nextCursor,
+      hasMore,
+      liveRows: liveStatus.totalRows,
+    });
 
     await supabaseAdmin.from('place_sync_state').upsert({
       key: 'local_places',
@@ -498,6 +634,8 @@ serve(async (req) => {
       last_run_completed_at: new Date().toISOString(),
       last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
     });
+
+    console.log('[sync-local-places] sync:after-final-state-update', { runId, finalStatus, nextCursor, hasMore });
 
     await appendLog(
       supabaseAdmin,
@@ -527,19 +665,29 @@ serve(async (req) => {
       status: await getStatus(supabaseAdmin),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const normalized = normalizeError(error);
     try {
       await supabaseAdmin.from('place_sync_state').upsert({
         key: 'local_places',
         status: 'error',
-        last_error: message,
+        last_error: normalized.message,
         last_run_completed_at: new Date().toISOString(),
       });
     } catch (_) {
       // swallow
     }
-    await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', { error: message }, runId);
-    console.error('sync-local-places error', error);
-    return jsonResponse({ error: message }, 500);
+    await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', {
+      error: normalized.message,
+      code: normalized.code,
+      details: normalized.details,
+      hint: normalized.hint,
+    }, runId);
+    console.error('sync-local-places error', normalized);
+    return jsonResponse({
+      error: normalized.message,
+      code: normalized.code,
+      details: normalized.details,
+      hint: normalized.hint,
+    }, 500);
   }
 });
