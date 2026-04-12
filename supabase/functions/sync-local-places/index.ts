@@ -207,6 +207,31 @@ async function fetchGeoapify(
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
 
+await logSyncEvent(
+  supabase,
+  'info',
+  'provider_after_hu_filter1',
+  'Results after HU filter1',
+  {
+    provider,
+    taskIndex,
+    beforeCount: rawResults.length,
+    afterCount: huResults.length,
+    droppedCount: rawResults.length - huResults.length,
+    droppedSample: rawResults
+      .filter((item) => !huResultsSet.has(item))
+      .slice(0, 3)
+      .map((item) => ({
+        id: item.external_id ?? item.id ?? null,
+        name: item.name ?? null,
+        country_code: item.country_code ?? null,
+        city: item.city ?? null,
+      })),
+  }
+);
+
+
+
 async function fetchTomTom(
   center: { city: string; lat: number; lon: number },
   group: (typeof CATEGORY_GROUPS)[number],
@@ -232,6 +257,31 @@ async function fetchTomTom(
     .map((result: any) => normalizeTomTomRow(result, group.key, center.city))
     .filter((row: any) => row.external_id && row.country_code === 'HU');
 }
+
+await logSyncEvent(
+  supabase,
+  'info',
+  'provider_after_hu_filter2',
+  'Results after HU filter2',
+  {
+    provider,
+    taskIndex,
+    beforeCount: rawResults.length,
+    afterCount: huResults.length,
+    droppedCount: rawResults.length - huResults.length,
+    droppedSample: rawResults
+      .filter((item) => !huResultsSet.has(item))
+      .slice(0, 3)
+      .map((item) => ({
+        id: item.external_id ?? item.id ?? null,
+        name: item.name ?? null,
+        country_code: item.country_code ?? null,
+        city: item.city ?? null,
+      })),
+  }
+);
+
+
 
 function roundCoord(value: number) {
   return Number(value.toFixed(5));
