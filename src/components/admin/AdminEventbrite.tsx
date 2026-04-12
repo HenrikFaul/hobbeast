@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -169,6 +169,7 @@ export function AdminEventbrite() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogPolling, setCatalogPolling] = useState(false);
   const [catalogStatus, setCatalogStatus] = useState<LocalCatalogStatus | null>(null);
+  const continuousBatchingRef = useRef(false);
   const [syncSettingsLoading, setSyncSettingsLoading] = useState(false);
   const [syncSettingsSaving, setSyncSettingsSaving] = useState(false);
   const [syncSettings, setSyncSettings] = useState<LocalSyncSettings>(DEFAULT_LOCAL_SYNC_SETTINGS);
@@ -239,7 +240,35 @@ export function AdminEventbrite() {
       const state = latest?.state;
       if (!state) return;
 
-      if (!isCatalogStateActivelyRunning(state)) {
+      if (isCatalogStateActivelyRunning(state)) return;
+
+      if (continuousBatchingRef.current) {
+        const cursor = Number(state.cursor || 0);
+        const taskCount = Number(state.task_count || 0);
+
+        if (cursor < taskCount) {
+          try {
+            const { data, error } = await supabase.functions.invoke('sync-local-places', {
+              body: { action: 'enqueue', reset: false },
+            });
+            if (error) throw error;
+            if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+            const hasMore = (data as { hasMore?: boolean } | null)?.hasMore ?? false;
+            if (!hasMore) {
+              continuousBatchingRef.current = false;
+              setCatalogPolling(false);
+              toast.success('Lokális szinkron teljesen kész!');
+            }
+          } catch {
+            continuousBatchingRef.current = false;
+            setCatalogPolling(false);
+          }
+        } else {
+          continuousBatchingRef.current = false;
+          setCatalogPolling(false);
+          toast.success('Lokális szinkron teljesen kész!');
+        }
+      } else {
         setCatalogPolling(false);
       }
     }, 3000);
@@ -439,6 +468,7 @@ export function AdminEventbrite() {
 
   const handleReloadLocalCatalog = async (reset = false) => {
     setCatalogLoading(true);
+    continuousBatchingRef.current = false;
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -450,13 +480,21 @@ export function AdminEventbrite() {
       if (error) throw error;
       if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
 
-      const requestId = (data as { requestId?: number | string } | null)?.requestId;
-      toast.success(`Lokális batch elindítva (request_id: ${requestId ?? 'n/a'})`);
+      const d = data as { requestId?: number | string; hasMore?: boolean } | null;
+
+      if (reset && d?.hasMore) {
+        continuousBatchingRef.current = true;
+        toast.success('Teljes újratöltés elindult – folyamatban...');
+      } else {
+        toast.success(`Lokális batch elindítva (request_id: ${d?.requestId ?? 'n/a'})`);
+      }
+
       setCatalogPolling(true);
       setTimeout(() => {
         void refreshCatalogStatus({ silent: true });
       }, 800);
     } catch (err: any) {
+      continuousBatchingRef.current = false;
       setCatalogPolling(false);
       toast.error(err.message || 'Nem sikerült elindítani a lokális batch szinkront');
     } finally {
