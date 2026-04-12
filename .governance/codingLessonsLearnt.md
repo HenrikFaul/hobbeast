@@ -367,6 +367,22 @@
 - **Javítás**: Kézzel karbantartott, explicit mapping-tábla providerenként, fallback nélkül csak valid célértékekkel.
 - **Megelőzés**: **SOHA** ne építs cross-provider kategóriamappinget puszta string-hasonlóság alapján. Providerenként explicit, validált mapping kell.
 
+### [HIBA-051] Supabase auth trigger user_id=NULL — generált felhasználók user_origin='real' maradtak
+- **Dátum**: 2026-04-12
+- **Fájl**: `supabase/functions/mass-create-users/index.ts`, `handle_new_user_profile` trigger
+- **Hibaüzenet**: Generált felhasználók "Igazi"-ként jelennek meg; city és hobbies mezők üresek.
+- **Gyökérok**: Az `auth.users` INSERT triggerek (`handle_new_user`, `handle_new_user_profile`) profilt hoztak létre `id=auth_id` de `user_id=NULL` értékkel. A `persistProfile` függvény `user_id` alapján keresett → nem találta → INSERT-et próbált → konflikt `id`-n → csendesen meghiúsult → a profil megtartotta a trigger-alapértelmezett értékeket (`user_origin='real'`, `city=null`, `hobbies='{}'`).
+- **Javítás**: (a) `persistProfile` átírva: upsert `id` konflikt alapján; (b) trigger javítva `user_id=NEW.id`-vel; (c) meglévő törött profilok backfill migrációval javítva.
+- **Megelőzés**: **MINDIG** feltételezd, hogy auth triggerek futnak és részleges adattal írnak profilokat. Profile upsert-nél MINDIG `id`-t használj konflikt kulcsként, ne `user_id`-t. Az auth trigger kódját olvasd el mielőtt profile-kezelési logikát írsz.
+
+### [HIBA-052] Supabase Edge Function alapértelmezetten verify_jwt=true — 401 Invalid JWT
+- **Dátum**: 2026-04-12
+- **Fájl**: `supabase/functions/eventbrite-import/index.ts`
+- **Hibaüzenet**: `401 Invalid JWT` a fejlesztői konzolban; a funkció soha nem fut le.
+- **Gyökérok**: A Supabase gateway alapértelmezés szerint ellenőrzi a JWT-t (`verify_jwt=true`). A `config.toml`-ban nem szereplő funkciók ezzel az alapértelmezéssel futnak. Az `eventbrite-import` soha nem igényelt felhasználói JWT-t (csak Eventbrite API kulcsot), de az admin UI-ból hívták lejárt/érvénytelen session tokennel.
+- **Javítás**: A funkció újratelepítve `verify_jwt=false`-szal; hozzáadva a `config.toml`-hoz.
+- **Megelőzés**: **MINDIG** ellenőrizd a `supabase/config.toml`-t minden edge function esetén. Ha egy funkció nem igényel felhasználói azonosítást (pl. admin-only, service-role alapú, API-key alapú), állítsd be `verify_jwt=false`. Ha a JWT ellenőrzés szükséges, gondoskodj róla, hogy az admin UI mindig friss session tokent küld.
+
 ---
 
 ## 📋 ELLENŐRZŐ LISTA (Minden commit előtt)
