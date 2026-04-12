@@ -103,18 +103,32 @@ async function appendLog(
   message: string,
   details: Record<string, unknown> = {},
   runId?: string,
-) {
-  try {
-    await supabaseAdmin.from('place_sync_logs').insert({
-      run_id: runId ?? null,
-      level,
-      event,
-      message,
-      details,
-    });
-  } catch (error) {
-    console.error('place_sync_logs insert failed', error);
+): Promise<string | null> {
+  const { error } = await supabaseAdmin.from('place_sync_logs').insert({
+    run_id: runId ?? null,
+    level,
+    event,
+    message,
+    details,
+  });
+  if (error) {
+    const msg = `place_sync_logs insert failed [${event}]: ${JSON.stringify(error)}`;
+    console.error(msg);
+    return msg;
   }
+  return null;
+}
+
+async function upsertSyncState(supabaseAdmin: any, payload: Record<string, unknown>): Promise<string | null> {
+  const { error } = await supabaseAdmin
+    .from('place_sync_state')
+    .upsert(payload, { onConflict: 'key' });
+  if (error) {
+    const msg = `place_sync_state upsert failed: ${JSON.stringify(error)}`;
+    console.error(msg);
+    return msg;
+  }
+  return null;
 }
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
@@ -350,7 +364,7 @@ async function executeSyncBatch(
   const startedAt = new Date().toISOString();
 
   if (batchTasks.length === 0) {
-    await supabaseAdmin.from('place_sync_state').upsert({
+    const e1 = await upsertSyncState(supabaseAdmin, {
       key: 'local_places',
       status: 'idle',
       task_count: totalTasks,
@@ -365,11 +379,12 @@ async function executeSyncBatch(
       totalTasks,
       nextCursor: totalTasks,
       hasMore: false,
+      _stateWriteError: e1,
       status: await getStatus(supabaseAdmin),
     };
   }
 
-  await supabaseAdmin.from('place_sync_state').upsert({
+  const e0 = await upsertSyncState(supabaseAdmin, {
     key: 'local_places',
     status: 'running',
     task_count: totalTasks,
@@ -434,15 +449,13 @@ async function executeSyncBatch(
     }
   }
 
-  const shouldAdvanceCursor = successfulProviderCalls > 0 || rows.length > 0;
-  const nextCursor = shouldAdvanceCursor
-    ? Math.min(totalTasks, startCursor + batchTasks.length)
-    : startCursor;
+  // Always advance the cursor if we attempted the batch (even 0 results — tile was processed)
+  const nextCursor = Math.min(totalTasks, startCursor + batchTasks.length);
   const hasMore = nextCursor < totalTasks;
   const liveStatus = await getStatus(supabaseAdmin);
   const finalStatus = hasMore ? (failures.length > 0 ? 'partial' : 'running') : (failures.length > 0 ? 'partial' : 'idle');
 
-  await supabaseAdmin.from('place_sync_state').upsert({
+  const e2 = await upsertSyncState(supabaseAdmin, {
     key: 'local_places',
     status: finalStatus,
     rows_written: liveStatus.totalRows,
@@ -454,7 +467,7 @@ async function executeSyncBatch(
     last_error: failures.length > 0 ? failures.slice(0, 5).join(' | ') : null,
   });
 
-  await appendLog(
+  const logErr = await appendLog(
     supabaseAdmin,
     failures.length > 0 ? 'warn' : 'success',
     'batch_completed',
@@ -479,6 +492,8 @@ async function executeSyncBatch(
     hasMore,
     partialFailures: failures.length,
     rowsWrittenThisRun: rows.length,
+    _stateWriteError: e0 || e2,
+    _logWriteError: logErr,
     status: await getStatus(supabaseAdmin),
   };
 }
@@ -576,16 +591,12 @@ serve(async (req) => {
     return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    try {
-      await supabaseAdmin.from('place_sync_state').upsert({
-        key: 'local_places',
-        status: 'error',
-        last_error: message,
-        last_run_completed_at: new Date().toISOString(),
-      });
-    } catch (_) {
-      // swallow
-    }
+    await upsertSyncState(supabaseAdmin, {
+      key: 'local_places',
+      status: 'error',
+      last_error: message,
+      last_run_completed_at: new Date().toISOString(),
+    });
     await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', { error: message }, runId);
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
