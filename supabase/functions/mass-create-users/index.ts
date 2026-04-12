@@ -73,27 +73,14 @@ async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, au
     updated_at: new Date().toISOString(),
   };
 
-  const existing = await supabaseAdmin
+  // Auth triggers create profiles with id=auth_id but user_id=NULL.
+  // Use upsert on 'id' so we always overwrite the trigger-created stub
+  // with the correct generated-user data (city, hobbies, user_origin, user_id).
+  const { error } = await supabaseAdmin
     .from('profiles')
-    .select('id,user_id')
-    .eq('user_id', authUserId)
-    .maybeSingle();
+    .upsert({ id: authUserId, user_id: authUserId, ...payload }, { onConflict: 'id' });
 
-  if (existing.error) return existing.error;
-
-  if (existing.data) {
-    const updateResult = await supabaseAdmin
-      .from('profiles')
-      .update(payload)
-      .eq('user_id', authUserId);
-    return updateResult.error;
-  }
-
-  const insertResult = await supabaseAdmin
-    .from('profiles')
-    .insert({ id: authUserId, user_id: authUserId, ...payload });
-
-  return insertResult.error;
+  return error;
 }
 
 Deno.serve(async (req) => {
