@@ -55,6 +55,30 @@ type SyncBody = {
   config?: Partial<SyncConfig>;
 };
 
+type PlaceRow = {
+  provider: 'geoapify' | 'tomtom';
+  external_id: string;
+  name: string;
+  category_group: string;
+  categories: string[];
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  postal_code: string | null;
+  country_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  open_now: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  image_url: string | null;
+  phone: string | null;
+  website: string | null;
+  opening_hours_text: string[];
+  metadata: Record<string, unknown>;
+  synced_at: string;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -70,6 +94,28 @@ function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
     provider_concurrency: clamp(Number(raw.provider_concurrency ?? DEFAULT_SYNC_CONFIG.provider_concurrency), 1, 10),
     task_batch_size: clamp(Number(raw.task_batch_size ?? DEFAULT_SYNC_CONFIG.task_batch_size), 1, 20),
   };
+}
+
+function normalizeCountryCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized || null;
+}
+
+function isHungaryCountryCode(value: unknown): boolean {
+  const normalized = normalizeCountryCode(value);
+  return normalized === 'HU' || normalized === 'HUN' || normalized === 'HUNGARY';
+}
+
+function summarizeRows(rows: Array<Partial<PlaceRow>>, limit = 3) {
+  return rows.slice(0, limit).map((row) => ({
+    provider: row.provider ?? null,
+    external_id: row.external_id ?? null,
+    name: row.name ?? null,
+    country_code: row.country_code ?? null,
+    city: row.city ?? null,
+    category_group: row.category_group ?? null,
+  }));
 }
 
 async function loadSyncConfig(supabaseAdmin: any): Promise<SyncConfig> {
@@ -111,11 +157,13 @@ async function appendLog(
     message,
     details,
   });
+
   if (error) {
     const msg = `place_sync_logs insert failed [${event}]: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
+
   return null;
 }
 
@@ -123,15 +171,17 @@ async function upsertSyncState(supabaseAdmin: any, payload: Record<string, unkno
   const { error } = await supabaseAdmin
     .from('place_sync_state')
     .upsert(payload, { onConflict: 'key' });
+
   if (error) {
     const msg = `place_sync_state upsert failed: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
+
   return null;
 }
 
-function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string) {
+function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string): PlaceRow {
   return {
     provider: 'geoapify',
     external_id: String(feature?.properties?.place_id || ''),
@@ -142,7 +192,7 @@ function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string
     city: feature?.properties?.city || centerCity,
     district: feature?.properties?.county || feature?.properties?.district || null,
     postal_code: feature?.properties?.postcode || null,
-    country_code: String(feature?.properties?.country_code || 'HU').toUpperCase(),
+    country_code: normalizeCountryCode(feature?.properties?.country_code),
     latitude: typeof feature?.properties?.lat === 'number' ? feature.properties.lat : null,
     longitude: typeof feature?.properties?.lon === 'number' ? feature.properties.lon : null,
     open_now: typeof feature?.properties?.opening_hours?.open_now === 'boolean' ? feature.properties.opening_hours.open_now : null,
@@ -157,7 +207,7 @@ function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string
   };
 }
 
-function normalizeTomTomRow(result: any, groupKey: string, centerCity: string) {
+function normalizeTomTomRow(result: any, groupKey: string, centerCity: string): PlaceRow {
   return {
     provider: 'tomtom',
     external_id: String(result?.id || ''),
@@ -168,7 +218,7 @@ function normalizeTomTomRow(result: any, groupKey: string, centerCity: string) {
     city: result?.address?.municipality || centerCity,
     district: result?.address?.municipalitySubdivision || result?.address?.countrySecondarySubdivision || null,
     postal_code: result?.address?.postalCode || null,
-    country_code: String(result?.address?.countryCode || 'HU').toUpperCase(),
+    country_code: normalizeCountryCode(result?.address?.countryCode),
     latitude: typeof result?.position?.lat === 'number' ? result.position.lat : null,
     longitude: typeof result?.position?.lon === 'number' ? result.position.lon : null,
     open_now: null,
@@ -188,7 +238,7 @@ async function fetchGeoapify(
   group: (typeof CATEGORY_GROUPS)[number],
   apiKey: string,
   config: SyncConfig,
-) {
+): Promise<PlaceRow[]> {
   const params = new URLSearchParams({
     categories: group.geo,
     filter: `circle:${center.lon},${center.lat},${config.radius_meters}`,
@@ -196,48 +246,25 @@ async function fetchGeoapify(
     limit: String(config.geo_limit),
     apiKey,
   });
+
   const res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Geoapify ${center.city}/${group.key}: ${res.status} ${text}`);
   }
+
   const data = await res.json();
   return (data.features || [])
     .map((feature: any) => normalizeGeoapifyRow(feature, group.key, center.city))
-    .filter((row: any) => row.external_id && row.country_code === 'HU');
+    .filter((row: PlaceRow) => Boolean(row.external_id));
 }
-
-await logSyncEvent(
-  supabase,
-  'info',
-  'provider_after_hu_filter1',
-  'Results after HU filter1',
-  {
-    provider,
-    taskIndex,
-    beforeCount: rawResults.length,
-    afterCount: huResults.length,
-    droppedCount: rawResults.length - huResults.length,
-    droppedSample: rawResults
-      .filter((item) => !huResultsSet.has(item))
-      .slice(0, 3)
-      .map((item) => ({
-        id: item.external_id ?? item.id ?? null,
-        name: item.name ?? null,
-        country_code: item.country_code ?? null,
-        city: item.city ?? null,
-      })),
-  }
-);
-
-
 
 async function fetchTomTom(
   center: { city: string; lat: number; lon: number },
   group: (typeof CATEGORY_GROUPS)[number],
   apiKey: string,
   config: SyncConfig,
-) {
+): Promise<PlaceRow[]> {
   const params = new URLSearchParams({
     key: apiKey,
     countrySet: 'HU',
@@ -247,41 +274,18 @@ async function fetchTomTom(
     radius: String(config.radius_meters),
     openingHours: 'nextSevenDays',
   });
+
   const res = await fetch(`https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(group.tomtom)}.json?${params.toString()}`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`TomTom ${center.city}/${group.key}: ${res.status} ${text}`);
   }
+
   const data = await res.json();
   return (data.results || [])
     .map((result: any) => normalizeTomTomRow(result, group.key, center.city))
-    .filter((row: any) => row.external_id && row.country_code === 'HU');
+    .filter((row: PlaceRow) => Boolean(row.external_id));
 }
-
-await logSyncEvent(
-  supabase,
-  'info',
-  'provider_after_hu_filter2',
-  'Results after HU filter2',
-  {
-    provider,
-    taskIndex,
-    beforeCount: rawResults.length,
-    afterCount: huResults.length,
-    droppedCount: rawResults.length - huResults.length,
-    droppedSample: rawResults
-      .filter((item) => !huResultsSet.has(item))
-      .slice(0, 3)
-      .map((item) => ({
-        id: item.external_id ?? item.id ?? null,
-        name: item.name ?? null,
-        country_code: item.country_code ?? null,
-        city: item.city ?? null,
-      })),
-  }
-);
-
-
 
 function roundCoord(value: number) {
   return Number(value.toFixed(5));
@@ -290,8 +294,10 @@ function roundCoord(value: number) {
 function buildHungaryCenters() {
   const centers: Array<{ city: string; lat: number; lon: number }> = [];
   let row = 0;
+
   for (let lat = HUNGARY_BOUNDS.minLat; lat <= HUNGARY_BOUNDS.maxLat; lat += TILE_STEP_DEGREES) {
     const lonOffset = row % 2 === 0 ? 0 : TILE_STEP_DEGREES / 2;
+
     for (let lon = HUNGARY_BOUNDS.minLon + lonOffset; lon <= HUNGARY_BOUNDS.maxLon; lon += TILE_STEP_DEGREES) {
       centers.push({
         city: `HU-TILE-${row + 1}`,
@@ -299,24 +305,29 @@ function buildHungaryCenters() {
         lon: roundCoord(lon),
       });
     }
+
     row += 1;
   }
+
   return centers;
 }
 
 function buildTasks() {
   const centers = buildHungaryCenters();
   const tasks: Array<{ center: { city: string; lat: number; lon: number }; group: (typeof CATEGORY_GROUPS)[number] }> = [];
+
   for (const center of centers) {
     for (const group of CATEGORY_GROUPS) {
       tasks.push({ center, group });
     }
   }
+
   return tasks;
 }
 
 async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency: number) {
   let index = 0;
+
   const worker = async () => {
     while (index < tasks.length) {
       const current = index;
@@ -324,11 +335,12 @@ async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency
       await tasks[current]();
     }
   };
+
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, () => worker()));
 }
 
-function dedupe(rows: any[]) {
-  const map = new Map<string, any>();
+function dedupe(rows: PlaceRow[]) {
+  const map = new Map<string, PlaceRow>();
   for (const row of rows) {
     const key = `${row.provider}:${row.external_id}`;
     map.set(key, row);
@@ -362,7 +374,7 @@ async function getStatus(supabaseAdmin: any) {
     ? providerCountResult.data.reduce((acc: Record<string, number>, row: any) => {
         acc[row.provider] = (acc[row.provider] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>)
+      }, {})
     : {};
 
   return {
@@ -372,6 +384,57 @@ async function getStatus(supabaseAdmin: any) {
     preview: preview.data || [],
     logs,
   };
+}
+
+async function logProviderResults(
+  supabaseAdmin: any,
+  runId: string,
+  provider: 'geoapify' | 'tomtom',
+  taskIndex: number,
+  taskCursor: number,
+  center: { city: string; lat: number; lon: number },
+  groupKey: string,
+  rawResults: PlaceRow[],
+  huResults: PlaceRow[],
+) {
+  await appendLog(
+    supabaseAdmin,
+    'info',
+    'provider_raw_results',
+    'Provider raw results received',
+    {
+      provider,
+      task_index: taskIndex,
+      task_cursor: taskCursor,
+      center_city: center.city,
+      center_lat: center.lat,
+      center_lon: center.lon,
+      category_group: groupKey,
+      raw_count: rawResults.length,
+      sample: summarizeRows(rawResults),
+    },
+    runId,
+  );
+
+  await appendLog(
+    supabaseAdmin,
+    'info',
+    'provider_after_hu_filter',
+    'Results after HU filter',
+    {
+      provider,
+      task_index: taskIndex,
+      task_cursor: taskCursor,
+      center_city: center.city,
+      category_group: groupKey,
+      before_count: rawResults.length,
+      after_count: huResults.length,
+      dropped_count: rawResults.length - huResults.length,
+      sample: summarizeRows(huResults),
+      dropped_sample: summarizeRows(rawResults.filter((row) => !isHungaryCountryCode(row.country_code))),
+    },
+    runId,
+  );
 }
 
 async function executeSyncBatch(
@@ -400,29 +463,51 @@ async function executeSyncBatch(
   const currentCursor = Number(currentState?.cursor || 0);
 
   let startCursor = currentCursor;
+
   if (body.reset) {
     startCursor = 0;
     const { error: resetError } = await supabaseAdmin
       .from('places_local_catalog')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
+
     if (resetError) throw resetError;
-    await appendLog(supabaseAdmin, 'warn', 'catalog_reset', 'Lokális címtábla teljes újratöltése indult', {}, runId);
+
+    await appendLog(
+      supabaseAdmin,
+      'warn',
+      'catalog_reset',
+      'Lokális címtábla teljes újratöltése indult',
+      {},
+      runId,
+    );
   }
 
   const batchTasks = allTasks.slice(startCursor, startCursor + syncConfig.task_batch_size);
   const startedAt = new Date().toISOString();
 
   if (batchTasks.length === 0) {
+    const latestStatus = await getStatus(supabaseAdmin);
     const e1 = await upsertSyncState(supabaseAdmin, {
       key: 'local_places',
       status: 'idle',
+      rows_written: latestStatus.totalRows,
+      provider_counts: latestStatus.providerCounts,
       task_count: totalTasks,
       cursor: totalTasks,
       last_run_completed_at: new Date().toISOString(),
       last_error: null,
     });
-    await appendLog(supabaseAdmin, 'success', 'sync_complete', 'Nincs több feldolgozandó batch. A lokális címtábla szinkron kész.', { total_tasks: totalTasks }, runId);
+
+    await appendLog(
+      supabaseAdmin,
+      'success',
+      'sync_complete',
+      'Nincs több feldolgozandó batch. A lokális címtábla szinkron kész.',
+      { total_tasks: totalTasks },
+      runId,
+    );
+
     return {
       ok: true,
       processedTasks: 0,
@@ -437,6 +522,8 @@ async function executeSyncBatch(
   const e0 = await upsertSyncState(supabaseAdmin, {
     key: 'local_places',
     status: 'running',
+    rows_written: body.reset ? 0 : Number(currentState?.rows_written || 0),
+    provider_counts: body.reset ? {} : (currentState?.provider_counts || {}),
     task_count: totalTasks,
     cursor: startCursor,
     last_run_started_at: startedAt,
@@ -458,48 +545,227 @@ async function executeSyncBatch(
     runId,
   );
 
-  const collected: any[] = [];
+  const collected: PlaceRow[] = [];
   const failures: string[] = [];
   let successfulProviderCalls = 0;
 
-  const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }) => async () => {
+  const taskFns: Array<() => Promise<void>> = batchTasks.map(({ center, group }, taskIndex) => async () => {
+    const taskCursor = startCursor + taskIndex;
     const [geoResult, tomtomResult] = await Promise.allSettled([
       fetchGeoapify(center, group, geoapifyKey, syncConfig),
       fetchTomTom(center, group, tomtomKey, syncConfig),
     ]);
 
     if (geoResult.status === 'fulfilled') {
-      collected.push(...geoResult.value);
+      const rawResults = geoResult.value;
+      const huResults = rawResults.filter((row) => isHungaryCountryCode(row.country_code));
+
+      await logProviderResults(
+        supabaseAdmin,
+        runId,
+        'geoapify',
+        taskIndex,
+        taskCursor,
+        center,
+        group.key,
+        rawResults,
+        huResults,
+      );
+
+      collected.push(...huResults);
       successfulProviderCalls += 1;
     } else {
       const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
       failures.push(message);
+
+      await appendLog(
+        supabaseAdmin,
+        'warn',
+        'provider_fetch_error',
+        'Geoapify fetch failed',
+        {
+          provider: 'geoapify',
+          task_index: taskIndex,
+          task_cursor: taskCursor,
+          center_city: center.city,
+          category_group: group.key,
+          error: message,
+        },
+        runId,
+      );
     }
 
     if (tomtomResult.status === 'fulfilled') {
-      collected.push(...tomtomResult.value);
+      const rawResults = tomtomResult.value;
+      const huResults = rawResults.filter((row) => isHungaryCountryCode(row.country_code));
+
+      await logProviderResults(
+        supabaseAdmin,
+        runId,
+        'tomtom',
+        taskIndex,
+        taskCursor,
+        center,
+        group.key,
+        rawResults,
+        huResults,
+      );
+
+      collected.push(...huResults);
       successfulProviderCalls += 1;
     } else {
       const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
       failures.push(message);
+
+      await appendLog(
+        supabaseAdmin,
+        'warn',
+        'provider_fetch_error',
+        'TomTom fetch failed',
+        {
+          provider: 'tomtom',
+          task_index: taskIndex,
+          task_cursor: taskCursor,
+          center_city: center.city,
+          category_group: group.key,
+          error: message,
+        },
+        runId,
+      );
     }
   });
 
   await runWithConcurrency(taskFns, syncConfig.provider_concurrency);
 
   const rows = dedupe(collected);
+
+  await appendLog(
+    supabaseAdmin,
+    'info',
+    'catalog_payload_built',
+    'Catalog payload prepared',
+    {
+      payload_count: rows.length,
+      successful_provider_calls: successfulProviderCalls,
+      failure_count: failures.length,
+      sample: summarizeRows(rows),
+    },
+    runId,
+  );
+
+  let rowsWrittenThisRun = 0;
+
   if (rows.length > 0) {
     const chunkSize = 250;
+
     for (let index = 0; index < rows.length; index += chunkSize) {
       const chunk = rows.slice(index, index + chunkSize);
-      const { error } = await supabaseAdmin
+
+      await appendLog(
+        supabaseAdmin,
+        'info',
+        'catalog_write_attempt',
+        'Attempting catalog write',
+        {
+          chunk_index: index / chunkSize,
+          write_count: chunk.length,
+          sample: summarizeRows(chunk),
+        },
+        runId,
+      );
+
+      const { data: writeData, error: writeError } = await supabaseAdmin
         .from('places_local_catalog')
-        .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false });
-      if (error) throw error;
+        .upsert(chunk, { onConflict: 'provider,external_id', ignoreDuplicates: false })
+        .select('provider, external_id, name, synced_at');
+
+      if (writeError) {
+        await appendLog(
+          supabaseAdmin,
+          'error',
+          'catalog_write_error',
+          'Catalog write failed',
+          {
+            chunk_index: index / chunkSize,
+            attempted_count: chunk.length,
+            message: writeError.message ?? null,
+            details: writeError.details ?? null,
+            hint: writeError.hint ?? null,
+            code: writeError.code ?? null,
+          },
+          runId,
+        );
+
+        throw writeError;
+      }
+
+      const writtenNow = Array.isArray(writeData) ? writeData.length : 0;
+      rowsWrittenThisRun += writtenNow;
+
+      await appendLog(
+        supabaseAdmin,
+        'info',
+        'catalog_write_success',
+        'Catalog write finished successfully',
+        {
+          chunk_index: index / chunkSize,
+          attempted_count: chunk.length,
+          returned_count: writtenNow,
+          sample: Array.isArray(writeData) ? writeData.slice(0, 3) : [],
+        },
+        runId,
+      );
+
+      const writtenIds = (writeData || [])
+        .slice(0, 3)
+        .map((row: any) => row.external_id)
+        .filter(Boolean);
+
+      if (writtenIds.length > 0) {
+        const provider = (writeData?.[0]?.provider || chunk[0]?.provider) as string | undefined;
+        const { data: verifyRows, error: verifyError } = await supabaseAdmin
+          .from('places_local_catalog')
+          .select('provider, external_id, name, synced_at')
+          .eq('provider', provider)
+          .in('external_id', writtenIds);
+
+        await appendLog(
+          supabaseAdmin,
+          verifyError ? 'error' : 'info',
+          'catalog_write_verify',
+          verifyError ? 'Catalog write verification failed' : 'Catalog write verification finished',
+          {
+            provider: provider || null,
+            requested_ids: writtenIds,
+            found_count: verifyRows?.length ?? 0,
+            verify_error: verifyError
+              ? {
+                  message: verifyError.message ?? null,
+                  details: verifyError.details ?? null,
+                  hint: verifyError.hint ?? null,
+                  code: verifyError.code ?? null,
+                }
+              : null,
+            sample: verifyRows?.slice(0, 3) ?? [],
+          },
+          runId,
+        );
+      }
     }
+  } else {
+    await appendLog(
+      supabaseAdmin,
+      'info',
+      'catalog_write_skipped',
+      'Catalog write skipped because no rows remained after filtering',
+      {
+        successful_provider_calls: successfulProviderCalls,
+        failure_count: failures.length,
+      },
+      runId,
+    );
   }
 
-  // Always advance the cursor if we attempted the batch (even 0 results — tile was processed)
   const nextCursor = Math.min(totalTasks, startCursor + batchTasks.length);
   const hasMore = nextCursor < totalTasks;
   const liveStatus = await getStatus(supabaseAdmin);
@@ -527,7 +793,8 @@ async function executeSyncBatch(
       total_tasks: totalTasks,
       next_cursor: nextCursor,
       has_more: hasMore,
-      rows_written_this_run: rows.length,
+      rows_written_this_run: rowsWrittenThisRun,
+      successful_provider_calls: successfulProviderCalls,
       provider_counts: liveStatus.providerCounts,
       partial_failures: failures.slice(0, 5),
     },
@@ -541,7 +808,7 @@ async function executeSyncBatch(
     nextCursor,
     hasMore,
     partialFailures: failures.length,
-    rowsWrittenThisRun: rows.length,
+    rowsWrittenThisRun,
     _stateWriteError: e0 || e2,
     _logWriteError: logErr,
     status: await getStatus(supabaseAdmin),
@@ -598,6 +865,7 @@ serve(async (req) => {
       const minutes = clamp(Number(body.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
       const { error } = await supabaseAdmin.rpc('schedule_local_places_interval', { p_minutes: minutes });
       if (error) throw error;
+
       await appendLog(
         supabaseAdmin,
         'success',
@@ -606,12 +874,14 @@ serve(async (req) => {
         { interval_minutes: minutes },
         runId,
       );
+
       return jsonResponse({ ok: true, interval_minutes: minutes });
     }
 
     if (action === 'unschedule') {
       const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval');
       if (error) throw error;
+
       await appendLog(
         supabaseAdmin,
         'warn',
@@ -620,6 +890,7 @@ serve(async (req) => {
         {},
         runId,
       );
+
       return jsonResponse({ ok: true });
     }
 
@@ -641,13 +912,23 @@ serve(async (req) => {
     return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
+
     await upsertSyncState(supabaseAdmin, {
       key: 'local_places',
       status: 'error',
       last_error: message,
       last_run_completed_at: new Date().toISOString(),
     });
-    await appendLog(supabaseAdmin, 'error', 'sync_error', 'Lokális címszinkron hiba történt', { error: message }, runId);
+
+    await appendLog(
+      supabaseAdmin,
+      'error',
+      'sync_error',
+      'Lokális címszinkron hiba történt',
+      { error: message },
+      runId,
+    );
+
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
   }
