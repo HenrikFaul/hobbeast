@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,6 +7,11 @@
 
 @layer base {
   :root {
+    /* Daft Punk neon palette */
+    --neon-cyan: 185 100% 56%;
+    --neon-gold: 43 100% 52%;
+    --neon-magenta: 295 100% 60%;
+
     --background: 30 25% 97%;
     --foreground: 20 20% 12%;
 
@@ -81,6 +87,29 @@
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Subtle dot grid — the digital horizon */
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(var(--primary) / 0.07) 1px,
+      transparent 0
+    );
+    background-size: 28px 28px;
+  }
+
+  /* CRT scanline veil — barely-there, adds texture without hurting readability */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      hsl(0 0% 0% / 0.018) 3px,
+      hsl(0 0% 0% / 0.018) 4px
+    );
+    pointer-events: none;
+    z-index: 9990;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -160,6 +189,119 @@
 
   .section-padding {
     @apply py-16 sm:py-20 md:py-24;
+  }
+
+  /* ─── Daft Punk / electronic vibe utilities ─── */
+
+  /* Monospace tech font for data/labels */
+  .font-mono-tech {
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  /* Neon text — cyan */
+  .neon-cyan {
+    color: hsl(var(--neon-cyan));
+    text-shadow:
+      0 0 4px hsl(var(--neon-cyan) / 0.9),
+      0 0 14px hsl(var(--neon-cyan) / 0.6),
+      0 0 30px hsl(var(--neon-cyan) / 0.3);
+  }
+
+  /* Neon text — gold (Daft Punk helmet) */
+  .neon-gold {
+    color: hsl(var(--neon-gold));
+    text-shadow:
+      0 0 4px hsl(var(--neon-gold) / 0.9),
+      0 0 14px hsl(var(--neon-gold) / 0.6),
+      0 0 30px hsl(var(--neon-gold) / 0.3);
+  }
+
+  /* Neon box-shadow glow — cyan */
+  .neon-ring-cyan {
+    box-shadow:
+      0 0 0 1px hsl(var(--neon-cyan) / 0.5),
+      0 0 8px hsl(var(--neon-cyan) / 0.35),
+      0 0 24px hsl(var(--neon-cyan) / 0.18);
+  }
+
+  /* Neon box-shadow glow — gold */
+  .neon-ring-gold {
+    box-shadow:
+      0 0 0 1px hsl(var(--neon-gold) / 0.5),
+      0 0 8px hsl(var(--neon-gold) / 0.35),
+      0 0 24px hsl(var(--neon-gold) / 0.18);
+  }
+
+  /* Line-grid background (Tron horizon) */
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: grid-march 20s linear infinite;
+  }
+
+  /* Marching grid — vivid accent variant */
+  .grid-bg-accent {
+    background-image:
+      linear-gradient(hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: grid-march 20s linear infinite;
+  }
+
+  /* Moving beam scanline for a single element */
+  .scanline-sweep {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanline-sweep::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      hsl(var(--neon-cyan) / 0.06) 50%,
+      transparent
+    );
+    animation: scanline 8s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Beat-pulse wrapper — use on a badge, icon, or CTA */
+  .animate-beat {
+    animation: beat 0.8s ease-in-out infinite;
+  }
+
+  /* Neon breathing glow */
+  .animate-neon-pulse {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  /* Occasional glitch jitter */
+  .animate-glitch {
+    animation: glitch 6s linear infinite;
+  }
+
+  /* Circuit-chip border (gold) */
+  .circuit-border {
+    border: 1px solid hsl(var(--neon-gold) / 0.35);
+    box-shadow:
+      inset 0 0 12px hsl(var(--neon-gold) / 0.05),
+      0 0 8px hsl(var(--neon-gold) / 0.18);
+  }
+
+  /* HUD label — monospace + cyan */
+  .hud-label {
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--neon-cyan) / 0.8);
   }
 
   .gradient-border {

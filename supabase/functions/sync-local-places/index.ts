@@ -104,15 +104,15 @@ async function appendLog(
   details: Record<string, unknown> = {},
   runId?: string,
 ): Promise<string | null> {
-  const { error } = await supabaseAdmin.from('place_sync_logs').insert({
-    run_id: runId ?? null,
-    level,
-    event,
-    message,
-    details,
+  const { error } = await supabaseAdmin.rpc('rpc_insert_place_sync_log', {
+    p_run_id: runId ?? null,
+    p_level: level,
+    p_event: event,
+    p_message: message,
+    p_details: details,
   });
   if (error) {
-    const msg = `place_sync_logs insert failed [${event}]: ${JSON.stringify(error)}`;
+    const msg = `rpc_insert_place_sync_log failed [${event}]: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
@@ -120,11 +120,19 @@ async function appendLog(
 }
 
 async function upsertSyncState(supabaseAdmin: any, payload: Record<string, unknown>): Promise<string | null> {
-  const { error } = await supabaseAdmin
-    .from('place_sync_state')
-    .upsert(payload, { onConflict: 'key' });
+  const { error } = await supabaseAdmin.rpc('rpc_upsert_place_sync_state', {
+    p_key: payload.key,
+    p_status: payload.status,
+    p_cursor: payload.cursor ?? null,
+    p_task_count: payload.task_count ?? null,
+    p_rows_written: payload.rows_written ?? null,
+    p_provider_counts: payload.provider_counts ?? null,
+    p_last_run_started_at: payload.last_run_started_at ?? null,
+    p_last_run_completed_at: payload.last_run_completed_at ?? null,
+    p_last_error: payload.last_error ?? null,
+  });
   if (error) {
-    const msg = `place_sync_state upsert failed: ${JSON.stringify(error)}`;
+    const msg = `rpc_upsert_place_sync_state failed: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
