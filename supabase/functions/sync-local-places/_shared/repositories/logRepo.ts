@@ -26,7 +26,7 @@ export async function appendLog(
 export async function getRecentLogs(supabaseAdmin: any) {
   const { data } = await supabaseAdmin
     .from('place_sync_logs')
-    .select('id, created_at, level, event, message, details')
+    .select('id, run_id, created_at, level, event, message, details')
     .order('created_at', { ascending: false })
     .limit(40);
 
