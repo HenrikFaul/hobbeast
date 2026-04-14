@@ -38,7 +38,7 @@ serve(async (req) => {
     }, runId);
 
     if (action === 'status') {
-      return jsonResponse(await handleStatus(supabaseAdmin));
+      return jsonResponse(await handleStatus(supabaseAdmin, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
     }
 
     if (action === 'get_config') {

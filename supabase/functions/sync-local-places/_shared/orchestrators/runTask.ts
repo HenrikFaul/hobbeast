@@ -3,7 +3,9 @@ import { fetchGeoapify } from '../providers/geoapify.ts';
 import { fetchTomTom } from '../providers/tomtom.ts';
 import { isHungaryCountryCode } from '../utils/country.ts';
 import type { PlaceRow, SyncConfig, SyncTask } from '../types/index.ts';
-import { logProviderResults } from '../services/providerResultLogger.ts';
+import { summarizeRows } from '../utils/summarize.ts';
+
+type AppendLog = (level: 'info' | 'warn' | 'error' | 'success', event: string, message: string, details?: Record<string, unknown>, runId?: string) => Promise<string | null>;
 
 export async function runTask(params: {
   task: SyncTask;
@@ -12,37 +14,48 @@ export async function runTask(params: {
   geoapifyKey: string;
   tomtomKey: string;
   config: SyncConfig;
-  appendLog: (level: 'info' | 'warn' | 'error' | 'success', event: string, message: string, details?: Record<string, unknown>, runId?: string) => Promise<string | null>;
+  appendLog: AppendLog;
   runId: string;
 }): Promise<{ rows: PlaceRow[]; failures: string[]; successfulProviderCalls: number }> {
   const { task, taskIndex, taskCursor, geoapifyKey, tomtomKey, config, appendLog, runId } = params;
   const { center, group } = task;
 
-  await appendLog('info', MILESTONES.TASK_STARTED, 'Task processing started', {
+  await appendLog('info', MILESTONES.TASK_STARTED, 'Task started', {
+    task_index: taskIndex,
+    task_cursor: taskCursor,
+    center_city: center.city,
+    center_lat: center.lat,
+    center_lon: center.lon,
+    category_group: group.key,
+  }, runId);
+
+  const rows: PlaceRow[] = [];
+  const failures: string[] = [];
+  let successfulProviderCalls = 0;
+
+  // --- Geoapify ---
+  await appendLog('info', MILESTONES.PROVIDER_FETCH_STARTED, 'Geoapify fetch started', {
+    provider: 'geoapify',
     task_index: taskIndex,
     task_cursor: taskCursor,
     center_city: center.city,
     category_group: group.key,
   }, runId);
 
-  const [geoResult, tomtomResult] = await Promise.allSettled([
-    fetchGeoapify(center, group, geoapifyKey, config),
-    fetchTomTom(center, group, tomtomKey, config),
-  ]);
-
-  const rows: PlaceRow[] = [];
-  const failures: string[] = [];
-  let successfulProviderCalls = 0;
-
-  if (geoResult.status === 'fulfilled') {
-    const huResults = geoResult.value.filter((row) => isHungaryCountryCode(row.country_code));
-    await logProviderResults(appendLog, runId, 'geoapify', taskIndex, taskCursor, center, group.key, geoResult.value, huResults);
-    rows.push(...huResults);
+  let geoRaw: PlaceRow[] = [];
+  try {
+    geoRaw = await fetchGeoapify(center, group, geoapifyKey, config);
+    await appendLog('info', MILESTONES.PROVIDER_FETCH_DONE, 'Geoapify fetch done', {
+      provider: 'geoapify',
+      task_index: taskIndex,
+      raw_count: geoRaw.length,
+      sample: summarizeRows(geoRaw),
+    }, runId);
     successfulProviderCalls += 1;
-  } else {
-    const message = geoResult.reason instanceof Error ? geoResult.reason.message : String(geoResult.reason);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     failures.push(message);
-    await appendLog('warn', 'provider_fetch_error', 'Geoapify fetch failed', {
+    await appendLog('warn', MILESTONES.PROVIDER_FETCH_DONE, 'Geoapify fetch failed', {
       provider: 'geoapify',
       task_index: taskIndex,
       task_cursor: taskCursor,
@@ -52,15 +65,43 @@ export async function runTask(params: {
     }, runId);
   }
 
-  if (tomtomResult.status === 'fulfilled') {
-    const huResults = tomtomResult.value.filter((row) => isHungaryCountryCode(row.country_code));
-    await logProviderResults(appendLog, runId, 'tomtom', taskIndex, taskCursor, center, group.key, tomtomResult.value, huResults);
-    rows.push(...huResults);
+  const geoHu = geoRaw.filter((row) => isHungaryCountryCode(row.country_code));
+  await appendLog('info', MILESTONES.HU_FILTER_DONE, 'Geoapify HU filter done', {
+    provider: 'geoapify',
+    task_index: taskIndex,
+    task_cursor: taskCursor,
+    center_city: center.city,
+    category_group: group.key,
+    raw_count: geoRaw.length,
+    hu_count: geoHu.length,
+    dropped: geoRaw.length - geoHu.length,
+    sample: summarizeRows(geoHu),
+  }, runId);
+  rows.push(...geoHu);
+
+  // --- TomTom ---
+  await appendLog('info', MILESTONES.PROVIDER_FETCH_STARTED, 'TomTom fetch started', {
+    provider: 'tomtom',
+    task_index: taskIndex,
+    task_cursor: taskCursor,
+    center_city: center.city,
+    category_group: group.key,
+  }, runId);
+
+  let tomtomRaw: PlaceRow[] = [];
+  try {
+    tomtomRaw = await fetchTomTom(center, group, tomtomKey, config);
+    await appendLog('info', MILESTONES.PROVIDER_FETCH_DONE, 'TomTom fetch done', {
+      provider: 'tomtom',
+      task_index: taskIndex,
+      raw_count: tomtomRaw.length,
+      sample: summarizeRows(tomtomRaw),
+    }, runId);
     successfulProviderCalls += 1;
-  } else {
-    const message = tomtomResult.reason instanceof Error ? tomtomResult.reason.message : String(tomtomResult.reason);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     failures.push(message);
-    await appendLog('warn', 'provider_fetch_error', 'TomTom fetch failed', {
+    await appendLog('warn', MILESTONES.PROVIDER_FETCH_DONE, 'TomTom fetch failed', {
       provider: 'tomtom',
       task_index: taskIndex,
       task_cursor: taskCursor,
@@ -70,11 +111,26 @@ export async function runTask(params: {
     }, runId);
   }
 
-  await appendLog('info', MILESTONES.TASK_FINISHED, 'Task processing finished', {
+  const tomtomHu = tomtomRaw.filter((row) => isHungaryCountryCode(row.country_code));
+  await appendLog('info', MILESTONES.HU_FILTER_DONE, 'TomTom HU filter done', {
+    provider: 'tomtom',
+    task_index: taskIndex,
+    task_cursor: taskCursor,
+    center_city: center.city,
+    category_group: group.key,
+    raw_count: tomtomRaw.length,
+    hu_count: tomtomHu.length,
+    dropped: tomtomRaw.length - tomtomHu.length,
+    sample: summarizeRows(tomtomHu),
+  }, runId);
+  rows.push(...tomtomHu);
+
+  await appendLog('info', MILESTONES.TASK_FINISHED, 'Task finished', {
     task_index: taskIndex,
     task_cursor: taskCursor,
     row_count: rows.length,
     failure_count: failures.length,
+    successful_provider_calls: successfulProviderCalls,
   }, runId);
 
   return { rows, failures, successfulProviderCalls };
