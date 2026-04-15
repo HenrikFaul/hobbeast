@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, jsonResponse } from '../shared/providerFetch.ts';
-import { getTargetProjectAdmin, requireTargetProjectAdmin } from '../shared/targetProject.ts';
+import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
+import { requireAdminUser } from '../shared/adminAuth.ts';
 
 interface HubRow {
   id: string;
@@ -24,7 +24,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseAdmin = getTargetProjectAdmin();
+  const supabaseAdmin = getSupabaseAdmin(req);
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   try {
@@ -32,20 +32,19 @@ serve(async (req) => {
     const action = body.action || 'preview';
     const isCron = body._cron === true;
 
-    // Cron calls skip admin auth but only for 'generate' action when config is enabled
     let currentAdmin: { id: string } | null = null;
     if (isCron && action === 'generate') {
-      // For cron, use a system-level creator — find first admin
-      const { data: adminRole } = await supabaseAdmin
+      const { data: adminRole, error: adminRoleError } = await supabaseAdmin
         .from('user_roles')
         .select('user_id')
         .eq('role', 'admin')
         .limit(1)
-        .single();
-      if (!adminRole) throw new Error('No admin user found for cron execution.');
+        .maybeSingle();
+      if (adminRoleError) throw new Error(`Admin role load failed: ${adminRoleError.message}`);
+      if (!adminRole?.user_id) throw new Error('No admin user found for cron execution.');
       currentAdmin = { id: adminRole.user_id };
     } else {
-      currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
+      currentAdmin = await requireAdminUser(req, supabaseAdmin);
     }
 
     const { data: configRows, error: configError } = await supabaseAdmin

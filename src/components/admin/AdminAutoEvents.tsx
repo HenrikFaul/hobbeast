@@ -48,25 +48,51 @@ export function AdminAutoEvents() {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    loadConfig();
+    void loadConfig();
   }, []);
+
+  const applyConfig = (cfg: AutoEventConfig) => {
+    setConfig(cfg);
+    setMinMembers(cfg.min_members);
+    setMaxDistanceKm(cfg.max_distance_km);
+    setFrequencyDays(cfg.frequency_days);
+    setMaxEventsPerRun(cfg.max_events_per_run);
+    setEnabled(cfg.enabled);
+  };
+
+  const ensureConfig = async () => {
+    const { data, error } = await supabase
+      .from('auto_event_config')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return data as AutoEventConfig;
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('auto_event_config')
+      .insert({
+        enabled: false,
+        min_members: 5,
+        max_distance_km: 30,
+        frequency_days: 7,
+        max_events_per_run: 10,
+        categories_filter: null,
+      })
+      .select('*')
+      .single();
+
+    if (insertError) throw insertError;
+    return inserted as AutoEventConfig;
+  };
 
   const loadConfig = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-hub-events', {
-        body: { action: 'get_config' },
-      });
-      if (error) throw error;
-      const cfg = data?.config as AutoEventConfig;
-      if (cfg) {
-        setConfig(cfg);
-        setMinMembers(cfg.min_members);
-        setMaxDistanceKm(cfg.max_distance_km);
-        setFrequencyDays(cfg.frequency_days);
-        setMaxEventsPerRun(cfg.max_events_per_run);
-        setEnabled(cfg.enabled);
-      }
+      const cfg = await ensureConfig();
+      applyConfig(cfg);
     } catch (err) {
       console.error('Failed to load auto-event config:', err);
       toast.error('Nem sikerült betölteni az automatikus eseménygeneráló konfigurációt.');
@@ -77,18 +103,17 @@ export function AdminAutoEvents() {
   const saveConfig = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.functions.invoke('generate-hub-events', {
-        body: {
-          action: 'save_config',
-          config: {
-            enabled,
-            min_members: minMembers,
-            max_distance_km: maxDistanceKm,
-            frequency_days: frequencyDays,
-            max_events_per_run: maxEventsPerRun,
-          },
-        },
-      });
+      const cfg = config ?? (await ensureConfig());
+      const { error } = await supabase
+        .from('auto_event_config')
+        .update({
+          enabled,
+          min_members: minMembers,
+          max_distance_km: maxDistanceKm,
+          frequency_days: frequencyDays,
+          max_events_per_run: maxEventsPerRun,
+        })
+        .eq('id', cfg.id);
       if (error) throw error;
       toast.success('Konfiguráció mentve!');
       await loadConfig();
@@ -101,11 +126,25 @@ export function AdminAutoEvents() {
   const runPreview = async () => {
     setPreviewing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-hub-events', {
-        body: { action: 'preview' },
-      });
+      const cfg = config ?? (await ensureConfig());
+      const { data, error } = await supabase
+        .from('virtual_hubs')
+        .select('id, hobby_category, city, member_count, created_at')
+        .gte('member_count', cfg.min_members)
+        .order('member_count', { ascending: false })
+        .limit(Math.max(cfg.max_events_per_run * 2, 20));
       if (error) throw error;
-      setPreview(data as PreviewData);
+
+      const hubs = (data || []) as Array<{ hobby_category: string; city: string | null; member_count: number }>;
+      setPreview({
+        qualifying_hubs: hubs.length,
+        hubs: hubs.slice(0, 20).map((h) => ({
+          hobby: h.hobby_category,
+          city: h.city || 'Országos',
+          members: h.member_count,
+        })),
+        config: cfg,
+      });
     } catch (err) {
       toast.error(`Előnézet sikertelen: ${err instanceof Error ? err.message : 'Hiba'}`);
     }
@@ -115,11 +154,23 @@ export function AdminAutoEvents() {
   const runGeneration = async () => {
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-hub-events', {
-        body: { action: 'generate' },
+      const { data: authData } = await supabase.auth.getSession();
+      const token = authData.session?.access_token;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-hub-events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: 'generate' }),
       });
-      if (error) throw error;
-      const result = data as { generated?: number; errors?: number; error_details?: string[] };
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result?.error || 'Ismeretlen hiba történt.');
+      }
+
       if (result.generated) {
         toast.success(`${result.generated} esemény sikeresen generálva!`);
       }

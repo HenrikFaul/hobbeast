@@ -102,16 +102,19 @@ export function AdminUsers() {
 
   const loadHubs = async () => {
     setHubsLoading(true);
-    const { data, error } = await supabase.functions.invoke('virtual-hubs-admin', {
-      body: { action: 'list' },
-    });
+    const { data, error } = await supabase
+      .from('virtual_hubs')
+      .select('id, hobby_category, city, member_count, created_at')
+      .order('member_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (error) {
       console.error('loadHubs error:', error);
       toast.error(`Hubók betöltése sikertelen: ${error.message}`);
       setHubs([]);
     } else {
-      setHubs(((data?.hubs as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count));
+      setHubs(((data as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count));
     }
     setHubsLoading(false);
   };
@@ -119,17 +122,14 @@ export function AdminUsers() {
   const refreshHubs = async () => {
     setRefreshingHubs(true);
     try {
-      const { data, error } = await supabase.functions.invoke('virtual-hubs-admin', {
-        body: { action: 'refresh' },
-      });
+      const { error } = await supabase.rpc('refresh_virtual_hubs');
 
       if (error) {
         console.error('refreshHubs error:', error);
         toast.error(`Hiba a hubók frissítésekor: ${error.message}`);
       } else {
-        const nextHubs = ((data?.hubs as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count);
-        setHubs(nextHubs);
-        toast.success(`Virtuális hubók újraszámolva: ${data?.created || nextHubs.length} hub, ${data?.members || 0} tagság.`);
+        await loadHubs();
+        toast.success('Virtuális hubók újraszámolva.');
       }
     } catch (err) {
       console.error('refreshHubs exception:', err);
