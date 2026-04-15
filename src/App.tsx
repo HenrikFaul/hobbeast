@@ -33,7 +33,9 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="*" element={
-                <>
+                <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+                  <div className="pointer-events-none fixed inset-0 tech-grid opacity-[0.06]" />
+                  <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,hsl(188_100%_58%/0.06),transparent_24%),radial-gradient(circle_at_bottom_right,hsl(272_100%_73%/0.05),transparent_28%)]" />
                   <Navbar />
                   <Routes>
                     <Route path="/" element={<Index />} />
@@ -47,7 +49,7 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                   <Footer />
-                </>
+                </div>
               } />
             </Routes>
           </BrowserRouter>
