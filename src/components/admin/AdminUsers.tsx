@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw, Filter, Search, Trash2, Ban, CheckCircle2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AdminMassUsers } from "./AdminMassUsers";
+import { AdminAutoEvents } from "./AdminAutoEvents";
 
 interface ProfileRow {
   id: string;
