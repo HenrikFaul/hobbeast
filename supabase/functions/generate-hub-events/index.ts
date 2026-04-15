@@ -117,6 +117,11 @@ serve(async (req) => {
     }
 
     if (action === 'generate') {
+      // Cron calls respect the enabled flag
+      if (isCron && !config.enabled) {
+        return jsonResponse({ ok: true, generated: 0, message: 'Auto-generation is disabled.' });
+      }
+
       if (!LOVABLE_API_KEY) {
         throw new Error('LOVABLE_API_KEY is not configured. Cannot generate events with AI.');
       }
