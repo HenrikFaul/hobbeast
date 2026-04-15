@@ -9,6 +9,7 @@ import { handleGetConfig } from './_shared/handlers/handleGetConfig.ts';
 import { handleSaveConfig } from './_shared/handlers/handleSaveConfig.ts';
 import { handleSchedule } from './_shared/handlers/handleSchedule.ts';
 import { handleStatus } from './_shared/handlers/handleStatus.ts';
+import { handleSelfTest } from './_shared/handlers/handleSelfTest.ts';
 import { handleUnschedule } from './_shared/handlers/handleUnschedule.ts';
 import type { SyncAction, SyncBody } from './_shared/types/index.ts';
 import { clamp } from './_shared/utils/math.ts';
@@ -56,6 +57,10 @@ serve(async (req) => {
 
     if (action === 'unschedule') {
       return jsonResponse(await handleUnschedule(supabaseAdmin, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+    }
+
+    if (action === 'self_test') {
+      return jsonResponse(await handleSelfTest(supabaseAdmin, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
     }
 
     if (action === 'enqueue') {

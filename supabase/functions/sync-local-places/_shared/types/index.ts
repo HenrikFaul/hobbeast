@@ -15,7 +15,8 @@ export type SyncAction =
   | 'save_config'
   | 'enqueue'
   | 'schedule'
-  | 'unschedule';
+  | 'unschedule'
+  | 'self_test';
 
 export type SyncBody = {
   action?: SyncAction;
