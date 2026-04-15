@@ -261,6 +261,20 @@ export function AdminAutoEvents() {
           )}
         </div>
 
+        {/* Cron Info */}
+        <div className="rounded-xl border bg-muted/10 p-3 text-sm space-y-1">
+          <div className="flex items-center gap-2 font-medium">
+            <Clock className="h-4 w-4 text-primary" /> Automatikus ütemezés
+          </div>
+          <p className="text-xs text-muted-foreground">
+            A rendszer minden nap 8:00-kor (UTC) automatikusan futtatja a generálást, ha az „Aktív" kapcsoló be van kapcsolva.
+            A generálás csak akkor történik meg, ha vannak megfelelő hubók a beállított feltételek szerint.
+          </p>
+          <Badge variant={enabled ? 'default' : 'secondary'}>
+            {enabled ? '✅ Ütemezés aktív' : '⏸ Ütemezés szüneteltetve'}
+          </Badge>
+        </div>
+
         <Separator />
 
         {/* Last Run Info */}
