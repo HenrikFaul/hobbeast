@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
+import { corsHeaders, jsonResponse } from '../shared/providerFetch.ts';
+import { getTargetProjectAdmin, requireTargetProjectAdmin } from '../shared/targetProject.ts';
 
 interface HubRow {
   id: string;
@@ -23,22 +24,39 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseAdmin = getSupabaseAdmin(req);
+  const supabaseAdmin = getTargetProjectAdmin();
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   try {
+    const currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'preview';
 
-    // Load config
     const { data: configRows, error: configError } = await supabaseAdmin
       .from('auto_event_config')
       .select('*')
       .limit(1);
 
     if (configError) throw new Error(`Config load failed: ${configError.message}`);
-    const config = configRows?.[0] as AutoEventConfig | undefined;
-    if (!config) throw new Error('No auto_event_config row found.');
+    let config = configRows?.[0] as AutoEventConfig | undefined;
+
+    if (!config) {
+      const { data: insertedConfig, error: insertConfigError } = await supabaseAdmin
+        .from('auto_event_config')
+        .insert({
+          enabled: false,
+          min_members: 5,
+          max_distance_km: 30,
+          frequency_days: 7,
+          max_events_per_run: 10,
+          categories_filter: null,
+        })
+        .select('*')
+        .single();
+
+      if (insertConfigError) throw new Error(`Config bootstrap failed: ${insertConfigError.message}`);
+      config = insertedConfig as AutoEventConfig;
+    }
 
     if (action === 'get_config') {
       return jsonResponse({ config });
@@ -180,15 +198,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
 
       if (!Array.isArray(events)) throw new Error('AI response is not an array.');
 
-      // Get a system user ID for created_by (use the first admin)
-      const { data: adminRole } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin')
-        .limit(1)
-        .single();
-
-      const createdBy = adminRole?.user_id;
+      const createdBy = currentAdmin.id;
       if (!createdBy) throw new Error('No admin user found to assign as event creator.');
 
       const insertedEvents: any[] = [];

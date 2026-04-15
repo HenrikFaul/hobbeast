@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.place-search]
 verify_jwt = false
+
+[functions.generate-hub-events]
+verify_jwt = false
+
+[functions.virtual-hubs-admin]
+verify_jwt = false

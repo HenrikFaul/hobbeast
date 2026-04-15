@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw, Filter, Search, Trash2, Ban, CheckCircle2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AdminMassUsers } from "./AdminMassUsers";
-import { AdminAutoEvents } from "./AdminAutoEvents";
 
 interface ProfileRow {
   id: string;
@@ -103,13 +102,16 @@ export function AdminUsers() {
 
   const loadHubs = async () => {
     setHubsLoading(true);
-    const { data, error } = await supabase.from('virtual_hubs').select('*').order('member_count', { ascending: false });
+    const { data, error } = await supabase.functions.invoke('virtual-hubs-admin', {
+      body: { action: 'list' },
+    });
+
     if (error) {
       console.error('loadHubs error:', error);
       toast.error(`Hubók betöltése sikertelen: ${error.message}`);
       setHubs([]);
     } else {
-      setHubs((data as unknown as VirtualHub[]) || []);
+      setHubs(((data?.hubs as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count));
     }
     setHubsLoading(false);
   };
@@ -117,17 +119,21 @@ export function AdminUsers() {
   const refreshHubs = async () => {
     setRefreshingHubs(true);
     try {
-      const { error } = await supabase.rpc('refresh_virtual_hubs');
+      const { data, error } = await supabase.functions.invoke('virtual-hubs-admin', {
+        body: { action: 'refresh' },
+      });
+
       if (error) {
         console.error('refreshHubs error:', error);
         toast.error(`Hiba a hubók frissítésekor: ${error.message}`);
       } else {
-        toast.success('Virtuális hubók frissítve!');
-        await loadHubs();
+        const nextHubs = ((data?.hubs as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count);
+        setHubs(nextHubs);
+        toast.success(`Virtuális hubók újraszámolva: ${data?.created || nextHubs.length} hub, ${data?.members || 0} tagság.`);
       }
     } catch (err) {
       console.error('refreshHubs exception:', err);
-      toast.error('Váratlan hiba a hubók frissítésekor.');
+      toast.error(err instanceof Error ? err.message : 'Váratlan hiba a hubók frissítésekor.');
     }
     setRefreshingHubs(false);
   };
@@ -378,9 +384,6 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
           )}
         </CardContent>
       </Card>
-
-      <AdminAutoEvents />
-
       <Dialog open={bulkModalOpen} onOpenChange={setBulkModalOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>

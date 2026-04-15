@@ -14,6 +14,7 @@ const HeroSection = () => {
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl animate-pulse-soft" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/5 blur-3xl animate-pulse-soft" style={{ animationDelay: "1.5s" }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/[0.02] blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-transparent to-background/30" />
       </div>
 
       <div className="container mx-auto px-4 pt-28 pb-16 md:pt-32 md:pb-20">
@@ -31,7 +32,7 @@ const HeroSection = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8 shadow-soft"
             >
               <Heart size={14} className="animate-pulse" />
-              Minden ami élmény
+              Lágy pulzus, valódi kapcsolódások
             </motion.div>
 
             <h1 className="text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold leading-[1.1] mb-6">
@@ -43,7 +44,7 @@ const HeroSection = () => {
 
             <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-8 md:mb-10 leading-relaxed">
               A Hobbeast összeköt hasonló érdeklődésű embereket. Fedezz fel új hobbikat,
-              csatlakozz eseményekhez, és építs valódi barátságokat közös élmények által.
+              csatlakozz eseményekhez, és építs valódi barátságokat közös élményekkel — egy kicsit filmszerűbb hangulatban.
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
@@ -63,6 +64,12 @@ const HeroSection = () => {
               >
                 Tudj meg többet
               </Button>
+            </div>
+
+            <div className="mb-10 flex flex-wrap gap-2 text-xs sm:text-sm text-muted-foreground">
+              <span className="rounded-full border border-border/60 bg-card/80 px-3 py-1.5 shadow-soft">Esti afterglow</span>
+              <span className="rounded-full border border-border/60 bg-card/80 px-3 py-1.5 shadow-soft">Közeli emberek</span>
+              <span className="rounded-full border border-border/60 bg-card/80 px-3 py-1.5 shadow-soft">Közös mozdulás</span>
             </div>
 
             {/* Stats */}
@@ -105,7 +112,7 @@ const HeroSection = () => {
                 className="w-full h-[280px] sm:h-[350px] md:h-[420px] lg:h-[520px] object-cover"
               />
               {/* Image overlay */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-foreground/10 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-foreground/15 via-transparent to-primary/5 pointer-events-none" />
             </div>
             {/* Floating card */}
             <motion.div
