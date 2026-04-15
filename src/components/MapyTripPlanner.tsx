@@ -85,6 +85,7 @@ function MapySearchInput({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const preserveTypedQueryRef = useRef(false);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     if (preserveTypedQueryRef.current && !value) {
@@ -92,11 +93,18 @@ function MapySearchInput({
       return;
     }
 
-    setQuery(pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value));
+    const text = pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value);
+    justSelectedRef.current = true;
+    setQuery(text);
   }, [value]);
 
   useEffect(() => {
     if (disabled) return;
+    // Skip search if a selection was just made (query changed because of selection, not typing)
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     if (!query.trim() || query.trim().length < 3) {
       setResults([]);
       setOpen(false);
@@ -143,6 +151,7 @@ function MapySearchInput({
 
   const selectResult = (result: MapySuggestion | null) => {
     preserveTypedQueryRef.current = false;
+    justSelectedRef.current = true;
     onSelect(result);
     setQuery(result ? pointToText(result) : '');
     setResults([]);
@@ -387,7 +396,15 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
     setLoadingElevation(true);
     try {
       const enriched = await enrichMapyElevation(routePlan);
+      if (enriched.elevationProfile && enriched.elevationProfile.length > 0) {
+        toast.success('Szintprofil sikeresen betöltve!');
+      } else {
+        toast.warning('Nem sikerült szintprofil adatokat lekérni az útvonalhoz.');
+      }
       setRoutePlan(enriched);
+    } catch (err) {
+      console.error('Elevation enrichment error:', err);
+      toast.error(`Szintprofil dúsítás sikertelen: ${err instanceof Error ? err.message : 'Ismeretlen hiba'}`);
     } finally {
       setLoadingElevation(false);
     }
@@ -461,7 +478,7 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
           )}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="relative z-[1000] grid gap-3 md:grid-cols-2">
           <MapySearchInput label="Kezdőpont" value={start} onSelect={(point) => { setStart(point); setRoutePlan(null); }} disabled={readOnly} />
           <MapySearchInput label="Végpont" value={end} onSelect={(point) => { setEnd(point); setRoutePlan(null); }} disabled={readOnly} />
         </div>

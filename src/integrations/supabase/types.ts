@@ -41,6 +41,48 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_event_config: {
+        Row: {
+          categories_filter: string[] | null
+          created_at: string
+          enabled: boolean
+          frequency_days: number
+          id: string
+          last_run_at: string | null
+          last_run_result: Json | null
+          max_distance_km: number
+          max_events_per_run: number
+          min_members: number
+          updated_at: string
+        }
+        Insert: {
+          categories_filter?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          frequency_days?: number
+          id?: string
+          last_run_at?: string | null
+          last_run_result?: Json | null
+          max_distance_km?: number
+          max_events_per_run?: number
+          min_members?: number
+          updated_at?: string
+        }
+        Update: {
+          categories_filter?: string[] | null
+          created_at?: string
+          enabled?: boolean
+          frequency_days?: number
+          id?: string
+          last_run_at?: string | null
+          last_run_result?: Json | null
+          max_distance_km?: number
+          max_events_per_run?: number
+          min_members?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_messages: {
         Row: {
           actor_user_id: string
