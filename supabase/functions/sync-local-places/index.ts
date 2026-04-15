@@ -1,17 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
-import { DEFAULT_SYNC_CONFIG, MILESTONES } from './_shared/constants/sync.ts';
-import { appendLog } from './_shared/repositories/logRepo.ts';
-import { upsertSyncState } from './_shared/repositories/stateRepo.ts';
-import { handleEnqueue } from './_shared/handlers/handleEnqueue.ts';
-import { handleGetConfig } from './_shared/handlers/handleGetConfig.ts';
-import { handleSaveConfig } from './_shared/handlers/handleSaveConfig.ts';
-import { handleSchedule } from './_shared/handlers/handleSchedule.ts';
-import { handleStatus } from './_shared/handlers/handleStatus.ts';
-import { handleUnschedule } from './_shared/handlers/handleUnschedule.ts';
-import type { SyncAction, SyncBody } from './_shared/types/index.ts';
-import { clamp } from './_shared/utils/math.ts';
+import { DEFAULT_SYNC_CONFIG } from './constants.ts';
+import { executeSyncBatch } from './batchRunner.ts';
+import { clamp, loadSyncConfig, saveSyncConfig } from './config.ts';
+import { MILESTONES, milestone } from './milestones.ts';
+import { getStatus, upsertSyncState } from './repositories.ts';
+import type { SyncAction, SyncBody } from './types.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,59 +24,96 @@ serve(async (req) => {
 
     const action = (queryAction || body.action || 'status') as SyncAction;
     const reset = queryReset === 'true' || body.reset === true;
-    const effectiveBody: SyncBody = { ...body, action, reset };
 
-    await appendLog(supabaseAdmin, 'info', MILESTONES.REQ_RECEIVED, 'sync-local-places request received', {
-      method: req.method,
+    const effectiveBody: SyncBody = {
+      ...body,
       action,
       reset,
-    }, runId);
+    };
 
     if (action === 'status') {
-      return jsonResponse(await handleStatus(supabaseAdmin, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+      return jsonResponse(await getStatus(supabaseAdmin));
     }
 
     if (action === 'get_config') {
-      return jsonResponse(await handleGetConfig(supabaseAdmin));
+      const config = await loadSyncConfig(supabaseAdmin);
+      return jsonResponse({ config });
     }
 
     if (action === 'save_config') {
-      return jsonResponse(await handleSaveConfig(supabaseAdmin, body.config as any, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+      const config = await saveSyncConfig(supabaseAdmin, body.config || {});
+      await milestone(
+        supabaseAdmin,
+        'info',
+        'config_saved',
+        'Lokális sync konfiguráció elmentve',
+        config as unknown as Record<string, unknown>,
+        runId,
+      );
+      return jsonResponse({ ok: true, config });
     }
 
     if (action === 'schedule') {
       const minutes = clamp(Number(body.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60);
-      return jsonResponse(await handleSchedule(supabaseAdmin, minutes, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+      const { error } = await supabaseAdmin.rpc('schedule_local_places_interval', { p_minutes: minutes });
+      if (error) throw error;
+      await milestone(
+        supabaseAdmin,
+        'success',
+        'schedule_enabled',
+        `Automatikus batch ütemezés beállítva: ${minutes} percenként`,
+        { interval_minutes: minutes },
+        runId,
+      );
+      return jsonResponse({ ok: true, interval_minutes: minutes });
     }
 
     if (action === 'unschedule') {
-      return jsonResponse(await handleUnschedule(supabaseAdmin, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+      const { error } = await supabaseAdmin.rpc('unschedule_local_places_interval');
+      if (error) throw error;
+      await milestone(
+        supabaseAdmin,
+        'warn',
+        'schedule_disabled',
+        'Automatikus batch ütemezés kikapcsolva',
+        {},
+        runId,
+      );
+      return jsonResponse({ ok: true });
     }
 
     if (action === 'enqueue') {
-      return jsonResponse(await handleEnqueue(supabaseAdmin, effectiveBody, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+      await milestone(
+        supabaseAdmin,
+        'info',
+        'batch_enqueued',
+        'Lokális batch közvetlen futtatással elindítva',
+        { reset, mode: 'inline_execute', request_id: runId },
+        runId,
+      );
+
+      const result = await executeSyncBatch(supabaseAdmin, effectiveBody, runId);
+      return jsonResponse({ ...result, requestId: runId, enqueueMode: 'inline_execute' });
     }
 
-    return jsonResponse(await handleEnqueue(supabaseAdmin, effectiveBody, (l,e,m,d,r) => appendLog(supabaseAdmin,l,e,m,d,r), runId));
+    const result = await executeSyncBatch(supabaseAdmin, effectiveBody, runId);
+    return jsonResponse(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-
     await upsertSyncState(supabaseAdmin, {
       key: 'local_places',
       status: 'error',
       last_error: message,
       last_run_completed_at: new Date().toISOString(),
     });
-
-    await appendLog(
+    await milestone(
       supabaseAdmin,
       'error',
-      MILESTONES.ERROR_REPORTED,
+      MILESTONES.RUN_FAILED,
       'Lokális címszinkron hiba történt',
       { error: message },
       runId,
     );
-
     console.error('sync-local-places error', error);
     return jsonResponse({ error: message }, 500);
   }
