@@ -379,6 +379,8 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
         </CardContent>
       </Card>
 
+      <AdminAutoEvents />
+
       <Dialog open={bulkModalOpen} onOpenChange={setBulkModalOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
