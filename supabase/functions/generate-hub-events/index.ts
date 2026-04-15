@@ -28,9 +28,25 @@ serve(async (req) => {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   try {
-    const currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'preview';
+    const isCron = body._cron === true;
+
+    // Cron calls skip admin auth but only for 'generate' action when config is enabled
+    let currentAdmin: { id: string } | null = null;
+    if (isCron && action === 'generate') {
+      // For cron, use a system-level creator — find first admin
+      const { data: adminRole } = await supabaseAdmin
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin')
+        .limit(1)
+        .single();
+      if (!adminRole) throw new Error('No admin user found for cron execution.');
+      currentAdmin = { id: adminRole.user_id };
+    } else {
+      currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
+    }
 
     const { data: configRows, error: configError } = await supabaseAdmin
       .from('auto_event_config')
