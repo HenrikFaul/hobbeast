@@ -89,12 +89,6 @@ serve(async (req) => {
     }
 
     // Load qualifying hubs
-    // Debug: first check total hub count
-    const { count: totalHubs } = await supabaseAdmin
-      .from('virtual_hubs')
-      .select('*', { count: 'exact', head: true });
-    console.log(`[generate-hub-events] Total hubs in DB: ${totalHubs}, min_members filter: ${config.min_members}`);
-
     let hubQuery = supabaseAdmin
       .from('virtual_hubs')
       .select('*')
@@ -107,7 +101,6 @@ serve(async (req) => {
 
     const { data: hubs, error: hubError } = await hubQuery.limit(config.max_events_per_run * 2);
     if (hubError) throw new Error(`Hub query failed: ${hubError.message}`);
-    console.log(`[generate-hub-events] Qualifying hubs found: ${hubs?.length || 0}`);
 
     const qualifyingHubs = (hubs || []) as HubRow[];
 
