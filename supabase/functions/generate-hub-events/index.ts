@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
-import { requireAdminUser } from '../shared/adminAuth.ts';
+import { corsHeaders, jsonResponse } from '../shared/providerFetch.ts';
+import { getTargetProjectAdmin, requireTargetProjectAdmin } from '../shared/targetProject.ts';
 
 interface HubRow {
   id: string;
@@ -24,7 +24,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseAdmin = getSupabaseAdmin(req);
+  const supabaseAdmin = getTargetProjectAdmin();
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   try {
@@ -32,20 +32,21 @@ serve(async (req) => {
     const action = body.action || 'preview';
     const isCron = body._cron === true;
 
-    let currentAdmin: { id: string } | null = null;
-    if (isCron && action === 'generate') {
-      const { data: adminRole, error: adminRoleError } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-      if (adminRoleError) throw new Error(`Admin role load failed: ${adminRoleError.message}`);
-      if (!adminRole?.user_id) throw new Error('No admin user found for cron execution.');
-      currentAdmin = { id: adminRole.user_id };
-    } else {
-      currentAdmin = await requireAdminUser(req, supabaseAdmin);
+    // Authenticate the caller (local project auth)
+    if (!(isCron && action === 'generate')) {
+      await requireTargetProjectAdmin(req, supabaseAdmin);
     }
+
+    // For created_by, always use an admin from the TARGET project
+    const { data: targetAdmin, error: targetAdminError } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .maybeSingle();
+    if (targetAdminError) throw new Error(`Target admin load failed: ${targetAdminError.message}`);
+    if (!targetAdmin?.user_id) throw new Error('No admin user found on target project.');
+    const currentAdmin = { id: targetAdmin.user_id };
 
     const { data: configRows, error: configError } = await supabaseAdmin
       .from('auto_event_config')
@@ -88,6 +89,12 @@ serve(async (req) => {
     }
 
     // Load qualifying hubs
+    // Debug: first check total hub count
+    const { count: totalHubs } = await supabaseAdmin
+      .from('virtual_hubs')
+      .select('*', { count: 'exact', head: true });
+    console.log(`[generate-hub-events] Total hubs in DB: ${totalHubs}, min_members filter: ${config.min_members}`);
+
     let hubQuery = supabaseAdmin
       .from('virtual_hubs')
       .select('*')
@@ -100,6 +107,7 @@ serve(async (req) => {
 
     const { data: hubs, error: hubError } = await hubQuery.limit(config.max_events_per_run * 2);
     if (hubError) throw new Error(`Hub query failed: ${hubError.message}`);
+    console.log(`[generate-hub-events] Qualifying hubs found: ${hubs?.length || 0}`);
 
     const qualifyingHubs = (hubs || []) as HubRow[];
 
@@ -241,7 +249,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
               created_by: createdBy,
               is_active: true,
               visibility_type: 'public',
-              participation_type: 'open',
+              
             })
             .select('id, title')
             .single();

@@ -34,7 +34,10 @@ function getBearerToken(req: Request) {
 }
 
 export function getTargetProjectAdmin() {
-  return createClient(getTargetProjectUrl(), getTargetServiceRoleKey(), {
+  const url = getTargetProjectUrl();
+  const key = getTargetServiceRoleKey();
+  console.log(`[targetProject] Using URL: ${url.substring(0, 30)}...`);
+  return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
