@@ -24,7 +24,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseAdmin = getSupabaseAdmin(req);
+  const supabaseAdmin = getTargetProjectAdmin();
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   try {
@@ -44,7 +44,7 @@ serve(async (req) => {
       if (!adminRole?.user_id) throw new Error('No admin user found for cron execution.');
       currentAdmin = { id: adminRole.user_id };
     } else {
-      currentAdmin = await requireAdminUser(req, supabaseAdmin);
+      currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
     }
 
     const { data: configRows, error: configError } = await supabaseAdmin
