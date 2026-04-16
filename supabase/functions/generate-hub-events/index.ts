@@ -32,20 +32,21 @@ serve(async (req) => {
     const action = body.action || 'preview';
     const isCron = body._cron === true;
 
-    let currentAdmin: { id: string } | null = null;
-    if (isCron && action === 'generate') {
-      const { data: adminRole, error: adminRoleError } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin')
-        .limit(1)
-        .maybeSingle();
-      if (adminRoleError) throw new Error(`Admin role load failed: ${adminRoleError.message}`);
-      if (!adminRole?.user_id) throw new Error('No admin user found for cron execution.');
-      currentAdmin = { id: adminRole.user_id };
-    } else {
-      currentAdmin = await requireTargetProjectAdmin(req, supabaseAdmin);
+    // Authenticate the caller (local project auth)
+    if (!(isCron && action === 'generate')) {
+      await requireTargetProjectAdmin(req, supabaseAdmin);
     }
+
+    // For created_by, always use an admin from the TARGET project
+    const { data: targetAdmin, error: targetAdminError } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .maybeSingle();
+    if (targetAdminError) throw new Error(`Target admin load failed: ${targetAdminError.message}`);
+    if (!targetAdmin?.user_id) throw new Error('No admin user found on target project.');
+    const currentAdmin = { id: targetAdmin.user_id };
 
     const { data: configRows, error: configError } = await supabaseAdmin
       .from('auto_event_config')
