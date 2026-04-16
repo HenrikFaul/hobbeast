@@ -68,8 +68,8 @@ export async function requireTargetProjectAdmin(req: Request, targetClient = get
     throw new Error(`Unauthorized request: ${userError?.message || 'unknown user'}`);
   }
 
-  // Step 2: Check admin role on the TARGET project
-  const { data: roleRow, error: roleError } = await targetClient
+  // Step 2: Check admin role on the LOCAL project (where roles are managed)
+  const { data: roleRow, error: roleError } = await localAdmin
     .from('user_roles')
     .select('user_id')
     .eq('user_id', userData.user.id)
