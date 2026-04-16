@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
-import { requireAdminUser } from '../shared/adminAuth.ts';
+import { corsHeaders, jsonResponse } from '../shared/providerFetch.ts';
+import { getTargetProjectAdmin, requireTargetProjectAdmin } from '../shared/targetProject.ts';
 
 interface HubRow {
   id: string;
