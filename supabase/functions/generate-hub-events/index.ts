@@ -248,7 +248,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
               created_by: createdBy,
               is_active: true,
               visibility_type: 'public',
-              participation_type: 'nyilt',
+              
             })
             .select('id, title')
             .single();
