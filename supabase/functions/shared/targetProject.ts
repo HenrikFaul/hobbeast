@@ -39,18 +39,37 @@ export function getTargetProjectAdmin() {
   });
 }
 
-export async function requireTargetProjectAdmin(req: Request, client = getTargetProjectAdmin()) {
+/**
+ * Authenticate the user against the LOCAL (Lovable) Supabase project,
+ * then check admin role on the TARGET (external) project.
+ * This is necessary because JWT tokens are signed by the local project
+ * but admin roles live on the target project.
+ */
+export async function requireTargetProjectAdmin(req: Request, targetClient = getTargetProjectAdmin()) {
   const token = getBearerToken(req);
   if (!token) {
     throw new Error('Missing authorization token.');
   }
 
-  const { data: userData, error: userError } = await client.auth.getUser(token);
+  // Step 1: Validate the JWT against the LOCAL project (where the user is authenticated)
+  const localUrl = normalizeUrl(Deno.env.get('SUPABASE_URL'));
+  const localServiceKey = String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+
+  if (!localUrl || !localServiceKey) {
+    throw new Error('Missing local Supabase configuration.');
+  }
+
+  const localAdmin = createClient(localUrl, localServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: userData, error: userError } = await localAdmin.auth.getUser(token);
   if (userError || !userData?.user) {
     throw new Error(`Unauthorized request: ${userError?.message || 'unknown user'}`);
   }
 
-  const { data: roleRow, error: roleError } = await client
+  // Step 2: Check admin role on the LOCAL project (where roles are managed)
+  const { data: roleRow, error: roleError } = await localAdmin
     .from('user_roles')
     .select('user_id')
     .eq('user_id', userData.user.id)
