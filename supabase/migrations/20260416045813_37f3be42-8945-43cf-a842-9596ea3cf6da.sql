@@ -1,0 +1,1 @@
+UPDATE auto_event_config SET min_members = 4 WHERE id = 'ff542c9f-0745-4333-8a56-df9c7ea46596';
