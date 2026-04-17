@@ -55,16 +55,29 @@ export async function writeCatalogRows(supabaseAdmin: any, rows: LocalCatalogRow
     return 0;
   }
 
+  let actuallyWritten = 0;
+
   for (let index = 0; index < rows.length; index += CATALOG_UPSERT_CHUNK_SIZE) {
     const chunk = rows.slice(index, index + CATALOG_UPSERT_CHUNK_SIZE);
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('places_local_catalog')
-      .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false });
+      .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false })
+      .select('provider, external_id');
 
     if (error) throw error;
+
+    const returnedCount = Array.isArray(data) ? data.length : 0;
+    actuallyWritten += returnedCount;
+
+    if (returnedCount === 0 && chunk.length > 0) {
+      throw new Error(
+        `places_local_catalog upsert returned 0 rows for ${chunk.length} attempted (silent RLS/service-role failure). ` +
+        `Check that SUPABASE_SERVICE_ROLE_KEY matches the project at ${(supabaseAdmin as any)?.supabaseUrl ?? 'unknown URL'}.`
+      );
+    }
   }
 
-  return rows.length;
+  return actuallyWritten;
 }
 
 export async function getRecentLogs(supabaseAdmin: any) {
