@@ -945,6 +945,75 @@ export type Database = {
           },
         ]
       }
+      place_sync_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event: string
+          id: string
+          level: string
+          message: string | null
+          run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event: string
+          id?: string
+          level?: string
+          message?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event?: string
+          id?: string
+          level?: string
+          message?: string | null
+          run_id?: string | null
+        }
+        Relationships: []
+      }
+      place_sync_state: {
+        Row: {
+          cursor: number | null
+          key: string
+          last_error: string | null
+          last_run_completed_at: string | null
+          last_run_started_at: string | null
+          provider_counts: Json | null
+          rows_written: number | null
+          status: string | null
+          task_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          cursor?: number | null
+          key: string
+          last_error?: string | null
+          last_run_completed_at?: string | null
+          last_run_started_at?: string | null
+          provider_counts?: Json | null
+          rows_written?: number | null
+          status?: string | null
+          task_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cursor?: number | null
+          key?: string
+          last_error?: string | null
+          last_run_completed_at?: string | null
+          last_run_started_at?: string | null
+          provider_counts?: Json | null
+          rows_written?: number | null
+          status?: string | null
+          task_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       places_cache: {
         Row: {
           cache_key: string
@@ -969,6 +1038,87 @@ export type Database = {
           id?: string
           provider?: string
           response_data?: Json
+        }
+        Relationships: []
+      }
+      places_local_catalog: {
+        Row: {
+          address: string | null
+          categories: string[] | null
+          category_group: string | null
+          city: string | null
+          country_code: string | null
+          created_at: string
+          district: string | null
+          external_id: string
+          id: string
+          image_url: string | null
+          latitude: number | null
+          longitude: number | null
+          metadata: Json | null
+          name: string
+          open_now: boolean | null
+          opening_hours_text: string[] | null
+          phone: string | null
+          postal_code: string | null
+          provider: string
+          rating: number | null
+          review_count: number | null
+          synced_at: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          categories?: string[] | null
+          category_group?: string | null
+          city?: string | null
+          country_code?: string | null
+          created_at?: string
+          district?: string | null
+          external_id: string
+          id?: string
+          image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          name: string
+          open_now?: boolean | null
+          opening_hours_text?: string[] | null
+          phone?: string | null
+          postal_code?: string | null
+          provider: string
+          rating?: number | null
+          review_count?: number | null
+          synced_at?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          categories?: string[] | null
+          category_group?: string | null
+          city?: string | null
+          country_code?: string | null
+          created_at?: string
+          district?: string | null
+          external_id?: string
+          id?: string
+          image_url?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          name?: string
+          open_now?: boolean | null
+          opening_hours_text?: string[] | null
+          phone?: string | null
+          postal_code?: string | null
+          provider?: string
+          rating?: number | null
+          review_count?: number | null
+          synced_at?: string
+          updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
