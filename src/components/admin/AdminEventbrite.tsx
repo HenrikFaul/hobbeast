@@ -220,6 +220,19 @@ export function AdminEventbrite() {
   const [dedupedPhaseRows, setDedupedPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
   const [manualPhaseFailures, setManualPhaseFailures] = useState<string[]>([]);
   const [manualPhaseLoading, setManualPhaseLoading] = useState<string | null>(null);
+  const [phaseErrors, setPhaseErrors] = useState<Record<string, string>>({});
+
+  const setPhaseError = (key: string, message: string) => {
+    setPhaseErrors((prev) => ({ ...prev, [key]: message }));
+  };
+  const clearPhaseError = (key: string) => {
+    setPhaseErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
@@ -565,6 +578,7 @@ export function AdminEventbrite() {
 
   const handleResetCatalogPhase = async () => {
     setManualPhaseLoading('reset_catalog');
+    clearPhaseError('reset_catalog');
     continuousBatchingRef.current = false;
     setCatalogPolling(false);
     try {
@@ -578,7 +592,9 @@ export function AdminEventbrite() {
       toast.success('Lokális katalógus reset kész');
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült resetelni a lokális katalógust');
+      const msg = err?.message || 'Nem sikerült resetelni a lokális katalógust';
+      setPhaseError('reset_catalog', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -586,6 +602,7 @@ export function AdminEventbrite() {
 
   const handleStartManualRunPhase = async () => {
     setManualPhaseLoading('start_manual_run');
+    clearPhaseError('start_manual_run');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: { action: 'start_manual_run', reset: false },
@@ -593,10 +610,12 @@ export function AdminEventbrite() {
       if (error) throw error;
       if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
 
-      toast.success('A local places state futóra állítva');
+      toast.success('Manuális futás aktiválva (state = running)');
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült futóra állítani a manuális pipeline-t');
+      const msg = err?.message || 'Nem sikerült futóra állítani a manuális pipeline-t';
+      setPhaseError('start_manual_run', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -604,6 +623,7 @@ export function AdminEventbrite() {
 
   const handlePrepareNextTaskPhase = async () => {
     setManualPhaseLoading('prepare_next_task');
+    clearPhaseError('prepare_next_task');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: { action: 'prepare_next_task' },
@@ -627,7 +647,9 @@ export function AdminEventbrite() {
 
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült előkészíteni a következő taskot');
+      const msg = err?.message || 'Nem sikerült előkészíteni a következő taskot';
+      setPhaseError('prepare_next_task', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -641,6 +663,7 @@ export function AdminEventbrite() {
 
     const action = provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows';
     setManualPhaseLoading(action);
+    clearPhaseError(action);
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -671,7 +694,9 @@ export function AdminEventbrite() {
       toast.success(`${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} fetch kész: ${(typed.rows || []).length} sor`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || `${provider} fetch hiba`);
+      const msg = err?.message || `${provider} fetch hiba`;
+      setPhaseError(provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -685,6 +710,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('filter_hu_rows');
+    clearPhaseError('filter_hu_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -701,7 +727,9 @@ export function AdminEventbrite() {
       toast.success(`HU szűrés kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a HU szűrés');
+      const msg = err?.message || 'Nem sikerült a HU szűrés';
+      setPhaseError('filter_hu_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -714,6 +742,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('dedupe_rows');
+    clearPhaseError('dedupe_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -729,7 +758,9 @@ export function AdminEventbrite() {
       toast.success(`Deduplikálás kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a deduplikálás');
+      const msg = err?.message || 'Nem sikerült a deduplikálás';
+      setPhaseError('dedupe_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -748,6 +779,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('write_rows');
+    clearPhaseError('write_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -770,7 +802,9 @@ export function AdminEventbrite() {
         toast.message('Jöhet a következő task előkészítése');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a katalógus írás');
+      const msg = err?.message || 'Nem sikerült a katalógus írás';
+      setPhaseError('write_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -816,6 +850,7 @@ export function AdminEventbrite() {
 
   const phaseStatus = (key: string, ready: boolean, hasOutput: boolean): PhaseStatus => {
     if (manualPhaseLoading === key) return 'running';
+    if (phaseErrors[key]) return 'failed';
     if (hasOutput) return 'success';
     if (!ready) return 'idle';
     return 'idle';
@@ -844,7 +879,7 @@ export function AdminEventbrite() {
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'reset_catalog',
       onClick: handleResetCatalogPhase,
-      status: manualPhaseLoading === 'reset_catalog' ? 'running' : 'idle',
+      status: manualPhaseLoading === 'reset_catalog' ? 'running' : (phaseErrors['reset_catalog'] ? 'failed' : 'idle'),
       counter: catalogStatus?.totalRows != null ? `katalógus: ${catalogStatus.totalRows} sor` : null,
     },
     {
@@ -859,7 +894,9 @@ export function AdminEventbrite() {
       onClick: handleStartManualRunPhase,
       status: manualPhaseLoading === 'start_manual_run'
         ? 'running'
-        : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle'),
+        : (phaseErrors['start_manual_run']
+          ? 'failed'
+          : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle')),
       counter: catalogStatus?.state?.status ? `state: ${catalogStatus.state.status}` : null,
     },
     {
@@ -937,7 +974,7 @@ export function AdminEventbrite() {
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask,
       isLoading: manualPhaseLoading === 'write_rows',
       onClick: handleWritePhase,
-      status: manualPhaseLoading === 'write_rows' ? 'running' : 'idle',
+      status: manualPhaseLoading === 'write_rows' ? 'running' : (phaseErrors['write_rows'] ? 'failed' : 'idle'),
       counter: dedupedPhaseRows.length > 0
         ? `${dedupedPhaseRows.length} sor készen`
         : huFilteredPhaseRows.length > 0
@@ -1324,49 +1361,60 @@ export function AdminEventbrite() {
                               );
                             })();
 
+                            const errorMessage = phaseErrors[action.key];
+
                             return (
                               <li
                                 key={action.key}
                                 className={cn(
-                                  'flex flex-col gap-3 rounded-xl border p-3 transition-colors sm:flex-row sm:items-center',
+                                  'flex flex-col gap-2 rounded-xl border p-3 transition-colors',
                                   accentRing,
                                 )}
                               >
-                                <div className="flex min-w-0 flex-1 items-start gap-3">
-                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
-                                    {action.step}
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
+                                      {action.step}
+                                    </div>
+                                    <div className={cn(
+                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
+                                      iconTone,
+                                    )}>
+                                      <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
+                                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
+                                      {action.counter ? (
+                                        <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
+                                      ) : null}
+                                    </div>
                                   </div>
-                                  <div className={cn(
-                                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
-                                    iconTone,
-                                  )}>
-                                    <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
-                                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
-                                    {action.counter ? (
-                                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
-                                    ) : null}
+
+                                  <div className="flex items-center justify-end gap-2 sm:shrink-0">
+                                    {statusBadge}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
+                                      onClick={action.onClick}
+                                      disabled={action.disabled}
+                                      className="whitespace-nowrap"
+                                    >
+                                      {action.isLoading ? (
+                                        <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      Futtatás
+                                    </Button>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-2 sm:shrink-0">
-                                  {statusBadge}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
-                                    onClick={action.onClick}
-                                    disabled={action.disabled}
-                                    className="whitespace-nowrap"
-                                  >
-                                    {action.isLoading ? (
-                                      <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                    ) : null}
-                                    Futtatás
-                                  </Button>
-                                </div>
+                                {errorMessage ? (
+                                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                                    <span className="mt-0.5 font-semibold">Hiba:</span>
+                                    <span className="break-words">{errorMessage}</span>
+                                  </div>
+                                ) : null}
                               </li>
                             );
                           })}
