@@ -647,7 +647,9 @@ export function AdminEventbrite() {
 
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült előkészíteni a következő taskot');
+      const msg = err?.message || 'Nem sikerült előkészíteni a következő taskot';
+      setPhaseError('prepare_next_task', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -661,6 +663,7 @@ export function AdminEventbrite() {
 
     const action = provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows';
     setManualPhaseLoading(action);
+    clearPhaseError(action);
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -691,7 +694,9 @@ export function AdminEventbrite() {
       toast.success(`${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} fetch kész: ${(typed.rows || []).length} sor`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || `${provider} fetch hiba`);
+      const msg = err?.message || `${provider} fetch hiba`;
+      setPhaseError(provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -705,6 +710,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('filter_hu_rows');
+    clearPhaseError('filter_hu_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -721,7 +727,9 @@ export function AdminEventbrite() {
       toast.success(`HU szűrés kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a HU szűrés');
+      const msg = err?.message || 'Nem sikerült a HU szűrés';
+      setPhaseError('filter_hu_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -734,6 +742,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('dedupe_rows');
+    clearPhaseError('dedupe_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -749,7 +758,9 @@ export function AdminEventbrite() {
       toast.success(`Deduplikálás kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a deduplikálás');
+      const msg = err?.message || 'Nem sikerült a deduplikálás';
+      setPhaseError('dedupe_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -768,6 +779,7 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('write_rows');
+    clearPhaseError('write_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -790,7 +802,9 @@ export function AdminEventbrite() {
         toast.message('Jöhet a következő task előkészítése');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a katalógus írás');
+      const msg = err?.message || 'Nem sikerült a katalógus írás';
+      setPhaseError('write_rows', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
