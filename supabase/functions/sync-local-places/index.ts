@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
+import { corsHeaders, jsonResponse } from '../shared/providerFetch.ts';
+import { getTargetProjectAdmin } from '../shared/targetProject.ts';
 import { DEFAULT_SYNC_CONFIG } from './constants.ts';
 import {
   dedupeRowsPhase,
