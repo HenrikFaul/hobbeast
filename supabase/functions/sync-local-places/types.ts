@@ -19,13 +19,21 @@ export type SyncAction =
   | 'save_config'
   | 'enqueue'
   | 'schedule'
-  | 'unschedule';
+  | 'unschedule'
+  | 'reset_catalog'
+  | 'start_manual_run'
+  | 'fetch_next_task'
+  | 'dedupe_rows'
+  | 'write_rows';
 
 export type SyncBody = {
   action?: SyncAction;
   reset?: boolean;
   interval_minutes?: number;
   config?: Partial<SyncConfig>;
+  rows?: LocalCatalogRow[];
+  advance_cursor_by?: number;
+  partial_failures?: string[];
 };
 
 export type TaskCenter = {
