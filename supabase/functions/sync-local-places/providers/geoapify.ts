@@ -36,6 +36,7 @@ export async function fetchGeoapifyRows(
   group: CategoryGroup,
   apiKey: string,
   config: SyncConfig,
+  options: FetchProviderOptions = {},
 ): Promise<LocalCatalogRow[]> {
   const params = new URLSearchParams({
     categories: group.geo,
