@@ -1311,7 +1311,7 @@ export function AdminEventbrite() {
                           )}
                         </div>
 
-                        <ol className="space-y-2">
+                        <ol className="flex flex-col gap-3 list-none">
                           {manualPhaseActions.map((action) => {
                             const Icon = action.icon;
                             const accentRing = action.accent === 'destructive'
@@ -1367,7 +1367,7 @@ export function AdminEventbrite() {
                               <li
                                 key={action.key}
                                 className={cn(
-                                  'flex flex-col gap-2 rounded-xl border p-3 transition-colors',
+                                  'flex w-full flex-col gap-2 rounded-xl border p-3 transition-colors',
                                   accentRing,
                                 )}
                               >
