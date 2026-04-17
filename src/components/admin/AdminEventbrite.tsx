@@ -58,6 +58,45 @@ interface LocalSyncSettings {
   tomtom_limit: number;
 }
 
+interface LocalCatalogRowBuffer {
+  provider: 'geoapify' | 'tomtom';
+  external_id: string;
+  name: string;
+  category_group: string;
+  categories: string[];
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  postal_code: string | null;
+  country_code: string;
+  latitude: number | null;
+  longitude: number | null;
+  open_now: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  image_url: string | null;
+  phone: string | null;
+  website: string | null;
+  opening_hours_text: string[];
+  metadata: Record<string, unknown>;
+  synced_at: string;
+}
+
+interface LocalSyncTaskDescriptor {
+  taskIndex: number;
+  totalTasks: number;
+  center: {
+    city: string;
+    lat: number;
+    lon: number;
+  };
+  group: {
+    key: string;
+    geo: string;
+    tomtom: string;
+  };
+}
+
 const DEFAULT_LOCAL_SYNC_SETTINGS: LocalSyncSettings = {
   enabled: false,
   interval_minutes: 15,
@@ -173,6 +212,13 @@ export function AdminEventbrite() {
   const [syncSettingsLoading, setSyncSettingsLoading] = useState(false);
   const [syncSettingsSaving, setSyncSettingsSaving] = useState(false);
   const [syncSettings, setSyncSettings] = useState<LocalSyncSettings>(DEFAULT_LOCAL_SYNC_SETTINGS);
+  const [manualTask, setManualTask] = useState<LocalSyncTaskDescriptor | null>(null);
+  const [geoapifyPhaseRows, setGeoapifyPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
+  const [tomtomPhaseRows, setTomtomPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
+  const [huFilteredPhaseRows, setHuFilteredPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
+  const [dedupedPhaseRows, setDedupedPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
+  const [manualPhaseFailures, setManualPhaseFailures] = useState<string[]>([]);
+  const [manualPhaseLoading, setManualPhaseLoading] = useState<string | null>(null);
 
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
@@ -502,6 +548,233 @@ export function AdminEventbrite() {
     }
   };
 
+  const clearManualPipelineBuffers = () => {
+    setManualTask(null);
+    setGeoapifyPhaseRows([]);
+    setTomtomPhaseRows([]);
+    setHuFilteredPhaseRows([]);
+    setDedupedPhaseRows([]);
+    setManualPhaseFailures([]);
+  };
+
+  const appendManualFailures = (failures?: string[]) => {
+    if (!Array.isArray(failures) || failures.length === 0) return;
+    setManualPhaseFailures((prev) => Array.from(new Set([...prev, ...failures.filter(Boolean)])));
+  };
+
+  const handleResetCatalogPhase = async () => {
+    setManualPhaseLoading('reset_catalog');
+    continuousBatchingRef.current = false;
+    setCatalogPolling(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'reset_catalog' },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      clearManualPipelineBuffers();
+      toast.success('Lokális katalógus reset kész');
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült resetelni a lokális katalógust');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handleStartManualRunPhase = async () => {
+    setManualPhaseLoading('start_manual_run');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'start_manual_run', reset: false },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      toast.success('A local places state futóra állítva');
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült futóra állítani a manuális pipeline-t');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handlePrepareNextTaskPhase = async () => {
+    setManualPhaseLoading('prepare_next_task');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: { action: 'prepare_next_task' },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      const typed = data as { task?: LocalSyncTaskDescriptor | null };
+      setManualTask(typed.task || null);
+      setGeoapifyPhaseRows([]);
+      setTomtomPhaseRows([]);
+      setHuFilteredPhaseRows([]);
+      setDedupedPhaseRows([]);
+      setManualPhaseFailures([]);
+
+      if (typed.task) {
+        toast.success(`Task előkészítve: ${typed.task.center.city} / ${typed.task.group.key}`);
+      } else {
+        toast.success('Nincs több előkészíthető task');
+      }
+
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült előkészíteni a következő taskot');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handleFetchProviderPhase = async (provider: 'geoapify' | 'tomtom') => {
+    if (!manualTask) {
+      toast.error('Előbb készítsd elő a következő taskot');
+      return;
+    }
+
+    const action = provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows';
+    setManualPhaseLoading(action);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action,
+          task_index: manualTask.taskIndex,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      const typed = data as {
+        task?: LocalSyncTaskDescriptor | null;
+        rows?: LocalCatalogRowBuffer[];
+        partialFailures?: string[];
+      };
+
+      if (typed.task) {
+        setManualTask(typed.task);
+      }
+
+      if (provider === 'geoapify') {
+        setGeoapifyPhaseRows(typed.rows || []);
+      } else {
+        setTomtomPhaseRows(typed.rows || []);
+      }
+
+      appendManualFailures(typed.partialFailures);
+      toast.success(`${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} fetch kész: ${(typed.rows || []).length} sor`);
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || `${provider} fetch hiba`);
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handleHuFilterPhase = async () => {
+    const rawRows = [...geoapifyPhaseRows, ...tomtomPhaseRows];
+    if (rawRows.length === 0) {
+      toast.error('Nincs szűrhető sor. Előbb tölts le legalább egy providerből adatot.');
+      return;
+    }
+
+    setManualPhaseLoading('filter_hu_rows');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action: 'filter_hu_rows',
+          rows: rawRows,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      const typed = data as { rows?: LocalCatalogRowBuffer[]; afterCount?: number };
+      setHuFilteredPhaseRows(typed.rows || []);
+      setDedupedPhaseRows([]);
+      toast.success(`HU szűrés kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült a HU szűrés');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handleDedupePhase = async () => {
+    if (huFilteredPhaseRows.length === 0) {
+      toast.error('Előbb futtasd le a HU szűrést');
+      return;
+    }
+
+    setManualPhaseLoading('dedupe_rows');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action: 'dedupe_rows',
+          rows: huFilteredPhaseRows,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      const typed = data as { rows?: LocalCatalogRowBuffer[]; afterCount?: number };
+      setDedupedPhaseRows(typed.rows || []);
+      toast.success(`Deduplikálás kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
+      await refreshCatalogStatus({ silent: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült a deduplikálás');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
+  const handleWritePhase = async () => {
+    if (!manualTask) {
+      toast.error('Előbb készítsd elő a következő taskot');
+      return;
+    }
+
+    const writableRows = dedupedPhaseRows.length > 0 ? dedupedPhaseRows : huFilteredPhaseRows;
+    if (writableRows.length === 0) {
+      toast.error('Nincs beírható sor. Előbb futtasd le a fetch + HU szűrés + dedupe lépéseket.');
+      return;
+    }
+
+    setManualPhaseLoading('write_rows');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action: 'write_rows',
+          rows: writableRows,
+          advance_cursor_by: 1,
+          partial_failures: manualPhaseFailures,
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+
+      const typed = data as { rowsWrittenThisRun?: number; hasMore?: boolean };
+      const written = typed.rowsWrittenThisRun ?? writableRows.length;
+      clearManualPipelineBuffers();
+      toast.success(`Katalógus írás kész: ${written} sor, cursor +1`);
+      await refreshCatalogStatus({ silent: true });
+
+      if (typed.hasMore) {
+        toast.message('Jöhet a következő task előkészítése');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült a katalógus írás');
+    } finally {
+      setManualPhaseLoading(null);
+    }
+  };
+
   const logs = catalogStatus?.logs || [];
 
   const formatLogTimestamp = (value?: string | null) => {
@@ -523,6 +796,13 @@ export function AdminEventbrite() {
         return 'border-slate-200 bg-slate-50 text-slate-700';
     }
   };
+
+  const phaseRawRows = useMemo(() => [...geoapifyPhaseRows, ...tomtomPhaseRows], [geoapifyPhaseRows, tomtomPhaseRows]);
+  const phasePreviewRows = dedupedPhaseRows.length > 0
+    ? dedupedPhaseRows
+    : huFilteredPhaseRows.length > 0
+      ? huFilteredPhaseRows
+      : phaseRawRows;
 
   const syncProgressText = (() => {
     const cursor = Number(catalogStatus?.state?.cursor || 0);
@@ -789,6 +1069,129 @@ export function AdminEventbrite() {
                       <p>Utolsó start: {catalogStatus?.state?.last_run_started_at || '—'}</p>
                       <p>Utolsó befejezés: {catalogStatus?.state?.last_run_completed_at || '—'}</p>
                       {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
+                    </div>
+
+                    <div className="space-y-3 rounded-lg border p-3">
+                      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Fázis-alapú manuális pipeline</p>
+                          <p className="text-xs text-muted-foreground">
+                            A local places töltés külön admin lépésekre bontva: reset → state running → task → provider fetch → HU szűrés → dedupe → DB írás + cursor update.
+                          </p>
+                        </div>
+                        {manualTask ? (
+                          <Badge variant="outline">Task #{manualTask.taskIndex + 1} / {manualTask.totalTasks}</Badge>
+                        ) : (
+                          <Badge variant="secondary">Nincs előkészített task</Badge>
+                        )}
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-lg border p-3">
+                          <div className="text-xs text-muted-foreground">Geoapify raw sor</div>
+                          <div className="text-lg font-semibold">{geoapifyPhaseRows.length}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="text-xs text-muted-foreground">TomTom raw sor</div>
+                          <div className="text-lg font-semibold">{tomtomPhaseRows.length}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="text-xs text-muted-foreground">HU szűrt sor</div>
+                          <div className="text-lg font-semibold">{huFilteredPhaseRows.length}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="text-xs text-muted-foreground">Deduplikált sor</div>
+                          <div className="text-lg font-semibold">{dedupedPhaseRows.length}</div>
+                        </div>
+                      </div>
+
+                      {manualTask ? (
+                        <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground space-y-1">
+                          <p>Aktív task város: <span className="font-medium text-foreground">{manualTask.center.city}</span></p>
+                          <p>Kategória group: <span className="font-medium text-foreground">{manualTask.group.key}</span></p>
+                          <p>Koordináta: {manualTask.center.lat}, {manualTask.center.lon}</p>
+                        </div>
+                      ) : null}
+
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <Button variant="destructive" onClick={handleResetCatalogPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'reset_catalog' ? 'animate-spin' : ''}`} />
+                          1. Katalógus reset
+                        </Button>
+
+                        <Button variant="outline" onClick={handleStartManualRunPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <RefreshCw className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'start_manual_run' ? 'animate-spin' : ''}`} />
+                          2. State = running
+                        </Button>
+
+                        <Button variant="outline" onClick={handlePrepareNextTaskPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'prepare_next_task' ? 'animate-spin' : ''}`} />
+                          3. Következő task
+                        </Button>
+
+                        <Button variant="outline" onClick={() => handleFetchProviderPhase('geoapify')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
+                          <MapPinned className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_geoapify_rows' ? 'animate-spin' : ''}`} />
+                          4. Geoapify fetch
+                        </Button>
+
+                        <Button variant="outline" onClick={() => handleFetchProviderPhase('tomtom')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
+                          <MapPin className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_tomtom_rows' ? 'animate-spin' : ''}`} />
+                          5. TomTom fetch
+                        </Button>
+
+                        <Button variant="outline" onClick={handleHuFilterPhase} disabled={Boolean(manualPhaseLoading) || phaseRawRows.length === 0}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'filter_hu_rows' ? 'animate-spin' : ''}`} />
+                          6. HU szűrés
+                        </Button>
+
+                        <Button variant="outline" onClick={handleDedupePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'dedupe_rows' ? 'animate-spin' : ''}`} />
+                          7. Deduplikálás
+                        </Button>
+
+                        <Button onClick={handleWritePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask}>
+                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'write_rows' ? 'animate-spin' : ''}`} />
+                          8. DB írás + cursor
+                        </Button>
+                      </div>
+
+                      {manualPhaseFailures.length > 0 ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                          <p className="font-medium">Részleges provider hibák</p>
+                          <ul className="mt-2 list-disc space-y-1 pl-4">
+                            {manualPhaseFailures.map((failure, index) => (
+                              <li key={`${failure}-${index}`}>{failure}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">Fázis puffer előnézet</p>
+                          <Badge variant="secondary">{phasePreviewRows.length} sor</Badge>
+                        </div>
+
+                        {phasePreviewRows.length === 0 ? (
+                          <p className="rounded-lg border bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
+                            Még nincs pufferelt sor. Készíts elő egy taskot, futtasd a provider fetch lépéseket, majd a HU szűrést és a deduplikálást.
+                          </p>
+                        ) : (
+                          <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+                            {phasePreviewRows.slice(0, 8).map((row, index) => (
+                              <div key={`${row.provider}-${row.external_id}-${index}`} className="rounded-md border bg-background p-3 text-sm">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium">{row.name}</p>
+                                    <p className="text-xs text-muted-foreground">{[row.city, row.category_group, row.country_code].filter(Boolean).join(' · ')}</p>
+                                  </div>
+                                  <Badge variant="outline">{row.provider}</Badge>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
