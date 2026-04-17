@@ -1223,43 +1223,67 @@ export function AdminEventbrite() {
                           )}
                         </div>
 
-                        <div className="grid gap-3 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                           {manualPhaseActions.map((action) => {
                             const Icon = action.icon;
+                            const cardTone = action.variant === 'destructive'
+                              ? 'border-destructive/35 bg-destructive/10 hover:bg-destructive/15 text-foreground'
+                              : action.variant === 'default'
+                                ? 'border-primary/35 bg-primary/10 hover:bg-primary/15 text-foreground'
+                                : 'border-border/70 bg-background/70 hover:bg-muted/40 text-foreground';
+                            const iconTone = action.variant === 'destructive'
+                              ? 'border-destructive/35 bg-destructive/15 text-destructive'
+                              : action.variant === 'default'
+                                ? 'border-primary/35 bg-primary/15 text-primary'
+                                : 'border-border/60 bg-muted/50 text-foreground';
+
                             return (
-                              <Button
+                              <button
                                 key={action.key}
-                                variant={action.variant}
+                                type="button"
                                 onClick={action.onClick}
                                 disabled={action.disabled}
                                 className={cn(
-                                  'h-auto min-h-[88px] w-full justify-start whitespace-normal rounded-xl px-4 py-4 text-left shadow-none',
-                                  action.variant === 'outline' && 'border-border/70 bg-background/70 hover:bg-primary/5',
-                                  action.variant === 'default' && 'shadow-glow/30',
+                                  'block w-full overflow-hidden rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                                  'min-h-[104px] shadow-none',
+                                  cardTone,
                                 )}
                               >
-                                <div className="flex w-full items-start gap-3">
+                                <div className="flex items-start gap-3">
                                   <div className={cn(
-                                    'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-                                    action.variant === 'destructive'
-                                      ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                                      : action.variant === 'default'
-                                        ? 'border-primary/30 bg-primary/15 text-primary'
-                                        : 'border-border/60 bg-muted/40 text-foreground',
+                                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border',
+                                    iconTone,
                                   )}>
-                                    <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
+                                    <Icon className={cn('h-4 w-4 shrink-0', action.isLoading && 'animate-spin')} />
                                   </div>
-                                  <div className="min-w-0 flex-1 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-sm font-semibold leading-5">{action.title}</span>
-                                      {action.disabled && !action.isLoading ? (
-                                        <Badge variant="secondary" className="text-[10px]">Nem aktív</Badge>
-                                      ) : null}
+
+                                  <div className="min-w-0 flex-1 space-y-2">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="break-words text-sm font-semibold leading-5 whitespace-normal">{action.title}</p>
+                                      </div>
+
+                                      {action.isLoading ? (
+                                        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                          Fut
+                                        </span>
+                                      ) : action.disabled ? (
+                                        <span className="shrink-0 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                          Nem aktív
+                                        </span>
+                                      ) : (
+                                        <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                          Készen áll
+                                        </span>
+                                      )}
                                     </div>
-                                    <p className="text-xs leading-5 text-muted-foreground">{action.description}</p>
+
+                                    <p className="break-words text-xs leading-5 text-muted-foreground whitespace-normal">
+                                      {action.description}
+                                    </p>
                                   </div>
                                 </div>
-                              </Button>
+                              </button>
                             );
                           })}
                         </div>
