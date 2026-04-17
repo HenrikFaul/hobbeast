@@ -5,7 +5,11 @@ import { DEFAULT_SYNC_CONFIG } from './constants.ts';
 import {
   dedupeRowsPhase,
   executeSyncBatch,
+  fetchGeoapifyRowsPhase,
   fetchNextTaskRows,
+  fetchTomTomRowsPhase,
+  filterHuRowsPhase,
+  prepareNextTaskPhase,
   resetCatalogOnly,
   startManualRun,
   writeRowsPhase,
@@ -99,6 +103,22 @@ serve(async (req) => {
 
     if (action === 'fetch_next_task') {
       return jsonResponse(await fetchNextTaskRows(supabaseAdmin, runId));
+    }
+
+    if (action === 'prepare_next_task') {
+      return jsonResponse(await prepareNextTaskPhase(supabaseAdmin, effectiveBody, runId));
+    }
+
+    if (action === 'fetch_geoapify_rows') {
+      return jsonResponse(await fetchGeoapifyRowsPhase(supabaseAdmin, effectiveBody, runId));
+    }
+
+    if (action === 'fetch_tomtom_rows') {
+      return jsonResponse(await fetchTomTomRowsPhase(supabaseAdmin, effectiveBody, runId));
+    }
+
+    if (action === 'filter_hu_rows') {
+      return jsonResponse(await filterHuRowsPhase(supabaseAdmin, body.rows || [], runId));
     }
 
     if (action === 'dedupe_rows') {

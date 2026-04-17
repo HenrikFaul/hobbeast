@@ -41,6 +41,26 @@ async function getCurrentStateRecord(supabaseAdmin: any) {
   return currentStateResult.data || {};
 }
 
+function filterHuRows(rows: LocalCatalogRow[]) {
+  return rows.filter((row) => Boolean(row?.external_id) && String(row?.country_code || '').toUpperCase() === 'HU');
+}
+
+async function resolveTaskContext(supabaseAdmin: any, body: Partial<SyncBody> = {}) {
+  const allTasks = buildTasks();
+  const totalTasks = allTasks.length;
+  const currentState = await getCurrentStateRecord(supabaseAdmin);
+  const requestedTaskIndex = Number.isFinite(Number(body.task_index)) ? Number(body.task_index) : Number(currentState?.cursor || 0);
+  const task = body.task || allTasks[requestedTaskIndex] || null;
+
+  return {
+    allTasks,
+    totalTasks,
+    currentState,
+    taskIndex: requestedTaskIndex,
+    task,
+  };
+}
+
 async function fetchRowsForTask(
   supabaseAdmin: any,
   task: SyncTask,
@@ -61,7 +81,7 @@ async function fetchRowsForTask(
   }, runId);
 
   await milestone(supabaseAdmin, 'info', MILESTONES.GEOAPIFY_FETCH_STARTED, 'Geoapify hívás indul', { center, group }, runId);
-  const geoResult = await fetchGeoapifyRows(center, group, geoapifyKey, syncConfig)
+  const geoResult = await fetchGeoapifyRows(center, group, geoapifyKey, syncConfig, { applyHuFilter: true })
     .then((rows) => ({ ok: true as const, rows }))
     .catch((error) => ({ ok: false as const, error }));
 
@@ -89,7 +109,7 @@ async function fetchRowsForTask(
   }
 
   await milestone(supabaseAdmin, 'info', MILESTONES.TOMTOM_FETCH_STARTED, 'TomTom hívás indul', { center, group }, runId);
-  const tomtomResult = await fetchTomTomRows(center, group, tomtomKey, syncConfig)
+  const tomtomResult = await fetchTomTomRows(center, group, tomtomKey, syncConfig, { applyHuFilter: true })
     .then((rows) => ({ ok: true as const, rows }))
     .catch((error) => ({ ok: false as const, error }));
 
@@ -267,6 +287,186 @@ export async function fetchNextTaskRows(supabaseAdmin: any, runId: string) {
     partialFailures: failures,
     nextCursor: cursor,
     hasMore: cursor + 1 < totalTasks,
+    status: await getStatus(supabaseAdmin),
+  };
+}
+
+export async function prepareNextTaskPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+  const { totalTasks, currentState, taskIndex, task } = await resolveTaskContext(supabaseAdmin, body);
+
+  if (!task) {
+    await upsertSyncState(supabaseAdmin, {
+      key: LOCAL_PLACES_STATE_KEY,
+      status: 'idle',
+      task_count: totalTasks,
+      cursor: totalTasks,
+      last_run_completed_at: new Date().toISOString(),
+      last_error: null,
+    });
+
+    return {
+      ok: true,
+      task: null,
+      taskIndex: totalTasks,
+      totalTasks,
+      hasMore: false,
+      status: await getStatus(supabaseAdmin),
+    };
+  }
+
+  await upsertSyncState(supabaseAdmin, {
+    key: LOCAL_PLACES_STATE_KEY,
+    status: 'running',
+    rows_written: Number(currentState?.rows_written || 0),
+    provider_counts: currentState?.provider_counts || {},
+    task_count: totalTasks,
+    cursor: taskIndex,
+    last_run_started_at: currentState?.last_run_started_at || new Date().toISOString(),
+    last_error: null,
+  });
+
+  await milestone(supabaseAdmin, 'info', 'manual_task_prepared', 'Következő manuális task előkészítve', {
+    manual_mode: true,
+    task_index: taskIndex,
+    total_tasks: totalTasks,
+    task,
+  }, runId);
+
+  return {
+    ok: true,
+    task: {
+      taskIndex,
+      totalTasks,
+      center: task.center,
+      group: task.group,
+    },
+    hasMore: taskIndex < totalTasks,
+    status: await getStatus(supabaseAdmin),
+  };
+}
+
+async function fetchProviderRowsPhase(
+  supabaseAdmin: any,
+  body: Partial<SyncBody>,
+  provider: 'geoapify' | 'tomtom',
+  runId: string,
+) {
+  const syncConfig = await loadSyncConfig(supabaseAdmin);
+  const { taskIndex, totalTasks, task } = await resolveTaskContext(supabaseAdmin, body);
+
+  if (!task) {
+    return {
+      ok: true,
+      task: null,
+      rows: [],
+      partialFailures: [],
+      hasMore: false,
+      status: await getStatus(supabaseAdmin),
+    };
+  }
+
+  const { geoapifyKey, tomtomKey } = getProviderKeys();
+  const { center, group } = task;
+  const eventPrefix = provider === 'geoapify' ? 'GEOAPIFY' : 'TOMTOM';
+
+  await milestone(
+    supabaseAdmin,
+    'info',
+    MILESTONES[`${eventPrefix}_FETCH_STARTED` as keyof typeof MILESTONES],
+    `${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} hívás indul (külön fázis)`,
+    { manual_mode: true, task_index: taskIndex, center, group, hu_filter_separate_phase: true },
+    runId,
+  );
+
+  try {
+    const rows = provider === 'geoapify'
+      ? await fetchGeoapifyRows(center, group, geoapifyKey, syncConfig, { applyHuFilter: false })
+      : await fetchTomTomRows(center, group, tomtomKey, syncConfig, { applyHuFilter: false });
+
+    const huEligibleRows = filterHuRows(rows);
+
+    await milestone(
+      supabaseAdmin,
+      'success',
+      MILESTONES[`${eventPrefix}_FETCH_COMPLETED` as keyof typeof MILESTONES],
+      `${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} hívás kész (külön fázis)`,
+      {
+        manual_mode: true,
+        task_index: taskIndex,
+        center,
+        group,
+        raw_row_count: rows.length,
+        hu_row_count: huEligibleRows.length,
+        total_tasks: totalTasks,
+      },
+      runId,
+    );
+
+    return {
+      ok: true,
+      task: {
+        taskIndex,
+        totalTasks,
+        center,
+        group,
+      },
+      rows,
+      rowCount: rows.length,
+      huEligibleRowCount: huEligibleRows.length,
+      partialFailures: [],
+      hasMore: taskIndex + 1 < totalTasks,
+      status: await getStatus(supabaseAdmin),
+    };
+  } catch (error) {
+    const message = getErrorMessage(error);
+    await milestone(
+      supabaseAdmin,
+      'error',
+      MILESTONES[`${eventPrefix}_FETCH_COMPLETED` as keyof typeof MILESTONES],
+      `${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} hívás hibával végződött (külön fázis)`,
+      { manual_mode: true, task_index: taskIndex, center, group, error: message },
+      runId,
+    );
+
+    return {
+      ok: false,
+      task: {
+        taskIndex,
+        totalTasks,
+        center,
+        group,
+      },
+      rows: [],
+      partialFailures: [message],
+      hasMore: taskIndex + 1 < totalTasks,
+      status: await getStatus(supabaseAdmin),
+    };
+  }
+}
+
+export async function fetchGeoapifyRowsPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+  return await fetchProviderRowsPhase(supabaseAdmin, body, 'geoapify', runId);
+}
+
+export async function fetchTomTomRowsPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+  return await fetchProviderRowsPhase(supabaseAdmin, body, 'tomtom', runId);
+}
+
+export async function filterHuRowsPhase(supabaseAdmin: any, rows: LocalCatalogRow[], runId: string) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const filteredRows = filterHuRows(safeRows);
+
+  await milestone(supabaseAdmin, 'info', MILESTONES.PROVIDER_AFTER_HU_FILTER, 'Manuális HU-szűrés kész', {
+    manual_mode: true,
+    before_hu_filter: safeRows.length,
+    after_hu_filter: filteredRows.length,
+  }, runId);
+
+  return {
+    ok: true,
+    beforeCount: safeRows.length,
+    afterCount: filteredRows.length,
+    rows: filteredRows,
     status: await getStatus(supabaseAdmin),
   };
 }

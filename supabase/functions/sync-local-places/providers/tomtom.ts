@@ -1,6 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
 import type { CategoryGroup, LocalCatalogRow, SyncConfig, TaskCenter } from '../types.ts';
 
+type FetchProviderOptions = {
+  applyHuFilter?: boolean;
+};
+
 function normalizeTomTomRow(result: any, groupKey: string, centerCity: string): LocalCatalogRow {
   return {
     provider: 'tomtom',
@@ -54,7 +58,11 @@ export async function fetchTomTomRows(
 
   const data = await res.json();
 
-  return (data.results || [])
+  const rows = (data.results || [])
     .map((result: any) => normalizeTomTomRow(result, group.key, center.city))
-    .filter((row: LocalCatalogRow) => Boolean(row.external_id) && row.country_code === 'HU');
+    .filter((row: LocalCatalogRow) => Boolean(row.external_id));
+
+  return options.applyHuFilter === false
+    ? rows
+    : rows.filter((row: LocalCatalogRow) => row.country_code === 'HU');
 }

@@ -23,6 +23,10 @@ export type SyncAction =
   | 'reset_catalog'
   | 'start_manual_run'
   | 'fetch_next_task'
+  | 'prepare_next_task'
+  | 'fetch_geoapify_rows'
+  | 'fetch_tomtom_rows'
+  | 'filter_hu_rows'
   | 'dedupe_rows'
   | 'write_rows';
 
@@ -32,6 +36,8 @@ export type SyncBody = {
   interval_minutes?: number;
   config?: Partial<SyncConfig>;
   rows?: LocalCatalogRow[];
+  task_index?: number;
+  task?: SyncTask;
   advance_cursor_by?: number;
   partial_failures?: string[];
 };

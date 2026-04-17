@@ -1,6 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
 import type { CategoryGroup, LocalCatalogRow, SyncConfig, TaskCenter } from '../types.ts';
 
+type FetchProviderOptions = {
+  applyHuFilter?: boolean;
+};
+
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string): LocalCatalogRow {
   return {
     provider: 'geoapify',
@@ -49,7 +53,11 @@ export async function fetchGeoapifyRows(
 
   const data = await res.json();
 
-  return (data.features || [])
+  const rows = (data.features || [])
     .map((feature: any) => normalizeGeoapifyRow(feature, group.key, center.city))
-    .filter((row: LocalCatalogRow) => Boolean(row.external_id) && row.country_code === 'HU');
+    .filter((row: LocalCatalogRow) => Boolean(row.external_id));
+
+  return options.applyHuFilter === false
+    ? rows
+    : rows.filter((row: LocalCatalogRow) => row.country_code === 'HU');
 }
