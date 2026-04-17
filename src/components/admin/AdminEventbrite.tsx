@@ -624,6 +624,7 @@ export function AdminEventbrite() {
   const handlePrepareNextTaskPhase = async () => {
     setManualPhaseLoading('prepare_next_task');
     clearPhaseError('prepare_next_task');
+    try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: { action: 'prepare_next_task' },
       });
