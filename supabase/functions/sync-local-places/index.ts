@@ -26,7 +26,7 @@ serve(async (req) => {
   }
 
   const runId = crypto.randomUUID();
-  const supabaseAdmin = getSupabaseAdmin(req);
+  const supabaseAdmin = getTargetProjectAdmin();
 
   try {
     const url = new URL(req.url);
