@@ -812,86 +812,137 @@ export function AdminEventbrite() {
     return `${cursor}/${taskCount} feldolgozott feladat`;
   })();
 
-  const manualPhaseActions = [
+  type PhaseStatus = 'idle' | 'running' | 'success' | 'failed';
+
+  const phaseStatus = (key: string, ready: boolean, hasOutput: boolean): PhaseStatus => {
+    if (manualPhaseLoading === key) return 'running';
+    if (hasOutput) return 'success';
+    if (!ready) return 'idle';
+    return 'idle';
+  };
+
+  const manualPhaseActions: Array<{
+    key: string;
+    step: number;
+    title: string;
+    description: string;
+    icon: typeof Database;
+    accent: 'destructive' | 'primary' | 'neutral';
+    disabled: boolean;
+    isLoading: boolean;
+    onClick: () => void;
+    status: PhaseStatus;
+    counter: string | null;
+  }> = [
     {
       key: 'reset_catalog',
-      title: '1. Katalógus reset',
+      step: 1,
+      title: 'Katalógus reset',
       description: 'Törli a local places táblát és nullázza a futási állapotot.',
       icon: Database,
-      variant: 'destructive' as const,
+      accent: 'destructive',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'reset_catalog',
       onClick: handleResetCatalogPhase,
+      status: manualPhaseLoading === 'reset_catalog' ? 'running' : 'idle',
+      counter: catalogStatus?.totalRows != null ? `katalógus: ${catalogStatus.totalRows} sor` : null,
     },
     {
       key: 'start_manual_run',
-      title: '2. State = running',
+      step: 2,
+      title: 'State = running',
       description: 'Elindítja a manuális futást és running státuszra állítja a batch-et.',
       icon: RefreshCw,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'start_manual_run',
       onClick: handleStartManualRunPhase,
+      status: manualPhaseLoading === 'start_manual_run'
+        ? 'running'
+        : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle'),
+      counter: catalogStatus?.state?.status ? `state: ${catalogStatus.state.status}` : null,
     },
     {
       key: 'prepare_next_task',
-      title: '3. Következő task',
+      step: 3,
+      title: 'Következő task',
       description: 'Előkészíti a következő város + kategória feladatot a provider fetchhez.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'prepare_next_task',
       onClick: handlePrepareNextTaskPhase,
+      status: phaseStatus('prepare_next_task', true, Boolean(manualTask)),
+      counter: manualTask ? `${manualTask.center.city} · ${manualTask.group.key}` : null,
     },
     {
       key: 'fetch_geoapify_rows',
-      title: '4. Geoapify fetch',
+      step: 4,
+      title: 'Geoapify fetch',
       description: 'Lekéri a nyers Geoapify venue listát az aktuális taskhoz.',
       icon: MapPinned,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || !manualTask,
       isLoading: manualPhaseLoading === 'fetch_geoapify_rows',
       onClick: () => handleFetchProviderPhase('geoapify'),
+      status: phaseStatus('fetch_geoapify_rows', Boolean(manualTask), geoapifyPhaseRows.length > 0),
+      counter: `${geoapifyPhaseRows.length} sor`,
     },
     {
       key: 'fetch_tomtom_rows',
-      title: '5. TomTom fetch',
+      step: 5,
+      title: 'TomTom fetch',
       description: 'Lekéri a nyers TomTom venue listát ugyanahhoz a taskhoz.',
       icon: MapPin,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || !manualTask,
       isLoading: manualPhaseLoading === 'fetch_tomtom_rows',
       onClick: () => handleFetchProviderPhase('tomtom'),
+      status: phaseStatus('fetch_tomtom_rows', Boolean(manualTask), tomtomPhaseRows.length > 0),
+      counter: `${tomtomPhaseRows.length} sor`,
     },
     {
       key: 'filter_hu_rows',
-      title: '6. HU szűrés',
+      step: 6,
+      title: 'HU szűrés',
       description: 'Kiszűri a nem magyar rekordokat a két provider összevont bufferéből.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || phaseRawRows.length === 0,
       isLoading: manualPhaseLoading === 'filter_hu_rows',
       onClick: handleHuFilterPhase,
+      status: phaseStatus('filter_hu_rows', phaseRawRows.length > 0, huFilteredPhaseRows.length > 0),
+      counter: `${huFilteredPhaseRows.length} / ${phaseRawRows.length} sor`,
     },
     {
       key: 'dedupe_rows',
-      title: '7. Deduplikálás',
+      step: 7,
+      title: 'Deduplikálás',
       description: 'Összevonja az egymásnak megfelelő venue rekordokat és eltávolítja a duplikációt.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0,
       isLoading: manualPhaseLoading === 'dedupe_rows',
       onClick: handleDedupePhase,
+      status: phaseStatus('dedupe_rows', huFilteredPhaseRows.length > 0, dedupedPhaseRows.length > 0),
+      counter: `${dedupedPhaseRows.length} / ${huFilteredPhaseRows.length} sor`,
     },
     {
       key: 'write_rows',
-      title: '8. DB írás + cursor',
+      step: 8,
+      title: 'DB írás + cursor',
       description: '100–250 körüli csomagban beírja a rekordokat és lépteti a cursort.',
       icon: Database,
-      variant: 'default' as const,
+      accent: 'primary',
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask,
       isLoading: manualPhaseLoading === 'write_rows',
       onClick: handleWritePhase,
+      status: manualPhaseLoading === 'write_rows' ? 'running' : 'idle',
+      counter: dedupedPhaseRows.length > 0
+        ? `${dedupedPhaseRows.length} sor készen`
+        : huFilteredPhaseRows.length > 0
+          ? `${huFilteredPhaseRows.length} sor készen`
+          : null,
     },
   ];
 
@@ -1223,70 +1274,103 @@ export function AdminEventbrite() {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                        <ol className="space-y-2">
                           {manualPhaseActions.map((action) => {
                             const Icon = action.icon;
-                            const cardTone = action.variant === 'destructive'
-                              ? 'border-destructive/35 bg-destructive/10 hover:bg-destructive/15 text-foreground'
-                              : action.variant === 'default'
-                                ? 'border-primary/35 bg-primary/10 hover:bg-primary/15 text-foreground'
-                                : 'border-border/70 bg-background/70 hover:bg-muted/40 text-foreground';
-                            const iconTone = action.variant === 'destructive'
-                              ? 'border-destructive/35 bg-destructive/15 text-destructive'
-                              : action.variant === 'default'
-                                ? 'border-primary/35 bg-primary/15 text-primary'
-                                : 'border-border/60 bg-muted/50 text-foreground';
+                            const accentRing = action.accent === 'destructive'
+                              ? 'border-destructive/40 bg-destructive/5'
+                              : action.accent === 'primary'
+                                ? 'border-primary/40 bg-primary/5'
+                                : 'border-border/70 bg-background/70';
+                            const iconTone = action.accent === 'destructive'
+                              ? 'border-destructive/40 bg-destructive/15 text-destructive'
+                              : action.accent === 'primary'
+                                ? 'border-primary/40 bg-primary/15 text-primary'
+                                : 'border-border/60 bg-muted/40 text-foreground';
+
+                            const statusBadge = (() => {
+                              if (action.status === 'running') {
+                                return (
+                                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary whitespace-nowrap">
+                                    Fut…
+                                  </Badge>
+                                );
+                              }
+                              if (action.status === 'success') {
+                                return (
+                                  <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                                    Kész
+                                  </Badge>
+                                );
+                              }
+                              if (action.status === 'failed') {
+                                return (
+                                  <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive whitespace-nowrap">
+                                    Hiba
+                                  </Badge>
+                                );
+                              }
+                              if (action.disabled) {
+                                return (
+                                  <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground whitespace-nowrap">
+                                    Vár
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Badge variant="outline" className="border-border/60 bg-background text-foreground whitespace-nowrap">
+                                  Készen áll
+                                </Badge>
+                              );
+                            })();
 
                             return (
-                              <button
+                              <li
                                 key={action.key}
-                                type="button"
-                                onClick={action.onClick}
-                                disabled={action.disabled}
                                 className={cn(
-                                  'block w-full overflow-hidden rounded-2xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                                  'min-h-[104px] shadow-none',
-                                  cardTone,
+                                  'flex flex-col gap-3 rounded-xl border p-3 transition-colors sm:flex-row sm:items-center',
+                                  accentRing,
                                 )}
                               >
-                                <div className="flex items-start gap-3">
+                                <div className="flex min-w-0 flex-1 items-start gap-3">
+                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
+                                    {action.step}
+                                  </div>
                                   <div className={cn(
-                                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border',
+                                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
                                     iconTone,
                                   )}>
-                                    <Icon className={cn('h-4 w-4 shrink-0', action.isLoading && 'animate-spin')} />
+                                    <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
                                   </div>
-
-                                  <div className="min-w-0 flex-1 space-y-2">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        <p className="break-words text-sm font-semibold leading-5 whitespace-normal">{action.title}</p>
-                                      </div>
-
-                                      {action.isLoading ? (
-                                        <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                                          Fut
-                                        </span>
-                                      ) : action.disabled ? (
-                                        <span className="shrink-0 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                          Nem aktív
-                                        </span>
-                                      ) : (
-                                        <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                                          Készen áll
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <p className="break-words text-xs leading-5 text-muted-foreground whitespace-normal">
-                                      {action.description}
-                                    </p>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
+                                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
+                                    {action.counter ? (
+                                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
+                                    ) : null}
                                   </div>
                                 </div>
-                              </button>
+
+                                <div className="flex items-center justify-end gap-2 sm:shrink-0">
+                                  {statusBadge}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
+                                    onClick={action.onClick}
+                                    disabled={action.disabled}
+                                    className="whitespace-nowrap"
+                                  >
+                                    {action.isLoading ? (
+                                      <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                    ) : null}
+                                    Futtatás
+                                  </Button>
+                                </div>
+                              </li>
                             );
                           })}
-                        </div>
+                        </ol>
                       </div>
 
                       {manualPhaseFailures.length > 0 ? (
