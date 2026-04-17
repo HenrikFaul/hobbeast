@@ -220,6 +220,19 @@ export function AdminEventbrite() {
   const [dedupedPhaseRows, setDedupedPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
   const [manualPhaseFailures, setManualPhaseFailures] = useState<string[]>([]);
   const [manualPhaseLoading, setManualPhaseLoading] = useState<string | null>(null);
+  const [phaseErrors, setPhaseErrors] = useState<Record<string, string>>({});
+
+  const setPhaseError = (key: string, message: string) => {
+    setPhaseErrors((prev) => ({ ...prev, [key]: message }));
+  };
+  const clearPhaseError = (key: string) => {
+    setPhaseErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
