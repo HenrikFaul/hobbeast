@@ -2,7 +2,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, getSupabaseAdmin, jsonResponse } from '../shared/providerFetch.ts';
 import { DEFAULT_SYNC_CONFIG } from './constants.ts';
-import { executeSyncBatch } from './batchRunner.ts';
+import {
+  dedupeRowsPhase,
+  executeSyncBatch,
+  fetchNextTaskRows,
+  resetCatalogOnly,
+  startManualRun,
+  writeRowsPhase,
+} from './batchRunner.ts';
 import { clamp, loadSyncConfig, saveSyncConfig } from './config.ts';
 import { MILESTONES, milestone } from './milestones.ts';
 import { getStatus, upsertSyncState } from './repositories.ts';
@@ -80,6 +87,32 @@ serve(async (req) => {
         runId,
       );
       return jsonResponse({ ok: true });
+    }
+
+    if (action === 'reset_catalog') {
+      return jsonResponse(await resetCatalogOnly(supabaseAdmin, runId));
+    }
+
+    if (action === 'start_manual_run') {
+      return jsonResponse(await startManualRun(supabaseAdmin, effectiveBody, runId));
+    }
+
+    if (action === 'fetch_next_task') {
+      return jsonResponse(await fetchNextTaskRows(supabaseAdmin, runId));
+    }
+
+    if (action === 'dedupe_rows') {
+      return jsonResponse(await dedupeRowsPhase(supabaseAdmin, body.rows || [], runId));
+    }
+
+    if (action === 'write_rows') {
+      return jsonResponse(await writeRowsPhase(
+        supabaseAdmin,
+        body.rows || [],
+        Number(body.advance_cursor_by ?? 0),
+        body.partial_failures || [],
+        runId,
+      ));
     }
 
     if (action === 'enqueue') {
