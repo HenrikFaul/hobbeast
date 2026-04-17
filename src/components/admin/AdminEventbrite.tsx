@@ -1361,49 +1361,60 @@ export function AdminEventbrite() {
                               );
                             })();
 
+                            const errorMessage = phaseErrors[action.key];
+
                             return (
                               <li
                                 key={action.key}
                                 className={cn(
-                                  'flex flex-col gap-3 rounded-xl border p-3 transition-colors sm:flex-row sm:items-center',
+                                  'flex flex-col gap-2 rounded-xl border p-3 transition-colors',
                                   accentRing,
                                 )}
                               >
-                                <div className="flex min-w-0 flex-1 items-start gap-3">
-                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
-                                    {action.step}
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
+                                      {action.step}
+                                    </div>
+                                    <div className={cn(
+                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
+                                      iconTone,
+                                    )}>
+                                      <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
+                                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
+                                      {action.counter ? (
+                                        <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
+                                      ) : null}
+                                    </div>
                                   </div>
-                                  <div className={cn(
-                                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
-                                    iconTone,
-                                  )}>
-                                    <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
-                                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
-                                    {action.counter ? (
-                                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
-                                    ) : null}
+
+                                  <div className="flex items-center justify-end gap-2 sm:shrink-0">
+                                    {statusBadge}
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
+                                      onClick={action.onClick}
+                                      disabled={action.disabled}
+                                      className="whitespace-nowrap"
+                                    >
+                                      {action.isLoading ? (
+                                        <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      Futtatás
+                                    </Button>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-end gap-2 sm:shrink-0">
-                                  {statusBadge}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
-                                    onClick={action.onClick}
-                                    disabled={action.disabled}
-                                    className="whitespace-nowrap"
-                                  >
-                                    {action.isLoading ? (
-                                      <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                    ) : null}
-                                    Futtatás
-                                  </Button>
-                                </div>
+                                {errorMessage ? (
+                                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                                    <span className="mt-0.5 font-semibold">Hiba:</span>
+                                    <span className="break-words">{errorMessage}</span>
+                                  </div>
+                                ) : null}
                               </li>
                             );
                           })}
