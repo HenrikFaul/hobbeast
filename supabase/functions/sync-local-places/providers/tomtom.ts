@@ -36,6 +36,7 @@ export async function fetchTomTomRows(
   group: CategoryGroup,
   apiKey: string,
   config: SyncConfig,
+  options: FetchProviderOptions = {},
 ): Promise<LocalCatalogRow[]> {
   const params = new URLSearchParams({
     key: apiKey,
