@@ -812,86 +812,137 @@ export function AdminEventbrite() {
     return `${cursor}/${taskCount} feldolgozott feladat`;
   })();
 
-  const manualPhaseActions = [
+  type PhaseStatus = 'idle' | 'running' | 'success' | 'failed';
+
+  const phaseStatus = (key: string, ready: boolean, hasOutput: boolean): PhaseStatus => {
+    if (manualPhaseLoading === key) return 'running';
+    if (hasOutput) return 'success';
+    if (!ready) return 'idle';
+    return 'idle';
+  };
+
+  const manualPhaseActions: Array<{
+    key: string;
+    step: number;
+    title: string;
+    description: string;
+    icon: typeof Database;
+    accent: 'destructive' | 'primary' | 'neutral';
+    disabled: boolean;
+    isLoading: boolean;
+    onClick: () => void;
+    status: PhaseStatus;
+    counter: string | null;
+  }> = [
     {
       key: 'reset_catalog',
-      title: '1. Katalógus reset',
+      step: 1,
+      title: 'Katalógus reset',
       description: 'Törli a local places táblát és nullázza a futási állapotot.',
       icon: Database,
-      variant: 'destructive' as const,
+      accent: 'destructive',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'reset_catalog',
       onClick: handleResetCatalogPhase,
+      status: manualPhaseLoading === 'reset_catalog' ? 'running' : 'idle',
+      counter: catalogStatus?.totalRows != null ? `katalógus: ${catalogStatus.totalRows} sor` : null,
     },
     {
       key: 'start_manual_run',
-      title: '2. State = running',
+      step: 2,
+      title: 'State = running',
       description: 'Elindítja a manuális futást és running státuszra állítja a batch-et.',
       icon: RefreshCw,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'start_manual_run',
       onClick: handleStartManualRunPhase,
+      status: manualPhaseLoading === 'start_manual_run'
+        ? 'running'
+        : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle'),
+      counter: catalogStatus?.state?.status ? `state: ${catalogStatus.state.status}` : null,
     },
     {
       key: 'prepare_next_task',
-      title: '3. Következő task',
+      step: 3,
+      title: 'Következő task',
       description: 'Előkészíti a következő város + kategória feladatot a provider fetchhez.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'prepare_next_task',
       onClick: handlePrepareNextTaskPhase,
+      status: phaseStatus('prepare_next_task', true, Boolean(manualTask)),
+      counter: manualTask ? `${manualTask.center.city} · ${manualTask.group.key}` : null,
     },
     {
       key: 'fetch_geoapify_rows',
-      title: '4. Geoapify fetch',
+      step: 4,
+      title: 'Geoapify fetch',
       description: 'Lekéri a nyers Geoapify venue listát az aktuális taskhoz.',
       icon: MapPinned,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || !manualTask,
       isLoading: manualPhaseLoading === 'fetch_geoapify_rows',
       onClick: () => handleFetchProviderPhase('geoapify'),
+      status: phaseStatus('fetch_geoapify_rows', Boolean(manualTask), geoapifyPhaseRows.length > 0),
+      counter: `${geoapifyPhaseRows.length} sor`,
     },
     {
       key: 'fetch_tomtom_rows',
-      title: '5. TomTom fetch',
+      step: 5,
+      title: 'TomTom fetch',
       description: 'Lekéri a nyers TomTom venue listát ugyanahhoz a taskhoz.',
       icon: MapPin,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || !manualTask,
       isLoading: manualPhaseLoading === 'fetch_tomtom_rows',
       onClick: () => handleFetchProviderPhase('tomtom'),
+      status: phaseStatus('fetch_tomtom_rows', Boolean(manualTask), tomtomPhaseRows.length > 0),
+      counter: `${tomtomPhaseRows.length} sor`,
     },
     {
       key: 'filter_hu_rows',
-      title: '6. HU szűrés',
+      step: 6,
+      title: 'HU szűrés',
       description: 'Kiszűri a nem magyar rekordokat a két provider összevont bufferéből.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || phaseRawRows.length === 0,
       isLoading: manualPhaseLoading === 'filter_hu_rows',
       onClick: handleHuFilterPhase,
+      status: phaseStatus('filter_hu_rows', phaseRawRows.length > 0, huFilteredPhaseRows.length > 0),
+      counter: `${huFilteredPhaseRows.length} / ${phaseRawRows.length} sor`,
     },
     {
       key: 'dedupe_rows',
-      title: '7. Deduplikálás',
+      step: 7,
+      title: 'Deduplikálás',
       description: 'Összevonja az egymásnak megfelelő venue rekordokat és eltávolítja a duplikációt.',
       icon: Layers,
-      variant: 'outline' as const,
+      accent: 'neutral',
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0,
       isLoading: manualPhaseLoading === 'dedupe_rows',
       onClick: handleDedupePhase,
+      status: phaseStatus('dedupe_rows', huFilteredPhaseRows.length > 0, dedupedPhaseRows.length > 0),
+      counter: `${dedupedPhaseRows.length} / ${huFilteredPhaseRows.length} sor`,
     },
     {
       key: 'write_rows',
-      title: '8. DB írás + cursor',
+      step: 8,
+      title: 'DB írás + cursor',
       description: '100–250 körüli csomagban beírja a rekordokat és lépteti a cursort.',
       icon: Database,
-      variant: 'default' as const,
+      accent: 'primary',
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask,
       isLoading: manualPhaseLoading === 'write_rows',
       onClick: handleWritePhase,
+      status: manualPhaseLoading === 'write_rows' ? 'running' : 'idle',
+      counter: dedupedPhaseRows.length > 0
+        ? `${dedupedPhaseRows.length} sor készen`
+        : huFilteredPhaseRows.length > 0
+          ? `${huFilteredPhaseRows.length} sor készen`
+          : null,
     },
   ];
 
