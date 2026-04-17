@@ -620,20 +620,6 @@ export function AdminEventbrite() {
       setManualPhaseLoading(null);
     }
   };
-      const { data, error } = await supabase.functions.invoke('sync-local-places', {
-        body: { action: 'start_manual_run', reset: false },
-      });
-      if (error) throw error;
-      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
-
-      toast.success('A local places state futóra állítva');
-      await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült futóra állítani a manuális pipeline-t');
-    } finally {
-      setManualPhaseLoading(null);
-    }
-  };
 
   const handlePrepareNextTaskPhase = async () => {
     setManualPhaseLoading('prepare_next_task');
