@@ -578,6 +578,7 @@ export function AdminEventbrite() {
 
   const handleResetCatalogPhase = async () => {
     setManualPhaseLoading('reset_catalog');
+    clearPhaseError('reset_catalog');
     continuousBatchingRef.current = false;
     setCatalogPolling(false);
     try {
@@ -591,7 +592,9 @@ export function AdminEventbrite() {
       toast.success('Lokális katalógus reset kész');
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült resetelni a lokális katalógust');
+      const msg = err?.message || 'Nem sikerült resetelni a lokális katalógust';
+      setPhaseError('reset_catalog', msg);
+      toast.error(msg);
     } finally {
       setManualPhaseLoading(null);
     }
