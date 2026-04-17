@@ -20,6 +20,7 @@ import {
   type AddressSearchFunctionGroup,
 } from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
+import { cn } from '@/lib/utils';
 
 interface LocalSyncLogEntry {
   id: number;
@@ -811,6 +812,89 @@ export function AdminEventbrite() {
     return `${cursor}/${taskCount} feldolgozott feladat`;
   })();
 
+  const manualPhaseActions = [
+    {
+      key: 'reset_catalog',
+      title: '1. Katalógus reset',
+      description: 'Törli a local places táblát és nullázza a futási állapotot.',
+      icon: Database,
+      variant: 'destructive' as const,
+      disabled: Boolean(manualPhaseLoading),
+      isLoading: manualPhaseLoading === 'reset_catalog',
+      onClick: handleResetCatalogPhase,
+    },
+    {
+      key: 'start_manual_run',
+      title: '2. State = running',
+      description: 'Elindítja a manuális futást és running státuszra állítja a batch-et.',
+      icon: RefreshCw,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading),
+      isLoading: manualPhaseLoading === 'start_manual_run',
+      onClick: handleStartManualRunPhase,
+    },
+    {
+      key: 'prepare_next_task',
+      title: '3. Következő task',
+      description: 'Előkészíti a következő város + kategória feladatot a provider fetchhez.',
+      icon: Layers,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading),
+      isLoading: manualPhaseLoading === 'prepare_next_task',
+      onClick: handlePrepareNextTaskPhase,
+    },
+    {
+      key: 'fetch_geoapify_rows',
+      title: '4. Geoapify fetch',
+      description: 'Lekéri a nyers Geoapify venue listát az aktuális taskhoz.',
+      icon: MapPinned,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading) || !manualTask,
+      isLoading: manualPhaseLoading === 'fetch_geoapify_rows',
+      onClick: () => handleFetchProviderPhase('geoapify'),
+    },
+    {
+      key: 'fetch_tomtom_rows',
+      title: '5. TomTom fetch',
+      description: 'Lekéri a nyers TomTom venue listát ugyanahhoz a taskhoz.',
+      icon: MapPin,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading) || !manualTask,
+      isLoading: manualPhaseLoading === 'fetch_tomtom_rows',
+      onClick: () => handleFetchProviderPhase('tomtom'),
+    },
+    {
+      key: 'filter_hu_rows',
+      title: '6. HU szűrés',
+      description: 'Kiszűri a nem magyar rekordokat a két provider összevont bufferéből.',
+      icon: Layers,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading) || phaseRawRows.length === 0,
+      isLoading: manualPhaseLoading === 'filter_hu_rows',
+      onClick: handleHuFilterPhase,
+    },
+    {
+      key: 'dedupe_rows',
+      title: '7. Deduplikálás',
+      description: 'Összevonja az egymásnak megfelelő venue rekordokat és eltávolítja a duplikációt.',
+      icon: Layers,
+      variant: 'outline' as const,
+      disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0,
+      isLoading: manualPhaseLoading === 'dedupe_rows',
+      onClick: handleDedupePhase,
+    },
+    {
+      key: 'write_rows',
+      title: '8. DB írás + cursor',
+      description: '100–250 körüli csomagban beírja a rekordokat és lépteti a cursort.',
+      icon: Database,
+      variant: 'default' as const,
+      disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask,
+      isLoading: manualPhaseLoading === 'write_rows',
+      onClick: handleWritePhase,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <Card>
@@ -1071,92 +1155,118 @@ export function AdminEventbrite() {
                       {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
                     </div>
 
-                    <div className="space-y-3 rounded-lg border p-3">
-                      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <p className="text-sm font-medium">Fázis-alapú manuális pipeline</p>
-                          <p className="text-xs text-muted-foreground">
+                    <div className="space-y-4 rounded-xl border border-border/70 bg-background/40 p-4 md:p-5">
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold">Fázis-alapú manuális pipeline</p>
+                            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">Debugolható lépések</Badge>
+                          </div>
+                          <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
                             A local places töltés külön admin lépésekre bontva: reset → state running → task → provider fetch → HU szűrés → dedupe → DB írás + cursor update.
                           </p>
                         </div>
                         {manualTask ? (
-                          <Badge variant="outline">Task #{manualTask.taskIndex + 1} / {manualTask.totalTasks}</Badge>
+                          <Badge variant="outline" className="self-start whitespace-nowrap px-3 py-1">Task #{manualTask.taskIndex + 1} / {manualTask.totalTasks}</Badge>
                         ) : (
-                          <Badge variant="secondary">Nincs előkészített task</Badge>
+                          <Badge variant="secondary" className="self-start px-3 py-1">Nincs előkészített task</Badge>
                         )}
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-lg border p-3">
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
                           <div className="text-xs text-muted-foreground">Geoapify raw sor</div>
-                          <div className="text-lg font-semibold">{geoapifyPhaseRows.length}</div>
+                          <div className="mt-2 text-2xl font-semibold">{geoapifyPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-lg border p-3">
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
                           <div className="text-xs text-muted-foreground">TomTom raw sor</div>
-                          <div className="text-lg font-semibold">{tomtomPhaseRows.length}</div>
+                          <div className="mt-2 text-2xl font-semibold">{tomtomPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-lg border p-3">
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
                           <div className="text-xs text-muted-foreground">HU szűrt sor</div>
-                          <div className="text-lg font-semibold">{huFilteredPhaseRows.length}</div>
+                          <div className="mt-2 text-2xl font-semibold">{huFilteredPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-lg border p-3">
+                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
                           <div className="text-xs text-muted-foreground">Deduplikált sor</div>
-                          <div className="text-lg font-semibold">{dedupedPhaseRows.length}</div>
+                          <div className="mt-2 text-2xl font-semibold">{dedupedPhaseRows.length}</div>
                         </div>
                       </div>
 
                       {manualTask ? (
-                        <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground space-y-1">
-                          <p>Aktív task város: <span className="font-medium text-foreground">{manualTask.center.city}</span></p>
-                          <p>Kategória group: <span className="font-medium text-foreground">{manualTask.group.key}</span></p>
-                          <p>Koordináta: {manualTask.center.lat}, {manualTask.center.lon}</p>
+                        <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm md:grid-cols-3">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Aktív task város</div>
+                            <div className="mt-1 font-medium text-foreground">{manualTask.center.city}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Kategória group</div>
+                            <div className="mt-1 font-medium text-foreground">{manualTask.group.key}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Koordináta</div>
+                            <div className="mt-1 font-medium text-foreground">{manualTask.center.lat}, {manualTask.center.lon}</div>
+                          </div>
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">
+                          Először készíts elő egy taskot, utána futtasd a provider fetch lépéseket és a tisztító fázisokat.
+                        </div>
+                      )}
 
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                        <Button variant="destructive" onClick={handleResetCatalogPhase} disabled={Boolean(manualPhaseLoading)}>
-                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'reset_catalog' ? 'animate-spin' : ''}`} />
-                          1. Katalógus reset
-                        </Button>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">Manuális fázisgombok</p>
+                          {manualPhaseLoading ? (
+                            <Badge variant="secondary">Fut: {manualPhaseLoading}</Badge>
+                          ) : (
+                            <Badge variant="outline">Készen áll</Badge>
+                          )}
+                        </div>
 
-                        <Button variant="outline" onClick={handleStartManualRunPhase} disabled={Boolean(manualPhaseLoading)}>
-                          <RefreshCw className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'start_manual_run' ? 'animate-spin' : ''}`} />
-                          2. State = running
-                        </Button>
-
-                        <Button variant="outline" onClick={handlePrepareNextTaskPhase} disabled={Boolean(manualPhaseLoading)}>
-                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'prepare_next_task' ? 'animate-spin' : ''}`} />
-                          3. Következő task
-                        </Button>
-
-                        <Button variant="outline" onClick={() => handleFetchProviderPhase('geoapify')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
-                          <MapPinned className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_geoapify_rows' ? 'animate-spin' : ''}`} />
-                          4. Geoapify fetch
-                        </Button>
-
-                        <Button variant="outline" onClick={() => handleFetchProviderPhase('tomtom')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
-                          <MapPin className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_tomtom_rows' ? 'animate-spin' : ''}`} />
-                          5. TomTom fetch
-                        </Button>
-
-                        <Button variant="outline" onClick={handleHuFilterPhase} disabled={Boolean(manualPhaseLoading) || phaseRawRows.length === 0}>
-                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'filter_hu_rows' ? 'animate-spin' : ''}`} />
-                          6. HU szűrés
-                        </Button>
-
-                        <Button variant="outline" onClick={handleDedupePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0}>
-                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'dedupe_rows' ? 'animate-spin' : ''}`} />
-                          7. Deduplikálás
-                        </Button>
-
-                        <Button onClick={handleWritePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask}>
-                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'write_rows' ? 'animate-spin' : ''}`} />
-                          8. DB írás + cursor
-                        </Button>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          {manualPhaseActions.map((action) => {
+                            const Icon = action.icon;
+                            return (
+                              <Button
+                                key={action.key}
+                                variant={action.variant}
+                                onClick={action.onClick}
+                                disabled={action.disabled}
+                                className={cn(
+                                  'h-auto min-h-[88px] w-full justify-start whitespace-normal rounded-xl px-4 py-4 text-left shadow-none',
+                                  action.variant === 'outline' && 'border-border/70 bg-background/70 hover:bg-primary/5',
+                                  action.variant === 'default' && 'shadow-glow/30',
+                                )}
+                              >
+                                <div className="flex w-full items-start gap-3">
+                                  <div className={cn(
+                                    'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+                                    action.variant === 'destructive'
+                                      ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                      : action.variant === 'default'
+                                        ? 'border-primary/30 bg-primary/15 text-primary'
+                                        : 'border-border/60 bg-muted/40 text-foreground',
+                                  )}>
+                                    <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
+                                  </div>
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="text-sm font-semibold leading-5">{action.title}</span>
+                                      {action.disabled && !action.isLoading ? (
+                                        <Badge variant="secondary" className="text-[10px]">Nem aktív</Badge>
+                                      ) : null}
+                                    </div>
+                                    <p className="text-xs leading-5 text-muted-foreground">{action.description}</p>
+                                  </div>
+                                </div>
+                              </Button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {manualPhaseFailures.length > 0 ? (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                           <p className="font-medium">Részleges provider hibák</p>
                           <ul className="mt-2 list-disc space-y-1 pl-4">
                             {manualPhaseFailures.map((failure, index) => (
@@ -1173,13 +1283,13 @@ export function AdminEventbrite() {
                         </div>
 
                         {phasePreviewRows.length === 0 ? (
-                          <p className="rounded-lg border bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
+                          <p className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                             Még nincs pufferelt sor. Készíts elő egy taskot, futtasd a provider fetch lépéseket, majd a HU szűrést és a deduplikálást.
                           </p>
                         ) : (
-                          <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-2">
+                          <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-muted/20 p-2">
                             {phasePreviewRows.slice(0, 8).map((row, index) => (
-                              <div key={`${row.provider}-${row.external_id}-${index}`} className="rounded-md border bg-background p-3 text-sm">
+                              <div key={`${row.provider}-${row.external_id}-${index}`} className="rounded-lg border border-border/60 bg-background p-3 text-sm">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <p className="truncate font-medium">{row.name}</p>
@@ -1194,21 +1304,30 @@ export function AdminEventbrite() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading}>
-                        <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
-                        Állapot frissítése
-                      </Button>
+                    <div className="space-y-3 rounded-xl border border-border/60 bg-background/30 p-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Kompatibilitási batch vezérlők</p>
+                        <p className="text-xs text-muted-foreground">
+                          A korábbi egygombos flow megmaradt regresszióvédelem miatt. Debughoz a fenti fázisgombokat használd, gyors futtatáshoz ezt a blokkot.
+                        </p>
+                      </div>
 
-                      <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading}>
-                        <Database className="mr-1 h-4 w-4" />
-                        Következő batch indítása
-                      </Button>
+                      <div className="grid gap-2 md:grid-cols-3">
+                        <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading} className="w-full justify-start">
+                          <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
+                          Állapot frissítése
+                        </Button>
 
-                      <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading}>
-                        <Database className="mr-1 h-4 w-4" />
-                        Teljes újratöltés
-                      </Button>
+                        <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading} className="w-full justify-start">
+                          <Database className="mr-1 h-4 w-4" />
+                          Következő batch indítása
+                        </Button>
+
+                        <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading} className="w-full justify-start">
+                          <Database className="mr-1 h-4 w-4" />
+                          Teljes újratöltés
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
