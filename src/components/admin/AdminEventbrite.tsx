@@ -879,7 +879,7 @@ export function AdminEventbrite() {
       disabled: Boolean(manualPhaseLoading),
       isLoading: manualPhaseLoading === 'reset_catalog',
       onClick: handleResetCatalogPhase,
-      status: manualPhaseLoading === 'reset_catalog' ? 'running' : 'idle',
+      status: manualPhaseLoading === 'reset_catalog' ? 'running' : (phaseErrors['reset_catalog'] ? 'failed' : 'idle'),
       counter: catalogStatus?.totalRows != null ? `katalógus: ${catalogStatus.totalRows} sor` : null,
     },
     {
@@ -894,7 +894,9 @@ export function AdminEventbrite() {
       onClick: handleStartManualRunPhase,
       status: manualPhaseLoading === 'start_manual_run'
         ? 'running'
-        : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle'),
+        : (phaseErrors['start_manual_run']
+          ? 'failed'
+          : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle')),
       counter: catalogStatus?.state?.status ? `state: ${catalogStatus.state.status}` : null,
     },
     {
@@ -972,7 +974,7 @@ export function AdminEventbrite() {
       disabled: Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask,
       isLoading: manualPhaseLoading === 'write_rows',
       onClick: handleWritePhase,
-      status: manualPhaseLoading === 'write_rows' ? 'running' : 'idle',
+      status: manualPhaseLoading === 'write_rows' ? 'running' : (phaseErrors['write_rows'] ? 'failed' : 'idle'),
       counter: dedupedPhaseRows.length > 0
         ? `${dedupedPhaseRows.length} sor készen`
         : huFilteredPhaseRows.length > 0
