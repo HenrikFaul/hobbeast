@@ -850,6 +850,7 @@ export function AdminEventbrite() {
 
   const phaseStatus = (key: string, ready: boolean, hasOutput: boolean): PhaseStatus => {
     if (manualPhaseLoading === key) return 'running';
+    if (phaseErrors[key]) return 'failed';
     if (hasOutput) return 'success';
     if (!ready) return 'idle';
     return 'idle';
