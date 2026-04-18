@@ -3,11 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export function useAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for auth to fully resolve before running the admin check.
+    // Without this, React 18 batches the initial effects and creates a
+    // window where authLoading=false + user=<user> + adminLoading=false
+    // simultaneously, triggering a premature redirect.
+    if (authLoading) return;
+
     let active = true;
     if (!user) {
       setIsAdmin(false);
@@ -32,7 +38,7 @@ export function useAdmin() {
     return () => {
       active = false;
     };
-  }, [user?.id]);
+  }, [user?.id, authLoading]);
 
-  return { isAdmin, loading };
+  return { isAdmin, loading: loading || authLoading };
 }
