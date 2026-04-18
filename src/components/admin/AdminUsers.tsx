@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw, Filter, Search, Trash2, Ban, CheckCircle2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AdminMassUsers } from "./AdminMassUsers";
+import { HubDetailModal } from "./HubDetailModal";
 
 interface ProfileRow {
   id: string;
@@ -57,6 +58,8 @@ interface BulkFilters {
   registeredOlderThanDays: string;
   inactiveDays: string;
   hasOpenOwnedEvents: 'all' | 'yes' | 'no';
+  hobbyFilter: string;
+  hubFilter: string;
 }
 
 const EMPTY_FILTERS: BulkFilters = {
@@ -64,6 +67,8 @@ const EMPTY_FILTERS: BulkFilters = {
   registeredOlderThanDays: '',
   inactiveDays: '',
   hasOpenOwnedEvents: 'all',
+  hobbyFilter: '',
+  hubFilter: '',
 };
 
 export function AdminUsers() {
@@ -84,6 +89,11 @@ export function AdminUsers() {
   const [search, setSearch] = useState('');
   const [pageSize, setPageSize] = useState<10 | 20 | 50>(10);
   const [hubPageSize, setHubPageSize] = useState<10 | 20 | 50>(10);
+  const [userHubMap, setUserHubMap] = useState<Map<string, VirtualHub[]>>(new Map());
+  const [selectedHub, setSelectedHub] = useState<VirtualHub | null>(null);
+  const [hubDetailOpen, setHubDetailOpen] = useState(false);
+  const [expandedHobbies, setExpandedHobbies] = useState<Set<string>>(new Set());
+  const [expandedUserHubs, setExpandedUserHubs] = useState<Set<string>>(new Set());
 
   const ROW_H = 52;
   const HEAD_H = 48;
@@ -107,12 +117,29 @@ export function AdminUsers() {
 
   const loadHubs = async () => {
     setHubsLoading(true);
-    const { data, error } = await supabase.from('virtual_hubs' as any).select('*').order('member_count', { ascending: false });
-    if (error) {
-      console.error(error);
+    const [hubRes, memberRes] = await Promise.all([
+      supabase.from('virtual_hubs' as any).select('*').order('member_count', { ascending: false }),
+      supabase.from('virtual_hub_members' as any).select('user_id, hub_id'),
+    ]);
+    if (hubRes.error) {
+      console.error(hubRes.error);
       setHubs([]);
     } else {
-      setHubs((data as unknown as VirtualHub[]) || []);
+      const hubsData = (hubRes.data as unknown as VirtualHub[]) || [];
+      setHubs(hubsData);
+      if (!memberRes.error && memberRes.data) {
+        const hubById = new Map<string, VirtualHub>();
+        hubsData.forEach((h) => hubById.set(h.id, h));
+        const map = new Map<string, VirtualHub[]>();
+        (memberRes.data as { user_id: string; hub_id: string }[]).forEach(({ user_id, hub_id }) => {
+          const hub = hubById.get(hub_id);
+          if (!hub || !user_id) return;
+          const arr = map.get(user_id) || [];
+          arr.push(hub);
+          map.set(user_id, arr);
+        });
+        setUserHubMap(map);
+      }
     }
     setHubsLoading(false);
   };
@@ -159,10 +186,12 @@ export function AdminUsers() {
     const q = search.trim().toLowerCase();
     if (!q) return profiles;
     return profiles.filter((p) => {
-      const haystack = [p.display_name, p.city, p.user_origin, ...(p.hobbies || [])].filter(Boolean).join(' ').toLowerCase();
+      const userHubs = userHubMap.get(p.user_id) || [];
+      const hubNames = userHubs.map((h) => `${h.hobby_category} ${h.city || ''}`).join(' ');
+      const haystack = [p.display_name, p.city, p.user_origin, ...(p.hobbies || []), hubNames].filter(Boolean).join(' ').toLowerCase();
       return haystack.includes(q);
     });
-  }, [profiles, search]);
+  }, [profiles, search, userHubMap]);
 
   const allVisibleSelected = visibleProfiles.length > 0 && visibleProfiles.every((profile) => Boolean(profile.user_id) && selectedUserIds.has(profile.user_id));
 
@@ -189,21 +218,17 @@ export function AdminUsers() {
 
 
 const applyBulkSelection = async () => {
-  const noFiltersApplied = bulkFilters.userType === 'all'
-    && bulkFilters.hasOpenOwnedEvents === 'all'
-    && !bulkFilters.registeredOlderThanDays
-    && !bulkFilters.inactiveDays;
+  const hasServerFilters = bulkFilters.userType !== 'all'
+    || bulkFilters.hasOpenOwnedEvents !== 'all'
+    || !!bulkFilters.registeredOlderThanDays
+    || !!bulkFilters.inactiveDays;
 
-  if (noFiltersApplied) {
-    const allIds = profiles.map((profile) => profile.user_id).filter(Boolean) as string[];
-    setSelectedUserIds(new Set(allIds));
-    setBulkMatchedCount(allIds.length);
-    toast.success(`${allIds.length} profil kijelölve a szűrők alapján.`);
-    return;
-  }
+  let ids: Set<string>;
 
-  setBulkApplying(true);
-
+  if (!hasServerFilters) {
+    ids = new Set(profiles.map((p) => p.user_id).filter(Boolean) as string[]);
+  } else {
+    setBulkApplying(true);
     const { data, error } = await supabase.functions.invoke('admin-bulk-user-actions', {
       body: {
         mode: 'preview',
@@ -215,24 +240,30 @@ const applyBulkSelection = async () => {
         },
       },
     });
-
-    if (error) {
-      toast.error(`Tömeges kijelölés hiba: ${error.message}`);
-    } else {
-      
-const selectedProfileIds = Array.isArray(data?.selectedProfileIds) ? data.selectedProfileIds.filter(Boolean) as string[] : [];
-const previewUserIds = Array.isArray(data?.selectedUserIds) ? data.selectedUserIds.filter(Boolean) as string[] : [];
-const userIdsFromProfileIds = profiles
-  .filter((profile) => selectedProfileIds.includes(profile.id) && profile.user_id)
-  .map((profile) => profile.user_id as string);
-const ids = new Set<string>([...previewUserIds, ...userIdsFromProfileIds].filter(Boolean));
-setSelectedUserIds(ids);
-setBulkMatchedCount(Number(data?.selectedCount || ids.size));
-toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a szűrők alapján.`);
-
-    }
     setBulkApplying(false);
-  };
+    if (error) { toast.error(`Tömeges kijelölés hiba: ${error.message}`); return; }
+    const selectedProfileIds = Array.isArray(data?.selectedProfileIds) ? data.selectedProfileIds.filter(Boolean) as string[] : [];
+    const previewUserIds = Array.isArray(data?.selectedUserIds) ? data.selectedUserIds.filter(Boolean) as string[] : [];
+    const userIdsFromProfileIds = profiles.filter((p) => selectedProfileIds.includes(p.id) && p.user_id).map((p) => p.user_id as string);
+    ids = new Set<string>([...previewUserIds, ...userIdsFromProfileIds].filter(Boolean));
+  }
+
+  if (bulkFilters.hobbyFilter.trim()) {
+    const q = bulkFilters.hobbyFilter.trim().toLowerCase();
+    const matched = new Set(profiles.filter((p) => p.user_id && (p.hobbies || []).some((h) => h.toLowerCase().includes(q))).map((p) => p.user_id as string));
+    ids = new Set([...ids].filter((id) => matched.has(id)));
+  }
+  if (bulkFilters.hubFilter.trim()) {
+    const q = bulkFilters.hubFilter.trim().toLowerCase();
+    const matched = new Set<string>();
+    userHubMap.forEach((hs, uid) => { if (hs.some((h) => h.hobby_category.toLowerCase().includes(q) || (h.city || '').toLowerCase().includes(q))) matched.add(uid); });
+    ids = new Set([...ids].filter((id) => matched.has(id)));
+  }
+
+  setSelectedUserIds(ids);
+  setBulkMatchedCount(ids.size);
+  toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
+};
 
   const runBulkAction = async (action: 'delete' | 'activate' | 'deactivate') => {
     if (selectedUserIds.size === 0) return;
@@ -265,8 +296,10 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <CardTitle className="font-display text-lg flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Regisztrált felhasználók ({profiles.length})
+            <CardTitle className="font-display text-lg flex items-center gap-2 flex-wrap">
+              <Users className="h-5 w-5 text-primary" />
+              <span>Felhasználók: {profiles.length} összes</span>
+              <span className="text-sm font-normal text-muted-foreground">({profiles.filter((p) => p.user_origin !== 'generated').length} regisztrált / {profiles.filter((p) => p.user_origin === 'generated').length} generált)</span>
             </CardTitle>
             <div className="flex flex-wrap gap-2">
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Keresés név, város, hobbi alapján" className="w-64 rounded-xl" />
@@ -315,6 +348,7 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
                     <TableHead>Státusz</TableHead>
                     <TableHead>Város</TableHead>
                     <TableHead>Hobbik</TableHead>
+                    <TableHead>Hub</TableHead>
                     <TableHead>Regisztráció</TableHead>
                     <TableHead>Utolsó aktivitás</TableHead>
                     <TableHead></TableHead>
@@ -333,10 +367,35 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
                       </TableCell>
                       <TableCell>{p.city || '—'}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(p.hobbies || []).slice(0, 3).map((h) => <Badge key={h} variant="secondary" className="text-xs">{h}</Badge>)}
-                          {(p.hobbies || []).length > 3 && <Badge variant="outline" className="text-xs">+{(p.hobbies || []).length - 3}</Badge>}
-                        </div>
+                        {(() => {
+                          const hobbies = p.hobbies || [];
+                          const expanded = expandedHobbies.has(p.user_id);
+                          const visible = expanded ? hobbies : hobbies.slice(0, 1);
+                          const extra = hobbies.length - 1;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {visible.map((h) => <Badge key={h} variant="secondary" className="text-xs">{h}</Badge>)}
+                              {!expanded && extra > 0 && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedHobbies((prev) => new Set([...prev, p.user_id]))}>+{extra}</Badge>}
+                              {expanded && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedHobbies((prev) => { const n = new Set(prev); n.delete(p.user_id); return n; })}>▲</Badge>}
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const userHubs = userHubMap.get(p.user_id) || [];
+                          const expanded = expandedUserHubs.has(p.user_id);
+                          const visible = expanded ? userHubs : userHubs.slice(0, 1);
+                          const extra = userHubs.length - 1;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {userHubs.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                              {visible.map((h) => <Badge key={h.id} variant="secondary" className="text-xs">{h.hobby_category}{h.city ? ` · ${h.city}` : ''}</Badge>)}
+                              {!expanded && extra > 0 && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedUserHubs((prev) => new Set([...prev, p.user_id]))}>+{extra}</Badge>}
+                              {expanded && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedUserHubs((prev) => { const n = new Set(prev); n.delete(p.user_id); return n; })}>▲</Badge>}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('hu-HU')}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{getLastActivity(p)}</TableCell>
@@ -381,7 +440,7 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
                 <TableHeader><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {hubs.map((hub) => (
-                    <TableRow key={hub.id}>
+                    <TableRow key={hub.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => { setSelectedHub(hub); setHubDetailOpen(true); }}>
                       <TableCell className="font-medium">{hub.hobby_category}</TableCell>
                       <TableCell>{hub.city || 'Országos'}</TableCell>
                       <TableCell><Badge variant="secondary">{hub.member_count} fő</Badge></TableCell>
@@ -433,6 +492,14 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
                 <Label>Utolsó belépés óta eltelt napok</Label>
                 <Input type="number" min={0} value={bulkFilters.inactiveDays} onChange={(e) => setBulkFilters((prev) => ({ ...prev, inactiveDays: e.target.value }))} placeholder="pl. 40" />
               </div>
+              <div className="space-y-2">
+                <Label>Hobbi tartalmaz</Label>
+                <Input value={bulkFilters.hobbyFilter} onChange={(e) => setBulkFilters((prev) => ({ ...prev, hobbyFilter: e.target.value }))} placeholder="pl. futás" />
+              </div>
+              <div className="space-y-2">
+                <Label>Hub (város vagy érdeklődési kör)</Label>
+                <Input value={bulkFilters.hubFilter} onChange={(e) => setBulkFilters((prev) => ({ ...prev, hubFilter: e.target.value }))} placeholder="pl. Budapest" />
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <Button className="rounded-xl gap-2" disabled={bulkApplying} onClick={applyBulkSelection}><Filter className="h-4 w-4" /> Szűrés</Button>
@@ -481,6 +548,8 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
           )}
         </DialogContent>
       </Dialog>
+
+      <HubDetailModal hub={selectedHub} open={hubDetailOpen} onClose={() => setHubDetailOpen(false)} onUpdated={loadHubs} />
 
       <AlertDialog open={pendingAction !== null} onOpenChange={(open) => !open && setPendingAction(null)}>
         <AlertDialogContent>
