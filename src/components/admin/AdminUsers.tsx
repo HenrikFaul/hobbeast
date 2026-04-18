@@ -82,6 +82,11 @@ export function AdminUsers() {
   const [bulkMatchedCount, setBulkMatchedCount] = useState(0);
   const [pendingAction, setPendingAction] = useState<'delete' | 'activate' | 'deactivate' | null>(null);
   const [search, setSearch] = useState('');
+  const [pageSize, setPageSize] = useState<10 | 20 | 50>(10);
+  const [hubPageSize, setHubPageSize] = useState<10 | 20 | 50>(10);
+
+  const ROW_H = 52;
+  const HEAD_H = 48;
 
   useEffect(() => {
     void loadProfiles();
@@ -265,6 +270,14 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
             </CardTitle>
             <div className="flex flex-wrap gap-2">
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Keresés név, város, hobbi alapján" className="w-64 rounded-xl" />
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v) as 10 | 20 | 50)}>
+                <SelectTrigger className="w-28 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 sor</SelectItem>
+                  <SelectItem value="20">20 sor</SelectItem>
+                  <SelectItem value="50">50 sor</SelectItem>
+                </SelectContent>
+              </Select>
               <Button variant="outline" className="rounded-xl gap-2" onClick={() => setBulkModalOpen(true)}>
                 <Filter className="h-4 w-4" /> Tömeges kijelölés
               </Button>
@@ -292,7 +305,7 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
           ) : visibleProfiles.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">Nincs megjeleníthető felhasználó.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: pageSize * ROW_H + HEAD_H }}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -345,15 +358,25 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
             <CardTitle className="font-display text-lg flex items-center gap-2">
               <Network className="h-5 w-5 text-primary" /> Virtuális közösségek ({hubs.length})
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={String(hubPageSize)} onValueChange={(v) => setHubPageSize(Number(v) as 10 | 20 | 50)}>
+                <SelectTrigger className="w-28 rounded-xl h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 sor</SelectItem>
+                  <SelectItem value="20">20 sor</SelectItem>
+                  <SelectItem value="50">50 sor</SelectItem>
+                </SelectContent>
+              </Select>
             <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={refreshHubs} disabled={refreshingHubs}>
               <RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} /> {refreshingHubs ? 'Frissítés...' : 'Hubok újragenerálása'}
             </Button>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1">A virtuális közösségek automatikusan jönnek létre a felhasználók érdeklődési körei és városuk alapján. Ezek láthatatlanok a felhasználók számára – kizárólag admin célra.</p>
         </CardHeader>
         <CardContent>
           {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: hubPageSize * ROW_H + HEAD_H }}>
               <Table>
                 <TableHeader><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
