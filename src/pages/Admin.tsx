@@ -17,8 +17,15 @@ const Admin = () => {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
-    if (!authLoading && !adminLoading && user && !isAdmin) navigate('/');
+    if (authLoading || adminLoading) return;
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    if (!isAdmin) {
+      console.warn('[Admin] redirect to / — user has no admin role', { userId: user.id });
+      navigate('/');
+    }
   }, [authLoading, adminLoading, user, isAdmin, navigate]);
   if (authLoading || adminLoading) return <main className="pt-24 pb-16 min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></main>;
   if (!isAdmin) return null;

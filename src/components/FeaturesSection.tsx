@@ -1,74 +1,68 @@
 import { motion } from "framer-motion";
-import { Compass, Calendar, MessageCircle, Star, Shield, Zap } from "lucide-react";
+import { MapPin, CalendarDays, Users, Sparkles, Compass, ShieldCheck } from "lucide-react";
 
 const features = [
   {
+    icon: Users,
+    title: "Közösségi matching",
+    description: "Találj olyan embereket, akik nem csak hasonló érdeklődésűek, hanem tényleg ugyanazt a hangulatot keresik, mint te.",
+    color: "bg-primary/12 text-primary",
+  },
+  {
+    icon: CalendarDays,
+    title: "Éles eseményradar",
+    description: "Böngéssz precíz, jól szervezett események között, és csatlakozz pár kattintással a számodra releváns programokhoz.",
+    color: "bg-accent/12 text-accent",
+  },
+  {
+    icon: MapPin,
+    title: "Helyfüggő élmények",
+    description: "A lokációalapú keresés nem csak hasznos, hanem gyors és fókuszált: pontosabban azt látod, ami valóban elérhető számodra.",
+    color: "bg-primary/12 text-primary",
+  },
+  {
     icon: Compass,
-    title: "Fedezz fel hobbikat",
-    description: "Válassz 80+ hobbi kategóriából, vagy adj hozzá sajátot. A rendszer személyre szabott ajánlásokat ad.",
-    color: "bg-primary/10 text-primary",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.15)]",
+    title: "Felfedezés zaj nélkül",
+    description: "Kevesebb random görgetés, több valódi találat. A felület úgy vezet végig, mint egy jól hangolt vezérlőpult.",
+    color: "bg-accent/12 text-accent",
   },
   {
-    icon: Calendar,
-    title: "Események egy helyen",
-    description: "Szervezz vagy csatlakozz szabadidős programokhoz a közeledben. Sportolás, túrázás, társasozás – bármi!",
-    color: "bg-accent/10 text-accent",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--accent)/0.15)]",
+    icon: Sparkles,
+    title: "Premium vibe",
+    description: "Sötét, modern, techno-inspirált felület, ami nem játékosnak, hanem karakteresnek és magabiztosnak érződik.",
+    color: "bg-primary/12 text-primary",
   },
   {
-    icon: MessageCircle,
-    title: "Közösségi chat",
-    description: "Beszélgess hasonló érdeklődésű emberekkel. Csoportos vagy privát üzenetek, egyszerűen.",
-    color: "bg-success/10 text-success",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--success)/0.15)]",
-  },
-  {
-    icon: Star,
-    title: "Értékelések",
-    description: "Eseményeket és felhasználókat is értékelhetsz, hogy a közösség mindig minőségi legyen.",
-    color: "bg-warning/10 text-warning",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--warning)/0.15)]",
-  },
-  {
-    icon: Shield,
-    title: "Biztonságos közösség",
-    description: "Profilok ellenőrzése és moderált tartalom, hogy mindenki jól érezze magát.",
-    color: "bg-primary/10 text-primary",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.15)]",
-  },
-  {
-    icon: Zap,
-    title: "Gyors és egyszerű",
-    description: "Regisztráció után perceken belül megtalálhatod a hozzád illő közösséget és programokat.",
-    color: "bg-accent/10 text-accent",
-    accent: "group-hover:shadow-[0_0_0_1px_hsl(var(--accent)/0.15)]",
+    icon: ShieldCheck,
+    title: "Tisztább flow",
+    description: "Erősebb vizuális hierarchia, letisztultabb CTA-k és jobb állapotkezelés úgy, hogy a meglévő működés közben stabil marad.",
+    color: "bg-accent/12 text-accent",
   },
 ];
 
 const FeaturesSection = () => {
   return (
-    <section className="section-padding bg-card relative overflow-hidden">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.02] blur-3xl" />
-      </div>
+    <section className="section-padding relative overflow-hidden">
+      <div className="absolute inset-0 tech-grid opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 gradient-warm pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 neon-divider opacity-50" />
 
       <div className="container mx-auto px-4 relative">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="text-center mb-14"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4 tracking-wide uppercase">
-            Funkciók
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-xs font-medium text-accent mb-5 uppercase tracking-[0.2em]">
+            Core systems
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
-            Miért a <span className="text-gradient">Hobbeast</span>?
+            Miért működik másképp a <span className="text-gradient">Hobbeast</span>?
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg leading-relaxed">
-            Minden, amit egy alkalmazás adhat – közösségépítés, események és élmények egy helyen.
+            Nem túlbeszélt közösségi app, hanem egy fókuszált, energikus rendszer:
+            felfedezéshez, kapcsolódáshoz és közös élményekhez.
           </p>
         </motion.div>
 
@@ -76,17 +70,18 @@ const FeaturesSection = () => {
           {features.map((feature, i) => (
             <motion.div
               key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              className={`group card-premium p-6 md:p-8 cursor-default ${feature.accent}`}
+              transition={{ delay: i * 0.07 }}
+              className="group rounded-[1.4rem] chrome-panel gradient-border p-6 md:p-8"
             >
-              <div className={`w-12 h-12 rounded-xl ${feature.color} flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110`}>
+              <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${feature.color} transition-transform duration-300 group-hover:scale-110`}>
                 <feature.icon size={22} />
               </div>
-              <h3 className="font-display font-semibold text-lg mb-2">{feature.title}</h3>
+              <h3 className="font-display font-semibold text-lg mb-3 text-chrome">{feature.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
+              <div className="mt-6 neon-divider opacity-60" />
             </motion.div>
           ))}
         </div>

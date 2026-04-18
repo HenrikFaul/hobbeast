@@ -20,7 +20,6 @@ import {
   type AddressSearchFunctionGroup,
 } from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
-import { cn } from '@/lib/utils';
 
 interface LocalSyncLogEntry {
   id: number;
@@ -220,19 +219,6 @@ export function AdminEventbrite() {
   const [dedupedPhaseRows, setDedupedPhaseRows] = useState<LocalCatalogRowBuffer[]>([]);
   const [manualPhaseFailures, setManualPhaseFailures] = useState<string[]>([]);
   const [manualPhaseLoading, setManualPhaseLoading] = useState<string | null>(null);
-  const [phaseErrors, setPhaseErrors] = useState<Record<string, string>>({});
-
-  const setPhaseError = (key: string, message: string) => {
-    setPhaseErrors((prev) => ({ ...prev, [key]: message }));
-  };
-  const clearPhaseError = (key: string) => {
-    setPhaseErrors((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-  };
 
   async function loadSyncSettings() {
     setSyncSettingsLoading(true);
@@ -578,7 +564,6 @@ export function AdminEventbrite() {
 
   const handleResetCatalogPhase = async () => {
     setManualPhaseLoading('reset_catalog');
-    clearPhaseError('reset_catalog');
     continuousBatchingRef.current = false;
     setCatalogPolling(false);
     try {
@@ -592,9 +577,7 @@ export function AdminEventbrite() {
       toast.success('Lokális katalógus reset kész');
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült resetelni a lokális katalógust';
-      setPhaseError('reset_catalog', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült resetelni a lokális katalógust');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -602,7 +585,6 @@ export function AdminEventbrite() {
 
   const handleStartManualRunPhase = async () => {
     setManualPhaseLoading('start_manual_run');
-    clearPhaseError('start_manual_run');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: { action: 'start_manual_run', reset: false },
@@ -610,12 +592,10 @@ export function AdminEventbrite() {
       if (error) throw error;
       if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
 
-      toast.success('Manuális futás aktiválva (state = running)');
+      toast.success('A local places state futóra állítva');
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült futóra állítani a manuális pipeline-t';
-      setPhaseError('start_manual_run', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült futóra állítani a manuális pipeline-t');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -623,7 +603,6 @@ export function AdminEventbrite() {
 
   const handlePrepareNextTaskPhase = async () => {
     setManualPhaseLoading('prepare_next_task');
-    clearPhaseError('prepare_next_task');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: { action: 'prepare_next_task' },
@@ -647,9 +626,7 @@ export function AdminEventbrite() {
 
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült előkészíteni a következő taskot';
-      setPhaseError('prepare_next_task', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült előkészíteni a következő taskot');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -663,7 +640,6 @@ export function AdminEventbrite() {
 
     const action = provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows';
     setManualPhaseLoading(action);
-    clearPhaseError(action);
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -694,9 +670,7 @@ export function AdminEventbrite() {
       toast.success(`${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} fetch kész: ${(typed.rows || []).length} sor`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || `${provider} fetch hiba`;
-      setPhaseError(provider === 'geoapify' ? 'fetch_geoapify_rows' : 'fetch_tomtom_rows', msg);
-      toast.error(msg);
+      toast.error(err.message || `${provider} fetch hiba`);
     } finally {
       setManualPhaseLoading(null);
     }
@@ -710,7 +684,6 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('filter_hu_rows');
-    clearPhaseError('filter_hu_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -727,9 +700,7 @@ export function AdminEventbrite() {
       toast.success(`HU szűrés kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült a HU szűrés';
-      setPhaseError('filter_hu_rows', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült a HU szűrés');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -742,7 +713,6 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('dedupe_rows');
-    clearPhaseError('dedupe_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -758,9 +728,7 @@ export function AdminEventbrite() {
       toast.success(`Deduplikálás kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült a deduplikálás';
-      setPhaseError('dedupe_rows', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült a deduplikálás');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -779,7 +747,6 @@ export function AdminEventbrite() {
     }
 
     setManualPhaseLoading('write_rows');
-    clearPhaseError('write_rows');
     try {
       const { data, error } = await supabase.functions.invoke('sync-local-places', {
         body: {
@@ -802,9 +769,7 @@ export function AdminEventbrite() {
         toast.message('Jöhet a következő task előkészítése');
       }
     } catch (err: any) {
-      const msg = err?.message || 'Nem sikerült a katalógus írás';
-      setPhaseError('write_rows', msg);
-      toast.error(msg);
+      toast.error(err.message || 'Nem sikerült a katalógus írás');
     } finally {
       setManualPhaseLoading(null);
     }
@@ -845,143 +810,6 @@ export function AdminEventbrite() {
     if (!taskCount) return 'Nincs aktív batch-folyamat';
     return `${cursor}/${taskCount} feldolgozott feladat`;
   })();
-
-  type PhaseStatus = 'idle' | 'running' | 'success' | 'failed';
-
-  const phaseStatus = (key: string, ready: boolean, hasOutput: boolean): PhaseStatus => {
-    if (manualPhaseLoading === key) return 'running';
-    if (phaseErrors[key]) return 'failed';
-    if (hasOutput) return 'success';
-    if (!ready) return 'idle';
-    return 'idle';
-  };
-
-  const manualPhaseActions: Array<{
-    key: string;
-    step: number;
-    title: string;
-    description: string;
-    icon: typeof Database;
-    accent: 'destructive' | 'primary' | 'neutral';
-    disabled: boolean;
-    isLoading: boolean;
-    onClick: () => void;
-    status: PhaseStatus;
-    counter: string | null;
-  }> = [
-    {
-      key: 'reset_catalog',
-      step: 1,
-      title: 'Katalógus reset',
-      description: 'Törli a local places táblát és nullázza a futási állapotot.',
-      icon: Database,
-      accent: 'destructive',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'reset_catalog',
-      onClick: handleResetCatalogPhase,
-      status: manualPhaseLoading === 'reset_catalog' ? 'running' : (phaseErrors['reset_catalog'] ? 'failed' : 'idle'),
-      counter: catalogStatus?.totalRows != null ? `katalógus: ${catalogStatus.totalRows} sor` : null,
-    },
-    {
-      key: 'start_manual_run',
-      step: 2,
-      title: 'State = running',
-      description: 'Elindítja a manuális futást és running státuszra állítja a batch-et.',
-      icon: RefreshCw,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'start_manual_run',
-      onClick: handleStartManualRunPhase,
-      status: manualPhaseLoading === 'start_manual_run'
-        ? 'running'
-        : (phaseErrors['start_manual_run']
-          ? 'failed'
-          : (catalogStatus?.state?.status === 'running' ? 'success' : 'idle')),
-      counter: catalogStatus?.state?.status ? `state: ${catalogStatus.state.status}` : null,
-    },
-    {
-      key: 'prepare_next_task',
-      step: 3,
-      title: 'Következő task',
-      description: 'Előkészíti a következő város + kategória feladatot a provider fetchhez.',
-      icon: Layers,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'prepare_next_task',
-      onClick: handlePrepareNextTaskPhase,
-      status: phaseStatus('prepare_next_task', true, Boolean(manualTask)),
-      counter: manualTask ? `${manualTask.center.city} · ${manualTask.group.key}` : null,
-    },
-    {
-      key: 'fetch_geoapify_rows',
-      step: 4,
-      title: 'Geoapify fetch',
-      description: 'Lekéri a nyers Geoapify venue listát az aktuális taskhoz. Ha nincs aktív task, futtasd először a 3. lépést.',
-      icon: MapPinned,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'fetch_geoapify_rows',
-      onClick: () => handleFetchProviderPhase('geoapify'),
-      status: phaseStatus('fetch_geoapify_rows', Boolean(manualTask), geoapifyPhaseRows.length > 0),
-      counter: `${geoapifyPhaseRows.length} sor`,
-    },
-    {
-      key: 'fetch_tomtom_rows',
-      step: 5,
-      title: 'TomTom fetch',
-      description: 'Lekéri a nyers TomTom venue listát ugyanahhoz a taskhoz. Ha nincs aktív task, futtasd először a 3. lépést.',
-      icon: MapPin,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'fetch_tomtom_rows',
-      onClick: () => handleFetchProviderPhase('tomtom'),
-      status: phaseStatus('fetch_tomtom_rows', Boolean(manualTask), tomtomPhaseRows.length > 0),
-      counter: `${tomtomPhaseRows.length} sor`,
-    },
-    {
-      key: 'filter_hu_rows',
-      step: 6,
-      title: 'HU szűrés',
-      description: 'Kiszűri a nem magyar rekordokat a két provider összevont bufferéből. Előbb futtasd a 4. és 5. lépést.',
-      icon: Layers,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'filter_hu_rows',
-      onClick: handleHuFilterPhase,
-      status: phaseStatus('filter_hu_rows', phaseRawRows.length > 0, huFilteredPhaseRows.length > 0),
-      counter: `${huFilteredPhaseRows.length} / ${phaseRawRows.length} sor`,
-    },
-    {
-      key: 'dedupe_rows',
-      step: 7,
-      title: 'Deduplikálás',
-      description: 'Összevonja az egymásnak megfelelő venue rekordokat és eltávolítja a duplikációt. Előbb futtasd a 6. lépést.',
-      icon: Layers,
-      accent: 'neutral',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'dedupe_rows',
-      onClick: handleDedupePhase,
-      status: phaseStatus('dedupe_rows', huFilteredPhaseRows.length > 0, dedupedPhaseRows.length > 0),
-      counter: `${dedupedPhaseRows.length} / ${huFilteredPhaseRows.length} sor`,
-    },
-    {
-      key: 'write_rows',
-      step: 8,
-      title: 'DB írás + cursor',
-      description: '100–250 körüli csomagban beírja a rekordokat és lépteti a cursort. Előbb futtasd legalább a HU szűrést.',
-      icon: Database,
-      accent: 'primary',
-      disabled: Boolean(manualPhaseLoading),
-      isLoading: manualPhaseLoading === 'write_rows',
-      onClick: handleWritePhase,
-      status: manualPhaseLoading === 'write_rows' ? 'running' : (phaseErrors['write_rows'] ? 'failed' : 'idle'),
-      counter: dedupedPhaseRows.length > 0
-        ? `${dedupedPhaseRows.length} sor készen`
-        : huFilteredPhaseRows.length > 0
-          ? `${huFilteredPhaseRows.length} sor készen`
-          : null,
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -1243,186 +1071,92 @@ export function AdminEventbrite() {
                       {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
                     </div>
 
-                    <div className="space-y-4 rounded-xl border border-border/70 bg-background/40 p-4 md:p-5">
-                      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold">Fázis-alapú manuális pipeline</p>
-                            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">Debugolható lépések</Badge>
-                          </div>
-                          <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
+                    <div className="space-y-3 rounded-lg border p-3">
+                      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Fázis-alapú manuális pipeline</p>
+                          <p className="text-xs text-muted-foreground">
                             A local places töltés külön admin lépésekre bontva: reset → state running → task → provider fetch → HU szűrés → dedupe → DB írás + cursor update.
                           </p>
                         </div>
                         {manualTask ? (
-                          <Badge variant="outline" className="self-start whitespace-nowrap px-3 py-1">Task #{manualTask.taskIndex + 1} / {manualTask.totalTasks}</Badge>
+                          <Badge variant="outline">Task #{manualTask.taskIndex + 1} / {manualTask.totalTasks}</Badge>
                         ) : (
-                          <Badge variant="secondary" className="self-start px-3 py-1">Nincs előkészített task</Badge>
+                          <Badge variant="secondary">Nincs előkészített task</Badge>
                         )}
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+                        <div className="rounded-lg border p-3">
                           <div className="text-xs text-muted-foreground">Geoapify raw sor</div>
-                          <div className="mt-2 text-2xl font-semibold">{geoapifyPhaseRows.length}</div>
+                          <div className="text-lg font-semibold">{geoapifyPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+                        <div className="rounded-lg border p-3">
                           <div className="text-xs text-muted-foreground">TomTom raw sor</div>
-                          <div className="mt-2 text-2xl font-semibold">{tomtomPhaseRows.length}</div>
+                          <div className="text-lg font-semibold">{tomtomPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+                        <div className="rounded-lg border p-3">
                           <div className="text-xs text-muted-foreground">HU szűrt sor</div>
-                          <div className="mt-2 text-2xl font-semibold">{huFilteredPhaseRows.length}</div>
+                          <div className="text-lg font-semibold">{huFilteredPhaseRows.length}</div>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-background/70 p-4">
+                        <div className="rounded-lg border p-3">
                           <div className="text-xs text-muted-foreground">Deduplikált sor</div>
-                          <div className="mt-2 text-2xl font-semibold">{dedupedPhaseRows.length}</div>
+                          <div className="text-lg font-semibold">{dedupedPhaseRows.length}</div>
                         </div>
                       </div>
 
                       {manualTask ? (
-                        <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm md:grid-cols-3">
-                          <div>
-                            <div className="text-xs text-muted-foreground">Aktív task város</div>
-                            <div className="mt-1 font-medium text-foreground">{manualTask.center.city}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Kategória group</div>
-                            <div className="mt-1 font-medium text-foreground">{manualTask.group.key}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Koordináta</div>
-                            <div className="mt-1 font-medium text-foreground">{manualTask.center.lat}, {manualTask.center.lon}</div>
-                          </div>
+                        <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground space-y-1">
+                          <p>Aktív task város: <span className="font-medium text-foreground">{manualTask.center.city}</span></p>
+                          <p>Kategória group: <span className="font-medium text-foreground">{manualTask.group.key}</span></p>
+                          <p>Koordináta: {manualTask.center.lat}, {manualTask.center.lon}</p>
                         </div>
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">
-                          Először készíts elő egy taskot, utána futtasd a provider fetch lépéseket és a tisztító fázisokat.
-                        </div>
-                      )}
+                      ) : null}
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium">Manuális fázisgombok</p>
-                          {manualPhaseLoading ? (
-                            <Badge variant="secondary">Fut: {manualPhaseLoading}</Badge>
-                          ) : (
-                            <Badge variant="outline">Készen áll</Badge>
-                          )}
-                        </div>
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <Button variant="destructive" onClick={handleResetCatalogPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'reset_catalog' ? 'animate-spin' : ''}`} />
+                          1. Katalógus reset
+                        </Button>
 
-                        <ol className="flex flex-col gap-3 list-none">
-                          {manualPhaseActions.map((action) => {
-                            const Icon = action.icon;
-                            const accentRing = action.accent === 'destructive'
-                              ? 'border-destructive/40 bg-destructive/5'
-                              : action.accent === 'primary'
-                                ? 'border-primary/40 bg-primary/5'
-                                : 'border-border/70 bg-background/70';
-                            const iconTone = action.accent === 'destructive'
-                              ? 'border-destructive/40 bg-destructive/15 text-destructive'
-                              : action.accent === 'primary'
-                                ? 'border-primary/40 bg-primary/15 text-primary'
-                                : 'border-border/60 bg-muted/40 text-foreground';
+                        <Button variant="outline" onClick={handleStartManualRunPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <RefreshCw className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'start_manual_run' ? 'animate-spin' : ''}`} />
+                          2. State = running
+                        </Button>
 
-                            const statusBadge = (() => {
-                              if (action.status === 'running') {
-                                return (
-                                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary whitespace-nowrap">
-                                    Fut…
-                                  </Badge>
-                                );
-                              }
-                              if (action.status === 'success') {
-                                return (
-                                  <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                                    Kész
-                                  </Badge>
-                                );
-                              }
-                              if (action.status === 'failed') {
-                                return (
-                                  <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive whitespace-nowrap">
-                                    Hiba
-                                  </Badge>
-                                );
-                              }
-                              if (action.disabled) {
-                                return (
-                                  <Badge variant="outline" className="border-border/60 bg-muted/40 text-muted-foreground whitespace-nowrap">
-                                    Vár
-                                  </Badge>
-                                );
-                              }
-                              return (
-                                <Badge variant="outline" className="border-border/60 bg-background text-foreground whitespace-nowrap">
-                                  Készen áll
-                                </Badge>
-                              );
-                            })();
+                        <Button variant="outline" onClick={handlePrepareNextTaskPhase} disabled={Boolean(manualPhaseLoading)}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'prepare_next_task' ? 'animate-spin' : ''}`} />
+                          3. Következő task
+                        </Button>
 
-                            const errorMessage = phaseErrors[action.key];
+                        <Button variant="outline" onClick={() => handleFetchProviderPhase('geoapify')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
+                          <MapPinned className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_geoapify_rows' ? 'animate-spin' : ''}`} />
+                          4. Geoapify fetch
+                        </Button>
 
-                            return (
-                              <li
-                                key={action.key}
-                                className={cn(
-                                  'flex w-full flex-col gap-2 rounded-xl border p-3 transition-colors',
-                                  accentRing,
-                                )}
-                              >
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-xs font-semibold text-muted-foreground">
-                                      {action.step}
-                                    </div>
-                                    <div className={cn(
-                                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
-                                      iconTone,
-                                    )}>
-                                      <Icon className={cn('h-4 w-4', action.isLoading && 'animate-spin')} />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-semibold leading-5 text-foreground">{action.title}</p>
-                                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{action.description}</p>
-                                      {action.counter ? (
-                                        <p className="mt-1 text-[11px] font-medium text-muted-foreground">{action.counter}</p>
-                                      ) : null}
-                                    </div>
-                                  </div>
+                        <Button variant="outline" onClick={() => handleFetchProviderPhase('tomtom')} disabled={Boolean(manualPhaseLoading) || !manualTask}>
+                          <MapPin className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'fetch_tomtom_rows' ? 'animate-spin' : ''}`} />
+                          5. TomTom fetch
+                        </Button>
 
-                                  <div className="flex items-center justify-end gap-2 sm:shrink-0">
-                                    {statusBadge}
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant={action.accent === 'destructive' ? 'destructive' : action.accent === 'primary' ? 'default' : 'outline'}
-                                      onClick={action.onClick}
-                                      disabled={action.disabled}
-                                      className="whitespace-nowrap"
-                                    >
-                                      {action.isLoading ? (
-                                        <RefreshCw className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                      ) : null}
-                                      Futtatás
-                                    </Button>
-                                  </div>
-                                </div>
+                        <Button variant="outline" onClick={handleHuFilterPhase} disabled={Boolean(manualPhaseLoading) || phaseRawRows.length === 0}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'filter_hu_rows' ? 'animate-spin' : ''}`} />
+                          6. HU szűrés
+                        </Button>
 
-                                {errorMessage ? (
-                                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                                    <span className="mt-0.5 font-semibold">Hiba:</span>
-                                    <span className="break-words">{errorMessage}</span>
-                                  </div>
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ol>
+                        <Button variant="outline" onClick={handleDedupePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0}>
+                          <Layers className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'dedupe_rows' ? 'animate-spin' : ''}`} />
+                          7. Deduplikálás
+                        </Button>
+
+                        <Button onClick={handleWritePhase} disabled={Boolean(manualPhaseLoading) || huFilteredPhaseRows.length === 0 || !manualTask}>
+                          <Database className={`mr-1 h-4 w-4 ${manualPhaseLoading === 'write_rows' ? 'animate-spin' : ''}`} />
+                          8. DB írás + cursor
+                        </Button>
                       </div>
 
                       {manualPhaseFailures.length > 0 ? (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                           <p className="font-medium">Részleges provider hibák</p>
                           <ul className="mt-2 list-disc space-y-1 pl-4">
                             {manualPhaseFailures.map((failure, index) => (
@@ -1439,13 +1173,13 @@ export function AdminEventbrite() {
                         </div>
 
                         {phasePreviewRows.length === 0 ? (
-                          <p className="rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+                          <p className="rounded-lg border bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
                             Még nincs pufferelt sor. Készíts elő egy taskot, futtasd a provider fetch lépéseket, majd a HU szűrést és a deduplikálást.
                           </p>
                         ) : (
-                          <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-muted/20 p-2">
+                          <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/20 p-2">
                             {phasePreviewRows.slice(0, 8).map((row, index) => (
-                              <div key={`${row.provider}-${row.external_id}-${index}`} className="rounded-lg border border-border/60 bg-background p-3 text-sm">
+                              <div key={`${row.provider}-${row.external_id}-${index}`} className="rounded-md border bg-background p-3 text-sm">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <p className="truncate font-medium">{row.name}</p>
@@ -1460,30 +1194,21 @@ export function AdminEventbrite() {
                       </div>
                     </div>
 
-                    <div className="space-y-3 rounded-xl border border-border/60 bg-background/30 p-4">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">Kompatibilitási batch vezérlők</p>
-                        <p className="text-xs text-muted-foreground">
-                          A korábbi egygombos flow megmaradt regresszióvédelem miatt. Debughoz a fenti fázisgombokat használd, gyors futtatáshoz ezt a blokkot.
-                        </p>
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading}>
+                        <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
+                        Állapot frissítése
+                      </Button>
 
-                      <div className="grid gap-2 md:grid-cols-3">
-                        <Button variant="outline" onClick={() => refreshCatalogStatus()} disabled={catalogLoading} className="w-full justify-start">
-                          <RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />
-                          Állapot frissítése
-                        </Button>
+                      <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading}>
+                        <Database className="mr-1 h-4 w-4" />
+                        Következő batch indítása
+                      </Button>
 
-                        <Button onClick={() => handleReloadLocalCatalog(false)} disabled={catalogLoading} className="w-full justify-start">
-                          <Database className="mr-1 h-4 w-4" />
-                          Következő batch indítása
-                        </Button>
-
-                        <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading} className="w-full justify-start">
-                          <Database className="mr-1 h-4 w-4" />
-                          Teljes újratöltés
-                        </Button>
-                      </div>
+                      <Button variant="destructive" onClick={() => handleReloadLocalCatalog(true)} disabled={catalogLoading}>
+                        <Database className="mr-1 h-4 w-4" />
+                        Teljes újratöltés
+                      </Button>
                     </div>
 
                     <div className="space-y-2">

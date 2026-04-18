@@ -102,24 +102,38 @@ export function AdminUsers() {
 
   const loadHubs = async () => {
     setHubsLoading(true);
-    const { data, error } = await supabase.from('virtual_hubs' as any).select('*').order('member_count', { ascending: false });
+    const { data, error } = await supabase
+      .from('virtual_hubs')
+      .select('id, hobby_category, city, member_count, created_at')
+      .order('member_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(500);
+
     if (error) {
-      console.error(error);
+      console.error('loadHubs error:', error);
+      toast.error(`Hubók betöltése sikertelen: ${error.message}`);
       setHubs([]);
     } else {
-      setHubs((data as unknown as VirtualHub[]) || []);
+      setHubs(((data as VirtualHub[]) || []).sort((a, b) => b.member_count - a.member_count));
     }
     setHubsLoading(false);
   };
 
   const refreshHubs = async () => {
     setRefreshingHubs(true);
-    const { error } = await supabase.rpc('refresh_virtual_hubs' as any);
-    if (error) {
-      toast.error('Hiba a hubók frissítésekor.');
-    } else {
-      toast.success('Virtuális hubók frissítve!');
-      await loadHubs();
+    try {
+      const { error } = await supabase.rpc('refresh_virtual_hubs');
+
+      if (error) {
+        console.error('refreshHubs error:', error);
+        toast.error(`Hiba a hubók frissítésekor: ${error.message}`);
+      } else {
+        await loadHubs();
+        toast.success('Virtuális hubók újraszámolva.');
+      }
+    } catch (err) {
+      console.error('refreshHubs exception:', err);
+      toast.error(err instanceof Error ? err.message : 'Váratlan hiba a hubók frissítésekor.');
     }
     setRefreshingHubs(false);
   };
@@ -370,7 +384,6 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
           )}
         </CardContent>
       </Card>
-
       <Dialog open={bulkModalOpen} onOpenChange={setBulkModalOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
