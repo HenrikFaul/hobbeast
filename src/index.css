@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,68 +7,73 @@
 
 @layer base {
   :root {
-    --background: 192 30% 11%;
-    --foreground: 180 24% 96%;
+    /* Daft Punk neon palette */
+    --neon-cyan: 185 100% 56%;
+    --neon-gold: 43 100% 52%;
+    --neon-magenta: 295 100% 60%;
 
-    --card: 192 26% 14%;
-    --card-foreground: 180 24% 96%;
+    --background: 30 25% 97%;
+    --foreground: 20 20% 12%;
 
-    --popover: 192 26% 14%;
-    --popover-foreground: 180 24% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 20% 12%;
 
-    --primary: 168 78% 52%;
-    --primary-foreground: 192 30% 9%;
-    --primary-glow: 158 82% 62%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 20% 12%;
 
-    --secondary: 192 22% 18%;
-    --secondary-foreground: 180 22% 90%;
+    --primary: 16 85% 58%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 24 95% 62%;
 
-    --muted: 192 22% 16%;
-    --muted-foreground: 188 14% 70%;
+    --secondary: 30 20% 94%;
+    --secondary-foreground: 20 15% 20%;
 
-    --accent: 152 70% 58%;
-    --accent-foreground: 192 30% 9%;
+    --muted: 30 14% 92%;
+    --muted-foreground: 20 10% 46%;
 
-    --destructive: 0 82% 60%;
+    --accent: 172 60% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 78% 44%;
-    --success-foreground: 228 24% 6%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
 
-    --warning: 46 100% 58%;
-    --warning-foreground: 228 24% 6%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 20% 12%;
 
-    --border: 188 18% 24%;
-    --input: 188 18% 22%;
-    --ring: 168 78% 52%;
+    --border: 30 13% 89%;
+    --input: 30 13% 89%;
+    --ring: 16 85% 58%;
 
-    --radius: 0.9rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 192 26% 13%;
-    --sidebar-foreground: 180 24% 96%;
-    --sidebar-primary: 168 78% 52%;
-    --sidebar-primary-foreground: 192 30% 9%;
-    --sidebar-accent: 192 22% 18%;
-    --sidebar-accent-foreground: 180 22% 90%;
-    --sidebar-border: 188 18% 24%;
-    --sidebar-ring: 168 78% 52%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 20 20% 20%;
+    --sidebar-primary: 16 85% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 20% 94%;
+    --sidebar-accent-foreground: 20 15% 20%;
+    --sidebar-border: 30 13% 91%;
+    --sidebar-ring: 16 85% 58%;
 
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'DM Sans', sans-serif;
 
-    --shadow-card: 0 14px 40px -20px hsl(192 40% 4% / 0.7);
-    --shadow-elevated: 0 22px 80px -28px hsl(168 78% 52% / 0.32), 0 20px 50px -30px hsl(152 70% 58% / 0.22);
-    --shadow-modal: 0 30px 100px -30px hsl(192 40% 4% / 0.85);
-    --shadow-glow: 0 0 28px hsl(168 78% 52% / 0.28);
-    --shadow-soft: 0 8px 26px -16px hsl(192 40% 4% / 0.7);
-    --shadow-card-hover: 0 26px 70px -32px hsl(168 78% 52% / 0.32), 0 20px 45px -34px hsl(152 70% 58% / 0.22);
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.04), 0 1px 2px -1px hsl(0 0% 0% / 0.03);
+    --shadow-elevated: 0 8px 30px -4px hsl(16 85% 58% / 0.12), 0 4px 10px -2px hsl(0 0% 0% / 0.04);
+    --shadow-modal: 0 25px 80px -12px hsl(0 0% 0% / 0.18);
+    --shadow-glow: 0 0 24px hsl(16 85% 58% / 0.2);
+    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.06), 0 4px 16px -4px hsl(0 0% 0% / 0.04);
+    --shadow-card-hover: 0 12px 40px -8px hsl(16 85% 58% / 0.15), 0 4px 12px -2px hsl(0 0% 0% / 0.06);
 
-    --gradient-primary: linear-gradient(135deg, hsl(168 78% 52%), hsl(152 72% 62%));
-    --gradient-accent: linear-gradient(135deg, hsl(152 70% 58%), hsl(180 70% 60%));
-    --gradient-hero: radial-gradient(circle at top left, hsl(168 78% 52% / 0.22), transparent 32%), radial-gradient(circle at 80% 20%, hsl(152 70% 58% / 0.18), transparent 30%), linear-gradient(180deg, hsl(192 30% 13%), hsl(192 32% 9%));
-    --gradient-warm: linear-gradient(180deg, hsl(192 26% 13%), hsl(192 30% 11%));
-    --gradient-surface: linear-gradient(180deg, hsl(192 26% 16%), hsl(192 28% 12%));
-    --gradient-subtle: linear-gradient(135deg, hsl(168 78% 52% / 0.10), hsl(152 70% 58% / 0.06));
+    --gradient-primary: linear-gradient(135deg, hsl(16 85% 58%), hsl(24 95% 62%));
+    --gradient-accent: linear-gradient(135deg, hsl(172 60% 40%), hsl(172 80% 50%));
+    --gradient-hero: linear-gradient(160deg, hsl(16 85% 58% / 0.06), hsl(172 60% 40% / 0.04), hsl(30 25% 97%));
+    --gradient-warm: linear-gradient(135deg, hsl(16 85% 58% / 0.08), hsl(38 92% 50% / 0.06));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(30 25% 97%));
+    --gradient-subtle: linear-gradient(135deg, hsl(16 85% 58% / 0.03), hsl(172 60% 40% / 0.02));
   }
 }
 
@@ -76,45 +82,53 @@
     @apply border-border;
   }
 
-  html {
-    color-scheme: dark;
-  }
-
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
-    background-image:
-      radial-gradient(circle at top, hsl(168 78% 52% / 0.10), transparent 30%),
-      radial-gradient(circle at 90% 110%, hsl(152 70% 58% / 0.08), transparent 32%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(192 32% 9%));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Subtle dot grid — the digital horizon */
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(var(--primary) / 0.07) 1px,
+      transparent 0
+    );
+    background-size: 28px 28px;
   }
 
-  ::selection {
-    background: hsl(var(--primary) / 0.24);
-    color: hsl(var(--foreground));
+  /* CRT scanline veil — barely-there, adds texture without hurting readability */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      hsl(0 0% 0% / 0.018) 3px,
+      hsl(0 0% 0% / 0.018) 4px
+    );
+    pointer-events: none;
+    z-index: 9990;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .glass {
-    background: linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--card) / 0.58));
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   .glass-strong {
-    background: linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.78));
+    background: hsl(var(--card) / 0.85);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid hsl(var(--border) / 0.8);
   }
 
   .gradient-primary {
@@ -155,13 +169,6 @@
     background-clip: text;
   }
 
-  .text-chrome {
-    background: linear-gradient(180deg, hsl(180 30% 98%), hsl(180 18% 78%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .hover-lift {
     @apply transition-all duration-300;
   }
@@ -171,54 +178,130 @@
   }
 
   .card-premium {
-    @apply rounded-2xl border transition-all duration-300;
-    background:
-      linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.78));
+    @apply rounded-2xl border bg-card transition-all duration-300;
     box-shadow: var(--shadow-soft);
   }
   .card-premium:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-card-hover);
-    border-color: hsl(var(--primary) / 0.32);
-  }
-
-  .chrome-panel {
-    background:
-      linear-gradient(180deg, hsl(0 0% 100% / 0.07), transparent 28%),
-      linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--card) / 0.84));
-    border: 1px solid hsl(var(--border) / 0.9);
-    box-shadow: var(--shadow-soft);
-  }
-
-  .neon-divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.5), hsl(var(--accent) / 0.5), transparent);
-  }
-
-  .tech-grid {
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.22) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.22) 1px, transparent 1px);
-    background-size: 32px 32px;
-    background-position: center;
-  }
-
-  .scan-line {
-    position: relative;
-    overflow: hidden;
-  }
-  .scan-line::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.06), transparent);
-    transform: translateY(-100%);
-    animation: scan 8s linear infinite;
-    pointer-events: none;
+    border-color: hsl(var(--primary) / 0.15);
   }
 
   .section-padding {
     @apply py-16 sm:py-20 md:py-24;
+  }
+
+  /* ─── Daft Punk / electronic vibe utilities ─── */
+
+  /* Monospace tech font for data/labels */
+  .font-mono-tech {
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    letter-spacing: 0.08em;
+  }
+
+  /* Neon text — cyan */
+  .neon-cyan {
+    color: hsl(var(--neon-cyan));
+    text-shadow:
+      0 0 4px hsl(var(--neon-cyan) / 0.9),
+      0 0 14px hsl(var(--neon-cyan) / 0.6),
+      0 0 30px hsl(var(--neon-cyan) / 0.3);
+  }
+
+  /* Neon text — gold (Daft Punk helmet) */
+  .neon-gold {
+    color: hsl(var(--neon-gold));
+    text-shadow:
+      0 0 4px hsl(var(--neon-gold) / 0.9),
+      0 0 14px hsl(var(--neon-gold) / 0.6),
+      0 0 30px hsl(var(--neon-gold) / 0.3);
+  }
+
+  /* Neon box-shadow glow — cyan */
+  .neon-ring-cyan {
+    box-shadow:
+      0 0 0 1px hsl(var(--neon-cyan) / 0.5),
+      0 0 8px hsl(var(--neon-cyan) / 0.35),
+      0 0 24px hsl(var(--neon-cyan) / 0.18);
+  }
+
+  /* Neon box-shadow glow — gold */
+  .neon-ring-gold {
+    box-shadow:
+      0 0 0 1px hsl(var(--neon-gold) / 0.5),
+      0 0 8px hsl(var(--neon-gold) / 0.35),
+      0 0 24px hsl(var(--neon-gold) / 0.18);
+  }
+
+  /* Line-grid background (Tron horizon) */
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: grid-march 20s linear infinite;
+  }
+
+  /* Marching grid — vivid accent variant */
+  .grid-bg-accent {
+    background-image:
+      linear-gradient(hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: grid-march 20s linear infinite;
+  }
+
+  /* Moving beam scanline for a single element */
+  .scanline-sweep {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanline-sweep::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      hsl(var(--neon-cyan) / 0.06) 50%,
+      transparent
+    );
+    animation: scanline 8s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Beat-pulse wrapper — use on a badge, icon, or CTA */
+  .animate-beat {
+    animation: beat 0.8s ease-in-out infinite;
+  }
+
+  /* Neon breathing glow */
+  .animate-neon-pulse {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  /* Occasional glitch jitter */
+  .animate-glitch {
+    animation: glitch 6s linear infinite;
+  }
+
+  /* Circuit-chip border (gold) */
+  .circuit-border {
+    border: 1px solid hsl(var(--neon-gold) / 0.35);
+    box-shadow:
+      inset 0 0 12px hsl(var(--neon-gold) / 0.05),
+      0 0 8px hsl(var(--neon-gold) / 0.18);
+  }
+
+  /* HUD label — monospace + cyan */
+  .hud-label {
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: hsl(var(--neon-cyan) / 0.8);
   }
 
   .gradient-border {
@@ -230,7 +313,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.22), transparent);
+    background: linear-gradient(135deg, hsl(16 85% 58% / 0.2), hsl(172 60% 40% / 0.1), transparent);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;

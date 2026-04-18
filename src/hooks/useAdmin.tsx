@@ -26,10 +26,9 @@ export function useAdmin() {
       .then(({ data, error }: any) => {
         if (!active) return;
         if (error) {
-          console.error('[useAdmin] has_role failed', error);
+          console.error('has_role failed', error);
           setIsAdmin(false);
         } else {
-          console.info('[useAdmin] has_role resolved', { userId: user.id, isAdmin: Boolean(data) });
           setIsAdmin(Boolean(data));
         }
         setLoading(false);
@@ -38,7 +37,7 @@ export function useAdmin() {
     return () => {
       active = false;
     };
-  }, [user?.id, authLoading]);
+  }, [user, authLoading]);
 
   return { isAdmin, loading: loading || authLoading };
 }
