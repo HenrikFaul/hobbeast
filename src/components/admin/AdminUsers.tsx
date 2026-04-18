@@ -79,6 +79,10 @@ export function AdminUsers() {
   const [refreshingHubs, setRefreshingHubs] = useState(false);
   const [userHubMap, setUserHubMap] = useState<Record<string, UserHubInfo[]>>({});
   const [activeHub, setActiveHub] = useState<VirtualHub | null>(null);
+  const [hubPageSize, setHubPageSize] = useState<number>(10);
+  const [hubPage, setHubPage] = useState<number>(1);
+  const [hubCityFilter, setHubCityFilter] = useState<string>('');
+  const [hubHobbyFilter, setHubHobbyFilter] = useState<string>('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [bulkFilters, setBulkFilters] = useState<BulkFilters>(EMPTY_FILTERS);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
