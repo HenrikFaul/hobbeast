@@ -25,7 +25,7 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = getSupabaseAdmin(req);
-  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -121,8 +121,8 @@ serve(async (req) => {
         return jsonResponse({ ok: true, generated: 0, message: 'Auto-generation is disabled.' });
       }
 
-      if (!ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY is not configured. Cannot generate events with AI.');
+      if (!GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY is not configured. Cannot generate events with AI.');
       }
 
       if (qualifyingHubs.length === 0) {
@@ -180,22 +180,20 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
   }
 ]`;
 
-      const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 4096,
-          system: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. Csak JSON-t válaszolj, semmilyen extra szöveget ne írj.',
-          messages: [
-            { role: 'user', content: prompt },
-          ],
-        }),
-      });
+      const aiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. Csak JSON-t válaszolj, semmilyen extra szöveget ne írj.' }],
+            },
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+          }),
+        }
+      );
 
       if (!aiResponse.ok) {
         const errText = await aiResponse.text();
@@ -203,7 +201,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
       }
 
       const aiData = await aiResponse.json();
-      const rawContent = (aiData.content?.[0]?.text) || '';
+      const rawContent = (aiData.candidates?.[0]?.content?.parts?.[0]?.text) || '';
       
       // Extract JSON from response (handle markdown code blocks)
       let jsonStr = rawContent.trim();
