@@ -5,7 +5,7 @@ const features = [
   {
     icon: Users,
     title: "Közösségi matching",
-    description: "Találj olyan embereket, akik nem csak hasonló érdeklődésűek, hanem tényleg ugyanazt a hangulatot keresik, mint te.",
+    description: "Találj olyan embereket, akikkel tényleg jó együtt csinálni – legyen az túra, sport, kreatív műhely vagy egy közös vacsora.",
     color: "bg-primary/12 text-primary",
   },
   {
@@ -28,8 +28,8 @@ const features = [
   },
   {
     icon: Sparkles,
-    title: "Premium vibe",
-    description: "Sötét, modern, techno-inspirált felület, ami nem játékosnak, hanem karakteresnek és magabiztosnak érződik.",
+    title: "Sokszínű élmények",
+    description: "Túrától a teniszig, koncerttől a kutyasétáltatásig – egyetlen helyen minden hobbi és közös program, ami érdekel.",
     color: "bg-primary/12 text-primary",
   },
   {
@@ -55,7 +55,7 @@ const FeaturesSection = () => {
           className="text-center mb-14"
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 text-xs font-medium text-accent mb-5 uppercase tracking-[0.2em]">
-            Core systems
+            Amit kínálunk
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
             Miért működik másképp a <span className="text-gradient">Hobbeast</span>?

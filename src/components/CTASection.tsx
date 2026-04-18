@@ -29,15 +29,15 @@ const CTASection = () => {
               className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary"
             >
               <Sparkles size={14} />
-              Join the signal
+              Csatlakozz a közösséghez
             </motion.div>
 
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display mb-5 leading-tight max-w-3xl mx-auto">
-              Készen állsz arra, hogy a <span className="text-gradient">saját közösségi frekvenciádat</span> is bekapcsold?
+              Készen állsz, hogy <span className="text-gradient">új embereket és közös élményeket</span> találj?
             </h2>
             <p className="mx-auto mb-10 max-w-2xl text-base sm:text-lg leading-relaxed text-muted-foreground">
-              Lépj be a Hobbeast világába, ahol az eseménykeresés, a közösségépítés
-              és a közös élmények egy karakteresebb, modernebb élményben találkoznak.
+              Lépj be a Hobbeast világába, ahol a közös hobbi, a programok és
+              az új barátságok egyetlen, jól szervezett helyen találkoznak.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
