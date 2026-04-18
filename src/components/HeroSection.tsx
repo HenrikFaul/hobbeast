@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Users, Radio, Disc3, ArrowRight } from "lucide-react";
+import { Users, Sparkles, CalendarDays, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import heroImg from "@/assets/hero-community.jpg";
@@ -29,20 +29,20 @@ const HeroSection = () => {
               transition={{ duration: 0.45, delay: 0.1 }}
               className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary mb-8 shadow-glow"
             >
-              <Radio size={14} />
-              Find your frequency
+              <Sparkles size={14} />
+              Találd meg a közösséged
             </motion.div>
 
             <h1 className="text-4xl sm:text-5xl md:text-5xl lg:text-6xl font-bold leading-[1.02] mb-6 max-w-2xl">
-              <span className="text-chrome">Kapcsolódj olyan emberekhez,</span>
+              <span className="text-chrome">Élj át többet együtt –</span>
               <br />
-              <span className="text-gradient">akik ugyanarra a hullámhosszra járnak</span>
+              <span className="text-gradient">találj társakat a közös élményekhez</span>
             </h1>
 
             <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-8 md:mb-10 leading-relaxed">
-              A Hobbeast itt nem csak eseménylista: ez egy sötét, energikus,
-              közösségi vezérlőpult az élményekhez. Fedezz fel új hobbikat,
-              csatlakozz eseményekhez, és találj valódi embereket valódi közös ritmussal.
+              A Hobbeast egy modern közösségi vezérlőpult: legyen szó túráról,
+              közös koncertről, teniszről, kutyasétáltatásról vagy bármilyen
+              hobbiról – itt valódi embereket találsz, akikkel együtt csinálhatod.
             </p>
 
             <div className="flex flex-wrap gap-4 mb-12">
@@ -67,8 +67,8 @@ const HeroSection = () => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {[
                 { icon: Users, label: "Közösség", value: "10K+" },
-                { icon: Disc3, label: "Aktív esemény", value: "500+" },
-                { icon: Radio, label: "Hobbi frekvencia", value: "80+" },
+                { icon: CalendarDays, label: "Aktív program", value: "500+" },
+                { icon: Sparkles, label: "Hobbi kategória", value: "80+" },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -112,12 +112,12 @@ const HeroSection = () => {
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/14 text-accent">
-                  <Disc3 size={20} />
+                  <Sparkles size={20} />
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Live community signal</div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">Közösség élőben</div>
                   <div className="font-display text-base sm:text-lg font-semibold text-chrome">
-                    Valódi emberek. Valódi programok. Nulla zaj.
+                    Valódi emberek. Valódi élmények. Együtt.
                   </div>
                 </div>
               </div>

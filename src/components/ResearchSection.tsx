@@ -62,7 +62,7 @@ const ResearchSection = () => {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary mb-4 uppercase tracking-[0.2em]">
             <BookOpen size={14} />
-            Signal verified
+            Kutatásokkal alátámasztva
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
             A közösségi élmények mögött <span className="text-chrome">komoly kutatás</span> áll
