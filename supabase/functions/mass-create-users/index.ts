@@ -41,7 +41,7 @@ function normalizeHobbies(input: unknown): string[] {
     .filter(Boolean);
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: ReturnType<typeof createClient>) {
+async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: any) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
 
@@ -58,7 +58,7 @@ async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: Ret
   return user;
 }
 
-async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, authUserId: string, u: GeneratedUser, dobStr: string) {
+async function persistProfile(supabaseAdmin: any, authUserId: string, u: GeneratedUser, dobStr: string) {
   const payload = {
     display_name: u.display_name,
     city: u.city,

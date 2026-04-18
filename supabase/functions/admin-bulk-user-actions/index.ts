@@ -22,7 +22,7 @@ function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
-async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
+async function listAllAuthUsers(adminClient: any) {
   const users: any[] = [];
   let page = 1;
   while (true) {
@@ -36,7 +36,7 @@ async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
   return users;
 }
 
-async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: ReturnType<typeof createClient>) {
+async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: any) {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) return null;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -48,7 +48,7 @@ async function ensureAdmin(req: Request, supabaseUrl: string, adminClient: Retur
   return user;
 }
 
-async function previewSelection(adminClient: ReturnType<typeof createClient>, filters: Filters) {
+async function previewSelection(adminClient: any, filters: Filters) {
   const { data: profiles, error } = await adminClient
     .from('profiles')
     .select('id,user_id,user_origin,is_active,created_at');
@@ -103,7 +103,7 @@ async function previewSelection(adminClient: ReturnType<typeof createClient>, fi
   return { selectedUserIds, selectedProfileIds, selectedCount: selectedUserIds.length };
 }
 
-async function resolveProfilesByIds(adminClient: ReturnType<typeof createClient>, profileIds: string[]) {
+async function resolveProfilesByIds(adminClient: any, profileIds: string[]) {
   if (!profileIds.length) return [];
   const { data, error } = await adminClient
     .from('profiles')
@@ -113,7 +113,7 @@ async function resolveProfilesByIds(adminClient: ReturnType<typeof createClient>
   return (data || []).filter((row: any) => Boolean(row.user_id));
 }
 
-async function resolveProfilesByUserIds(adminClient: ReturnType<typeof createClient>, userIds: string[]) {
+async function resolveProfilesByUserIds(adminClient: any, userIds: string[]) {
   if (!userIds.length) return [];
   const { data, error } = await adminClient
     .from('profiles')
@@ -123,7 +123,7 @@ async function resolveProfilesByUserIds(adminClient: ReturnType<typeof createCli
   return (data || []).filter((row: any) => Boolean(row.user_id));
 }
 
-async function applyAction(adminClient: ReturnType<typeof createClient>, action: Action, ids: { profileIds?: string[]; userIds?: string[] }) {
+async function applyAction(adminClient: any, action: Action, ids: { profileIds?: string[]; userIds?: string[] }) {
   const byProfile = await resolveProfilesByIds(adminClient, ids.profileIds || []);
   const byUser = await resolveProfilesByUserIds(adminClient, ids.userIds || []);
   const profileMap = new Map<string, any>();
