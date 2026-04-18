@@ -7,6 +7,11 @@
 - **Fix 2**: Migration `20260412080000_fix_profile_trigger_userid_backfill.sql` — fixes `handle_new_user_profile()` trigger to always write `user_id=NEW.id`; backfills existing profiles where `user_id IS NULL`; backfills `user_origin='generated'` for test users incorrectly marked as `'real'`.
 - **Deployed**: `mass-create-users` v5, migration applied to `dsymdijzydaehntlmfzl`.
 
+#### virtual-hubs-admin get_hub_detail 500 error
+- **Root cause**: `get_hub_detail` action used PostgREST implicit join `profiles(user_id, ...)` from `virtual_hub_members`, but no FK exists from `virtual_hub_members.user_id` to `profiles`. PostgREST cannot resolve the join → 500 on every hub detail request.
+- **Fix**: Replaced the broken join with two separate queries: first fetch `user_id`s from `virtual_hub_members`, then `SELECT ... FROM profiles WHERE user_id IN (...)`. Profile map assembled in application code.
+- **Deployed**: `virtual-hubs-admin` v3, `dsymdijzydaehntlmfzl`.
+
 #### Eventbrite tab 401 Invalid JWT error
 - **Root cause**: `eventbrite-import` edge function was deployed with default `verify_jwt=true`. The Supabase gateway rejected requests with expired/invalid user session JWTs before the function body ran. The function never needed user identity — only Eventbrite API keys from env vars.
 - **Fix**: Redeployed `eventbrite-import` with `verify_jwt=false`.
