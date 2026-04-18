@@ -53,7 +53,7 @@ async function ensureAdmin(req: Request, supabaseUrl: string, supabaseAdmin: Ret
   const { data: { user } } = await callerClient.auth.getUser();
   if (!user) return null;
 
-  const { data: isAdmin, error } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+  const { data: isAdmin, error } = await (supabaseAdmin as any).rpc("has_role", { _user_id: user.id, _role: "admin" });
   if (error || !isAdmin) return null;
   return user;
 }
@@ -76,7 +76,7 @@ async function persistProfile(supabaseAdmin: ReturnType<typeof createClient>, au
   // Auth triggers create profiles with id=auth_id but user_id=NULL.
   // Use upsert on 'id' so we always overwrite the trigger-created stub
   // with the correct generated-user data (city, hobbies, user_origin, user_id).
-  const { error } = await supabaseAdmin
+  const { error } = await (supabaseAdmin as any)
     .from('profiles')
     .upsert({ id: authUserId, user_id: authUserId, ...payload }, { onConflict: 'id' });
 
