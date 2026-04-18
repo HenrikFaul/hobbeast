@@ -340,7 +340,7 @@ const applyBulkSelection = async () => {
           ) : (
             <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: pageSize * ROW_H + HEAD_H }}>
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
                     <TableHead className="w-10"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
                     <TableHead>Név</TableHead>
@@ -437,7 +437,7 @@ const applyBulkSelection = async () => {
           {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
             <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: hubPageSize * ROW_H + HEAD_H }}>
               <Table>
-                <TableHeader><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {hubs.map((hub) => (
                     <TableRow key={hub.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => { setSelectedHub(hub); setHubDetailOpen(true); }}>
