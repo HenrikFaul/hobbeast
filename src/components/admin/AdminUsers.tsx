@@ -116,9 +116,10 @@ export function AdminUsers() {
     setRefreshingHubs(true);
     const { error } = await supabase.rpc('refresh_virtual_hubs' as any);
     if (error) {
-      toast.error('Hiba a hubók frissítésekor.');
+      console.error('refresh_virtual_hubs error', error);
+      toast.error(`Hiba a hubok újragenerálásakor: ${error.message}`);
     } else {
-      toast.success('Virtuális hubók frissítve!');
+      toast.success('Virtuális közösségek újragenerálva!');
       await loadHubs();
     }
     setRefreshingHubs(false);
@@ -345,13 +346,13 @@ toast.success(`${Number(data?.selectedCount || ids.size)} profil kijelölve a sz
               <Network className="h-5 w-5 text-primary" /> Virtuális közösségek ({hubs.length})
             </CardTitle>
             <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={refreshHubs} disabled={refreshingHubs}>
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} /> {refreshingHubs ? 'Frissítés...' : 'Hubók újraszámolása'}
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} /> {refreshingHubs ? 'Frissítés...' : 'Hubok újragenerálása'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-1">A virtuális közösségek automatikusan jönnek létre a felhasználók érdeklődési körei és városuk alapján. Ezek láthatatlanok a felhasználók számára – kizárólag admin célra.</p>
         </CardHeader>
         <CardContent>
-          {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális hubók. Kattints a „Hubók újraszámolása" gombra a generáláshoz.</p> : (
+          {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
             <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
               <Table>
                 <TableHeader><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
