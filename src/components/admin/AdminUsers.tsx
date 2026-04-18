@@ -362,30 +362,71 @@ export function AdminUsers() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="font-display text-lg flex items-center gap-2"><Network className="h-5 w-5 text-primary" /> Virtuális közösségek ({hubs.length})</CardTitle>
             <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={refreshHubs} disabled={refreshingHubs}><RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} /> {refreshingHubs ? 'Frissítés...' : 'Hubók újraszámolása'}</Button>
           </div>
           <p className="text-xs text-muted-foreground mt-1">Kattints egy sorra a hub részleteinek megnyitásához.</p>
         </CardHeader>
-        <CardContent>
-          {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális hubók.</p> : (
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {hubs.map((hub) => (
-                    <TableRow key={hub.id} className="cursor-pointer hover:bg-accent/40" onClick={() => setActiveHub(hub)}>
-                      <TableCell className="font-medium">{hub.hobby_category}</TableCell>
-                      <TableCell>{hub.city || 'Országos'}</TableCell>
-                      <TableCell><Badge variant="secondary">{hub.member_count} fő</Badge></TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(hub.created_at).toLocaleDateString('hu-HU')}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="Szűrés városra…" value={hubCityFilter} onChange={(e) => { setHubCityFilter(e.target.value); setHubPage(1); }} className="pl-7 h-9" />
             </div>
-          )}
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="Szűrés hobbi/érdeklődésre…" value={hubHobbyFilter} onChange={(e) => { setHubHobbyFilter(e.target.value); setHubPage(1); }} className="pl-7 h-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Oldalméret</Label>
+              <Select value={String(hubPageSize)} onValueChange={(v) => { setHubPageSize(Number(v)); setHubPage(1); }}>
+                <SelectTrigger className="h-9 w-[80px]"><SelectValue /></SelectTrigger>
+                <SelectContent>{PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          {(() => {
+            const filteredHubs = hubs.filter((h) => {
+              const cityOk = !hubCityFilter.trim() || (h.city || '').toLowerCase().includes(hubCityFilter.trim().toLowerCase());
+              const hobbyOk = !hubHobbyFilter.trim() || (h.hobby_category || '').toLowerCase().includes(hubHobbyFilter.trim().toLowerCase());
+              return cityOk && hobbyOk;
+            });
+            const totalPages = Math.max(1, Math.ceil(filteredHubs.length / hubPageSize));
+            const currentPage = Math.min(hubPage, totalPages);
+            const start = (currentPage - 1) * hubPageSize;
+            const visibleHubs = filteredHubs.slice(start, start + hubPageSize);
+            const tableMaxH = Math.min(560, hubPageSize * 56 + 56);
+            return (
+              <>
+                {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : visibleHubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek megjeleníthető hubók.</p> : (
+                  <div className="overflow-x-auto overflow-y-auto rounded-lg border" style={{ maxHeight: `${tableMaxH}px` }}>
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-card z-10"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {visibleHubs.map((hub) => (
+                          <TableRow key={hub.id} className="cursor-pointer hover:bg-accent/40" onClick={() => setActiveHub(hub)}>
+                            <TableCell className="font-medium">{hub.hobby_category}</TableCell>
+                            <TableCell>{hub.city || 'Országos'}</TableCell>
+                            <TableCell><Badge variant="secondary">{hub.member_count} fő</Badge></TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{new Date(hub.created_at).toLocaleDateString('hu-HU')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>Találat: {filteredHubs.length} • Megjelenítve: {visibleHubs.length}</span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-8" disabled={currentPage <= 1} onClick={() => setHubPage((p) => Math.max(1, p - 1))}>Előző</Button>
+                    <span>{currentPage} / {totalPages}</span>
+                    <Button variant="outline" size="sm" className="h-8" disabled={currentPage >= totalPages} onClick={() => setHubPage((p) => Math.min(totalPages, p + 1))}>Következő</Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 
