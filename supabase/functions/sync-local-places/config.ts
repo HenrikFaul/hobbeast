@@ -25,7 +25,6 @@ export async function loadSyncConfig(supabaseAdmin: any): Promise<SyncConfig> {
     .select('options')
     .eq('key', 'local_places_sync')
     .maybeSingle();
-
   return sanitizeSyncConfig((data?.options || {}) as Partial<SyncConfig>);
 }
 
@@ -33,12 +32,7 @@ export async function saveSyncConfig(supabaseAdmin: any, config: Partial<SyncCon
   const safe = sanitizeSyncConfig(config);
   const { error } = await supabaseAdmin
     .from('app_runtime_config')
-    .upsert({
-      key: 'local_places_sync',
-      provider: 'local_catalog',
-      options: safe,
-    }, { onConflict: 'key' });
-
+    .upsert({ key: 'local_places_sync', provider: 'local_catalog', options: safe }, { onConflict: 'key' });
   if (error) throw error;
   return safe;
 }

@@ -1,9 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
 import type { CategoryGroup, LocalCatalogRow, SyncConfig, TaskCenter } from '../types.ts';
 
-type FetchProviderOptions = {
-  applyHuFilter?: boolean;
-};
+const FETCH_TIMEOUT_MS = 15_000;
+
+type FetchProviderOptions = { applyHuFilter?: boolean };
 
 function normalizeGeoapifyRow(feature: any, groupKey: string, centerCity: string): LocalCatalogRow {
   return {
@@ -46,14 +46,25 @@ export async function fetchGeoapifyRows(
     apiKey,
   });
 
-  const res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`, { signal: controller.signal });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Geoapify ${center.city}/${group.key}: ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Geoapify ${center.city}/${group.key}: ${res.status} ${text}`);
   }
 
   const data = await res.json();
-
   const rows = (data.features || [])
     .map((feature: any) => normalizeGeoapifyRow(feature, group.key, center.city))
     .filter((row: LocalCatalogRow) => Boolean(row.external_id));

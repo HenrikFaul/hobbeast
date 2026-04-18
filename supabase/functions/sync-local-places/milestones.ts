@@ -21,6 +21,8 @@ export const MILESTONES = {
   BATCH_COMPLETED: 'batch_completed',
   RUN_COMPLETED: 'run_completed',
   RUN_FAILED: 'run_failed',
+  STALE_RUN_DETECTED: 'stale_run_detected',
+  TIME_BUDGET_EXCEEDED: 'time_budget_exceeded',
 } as const;
 
 export async function milestone(

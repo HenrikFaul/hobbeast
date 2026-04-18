@@ -17,13 +17,11 @@ export async function appendLog(
     message,
     details,
   });
-
   if (error) {
     const msg = `place_sync_logs insert failed [${event}]: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
-
   return null;
 }
 
@@ -31,13 +29,11 @@ export async function upsertSyncState(supabaseAdmin: any, payload: Record<string
   const { error } = await supabaseAdmin
     .from('place_sync_state')
     .upsert(payload, { onConflict: 'key' });
-
   if (error) {
     const msg = `place_sync_state upsert failed: ${JSON.stringify(error)}`;
     console.error(msg);
     return msg;
   }
-
   return null;
 }
 
@@ -46,37 +42,29 @@ export async function resetCatalog(supabaseAdmin: any) {
     .from('places_local_catalog')
     .delete()
     .neq('id', '00000000-0000-0000-0000-000000000000');
-
   if (error) throw error;
 }
 
 export async function writeCatalogRows(supabaseAdmin: any, rows: LocalCatalogRow[]) {
-  if (rows.length === 0) {
-    return 0;
-  }
+  if (rows.length === 0) return 0;
 
   let actuallyWritten = 0;
-
   for (let index = 0; index < rows.length; index += CATALOG_UPSERT_CHUNK_SIZE) {
     const chunk = rows.slice(index, index + CATALOG_UPSERT_CHUNK_SIZE);
     const { data, error } = await supabaseAdmin
       .from('places_local_catalog')
       .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false })
       .select('provider, external_id');
-
     if (error) throw error;
-
     const returnedCount = Array.isArray(data) ? data.length : 0;
     actuallyWritten += returnedCount;
-
     if (returnedCount === 0 && chunk.length > 0) {
       throw new Error(
-        `places_local_catalog upsert returned 0 rows for ${chunk.length} attempted (silent RLS/service-role failure). ` +
-        `Check that SUPABASE_SERVICE_ROLE_KEY matches the project at ${(supabaseAdmin as any)?.supabaseUrl ?? 'unknown URL'}.`
+        `places_local_catalog upsert returned 0 rows for ${chunk.length} attempted — ` +
+        `check SUPABASE_SERVICE_ROLE_KEY matches the project (silent RLS/service-role failure).`,
       );
     }
   }
-
   return actuallyWritten;
 }
 
@@ -86,7 +74,6 @@ export async function getRecentLogs(supabaseAdmin: any) {
     .select('id, created_at, level, event, message, details')
     .order('created_at', { ascending: false })
     .limit(40);
-
   return data || [];
 }
 
@@ -104,9 +91,9 @@ export async function getStatus(supabaseAdmin: any) {
 
   const providerCounts = Array.isArray(providerCountResult.data)
     ? providerCountResult.data.reduce((acc: Record<string, number>, row: any) => {
-      acc[row.provider] = (acc[row.provider] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>)
+        acc[row.provider] = (acc[row.provider] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
     : {};
 
   return {

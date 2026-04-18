@@ -1,6 +1,8 @@
 import type { CategoryGroup, PlaceRow, SyncConfig, TileCenter } from '../types/index.ts';
 import { normalizeGeoapifyRow } from '../normalizers/geoapify.ts';
 
+const FETCH_TIMEOUT_MS = 15_000;
+
 export async function fetchGeoapify(
   center: TileCenter,
   group: CategoryGroup,
@@ -15,7 +17,19 @@ export async function fetchGeoapify(
     apiKey,
   });
 
-  const res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`https://api.geoapify.com/v2/places?${params.toString()}`, { signal: controller.signal });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Geoapify ${center.city}/${group.key}: ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Geoapify ${center.city}/${group.key}: ${res.status} ${text}`);

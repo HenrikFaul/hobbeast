@@ -15,7 +15,8 @@ export type SyncAction =
   | 'save_config'
   | 'enqueue'
   | 'schedule'
-  | 'unschedule';
+  | 'unschedule'
+  | 'self_test';
 
 export type SyncBody = {
   action?: SyncAction;
@@ -77,9 +78,8 @@ export type BatchExecutionResult = {
   totalTasks: number;
   nextCursor: number;
   hasMore: boolean;
-  partialFailures?: number;
-  rowsWrittenThisRun?: number;
-  _stateWriteError?: string | null;
-  _logWriteError?: string | null;
+  batchesExecuted: number;
+  partialFailures: number;
+  rowsWrittenThisRun: number;
   status: StatusPayload;
 };

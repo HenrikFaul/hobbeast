@@ -28,7 +28,8 @@ export type SyncAction =
   | 'fetch_tomtom_rows'
   | 'filter_hu_rows'
   | 'dedupe_rows'
-  | 'write_rows';
+  | 'write_rows'
+  | 'self_test';
 
 export type SyncBody = {
   action?: SyncAction;
@@ -89,6 +90,7 @@ export type BatchResult = {
   totalTasks: number;
   nextCursor: number;
   hasMore: boolean;
+  batchesExecuted?: number;
   partialFailures?: number;
   rowsWrittenThisRun?: number;
   status: Record<string, unknown>;
