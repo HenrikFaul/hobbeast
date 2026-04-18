@@ -25,7 +25,7 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = getSupabaseAdmin(req);
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -121,8 +121,8 @@ serve(async (req) => {
         return jsonResponse({ ok: true, generated: 0, message: 'Auto-generation is disabled.' });
       }
 
-      if (!LOVABLE_API_KEY) {
-        throw new Error('LOVABLE_API_KEY is not configured. Cannot generate events with AI.');
+      if (!ANTHROPIC_API_KEY) {
+        throw new Error('ANTHROPIC_API_KEY is not configured. Cannot generate events with AI.');
       }
 
       if (qualifyingHubs.length === 0) {
@@ -180,19 +180,20 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
   }
 ]`;
 
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          system: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. Csak JSON-t válaszolj, semmilyen extra szöveget ne írj.',
           messages: [
-            { role: 'system', content: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. Csak JSON-t válaszolj, semmilyen extra szöveget ne írj.' },
             { role: 'user', content: prompt },
           ],
-          temperature: 0.7,
         }),
       });
 
@@ -202,7 +203,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
       }
 
       const aiData = await aiResponse.json();
-      const rawContent = aiData.choices?.[0]?.message?.content || '';
+      const rawContent = (aiData.content?.[0]?.text) || '';
       
       // Extract JSON from response (handle markdown code blocks)
       let jsonStr = rawContent.trim();
