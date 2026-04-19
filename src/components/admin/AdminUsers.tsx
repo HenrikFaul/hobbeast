@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw, Filter, Search, Trash2, Ban, CheckCircle2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ interface ProfileRow {
 
 interface EventParticipation {
   id: string;
+  event_id?: string;
   joined_at: string;
   event: {
     id: string;
@@ -43,6 +45,14 @@ interface EventParticipation {
     event_date: string | null;
     image_emoji: string | null;
   };
+}
+
+interface EventOption {
+  id: string;
+  title: string;
+  category: string | null;
+  event_date: string | null;
+  is_active?: boolean | null;
 }
 
 interface VirtualHub {
@@ -94,6 +104,16 @@ export function AdminUsers() {
   const [hubDetailOpen, setHubDetailOpen] = useState(false);
   const [expandedHobbies, setExpandedHobbies] = useState<Set<string>>(new Set());
   const [expandedUserHubs, setExpandedUserHubs] = useState<Set<string>>(new Set());
+  const [allEvents, setAllEvents] = useState<EventOption[]>([]);
+  const [allHobbyOptions, setAllHobbyOptions] = useState<string[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [eventSearch, setEventSearch] = useState('');
+  const [hobbySearch, setHobbySearch] = useState('');
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [editGender, setEditGender] = useState<string>('unspecified');
+  const [editActiveStatus, setEditActiveStatus] = useState<'active' | 'inactive'>('active');
+  const [editBio, setEditBio] = useState('');
+  const [selectedHobbies, setSelectedHobbies] = useState<Set<string>>(new Set());
 
   const ROW_H = 52;
   const HEAD_H = 48;
@@ -160,18 +180,117 @@ export function AdminUsers() {
   const openDetail = async (profile: ProfileRow) => {
     setSelectedUser(profile);
     setDetailLoading(true);
-    const { data, error } = await supabase
-      .from('event_participants')
-      .select('id, joined_at, event:events(id, title, category, event_date, image_emoji)')
-      .eq('user_id', profile.user_id)
-      .order('joined_at', { ascending: false });
-    if (error) {
-      console.error(error);
+    const [participationsRes, eventsRes, hobbiesRes] = await Promise.all([
+      supabase
+        .from('event_participants')
+        .select('id, event_id, joined_at, event:events(id, title, category, event_date, image_emoji)')
+        .eq('user_id', profile.user_id)
+        .order('joined_at', { ascending: false }),
+      supabase
+        .from('events')
+        .select('id, title, category, event_date, is_active')
+        .neq('is_active', false)
+        .order('event_date', { ascending: false })
+        .limit(500),
+      supabase
+        .from('hobby_activities')
+        .select('name, is_active')
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+    ]);
+
+    if (participationsRes.error) {
+      console.error(participationsRes.error);
       setParticipations([]);
+      setSelectedEventIds(new Set());
     } else {
-      setParticipations((data as unknown as EventParticipation[]) || []);
+      const rows = (participationsRes.data as unknown as EventParticipation[]) || [];
+      setParticipations(rows);
+      setSelectedEventIds(new Set(rows.map((row) => row.event?.id || row.event_id).filter(Boolean) as string[]));
     }
+
+    if (eventsRes.error) {
+      console.error(eventsRes.error);
+      setAllEvents([]);
+    } else {
+      setAllEvents((eventsRes.data as EventOption[]) || []);
+    }
+
+    if (hobbiesRes.error) {
+      console.error(hobbiesRes.error);
+      setAllHobbyOptions([]);
+    } else {
+      const unique = Array.from(new Set(((hobbiesRes.data as { name: string }[]) || []).map((row) => row.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      setAllHobbyOptions(unique);
+    }
+
+    setSelectedHobbies(new Set(profile.hobbies || []));
+    setEditGender(profile.gender || 'unspecified');
+    setEditActiveStatus(profile.is_active === false ? 'inactive' : 'active');
+    setEditBio((profile.bio || '').slice(0, 500));
+    setEventSearch('');
+    setHobbySearch('');
     setDetailLoading(false);
+  };
+
+  const saveUserDetail = async () => {
+    if (!selectedUser?.user_id) {
+      toast.error('A profil user_id hiányzik, ezért nem menthető.');
+      return;
+    }
+    setDetailSaving(true);
+    const payload = {
+      target_user_id: selectedUser.user_id,
+      gender: editGender === 'unspecified' ? null : editGender,
+      is_active: editActiveStatus === 'active',
+      bio: editBio.trim().slice(0, 500),
+      hobbies: Array.from(selectedHobbies),
+      event_ids: Array.from(selectedEventIds),
+    };
+
+    const { error: profileUpdateError } = await supabase.rpc('admin_update_member_profile' as any, {
+      _target_user_id: payload.target_user_id,
+      _gender: payload.gender,
+      _is_active: payload.is_active,
+      _bio: payload.bio,
+      _hobbies: payload.hobbies,
+    });
+    if (profileUpdateError) {
+      toast.error(`Mentési hiba: ${profileUpdateError.message}`);
+      setDetailSaving(false);
+      return;
+    }
+
+    const { error: participationError } = await supabase.rpc('admin_set_member_event_participations' as any, {
+      _target_user_id: payload.target_user_id,
+      _event_ids: payload.event_ids,
+    });
+    if (participationError) {
+      toast.error(`Esemény mentési hiba: ${participationError.message}`);
+      setDetailSaving(false);
+      return;
+    }
+
+    toast.success('Profil adatok mentve.');
+    setProfiles((prev) => prev.map((row) => {
+      if (row.user_id !== selectedUser.user_id) return row;
+      return {
+        ...row,
+        gender: payload.gender,
+        is_active: payload.is_active,
+        bio: payload.bio || null,
+        hobbies: payload.hobbies,
+      };
+    }));
+    setSelectedUser((prev) => prev ? {
+      ...prev,
+      gender: payload.gender,
+      is_active: payload.is_active,
+      bio: payload.bio || null,
+      hobbies: payload.hobbies,
+    } : prev);
+    await openDetail({ ...selectedUser, gender: payload.gender, is_active: payload.is_active, bio: payload.bio || null, hobbies: payload.hobbies });
+    setDetailSaving(false);
   };
 
   const getAge = (dob: string | null) => {
@@ -338,20 +457,20 @@ const applyBulkSelection = async () => {
           ) : visibleProfiles.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">Nincs megjeleníthető felhasználó.</p>
           ) : (
-            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: pageSize * ROW_H + HEAD_H }}>
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-250px)]" style={{ maxHeight: pageSize * ROW_H + HEAD_H }}>
               <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableHeader className="bg-card shadow-sm border-b">
                   <TableRow>
-                    <TableHead className="w-10"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
-                    <TableHead>Név</TableHead>
-                    <TableHead>Forrás</TableHead>
-                    <TableHead>Státusz</TableHead>
-                    <TableHead>Város</TableHead>
-                    <TableHead>Hobbik</TableHead>
-                    <TableHead>Hub</TableHead>
-                    <TableHead>Regisztráció</TableHead>
-                    <TableHead>Utolsó aktivitás</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="w-10 sticky top-0 z-20 bg-card"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Név</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Forrás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Státusz</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Város</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hobbik</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hub</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Regisztráció</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Utolsó aktivitás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -435,9 +554,9 @@ const applyBulkSelection = async () => {
         </CardHeader>
         <CardContent>
           {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
-            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: hubPageSize * ROW_H + HEAD_H }}>
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-300px)]" style={{ maxHeight: hubPageSize * ROW_H + HEAD_H }}>
               <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
+                <TableHeader className="bg-card shadow-sm border-b"><TableRow><TableHead className="sticky top-0 z-20 bg-card">Érdeklődési kör</TableHead><TableHead className="sticky top-0 z-20 bg-card">Város</TableHead><TableHead className="sticky top-0 z-20 bg-card">Tagok száma</TableHead><TableHead className="sticky top-0 z-20 bg-card">Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {hubs.map((hub) => (
                     <TableRow key={hub.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => { setSelectedHub(hub); setHubDetailOpen(true); }}>
@@ -518,20 +637,105 @@ const applyBulkSelection = async () => {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-muted-foreground text-xs">Város</p><p className="font-medium flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {selectedUser.city || '—'}{selectedUser.district ? `, ${selectedUser.district}` : ''}</p></div>
                 <div><p className="text-muted-foreground text-xs">Kor</p><p className="font-medium">{getAge(selectedUser.date_of_birth) ? `${getAge(selectedUser.date_of_birth)} év` : '—'}</p></div>
-                <div><p className="text-muted-foreground text-xs">Nem</p><p className="font-medium">{selectedUser.gender || '—'}</p></div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-xs">Nem</p>
+                  <Select value={editGender} onValueChange={setEditGender}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unspecified">Nincs megadva</SelectItem>
+                      <SelectItem value="male">Férfi</SelectItem>
+                      <SelectItem value="female">Nő</SelectItem>
+                      <SelectItem value="other">Egyéb</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Nem szeretné megadni</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div><p className="text-muted-foreground text-xs">Keresési sugár</p><p className="font-medium">{selectedUser.preferred_radius_km ? `${selectedUser.preferred_radius_km} km` : '—'}</p></div>
                 <div><p className="text-muted-foreground text-xs">Forrás</p><p className="font-medium">{selectedUser.user_origin === 'generated' ? 'Generált' : 'Igazi'}</p></div>
-                <div><p className="text-muted-foreground text-xs">Státusz</p><p className="font-medium">{selectedUser.is_active === false ? 'Inaktív' : 'Aktív'}</p></div>
-                <div className="col-span-2"><p className="text-muted-foreground text-xs">Bio</p><p className="font-medium">{selectedUser.bio || '—'}</p></div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-xs">Státusz</p>
+                  <Select value={editActiveStatus} onValueChange={(value: 'active' | 'inactive') => setEditActiveStatus(value)}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Aktív</SelectItem>
+                      <SelectItem value="inactive">Inaktív</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <p className="text-muted-foreground text-xs">Bio</p>
+                  <Textarea
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value.slice(0, 500))}
+                    maxLength={500}
+                    rows={3}
+                    className="resize-none"
+                    placeholder="Legfeljebb 500 karakter."
+                  />
+                  <p className="text-[11px] text-muted-foreground text-right">{editBio.length}/500</p>
+                </div>
                 <div><p className="text-muted-foreground text-xs">Regisztráció</p><p className="font-medium flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {new Date(selectedUser.created_at).toLocaleDateString('hu-HU')}</p></div>
                 <div><p className="text-muted-foreground text-xs">Utolsó aktivitás</p><p className="font-medium">{getLastActivity(selectedUser)}</p></div>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-2">Hobbik ({(selectedUser.hobbies || []).length})</p>
-                <div className="flex flex-wrap gap-1.5">{(selectedUser.hobbies || []).length === 0 && <p className="text-sm text-muted-foreground">Nincs megadva</p>}{(selectedUser.hobbies || []).map((h) => <Badge key={h} variant="secondary">{h}</Badge>)}</div>
+                <Input value={hobbySearch} onChange={(e) => setHobbySearch(e.target.value)} placeholder="Hobbi keresés..." className="mb-2 h-8" />
+                <div className="max-h-36 overflow-y-auto rounded-md border p-2 space-y-1">
+                  {allHobbyOptions
+                    .filter((h) => h.toLowerCase().includes(hobbySearch.trim().toLowerCase()))
+                    .slice(0, 120)
+                    .map((h) => (
+                      <label key={h} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={selectedHobbies.has(h)}
+                          onCheckedChange={(checked) => setSelectedHobbies((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(h);
+                            else next.delete(h);
+                            return next;
+                          })}
+                        />
+                        <span>{h}</span>
+                      </label>
+                    ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {selectedHobbies.size === 0 && <p className="text-sm text-muted-foreground">Nincs kiválasztva</p>}
+                  {Array.from(selectedHobbies).map((h) => <Badge key={h} variant="secondary">{h}</Badge>)}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Esemény részvételek ({participations.length})</p>
+                <Input value={eventSearch} onChange={(e) => setEventSearch(e.target.value)} placeholder="Esemény keresés cím vagy kategória alapján..." className="mb-2 h-8" />
+                <div className="max-h-36 overflow-y-auto rounded-md border p-2 space-y-1 mb-2">
+                  {allEvents
+                    .filter((ev) => {
+                      const q = eventSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return `${ev.title} ${ev.category || ''}`.toLowerCase().includes(q);
+                    })
+                    .map((ev) => (
+                      <label key={ev.id} className="flex items-start gap-2 text-sm">
+                        <Checkbox
+                          checked={selectedEventIds.has(ev.id)}
+                          onCheckedChange={(checked) => setSelectedEventIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(ev.id);
+                            else next.delete(ev.id);
+                            return next;
+                          })}
+                        />
+                        <span>
+                          {ev.title}
+                          <span className="text-xs text-muted-foreground"> · {ev.category || '—'} · {ev.event_date ? new Date(ev.event_date).toLocaleDateString('hu-HU') : '—'}</span>
+                        </span>
+                      </label>
+                    ))}
+                </div>
                 {detailLoading ? <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" /></div> : participations.length === 0 ? <p className="text-sm text-muted-foreground">Még nem csatlakozott eseményhez.</p> : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {participations.map((p) => (
@@ -543,6 +747,11 @@ const applyBulkSelection = async () => {
                     ))}
                   </div>
                 )}
+              </div>
+              <div className="flex justify-end">
+                <Button className="rounded-xl" onClick={saveUserDetail} disabled={detailSaving || detailLoading}>
+                  {detailSaving ? 'Mentés...' : 'Profil mentése'}
+                </Button>
               </div>
             </div>
           )}
