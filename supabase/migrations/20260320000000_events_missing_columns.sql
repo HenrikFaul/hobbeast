@@ -3,7 +3,7 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS visibility_type text DEFAULT 'public',
   ADD COLUMN IF NOT EXISTS participation_type text DEFAULT 'open',
   ADD COLUMN IF NOT EXISTS waitlist_enabled boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS place_categories text[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS place_categories jsonb DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS place_name text,
   ADD COLUMN IF NOT EXISTS place_address text,
   ADD COLUMN IF NOT EXISTS place_city text,
