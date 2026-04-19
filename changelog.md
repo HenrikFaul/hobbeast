@@ -187,3 +187,12 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Added
 - **Compatibility migration**: Added `20260411162000_event_start_time_bulk_and_catalog_fixes.sql` to harden event compatibility columns and unique indexes required by current frontend logic.
+
+## [1.5.7] — 2026-04-19
+### Fixed
+- **Admin user tables sticky header UX**: Added consistent sticky table headers with explicit scroll containers (`overflow-y-auto` + responsive max-height) for admin user list, virtual hub list, and mass-user preview, including visual separation (`shadow-sm`, `border-b`) to prevent header/content overlap while scrolling.
+- **Admin profile detail editability**: User detail dialog now supports controlled editing for gender (predefined values), status (active/inactive), hobbies (DB-driven searchable checklist), and event participations (searchable list from existing system events) without free-text drift.
+- **Bio constraint hardening**: Bio editing remains free-text but now enforces a 500-character max in UI and backend save path.
+
+### Added
+- **Admin edge function for safe profile updates**: Added `admin-user-profile-update` edge function with explicit admin authorization check, profile field sanitization, and event participation synchronization logic using service-role writes.
