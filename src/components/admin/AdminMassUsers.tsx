@@ -187,9 +187,9 @@ export function AdminMassUsers({ onUsersCreated }: Props) {
         </p>
 
         {generated.length > 0 && (
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[560px]">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
                 <TableRow>
                   <TableHead>Név</TableHead>
                   <TableHead>Város</TableHead>

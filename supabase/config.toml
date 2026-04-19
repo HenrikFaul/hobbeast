@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.virtual-hubs-admin]
 verify_jwt = false
+
+[functions.admin-user-profile-update]
+verify_jwt = false
