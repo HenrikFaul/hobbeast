@@ -145,16 +145,18 @@ export async function startManualRun(supabaseAdmin: any, body: SyncBody, runId: 
   const totalTasks = allTasks.length;
   const currentState = await getCurrentStateRecord(supabaseAdmin);
   const startedAt = new Date().toISOString();
-  const startCursor = body.reset ? 0 : Number(currentState?.cursor || 0);
+  const rawCursor = Number(currentState?.cursor || 0);
+  const autoReset = body.reset || rawCursor >= totalTasks;
+  const startCursor = autoReset ? 0 : rawCursor;
 
   await milestone(supabaseAdmin, 'info', MILESTONES.RUN_STARTED, 'Manuális fázis-alapú futás indult', {
-    manual_mode: true, requested_reset: body.reset === true, start_cursor: startCursor, total_tasks: totalTasks,
+    manual_mode: true, requested_reset: body.reset === true, auto_reset: autoReset, start_cursor: startCursor, total_tasks: totalTasks,
   }, runId);
 
   const stateWriteError = await upsertSyncState(supabaseAdmin, {
     key: LOCAL_PLACES_STATE_KEY, status: 'running',
-    rows_written: body.reset ? 0 : Number(currentState?.rows_written || 0),
-    provider_counts: body.reset ? {} : (currentState?.provider_counts || {}),
+    rows_written: autoReset ? 0 : Number(currentState?.rows_written || 0),
+    provider_counts: autoReset ? {} : (currentState?.provider_counts || {}),
     task_count: totalTasks, cursor: startCursor, last_run_started_at: startedAt,
     last_run_completed_at: body.reset ? null : (currentState?.last_run_completed_at || null), last_error: null,
   });
