@@ -96,10 +96,12 @@ CREATE POLICY "Service role writes sync logs"
   USING (true) WITH CHECK (true);
 
 -- Trigger to keep updated_at fresh
+DROP TRIGGER IF EXISTS trg_places_local_catalog_updated_at ON public.places_local_catalog;
 CREATE TRIGGER trg_places_local_catalog_updated_at
   BEFORE UPDATE ON public.places_local_catalog
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_place_sync_state_updated_at ON public.place_sync_state;
 CREATE TRIGGER trg_place_sync_state_updated_at
   BEFORE UPDATE ON public.place_sync_state
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
