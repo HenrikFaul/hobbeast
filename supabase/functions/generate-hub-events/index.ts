@@ -187,10 +187,10 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. Csak JSON-t válaszolj, semmilyen extra szöveget ne írj.' }],
+              parts: [{ text: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy.' }],
             },
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192, responseMimeType: 'application/json' },
           }),
         }
       );
@@ -202,15 +202,10 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
 
       const aiData = await aiResponse.json();
       const rawContent = (aiData.candidates?.[0]?.content?.parts?.[0]?.text) || '';
-      
-      // Extract JSON from response (handle markdown code blocks)
-      let jsonStr = rawContent.trim();
-      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) jsonStr = jsonMatch[1].trim();
-      
+
       let events: any[];
       try {
-        events = JSON.parse(jsonStr);
+        events = JSON.parse(rawContent);
       } catch {
         throw new Error(`AI response was not valid JSON: ${rawContent.slice(0, 200)}`);
       }

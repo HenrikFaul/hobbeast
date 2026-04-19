@@ -13,11 +13,11 @@ alter table public.events
   add column if not exists created_by uuid;
 
 update public.events
-set place_categories = '[]'::jsonb
+set place_categories = '{}'::text[]
 where place_categories is null;
 
 alter table public.events
-  alter column place_categories set default '[]'::jsonb;
+  alter column place_categories set default '{}'::text[];
 
 create unique index if not exists hobby_categories_slug_uidx on public.hobby_categories(slug);
 create unique index if not exists hobby_subcategories_slug_uidx on public.hobby_subcategories(slug);

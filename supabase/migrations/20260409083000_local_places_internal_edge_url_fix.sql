@@ -2,6 +2,14 @@
 -- This stores the internal edge-function base URL in runtime config and makes
 -- scheduler/enqueue helpers prefer that value before falling back to Vault.
 
+-- Widen the provider check constraint to allow 'supabase' before inserting
+alter table public.app_runtime_config
+  drop constraint if exists app_runtime_config_provider_check;
+
+alter table public.app_runtime_config
+  add constraint app_runtime_config_provider_check
+  check (provider in ('aws', 'geoapify_tomtom', 'local_catalog', 'supabase'));
+
 insert into public.app_runtime_config (key, provider, options)
 values (
   'internal_edge_function_base_url',
