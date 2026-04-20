@@ -278,10 +278,13 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
               participation_type: 'open',
             })
             .select('id, title')
-            .single();
+            .maybeSingle(); // <-- A KULCS: .single() lecserélése .maybeSingle()-re
 
           if (insertError) {
             errors.push(`${evt.title}: ${insertError.message}`);
+          } else if (!inserted) {
+            // Ha a DB csendben blokkolta az insertet vagy nem olvasható vissza (pl. trigger, duplikáció vagy RLS miatt)
+            errors.push(`${evt.title}: Mentés elutasítva (valószínűleg duplikáció vagy adatbázis trigger blokkolta).`);
           } else {
             insertedEvents.push(inserted);
           }
