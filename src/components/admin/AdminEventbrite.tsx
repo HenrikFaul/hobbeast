@@ -500,20 +500,28 @@ export function AdminEventbrite() {
       if (saveError) throw saveError;
 
       if (syncSettings.enabled) {
-        const { error: scheduleError } = await supabase.functions.invoke('sync-local-places', {
-          body: {
-            action: 'schedule',
-            interval_minutes: syncSettings.interval_minutes,
-          },
+        const { error: scheduleRpcError } = await supabase.rpc('schedule_local_places_interval', {
+          p_minutes: syncSettings.interval_minutes,
         });
-        if (scheduleError) throw scheduleError;
+        if (scheduleRpcError) {
+          const { error: scheduleError } = await supabase.functions.invoke('sync-local-places', {
+            body: {
+              action: 'schedule',
+              interval_minutes: syncSettings.interval_minutes,
+            },
+          });
+          if (scheduleError) throw scheduleError;
+        }
       } else {
-        const { error: unscheduleError } = await supabase.functions.invoke('sync-local-places', {
-          body: {
-            action: 'unschedule',
-          },
-        });
-        if (unscheduleError) throw unscheduleError;
+        const { error: unscheduleRpcError } = await supabase.rpc('unschedule_local_places_interval');
+        if (unscheduleRpcError) {
+          const { error: unscheduleError } = await supabase.functions.invoke('sync-local-places', {
+            body: {
+              action: 'unschedule',
+            },
+          });
+          if (unscheduleError) throw unscheduleError;
+        }
       }
 
       toast.success('Lokális sync beállítások elmentve');
