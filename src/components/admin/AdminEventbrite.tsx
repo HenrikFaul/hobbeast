@@ -490,38 +490,17 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: saveError } = await supabase.functions.invoke('sync-local-places', {
-        body: {
-          action: 'save_config',
-          config: syncSettings,
-        },
-      });
+      const { error: saveError } = await supabase
+        .from('app_runtime_config')
+        .update({ options: syncSettings })
+        .eq('key', 'local_places_sync');
 
       if (saveError) throw saveError;
 
       if (syncSettings.enabled) {
-        const { error: scheduleRpcError } = await supabase.rpc('schedule_local_places_interval', {
-          p_minutes: syncSettings.interval_minutes,
-        });
-        if (scheduleRpcError) {
-          const { error: scheduleError } = await supabase.functions.invoke('sync-local-places', {
-            body: {
-              action: 'schedule',
-              interval_minutes: syncSettings.interval_minutes,
-            },
-          });
-          if (scheduleError) throw scheduleError;
-        }
+        await supabase.rpc('schedule_local_places_interval', { p_minutes: syncSettings.interval_minutes });
       } else {
-        const { error: unscheduleRpcError } = await supabase.rpc('unschedule_local_places_interval');
-        if (unscheduleRpcError) {
-          const { error: unscheduleError } = await supabase.functions.invoke('sync-local-places', {
-            body: {
-              action: 'unschedule',
-            },
-          });
-          if (unscheduleError) throw unscheduleError;
-        }
+        await supabase.rpc('unschedule_local_places_interval');
       }
 
       toast.success('Lokális sync beállítások elmentve');

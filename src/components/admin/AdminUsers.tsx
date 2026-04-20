@@ -474,7 +474,7 @@ const applyBulkSelection = async () => {
           ) : (
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-250px)]" style={{ height: pageSize * ROW_H + HEAD_H }}>
               <Table containerClassName="relative w-full">
-                <TableHeader className="bg-card shadow-sm border-b">
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
                   <TableRow>
                     <TableHead className="w-10 sticky top-0 z-20 bg-card"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card">Név</TableHead>
@@ -571,7 +571,7 @@ const applyBulkSelection = async () => {
           {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-300px)]" style={{ height: hubPageSize * ROW_H + HEAD_H }}>
               <Table containerClassName="relative w-full">
-                <TableHeader className="bg-card shadow-sm border-b"><TableRow><TableHead className="sticky top-0 z-20 bg-card">Érdeklődési kör</TableHead><TableHead className="sticky top-0 z-20 bg-card">Város</TableHead><TableHead className="sticky top-0 z-20 bg-card">Tagok száma</TableHead><TableHead className="sticky top-0 z-20 bg-card">Létrehozva</TableHead></TableRow></TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {hubs.map((hub) => (
                     <TableRow key={hub.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => { setSelectedHub(hub); setHubDetailOpen(true); }}>
