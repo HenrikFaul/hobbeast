@@ -446,7 +446,7 @@ const applyBulkSelection = async () => {
             <p className="text-muted-foreground text-center py-8">Nincs megjeleníthető felhasználó.</p>
           ) : (
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-250px)]" style={{ height: pageSize * ROW_H + HEAD_H }}>
-              <Table>
+              <Table containerClassName="relative w-full">
                 <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
                   <TableRow>
                     <TableHead className="w-10"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
@@ -543,7 +543,7 @@ const applyBulkSelection = async () => {
         <CardContent>
           {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
             <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-300px)]" style={{ height: hubPageSize * ROW_H + HEAD_H }}>
-              <Table>
+              <Table containerClassName="relative w-full">
                 <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {hubs.map((hub) => (
