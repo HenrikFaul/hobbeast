@@ -196,3 +196,4 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Added
 - **Admin RPC migration for safe profile updates**: Added SQL RPC functions (`admin_update_member_profile`, `admin_set_member_event_participations`) to persist controlled profile fields and synchronize event participations without edge-function CORS/deploy drift.
+- **Admin edge function for safe profile updates**: Added `admin-user-profile-update` edge function with explicit admin authorization check, profile field sanitization, and event participation synchronization logic using service-role writes.

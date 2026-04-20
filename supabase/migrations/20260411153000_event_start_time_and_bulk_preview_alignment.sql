@@ -10,10 +10,10 @@ alter table public.events
   add column if not exists organizer_id uuid;
 
 alter table public.events
-  alter column place_categories set default '{}'::text[];
+  alter column place_categories set default '[]'::jsonb;
 
 update public.events
-set place_categories = '{}'::text[]
+set place_categories = '[]'::jsonb
 where place_categories is null;
 
 update public.events
@@ -37,7 +37,7 @@ begin
   end if;
 
   if new.place_categories is null then
-    new.place_categories := '{}'::text[];
+    new.place_categories := '[]'::jsonb;
   end if;
 
   if new.start_time is null and new.event_date is not null and new.event_time is not null then

@@ -187,10 +187,34 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [{ text: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy.' }],
+              parts: [{ text: 'Te egy professzionális magyar szabadidős eseményszervező AI vagy. KIZÁRÓLAG az előírt sémának megfelelő JSON-t add vissza.' }],
             },
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 4096,
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    hub_hobby: { type: 'STRING' },
+                    hub_city: { type: 'STRING' },
+                    title: { type: 'STRING' },
+                    description: { type: 'STRING' },
+                    category: { type: 'STRING' },
+                    event_date: { type: 'STRING' },
+                    event_time: { type: 'STRING' },
+                    location_city: { type: 'STRING' },
+                    location_free_text: { type: 'STRING' },
+                    max_attendees: { type: 'INTEGER' },
+                    image_emoji: { type: 'STRING' },
+                  },
+                  required: ['hub_hobby', 'hub_city', 'title', 'description', 'category', 'event_date', 'event_time', 'location_city', 'location_free_text', 'max_attendees', 'image_emoji'],
+                },
+              },
+            },
           }),
         }
       );
@@ -205,9 +229,17 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
 
       let events: any[];
       try {
-        events = JSON.parse(rawContent);
-      } catch {
-        throw new Error(`AI response was not valid JSON: ${rawContent.slice(0, 200)}`);
+        let jsonStr = rawContent.trim();
+        if (jsonStr.startsWith('[') && !jsonStr.endsWith(']')) {
+          if (jsonStr.endsWith('}')) {
+            jsonStr += ']';
+          } else if (jsonStr.endsWith('},')) {
+            jsonStr = jsonStr.slice(0, -1) + ']';
+          }
+        }
+        events = JSON.parse(jsonStr);
+      } catch (err) {
+        throw new Error(`AI response was not valid JSON: ${rawContent.slice(0, 200)} | Error: ${err}`);
       }
 
       if (!Array.isArray(events)) throw new Error('AI response is not an array.');
