@@ -490,12 +490,10 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: saveError } = await supabase.functions.invoke('sync-local-places', {
-        body: {
-          action: 'save_config',
-          config: syncSettings,
-        },
-      });
+      const { error: saveError } = await supabase
+        .from('app_runtime_config')
+        .update({ options: syncSettings })
+        .eq('key', 'local_places_sync');
 
       if (saveError) throw saveError;
 
