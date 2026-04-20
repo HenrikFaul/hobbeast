@@ -192,7 +192,7 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: 0.7,
-              maxOutputTokens: 4096,
+              maxOutputTokens: 8192,
               responseMimeType: 'application/json',
               responseSchema: {
                 type: 'ARRAY',
@@ -230,13 +230,21 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
       let events: any[];
       try {
         let jsonStr = rawContent.trim();
+
+        // Ha a válasz tömbként indul, de nem úgy fejeződik be (csonkolódott)
         if (jsonStr.startsWith('[') && !jsonStr.endsWith(']')) {
-          if (jsonStr.endsWith('}')) {
-            jsonStr += ']';
-          } else if (jsonStr.endsWith('},')) {
-            jsonStr = jsonStr.slice(0, -1) + ']';
+          // Megkeressük az utolsó sikeresen lezárt objektum végét
+          const lastValidBrace = jsonStr.lastIndexOf('}');
+
+          if (lastValidBrace !== -1) {
+            // Levágjuk a csonka részt, és szabályosan lezárjuk a tömböt
+            jsonStr = jsonStr.substring(0, lastValidBrace + 1) + ']';
+          } else {
+            // Ha egyetlen objektum sem jött létre sikeresen
+            jsonStr = '[]';
           }
         }
+
         events = JSON.parse(jsonStr);
       } catch (err) {
         throw new Error(`AI response was not valid JSON: ${rawContent.slice(0, 200)} | Error: ${err}`);
@@ -270,10 +278,13 @@ Válaszolj KIZÁRÓLAG egy JSON tömbbel, más szöveget ne írj. Formátum:
               participation_type: 'open',
             })
             .select('id, title')
-            .single();
+            .maybeSingle(); // <-- A KULCS: .single() lecserélése .maybeSingle()-re
 
           if (insertError) {
             errors.push(`${evt.title}: ${insertError.message}`);
+          } else if (!inserted) {
+            // Ha a DB csendben blokkolta az insertet vagy nem olvasható vissza (pl. trigger, duplikáció vagy RLS miatt)
+            errors.push(`${evt.title}: Mentés elutasítva (valószínűleg duplikáció vagy adatbázis trigger blokkolta).`);
           } else {
             insertedEvents.push(inserted);
           }

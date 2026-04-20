@@ -188,15 +188,15 @@ export function AdminMassUsers({ onUsersCreated }: Props) {
 
         {generated.length > 0 && (
           <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[560px]">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
+            <Table containerClassName="relative w-full">
+              <TableHeader className="bg-card shadow-sm border-b">
                 <TableRow>
-                  <TableHead>Név</TableHead>
-                  <TableHead>Város</TableHead>
-                  <TableHead>Kor</TableHead>
-                  <TableHead>Nem</TableHead>
-                  <TableHead>Hobbik</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card">Név</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card">Város</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card">Kor</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card">Nem</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card">Hobbik</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-card"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -247,16 +247,43 @@ export function AdminUsers() {
       hobbies: Array.from(selectedHobbies),
       eventIds: Array.from(selectedEventIds),
     };
-    const { data, error } = await supabase.functions.invoke('admin-user-profile-update', { body: payload });
-    if (error) {
-      toast.error(`Mentési hiba: ${error.message}`);
-      setDetailSaving(false);
-      return;
+
+    let saveErrorMessage: string | null = null;
+
+    const { error: profileRpcError } = await supabase.rpc('admin_update_member_profile' as any, {
+      _target_user_id: payload.userId,
+      _gender: payload.gender,
+      _is_active: payload.isActive,
+      _bio: payload.bio,
+      _hobbies: payload.hobbies,
+    });
+
+    if (!profileRpcError) {
+      const { error: participationRpcError } = await supabase.rpc('admin_set_member_event_participations' as any, {
+        _target_user_id: payload.userId,
+        _event_ids: payload.eventIds,
+      });
+      if (participationRpcError) {
+        console.warn('admin_set_member_event_participations RPC failed, falling back to edge function', participationRpcError);
+        saveErrorMessage = participationRpcError.message;
+      }
+    } else {
+      console.warn('admin_update_member_profile RPC failed, falling back to edge function', profileRpcError);
+      saveErrorMessage = profileRpcError.message;
     }
-    if ((data as any)?.error) {
-      toast.error((data as any).error);
-      setDetailSaving(false);
-      return;
+
+    if (saveErrorMessage) {
+      const { data, error } = await supabase.functions.invoke('admin-user-profile-update', { body: payload });
+      if (error) {
+        toast.error(`Mentési hiba: ${error.message}`);
+        setDetailSaving(false);
+        return;
+      }
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        setDetailSaving(false);
+        return;
+      }
     }
 
     toast.success('Profil adatok mentve.');
@@ -449,16 +476,16 @@ const applyBulkSelection = async () => {
               <Table containerClassName="relative w-full">
                 <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
                   <TableRow>
-                    <TableHead className="w-10"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
-                    <TableHead>Név</TableHead>
-                    <TableHead>Forrás</TableHead>
-                    <TableHead>Státusz</TableHead>
-                    <TableHead>Város</TableHead>
-                    <TableHead>Hobbik</TableHead>
-                    <TableHead>Hub</TableHead>
-                    <TableHead>Regisztráció</TableHead>
-                    <TableHead>Utolsó aktivitás</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="w-10 sticky top-0 z-20 bg-card"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Név</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Forrás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Státusz</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Város</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hobbik</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hub</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Regisztráció</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Utolsó aktivitás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
