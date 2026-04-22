@@ -236,7 +236,7 @@ const Auth = () => {
 						// Ezt az útvonalat használd! Ha nincs külön callback oldalad, a Supabase lekezeli a sima root url-t is, 
 						// DE fontos, hogy KÖZVETLENÜL a supabase instanciát használd, ne a lovable.auth wrappert, 
 						// mert az beleégetett dolgokat rejthet.
-						redirectTo: `${window.location.origin}/`, 
+						redirectTo: "https://hobbeast.vercel.app/", 
 						queryParams: {
 						access_type: 'offline',
 						prompt: 'consent',
