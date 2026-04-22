@@ -230,12 +230,21 @@ const Auth = () => {
 
                   <Button variant="outline" className="w-full h-12 rounded-xl font-medium" disabled={loading} onClick={async () => {
                     setLoading(true);
-                    const redirectPath = redirectTo && redirectTo !== '/' ? redirectTo : '';
-                    const redirectUri = redirectPath ? `${window.location.origin}${redirectPath}` : window.location.origin;
-                    const { error } = await lovable.auth.signInWithOAuth("google", {
-                      redirect_uri: redirectUri,
-                      extraParams: { prompt: 'select_account' },
-                    });
+					const { error } = await supabase.auth.signInWithOAuth({
+					provider: "google",
+					options: {
+						// Ezt az útvonalat használd! Ha nincs külön callback oldalad, a Supabase lekezeli a sima root url-t is, 
+						// DE fontos, hogy KÖZVETLENÜL a supabase instanciát használd, ne a lovable.auth wrappert, 
+						// mert az beleégetett dolgokat rejthet.
+						redirectTo: `${window.location.origin}/`, 
+						queryParams: {
+						access_type: 'offline',
+						prompt: 'consent',
+						},
+					}
+					});
+					
+if (error) { toast.error(error.message); setLoading(false); }
                     if (error) { toast.error(error.message); setLoading(false); }
                   }}>
                     <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
