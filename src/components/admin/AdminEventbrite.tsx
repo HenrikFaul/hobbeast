@@ -490,12 +490,25 @@ export function AdminEventbrite() {
   const handleSaveLocalSyncSettings = async () => {
     setSyncSettingsSaving(true);
     try {
-      const { error: saveError } = await supabase
-        .from('app_runtime_config')
-        .update({ options: syncSettings })
-        .eq('key', 'local_places_sync');
-
+      const { data: saveData, error: saveError } = await supabase.functions.invoke('sync-local-places', {
+        body: {
+          action: 'save_config',
+          config: syncSettings,
+        },
+      });
       if (saveError) throw saveError;
+
+      const savedConfig = (saveData as { config?: Partial<LocalSyncSettings>; error?: string } | null)?.config;
+      const saveActionError = (saveData as { error?: string } | null)?.error;
+      if (saveActionError) throw new Error(saveActionError);
+      if (!savedConfig) throw new Error('Nem érkezett vissza mentett konfiguráció a backendtől.');
+
+      if (
+        (Number(syncSettings.geo_limit) > Number(savedConfig.geo_limit ?? 0)) ||
+        (Number(syncSettings.tomtom_limit) > Number(savedConfig.tomtom_limit ?? 0))
+      ) {
+        throw new Error('A backend kisebb limitet mentett vissza. Ellenőrizd az adatbázis CHECK constraint-eket az app_runtime_config táblán.');
+      }
 
       if (syncSettings.enabled) {
         await supabase.rpc('schedule_local_places_interval', { p_minutes: syncSettings.interval_minutes });
@@ -1188,7 +1201,7 @@ export function AdminEventbrite() {
                           <Input
                             type="number"
                             min={1}
-                            max={200}
+                            max={1000000}
                             value={syncSettings.geo_limit}
                             onChange={(e) => setSyncSettings((prev) => ({ ...prev, geo_limit: Number(e.target.value) || 60 }))}
                           />
@@ -1199,7 +1212,7 @@ export function AdminEventbrite() {
                           <Input
                             type="number"
                             min={1}
-                            max={200}
+                            max={1000000}
                             value={syncSettings.tomtom_limit}
                             onChange={(e) => setSyncSettings((prev) => ({ ...prev, tomtom_limit: Number(e.target.value) || 50 }))}
                           />

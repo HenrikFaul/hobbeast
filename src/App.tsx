@@ -19,7 +19,13 @@ import Admin from "./pages/Admin";
 import EventDetail from "./pages/EventDetail";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

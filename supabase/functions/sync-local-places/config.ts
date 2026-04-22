@@ -12,8 +12,8 @@ export function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
     enabled: Boolean(raw.enabled ?? DEFAULT_SYNC_CONFIG.enabled),
     interval_minutes: clamp(Number(raw.interval_minutes ?? DEFAULT_SYNC_CONFIG.interval_minutes), 1, 60),
     radius_meters: clamp(Number(raw.radius_meters ?? DEFAULT_SYNC_CONFIG.radius_meters), 1000, 50000),
-    geo_limit: clamp(Number(raw.geo_limit ?? DEFAULT_SYNC_CONFIG.geo_limit), 1, 200),
-    tomtom_limit: clamp(Number(raw.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtom_limit), 1, 200),
+    geo_limit: clamp(Number(raw.geo_limit ?? DEFAULT_SYNC_CONFIG.geo_limit), 1, 1000000),
+    tomtom_limit: clamp(Number(raw.tomtom_limit ?? DEFAULT_SYNC_CONFIG.tomtom_limit), 1, 1000000),
     provider_concurrency: clamp(Number(raw.provider_concurrency ?? DEFAULT_SYNC_CONFIG.provider_concurrency), 1, 10),
     task_batch_size: clamp(Number(raw.task_batch_size ?? DEFAULT_SYNC_CONFIG.task_batch_size), 1, 20),
   };
