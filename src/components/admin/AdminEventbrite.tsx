@@ -1188,7 +1188,7 @@ export function AdminEventbrite() {
                           <Input
                             type="number"
                             min={1}
-                            max={200}
+                            max={1000000}
                             value={syncSettings.geo_limit}
                             onChange={(e) => setSyncSettings((prev) => ({ ...prev, geo_limit: Number(e.target.value) || 60 }))}
                           />
@@ -1199,7 +1199,7 @@ export function AdminEventbrite() {
                           <Input
                             type="number"
                             min={1}
-                            max={200}
+                            max={1000000}
                             value={syncSettings.tomtom_limit}
                             onChange={(e) => setSyncSettings((prev) => ({ ...prev, tomtom_limit: Number(e.target.value) || 50 }))}
                           />
