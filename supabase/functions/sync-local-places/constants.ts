@@ -28,4 +28,4 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
 };
 
 export const LOCAL_PLACES_STATE_KEY = 'local_places';
-export const CATALOG_UPSERT_CHUNK_SIZE = 250;
+export const CATALOG_UPSERT_CHUNK_SIZE = 500;
