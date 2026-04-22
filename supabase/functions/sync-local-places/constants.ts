@@ -21,8 +21,8 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   enabled: false,
   interval_minutes: 15,
   radius_meters: 16000,
-  geo_limit: 60,
-  tomtom_limit: 50,
+  geo_limit: 6000,
+  tomtom_limit: 6000,
   provider_concurrency: 2,
   task_batch_size: 2,
 };
