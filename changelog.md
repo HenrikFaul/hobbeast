@@ -205,3 +205,8 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Added
 - **DB védelem migráció**: Új migráció eltávolítja az `app_runtime_config` táblán az esetleges, 200-as plafont kényszerítő `CHECK` constraint-eket (`geo_limit` / `tomtom_limit`) dinamikus drop logikával.
+
+## [1.5.9] — 2026-04-22
+### Fixed
+- **Lokális sync beállítás mentés megbízhatósága**: Az admin mentés már nem közvetlen táblafrissítéssel történik, hanem a `sync-local-places` edge function `save_config` akcióján keresztül, így a backend validáció és a visszaolvasott mentett érték ellenőrzése egységes.
+- **200-as legacy korlát maradványainak kezelése**: Új migráció törli az `app_runtime_config` táblán azokat a régi `CHECK` constraint-eket is, amelyek `max_results`/provider kulcsszavakkal továbbra is 200-as plafont kényszeríthetnek.
