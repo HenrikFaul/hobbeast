@@ -196,3 +196,12 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Added
 - **Admin edge function for safe profile updates**: Added `admin-user-profile-update` edge function with explicit admin authorization check, profile field sanitization, and event participation synchronization logic using service-role writes.
+
+## [1.5.8] — 2026-04-22
+### Fixed
+- **Lokális címtábla max results mentési korlát feloldva**: A `sync-local-places` config sanitize logikában a Geoapify és TomTom limitek felső határa 200-ról 1 000 000-ra emelve; az admin UI inputok is ehhez igazítva.
+- **Fókusz-alapú újratöltés mérséklése**: React Query globális `refetchOnWindowFocus` kikapcsolva.
+- **Admin tab állapotmegőrzés**: Az admin aktív tab URL query paraméterrel (`?tab=`) szinkronizálva, így visszatéréskor stabilan ugyanaz a nézet marad.
+
+### Added
+- **DB védelem migráció**: Új migráció eltávolítja az `app_runtime_config` táblán az esetleges, 200-as plafont kényszerítő `CHECK` constraint-eket (`geo_limit` / `tomtom_limit`) dinamikus drop logikával.
