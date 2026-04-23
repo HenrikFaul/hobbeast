@@ -210,3 +210,27 @@ After review, rename or replace the active root changelog with this canonical st
 ### Fixed
 - **Lokális sync beállítás mentés megbízhatósága**: Az admin mentés már nem közvetlen táblafrissítéssel történik, hanem a `sync-local-places` edge function `save_config` akcióján keresztül, így a backend validáció és a visszaolvasott mentett érték ellenőrzése egységes.
 - **200-as legacy korlát maradványainak kezelése**: Új migráció törli az `app_runtime_config` táblán azokat a régi `CHECK` constraint-eket is, amelyek `max_results`/provider kulcsszavakkal továbbra is 200-as plafont kényszeríthetnek.
+
+## [1.6.0] — 2026-04-23
+### Added
+- **Address Manager Phase 1 alapok**: új `raw_venues` és `sync_discovery_matrix` táblák, provider/country/category fókuszú discovery-mátrix támogatással.
+- **Új admin tab: Címkezelő**: provider-alapú discovery matrix UI, ország/kategória kijelölés checkboxokkal, ország/kategória szintű „mindet kijelöl” műveletekkel.
+- **Dinamikus crawler váz**: új edge function egységek (`address-manager-discovery`, `address-manager-task-generator`, `address-manager-worker`) discovery → következő chunk generálás → worker feldolgozás atomi bontásban.
+
+### Changed
+- **Zero-limit DB policy**: az `app_runtime_config` legacy max-results check korlátainak további dinamikus eltávolítása és address-manager runtime key-ek inicializálása korlátozásmentes alapértékekkel.
+- **Admin URL state bővítés**: `tab=address-manager` és a Címkezelő szűrőállapot (`provider`, `countries`, `categories`) query paraméterből visszaállítható.
+
+## [1.6.1] — 2026-04-23
+### Fixed
+- **Címkezelő input szerkesztés javítás**: A limit mezők már nem mentenek azonnal minden leütésre, így a beírás nem ugrik vissza.
+- **Sync config mentés stabilizálás**: A mentés explicit `sync-local-places` (`save_config`) hívással történik, `SyncConfig` alakú payload-dal és NaN/null védelemmel.
+- **Mentés UX**: Új, feltűnő `Beállítások mentése` gomb `gradient-primary` stílussal, mentési spinnerrel és siker toasttal.
+- **Mátrix kijelölés state-megőrzés**: A checkbox állapot URL query paraméterben (`selected`) is megmarad tabváltáskor.
+
+## [1.6.2] — 2026-04-23
+### Fixed
+- **Edge Function Connect Error csökkentése**: A Címkezelő nem hívja automatikusan a még nem deployolt `address-manager-discovery` funkciót, a mentés és futtatás explicit `sync-local-places` invoke-ra állt.
+- **Invoke diagnosztika**: Új frontend helper (`invokeFunctionWithDebug`) naplózza a cél URL-t és az auth header jelenlétét, hiba esetén részletes kontextussal.
+- **URL/config hardening**: Új migráció rögzíti az `internal_edge_function_base_url` értéket a kanonikus URL-re, és dinamikusan eltávolítja az `app_runtime_config` options-t korlátozó CHECK constraint-eket.
+- **Edge request diagnosztika**: A `sync-local-places` edge function bejövő kérésnél logolja a method/url/auth-header állapotot.
