@@ -220,3 +220,10 @@ After review, rename or replace the active root changelog with this canonical st
 ### Changed
 - **Zero-limit DB policy**: az `app_runtime_config` legacy max-results check korlátainak további dinamikus eltávolítása és address-manager runtime key-ek inicializálása korlátozásmentes alapértékekkel.
 - **Admin URL state bővítés**: `tab=address-manager` és a Címkezelő szűrőállapot (`provider`, `countries`, `categories`) query paraméterből visszaállítható.
+
+## [1.6.1] — 2026-04-23
+### Fixed
+- **Címkezelő input szerkesztés javítás**: A limit mezők már nem mentenek azonnal minden leütésre, így a beírás nem ugrik vissza.
+- **Sync config mentés stabilizálás**: A mentés explicit `sync-local-places` (`save_config`) hívással történik, `SyncConfig` alakú payload-dal és NaN/null védelemmel.
+- **Mentés UX**: Új, feltűnő `Beállítások mentése` gomb `gradient-primary` stílussal, mentési spinnerrel és siker toasttal.
+- **Mátrix kijelölés state-megőrzés**: A checkbox állapot URL query paraméterben (`selected`) is megmarad tabváltáskor.
