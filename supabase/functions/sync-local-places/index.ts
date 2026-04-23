@@ -27,6 +27,12 @@ serve(async (req) => {
   const runId = crypto.randomUUID();
   const supabaseAdmin = getSupabaseAdmin(req);
 
+  console.info('[sync-local-places] request', {
+    method: req.method,
+    url: req.url,
+    hasAuthorizationHeader: Boolean(req.headers.get('authorization')),
+  });
+
   try {
     const url = new URL(req.url);
     const queryAction = url.searchParams.get('action');
