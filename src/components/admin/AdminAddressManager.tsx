@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { invokeFunctionWithDebug } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 type SyncConfig = {
   enabled: boolean;
@@ -25,16 +25,8 @@ type MatrixCell = {
   country_code: string;
   category_key: string;
   category_label: string;
-  selected: boolean;
-  status: string;
 };
 
-type DiscoveryPayload = {
-  ok: boolean;
-  matrix: MatrixCell[];
-};
-
-const DISCOVERY_QUERY_KEY = ['address-manager', 'discovery'];
 const CONFIG_QUERY_KEY = ['address-manager', 'sync-config'];
 
 const defaultSyncConfig: SyncConfig = {
@@ -47,6 +39,30 @@ const defaultSyncConfig: SyncConfig = {
   task_batch_size: 5,
 };
 
+const EUROPE_COUNTRIES = ['AT', 'DE', 'ES', 'FR', 'HU', 'IT', 'NL', 'PL'];
+const CATEGORIES = [
+  { key: 'restaurant', label: 'Étterem' },
+  { key: 'cafe', label: 'Kávézó' },
+  { key: 'bar', label: 'Bár/Pub' },
+  { key: 'museum', label: 'Múzeum' },
+  { key: 'supermarket', label: 'Szupermarket' },
+];
+
+function buildMatrix(provider: 'geoapify' | 'tomtom') {
+  const rows: MatrixCell[] = [];
+  for (const country of EUROPE_COUNTRIES) {
+    for (const category of CATEGORIES) {
+      rows.push({
+        provider,
+        country_code: country,
+        category_key: category.key,
+        category_label: category.label,
+      });
+    }
+  }
+  return rows;
+}
+
 function cellKey(cell: Pick<MatrixCell, 'provider' | 'country_code' | 'category_key'>) {
   return `${cell.provider}:${cell.country_code}:${cell.category_key}`;
 }
@@ -58,14 +74,8 @@ function parsePositiveInt(input: string, fallback: number) {
   return Math.floor(parsed);
 }
 
-async function fetchDiscovery(): Promise<DiscoveryPayload> {
-  const { data, error } = await supabase.functions.invoke('address-manager-discovery', { body: { action: 'discover' } });
-  if (error) throw error;
-  return data as DiscoveryPayload;
-}
-
 async function fetchSyncConfig(): Promise<SyncConfig> {
-  const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'get_config' } });
+  const { data, error } = await invokeFunctionWithDebug('sync-local-places', { body: { action: 'get_config' } });
   if (error) throw error;
   return {
     ...defaultSyncConfig,
@@ -89,12 +99,6 @@ export function AdminAddressManager() {
   const countryFilter = (searchParams.get('countries') || '').split(',').filter(Boolean);
   const categoryFilter = (searchParams.get('categories') || '').split(',').filter(Boolean);
 
-  const discoveryQuery = useQuery({
-    queryKey: DISCOVERY_QUERY_KEY,
-    queryFn: fetchDiscovery,
-    refetchOnWindowFocus: false,
-  });
-
   const configQuery = useQuery({
     queryKey: CONFIG_QUERY_KEY,
     queryFn: fetchSyncConfig,
@@ -113,25 +117,30 @@ export function AdminAddressManager() {
     });
   }, [configQuery.data]);
 
-  const saveConfigMutation = useMutation({
-    mutationFn: async () => {
-      const base = configQuery.data || defaultSyncConfig;
-      const config: SyncConfig = {
-        enabled: base.enabled,
-        interval_minutes: parsePositiveInt(draftConfig.interval_minutes, base.interval_minutes),
-        radius_meters: parsePositiveInt(draftConfig.radius_meters, base.radius_meters),
-        geo_limit: parsePositiveInt(draftConfig.geo_limit, base.geo_limit),
-        tomtom_limit: parsePositiveInt(draftConfig.tomtom_limit, base.tomtom_limit),
-        provider_concurrency: parsePositiveInt(draftConfig.provider_concurrency, base.provider_concurrency),
-        task_batch_size: parsePositiveInt(draftConfig.task_batch_size, base.task_batch_size),
-      };
+  const buildConfigFromDraft = (): SyncConfig => {
+    const base = configQuery.data || defaultSyncConfig;
+    return {
+      enabled: base.enabled,
+      interval_minutes: parsePositiveInt(draftConfig.interval_minutes, base.interval_minutes),
+      radius_meters: parsePositiveInt(draftConfig.radius_meters, base.radius_meters),
+      geo_limit: parsePositiveInt(draftConfig.geo_limit, base.geo_limit),
+      tomtom_limit: parsePositiveInt(draftConfig.tomtom_limit, base.tomtom_limit),
+      provider_concurrency: parsePositiveInt(draftConfig.provider_concurrency, base.provider_concurrency),
+      task_batch_size: parsePositiveInt(draftConfig.task_batch_size, base.task_batch_size),
+    };
+  };
 
-      const { data, error } = await supabase.functions.invoke('sync-local-places', {
-        body: { action: 'save_config', config },
-      });
-      if (error) throw error;
-      return data;
-    },
+  const persistConfig = async () => {
+    const config = buildConfigFromDraft();
+    const response = await invokeFunctionWithDebug('sync-local-places', {
+      body: { action: 'save_config', config },
+    });
+    if (response.error) throw response.error;
+    return response.data;
+  };
+
+  const saveConfigMutation = useMutation({
+    mutationFn: persistConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
       toast.success('Beállítások mentve');
@@ -142,59 +151,31 @@ export function AdminAddressManager() {
     },
   });
 
-  const saveSelectionMutation = useMutation({
-    mutationFn: async (updates: Array<{ provider: 'geoapify' | 'tomtom'; country_code: string; category_key: string; selected: boolean }>) => {
-      const { data, error } = await supabase.functions.invoke('address-manager-discovery', {
-        body: { action: 'save_selection', updates },
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DISCOVERY_QUERY_KEY }),
-  });
+  const matrix = useMemo(() => buildMatrix(providerFilter), [providerFilter]);
 
-  const matrix = useMemo(() => discoveryQuery.data?.matrix || [], [discoveryQuery.data?.matrix]);
-
-  useEffect(() => {
-    if (!matrix.length) return;
-    const selectedParam = searchParams.get('selected');
-    if (selectedParam) return;
-
-    const selectedKeys = matrix.filter((cell) => cell.selected).map((cell) => cellKey(cell));
-    if (!selectedKeys.length) return;
-
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('selected', selectedKeys.join(','));
-      return next;
-    }, { replace: true });
-  }, [matrix, searchParams, setSearchParams]);
-
-  const selectedKeys = useMemo(() => new Set((searchParams.get('selected') || '').split(',').filter(Boolean)), [searchParams]);
-
-  const providerMatrix = useMemo(
-    () => matrix.filter((cell) => cell.provider === providerFilter),
-    [matrix, providerFilter],
+  const selectedKeys = useMemo(
+    () => new Set((searchParams.get('selected') || '').split(',').filter(Boolean)),
+    [searchParams],
   );
 
   const countries = useMemo(
-    () => Array.from(new Set(providerMatrix.map((cell) => cell.country_code))).sort(),
-    [providerMatrix],
+    () => Array.from(new Set(matrix.map((cell) => cell.country_code))).sort(),
+    [matrix],
   );
 
   const categories = useMemo(() => {
     const map = new Map<string, string>();
-    for (const cell of providerMatrix) map.set(cell.category_key, cell.category_label);
+    for (const cell of matrix) map.set(cell.category_key, cell.category_label);
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], 'hu'));
-  }, [providerMatrix]);
+  }, [matrix]);
 
   const visibleMatrix = useMemo(() => {
-    return providerMatrix.filter((cell) => {
+    return matrix.filter((cell) => {
       const countryOk = countryFilter.length === 0 || countryFilter.includes(cell.country_code);
       const categoryOk = categoryFilter.length === 0 || categoryFilter.includes(cell.category_key);
       return countryOk && categoryOk;
     });
-  }, [providerMatrix, countryFilter, categoryFilter]);
+  }, [matrix, countryFilter, categoryFilter]);
 
   const selectedCount = visibleMatrix.filter((cell) => selectedKeys.has(cellKey(cell))).length;
   const effectiveProviderLimit = providerFilter === 'geoapify'
@@ -230,7 +211,7 @@ export function AdminAddressManager() {
 
   const selectAllForCountry = (country: string, selected: boolean) => {
     const next = new Set(selectedKeys);
-    providerMatrix.filter((cell) => cell.country_code === country).forEach((cell) => {
+    matrix.filter((cell) => cell.country_code === country).forEach((cell) => {
       const key = cellKey(cell);
       if (selected) next.add(key);
       else next.delete(key);
@@ -240,7 +221,7 @@ export function AdminAddressManager() {
 
   const selectAllForCategory = (categoryKey: string, selected: boolean) => {
     const next = new Set(selectedKeys);
-    providerMatrix.filter((cell) => cell.category_key === categoryKey).forEach((cell) => {
+    matrix.filter((cell) => cell.category_key === categoryKey).forEach((cell) => {
       const key = cellKey(cell);
       if (selected) next.add(key);
       else next.delete(key);
@@ -248,30 +229,18 @@ export function AdminAddressManager() {
     setSelectedKeys(next);
   };
 
-  const persistSelectionToBackend = async () => {
-    const updates = matrix.map((cell) => ({
-      provider: cell.provider,
-      country_code: cell.country_code,
-      category_key: cell.category_key,
-      selected: selectedKeys.has(cellKey(cell)),
-    }));
-    await saveSelectionMutation.mutateAsync(updates);
-  };
-
   const runNextChunkMutation = useMutation({
     mutationFn: async () => {
-      await persistSelectionToBackend();
-      const generator = await supabase.functions.invoke('address-manager-task-generator', { body: {} });
-      if (generator.error) throw generator.error;
-      if (!generator.data?.generated) return generator.data;
-
-      const worker = await supabase.functions.invoke('address-manager-worker', { body: { task: generator.data.task } });
-      if (worker.error) throw worker.error;
-      return worker.data;
+      await persistConfig();
+      const response = await invokeFunctionWithDebug('sync-local-places', {
+        body: { action: 'enqueue', reset: false },
+      });
+      if (response.error) throw response.error;
+      return response.data;
     },
-    onSuccess: (data: { generated?: boolean; written?: number } | undefined) => {
-      queryClient.invalidateQueries({ queryKey: DISCOVERY_QUERY_KEY });
-      toast.success(data?.generated === false ? 'Nincs futtatható chunk' : `Chunk lefutott (${data?.written ?? 0} rekord)`);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
+      toast.success('Batch futtatás kérés elküldve a sync-local-places funkciónak.');
     },
     onError: (error: unknown) => {
       const message = error instanceof Error ? error.message : 'Chunk futtatás sikertelen';
@@ -302,7 +271,9 @@ export function AdminAddressManager() {
                 {provider}
               </Button>
             ))}
-            <Button variant="outline" onClick={() => discoveryQuery.refetch()} disabled={discoveryQuery.isFetching}>Frissítés</Button>
+            <Button variant="outline" onClick={() => configQuery.refetch()} disabled={configQuery.isFetching}>
+              Konfig frissítés
+            </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
@@ -401,20 +372,23 @@ export function AdminAddressManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleMatrix.map((cell) => (
-                    <tr key={cellKey(cell)} className="border-t">
-                      <td className="p-2">{cell.country_code}</td>
-                      <td className="p-2">{cell.category_label}</td>
-                      <td className="p-2">
-                        <Checkbox checked={selectedKeys.has(cellKey(cell))} onCheckedChange={(next) => toggleCell(cell, Boolean(next))} />
-                      </td>
-                      <td className="p-2">{cell.status}</td>
-                      <td className="p-2 space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => selectAllForCountry(cell.country_code, true)}>Ország mind</Button>
-                        <Button size="sm" variant="outline" onClick={() => selectAllForCategory(cell.category_key, true)}>Kategória mind</Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {visibleMatrix.map((cell) => {
+                    const active = selectedKeys.has(cellKey(cell));
+                    return (
+                      <tr key={cellKey(cell)} className="border-t">
+                        <td className="p-2">{cell.country_code}</td>
+                        <td className="p-2">{cell.category_label}</td>
+                        <td className="p-2">
+                          <Checkbox checked={active} onCheckedChange={(next) => toggleCell(cell, Boolean(next))} />
+                        </td>
+                        <td className="p-2">{active ? 'kiválasztva' : 'inaktív'}</td>
+                        <td className="p-2 space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => selectAllForCountry(cell.country_code, true)}>Ország mind</Button>
+                          <Button size="sm" variant="outline" onClick={() => selectAllForCategory(cell.category_key, true)}>Kategória mind</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -423,7 +397,7 @@ export function AdminAddressManager() {
           <div className="flex gap-2">
             <Button onClick={() => runNextChunkMutation.mutate()} disabled={runNextChunkMutation.isPending}>
               {runNextChunkMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Mentés + következő chunk futtatása
+              Mentés + sync-local-places enqueue
             </Button>
           </div>
         </CardContent>
