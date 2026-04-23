@@ -1,0 +1,8 @@
+[functions.address-manager-discovery]
+verify_jwt = false
+
+[functions.address-manager-task-generator]
+verify_jwt = false
+
+[functions.address-manager-worker]
+verify_jwt = false
