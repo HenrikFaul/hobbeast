@@ -221,16 +221,14 @@ After review, rename or replace the active root changelog with this canonical st
 - **Zero-limit DB policy**: az `app_runtime_config` legacy max-results check korlátainak további dinamikus eltávolítása és address-manager runtime key-ek inicializálása korlátozásmentes alapértékekkel.
 - **Admin URL state bővítés**: `tab=address-manager` és a Címkezelő szűrőállapot (`provider`, `countries`, `categories`) query paraméterből visszaállítható.
 
-## [1.6.1] — 2026-04-23
-### Fixed
-- **Címkezelő input szerkesztés javítás**: A limit mezők már nem mentenek azonnal minden leütésre, így a beírás nem ugrik vissza.
-- **Sync config mentés stabilizálás**: A mentés explicit `sync-local-places` (`save_config`) hívással történik, `SyncConfig` alakú payload-dal és NaN/null védelemmel.
-- **Mentés UX**: Új, feltűnő `Beállítások mentése` gomb `gradient-primary` stílussal, mentési spinnerrel és siker toasttal.
-- **Mátrix kijelölés state-megőrzés**: A checkbox állapot URL query paraméterben (`selected`) is megmarad tabváltáskor.
-
 ## [1.6.2] — 2026-04-23
 ### Fixed
-- **Edge Function Connect Error csökkentése**: A Címkezelő nem hívja automatikusan a még nem deployolt `address-manager-discovery` funkciót, a mentés és futtatás explicit `sync-local-places` invoke-ra állt.
-- **Invoke diagnosztika**: Új frontend helper (`invokeFunctionWithDebug`) naplózza a cél URL-t és az auth header jelenlétét, hiba esetén részletes kontextussal.
-- **URL/config hardening**: Új migráció rögzíti az `internal_edge_function_base_url` értéket a kanonikus URL-re, és dinamikusan eltávolítja az `app_runtime_config` options-t korlátozó CHECK constraint-eket.
-- **Edge request diagnosztika**: A `sync-local-places` edge function bejövő kérésnél logolja a method/url/auth-header állapotot.
+- **Address Manager frontend stabilizálás**: A Címkezelő frontend már nem hívja automatikusan a még nem deployolt `address-manager-discovery` edge functiont, így megszűnik a 404 / `Failed to fetch` zaj.
+- **Stabil mentési/futtatási útvonal**: A mentés és a batch indítás a stabil `sync-local-places` endpointon történik (`get_config`, `save_config`, `enqueue`).
+- **NaN/null-biztos config mentés**: A Címkezelő mentési payload `parsePositiveInt` + fallback logikával védett, így nem küld invalid számokat.
+- **Mátrix kijelölés state-megőrzés**: A kijelölés URL query paraméterben (`selected`) marad meg, így tabváltáskor sem vész el.
+
+### Diagnostics / connectivity
+- **Invoke diagnosztikai irány**: A kliensoldali invoke hívásoknál a cél URL, Authorization Bearer jelenlét és hiba/body kontextus naplózható, ami gyorsítja az edge connectivity hibák feltárását.
+- **Edge connectivity hardening irány**: Az `internal_edge_function_base_url` normalizálása, a slash-mentes fix Supabase URL használata és a JSON `CHECK` korlátok oldása része a stabil kapcsolódási stratégiának.
+- **sync-local-places request diagnosztika**: A request oldali method/url/auth-header jelenlét logolása bevezethető úgy, hogy az `OPTIONS` / CORS ág változatlan maradjon.
