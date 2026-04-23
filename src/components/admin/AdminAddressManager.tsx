@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { invokeFunctionWithDebug } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,62 +10,78 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type SyncConfig = {
-  enabled: boolean;
-  interval_minutes: number;
-  radius_meters: number;
-  geo_limit: number;
+type ProviderKey = 'geoapify' | 'tomtom';
+
+type AddressManagerLimits = {
+  geoapify_limit: number;
   tomtom_limit: number;
-  provider_concurrency: number;
-  task_batch_size: number;
+  radius_meters: number;
+  worker_chunk_size: number;
+  max_parallel_workers: number;
 };
 
-type MatrixCell = {
-  provider: 'geoapify' | 'tomtom';
+type DiscoveryCell = {
+  id?: string;
+  provider: ProviderKey;
   country_code: string;
   category_key: string;
   category_label: string;
+  selected: boolean;
+  status: string;
+  cursor: Record<string, unknown>;
+  stats: Record<string, unknown>;
+  last_error?: string | null;
+  last_run_started_at?: string | null;
+  last_run_completed_at?: string | null;
+  updated_at?: string | null;
 };
 
-const CONFIG_QUERY_KEY = ['address-manager', 'sync-config'];
+type DiscoveryStateResponse = {
+  ok: boolean;
+  limits: AddressManagerLimits;
+  matrix: DiscoveryCell[];
+};
 
-const defaultSyncConfig: SyncConfig = {
-  enabled: true,
-  interval_minutes: 15,
-  radius_meters: 30000,
-  geo_limit: 1000,
+type RawVenueRow = {
+  id: string;
+  provider: ProviderKey;
+  provider_venue_id: string;
+  country_code: string | null;
+  category_key: string | null;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  postal_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  website: string | null;
+  open_now: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  discovered_at: string;
+  updated_at: string;
+};
+
+type CatalogResponse = {
+  ok: boolean;
+  items: RawVenueRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+const STATE_QUERY_KEY = ['address-manager', 'discovery-state'];
+const PAGE_SIZE = 25;
+
+const defaultLimits: AddressManagerLimits = {
+  geoapify_limit: 1000,
   tomtom_limit: 1000,
-  provider_concurrency: 2,
-  task_batch_size: 5,
+  radius_meters: 30000,
+  worker_chunk_size: 5,
+  max_parallel_workers: 2,
 };
-
-const EUROPE_COUNTRIES = ['AT', 'DE', 'ES', 'FR', 'HU', 'IT', 'NL', 'PL'];
-const CATEGORIES = [
-  { key: 'restaurant', label: 'Étterem' },
-  { key: 'cafe', label: 'Kávézó' },
-  { key: 'bar', label: 'Bár/Pub' },
-  { key: 'museum', label: 'Múzeum' },
-  { key: 'supermarket', label: 'Szupermarket' },
-];
-
-function buildMatrix(provider: 'geoapify' | 'tomtom') {
-  const rows: MatrixCell[] = [];
-  for (const country of EUROPE_COUNTRIES) {
-    for (const category of CATEGORIES) {
-      rows.push({
-        provider,
-        country_code: country,
-        category_key: category.key,
-        category_label: category.label,
-      });
-    }
-  }
-  return rows;
-}
-
-function cellKey(cell: Pick<MatrixCell, 'provider' | 'country_code' | 'category_key'>) {
-  return `${cell.provider}:${cell.country_code}:${cell.category_key}`;
-}
 
 function parsePositiveInt(input: string, fallback: number) {
   const parsed = Number(input);
@@ -74,88 +90,83 @@ function parsePositiveInt(input: string, fallback: number) {
   return Math.floor(parsed);
 }
 
-async function fetchSyncConfig(): Promise<SyncConfig> {
-  const { data, error } = await invokeFunctionWithDebug('sync-local-places', { body: { action: 'get_config' } });
+function formatDateTime(value?: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('hu-HU');
+}
+
+async function fetchDiscoveryState(): Promise<DiscoveryStateResponse> {
+  const { data, error } = await invokeFunctionWithDebug<DiscoveryStateResponse>('address-manager-discovery', {
+    body: { action: 'get_state' },
+  });
   if (error) throw error;
-  return {
-    ...defaultSyncConfig,
-    ...((data?.config || {}) as Partial<SyncConfig>),
-  };
+  if (!data?.ok) throw new Error('A discovery állapot lekérdezése sikertelen.');
+  return data;
+}
+
+async function fetchCatalog(payload: {
+  provider: ProviderKey;
+  countries: string[];
+  categories: string[];
+  search: string;
+  page: number;
+  pageSize: number;
+}): Promise<CatalogResponse> {
+  const { data, error } = await invokeFunctionWithDebug<CatalogResponse>('address-manager-discovery', {
+    body: {
+      action: 'get_catalog',
+      provider: payload.provider,
+      countries: payload.countries,
+      categories: payload.categories,
+      search: payload.search,
+      page: payload.page,
+      pageSize: payload.pageSize,
+    },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error('A nyers venue katalógus lekérdezése sikertelen.');
+  return data;
 }
 
 export function AdminAddressManager() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [draftConfig, setDraftConfig] = useState<Record<string, string>>({
-    geo_limit: String(defaultSyncConfig.geo_limit),
-    tomtom_limit: String(defaultSyncConfig.tomtom_limit),
-    radius_meters: String(defaultSyncConfig.radius_meters),
-    provider_concurrency: String(defaultSyncConfig.provider_concurrency),
-    task_batch_size: String(defaultSyncConfig.task_batch_size),
-    interval_minutes: String(defaultSyncConfig.interval_minutes),
+  const [draftLimits, setDraftLimits] = useState<Record<string, string>>({
+    geoapify_limit: String(defaultLimits.geoapify_limit),
+    tomtom_limit: String(defaultLimits.tomtom_limit),
+    radius_meters: String(defaultLimits.radius_meters),
+    worker_chunk_size: String(defaultLimits.worker_chunk_size),
+    max_parallel_workers: String(defaultLimits.max_parallel_workers),
   });
 
-  const providerFilter = (searchParams.get('provider') || 'geoapify') as 'geoapify' | 'tomtom';
+  const providerFilter = (searchParams.get('provider') || 'geoapify') as ProviderKey;
   const countryFilter = (searchParams.get('countries') || '').split(',').filter(Boolean);
   const categoryFilter = (searchParams.get('categories') || '').split(',').filter(Boolean);
+  const searchTerm = searchParams.get('catalogSearch') || '';
+  const page = Math.max(1, Number(searchParams.get('catalogPage') || '1'));
 
-  const configQuery = useQuery({
-    queryKey: CONFIG_QUERY_KEY,
-    queryFn: fetchSyncConfig,
+  const stateQuery = useQuery({
+    queryKey: STATE_QUERY_KEY,
+    queryFn: fetchDiscoveryState,
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
-    if (!configQuery.data) return;
-    setDraftConfig({
-      geo_limit: String(configQuery.data.geo_limit),
-      tomtom_limit: String(configQuery.data.tomtom_limit),
-      radius_meters: String(configQuery.data.radius_meters),
-      provider_concurrency: String(configQuery.data.provider_concurrency),
-      task_batch_size: String(configQuery.data.task_batch_size),
-      interval_minutes: String(configQuery.data.interval_minutes),
+    if (!stateQuery.data?.limits) return;
+    setDraftLimits({
+      geoapify_limit: String(stateQuery.data.limits.geoapify_limit),
+      tomtom_limit: String(stateQuery.data.limits.tomtom_limit),
+      radius_meters: String(stateQuery.data.limits.radius_meters),
+      worker_chunk_size: String(stateQuery.data.limits.worker_chunk_size),
+      max_parallel_workers: String(stateQuery.data.limits.max_parallel_workers),
     });
-  }, [configQuery.data]);
+  }, [stateQuery.data]);
 
-  const buildConfigFromDraft = (): SyncConfig => {
-    const base = configQuery.data || defaultSyncConfig;
-    return {
-      enabled: base.enabled,
-      interval_minutes: parsePositiveInt(draftConfig.interval_minutes, base.interval_minutes),
-      radius_meters: parsePositiveInt(draftConfig.radius_meters, base.radius_meters),
-      geo_limit: parsePositiveInt(draftConfig.geo_limit, base.geo_limit),
-      tomtom_limit: parsePositiveInt(draftConfig.tomtom_limit, base.tomtom_limit),
-      provider_concurrency: parsePositiveInt(draftConfig.provider_concurrency, base.provider_concurrency),
-      task_batch_size: parsePositiveInt(draftConfig.task_batch_size, base.task_batch_size),
-    };
-  };
-
-  const persistConfig = async () => {
-    const config = buildConfigFromDraft();
-    const response = await invokeFunctionWithDebug('sync-local-places', {
-      body: { action: 'save_config', config },
-    });
-    if (response.error) throw response.error;
-    return response.data;
-  };
-
-  const saveConfigMutation = useMutation({
-    mutationFn: persistConfig,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
-      toast.success('Beállítások mentve');
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Mentés sikertelen';
-      toast.error(message);
-    },
-  });
-
-  const matrix = useMemo(() => buildMatrix(providerFilter), [providerFilter]);
-
-  const selectedKeys = useMemo(
-    () => new Set((searchParams.get('selected') || '').split(',').filter(Boolean)),
-    [searchParams],
+  const matrix = useMemo(
+    () => (stateQuery.data?.matrix || []).filter((cell) => cell.provider === providerFilter),
+    [stateQuery.data?.matrix, providerFilter],
   );
 
   const countries = useMemo(
@@ -177,82 +188,197 @@ export function AdminAddressManager() {
     });
   }, [matrix, countryFilter, categoryFilter]);
 
-  const selectedCount = visibleMatrix.filter((cell) => selectedKeys.has(cellKey(cell))).length;
-  const effectiveProviderLimit = providerFilter === 'geoapify'
-    ? parsePositiveInt(draftConfig.geo_limit, configQuery.data?.geo_limit || defaultSyncConfig.geo_limit)
-    : parsePositiveInt(draftConfig.tomtom_limit, configQuery.data?.tomtom_limit || defaultSyncConfig.tomtom_limit);
-  const expectedRows = Math.max(0, selectedCount * effectiveProviderLimit);
+  const selectedCount = visibleMatrix.filter((cell) => cell.selected).length;
+
+  const catalogQuery = useQuery({
+    queryKey: ['address-manager', 'raw-venues', providerFilter, countryFilter.join(','), categoryFilter.join(','), searchTerm, page],
+    queryFn: () => fetchCatalog({
+      provider: providerFilter,
+      countries: countryFilter,
+      categories: categoryFilter,
+      search: searchTerm,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    refetchOnWindowFocus: false,
+  });
+
+  const buildLimitsFromDraft = (): AddressManagerLimits => {
+    const base = stateQuery.data?.limits || defaultLimits;
+    return {
+      geoapify_limit: parsePositiveInt(draftLimits.geoapify_limit, base.geoapify_limit),
+      tomtom_limit: parsePositiveInt(draftLimits.tomtom_limit, base.tomtom_limit),
+      radius_meters: parsePositiveInt(draftLimits.radius_meters, base.radius_meters),
+      worker_chunk_size: parsePositiveInt(draftLimits.worker_chunk_size, base.worker_chunk_size),
+      max_parallel_workers: parsePositiveInt(draftLimits.max_parallel_workers, base.max_parallel_workers),
+    };
+  };
+
+  const saveLimitsMutation = useMutation({
+    mutationFn: async () => {
+      const limits = buildLimitsFromDraft();
+      const { data, error } = await invokeFunctionWithDebug<DiscoveryStateResponse>('address-manager-discovery', {
+        body: { action: 'save_limits', limits },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error('A limitek mentése sikertelen.');
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(STATE_QUERY_KEY, data);
+      toast.success('Address Manager limitek elmentve.');
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Mentés sikertelen.');
+    },
+  });
+
+  const selectionMutation = useMutation({
+    mutationFn: async (updates: Array<{ provider: ProviderKey; country_code: string; category_key: string; selected: boolean }>) => {
+      const { data, error } = await invokeFunctionWithDebug<DiscoveryStateResponse>('address-manager-discovery', {
+        body: { action: 'save_selection', updates },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error('A kijelölés mentése sikertelen.');
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(STATE_QUERY_KEY, data);
+      queryClient.invalidateQueries({ queryKey: ['address-manager', 'raw-venues'] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'A kijelölés mentése sikertelen.');
+    },
+  });
+
+  const runNextMutation = useMutation({
+    mutationFn: async () => {
+      const limits = buildLimitsFromDraft();
+      const saveResponse = await invokeFunctionWithDebug<DiscoveryStateResponse>('address-manager-discovery', {
+        body: { action: 'save_limits', limits },
+      });
+      if (saveResponse.error) throw saveResponse.error;
+
+      const generatorResponse = await invokeFunctionWithDebug<any>('address-manager-task-generator', { body: {} });
+      if (generatorResponse.error) throw generatorResponse.error;
+      if (!generatorResponse.data?.ok) {
+        throw new Error(generatorResponse.data?.error || 'Task generálás sikertelen.');
+      }
+      if (!generatorResponse.data?.generated) {
+        return { generated: false, reason: generatorResponse.data?.reason || 'done' };
+      }
+
+      const workerResponse = await invokeFunctionWithDebug<any>('address-manager-worker', {
+        body: { task: generatorResponse.data.task },
+      });
+      if (workerResponse.error) throw workerResponse.error;
+      if (!workerResponse.data?.ok) {
+        throw new Error(workerResponse.data?.error || 'Worker futás sikertelen.');
+      }
+
+      return {
+        generated: true,
+        written: Number(workerResponse.data?.written || 0),
+        task: generatorResponse.data.task,
+      };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: STATE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['address-manager', 'raw-venues'] });
+      if (!data.generated) {
+        const reasonMap: Record<string, string> = {
+          done: 'Nincs több kiválasztott vagy futtatható mátrix-cella.',
+          no_free_worker_slots: 'Most nincs szabad worker slot.',
+        };
+        toast.info(reasonMap[data.reason] || `Nem indult új task: ${data.reason}`);
+        return;
+      }
+      toast.success(`Worker lefutott, ${data.written} rekord került a raw_venues táblába.`);
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'A worker indítása sikertelen.');
+    },
+  });
 
   const setFilterArray = (key: 'countries' | 'categories', values: string[]) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (values.length === 0) next.delete(key);
       else next.set(key, values.join(','));
+      next.set('catalogPage', '1');
       return next;
     }, { replace: true });
   };
 
-  const setSelectedKeys = (nextSelected: Set<string>) => {
+  const setProvider = (provider: ProviderKey) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (nextSelected.size === 0) next.delete('selected');
-      else next.set('selected', Array.from(nextSelected).join(','));
+      next.set('provider', provider);
+      next.set('catalogPage', '1');
       return next;
     }, { replace: true });
   };
 
-  const toggleCell = (cell: MatrixCell, selected: boolean) => {
-    const next = new Set(selectedKeys);
-    const key = cellKey(cell);
-    if (selected) next.add(key);
-    else next.delete(key);
-    setSelectedKeys(next);
+  const setCatalogSearch = (value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value.trim()) next.set('catalogSearch', value.trim());
+      else next.delete('catalogSearch');
+      next.set('catalogPage', '1');
+      return next;
+    }, { replace: true });
+  };
+
+  const setCatalogPage = (nextPage: number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('catalogPage', String(Math.max(1, nextPage)));
+      return next;
+    }, { replace: true });
+  };
+
+  const toggleCell = (cell: DiscoveryCell, selected: boolean) => {
+    selectionMutation.mutate([
+      {
+        provider: cell.provider,
+        country_code: cell.country_code,
+        category_key: cell.category_key,
+        selected,
+      },
+    ]);
   };
 
   const selectAllForCountry = (country: string, selected: boolean) => {
-    const next = new Set(selectedKeys);
-    matrix.filter((cell) => cell.country_code === country).forEach((cell) => {
-      const key = cellKey(cell);
-      if (selected) next.add(key);
-      else next.delete(key);
-    });
-    setSelectedKeys(next);
+    const updates = matrix
+      .filter((cell) => cell.country_code === country)
+      .map((cell) => ({
+        provider: cell.provider,
+        country_code: cell.country_code,
+        category_key: cell.category_key,
+        selected,
+      }));
+    selectionMutation.mutate(updates);
   };
 
   const selectAllForCategory = (categoryKey: string, selected: boolean) => {
-    const next = new Set(selectedKeys);
-    matrix.filter((cell) => cell.category_key === categoryKey).forEach((cell) => {
-      const key = cellKey(cell);
-      if (selected) next.add(key);
-      else next.delete(key);
-    });
-    setSelectedKeys(next);
+    const updates = matrix
+      .filter((cell) => cell.category_key === categoryKey)
+      .map((cell) => ({
+        provider: cell.provider,
+        country_code: cell.country_code,
+        category_key: cell.category_key,
+        selected,
+      }));
+    selectionMutation.mutate(updates);
   };
 
-  const runNextChunkMutation = useMutation({
-    mutationFn: async () => {
-      await persistConfig();
-      const response = await invokeFunctionWithDebug('sync-local-places', {
-        body: { action: 'enqueue', reset: false },
-      });
-      if (response.error) throw response.error;
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
-      toast.success('Batch futtatás kérés elküldve a sync-local-places funkciónak.');
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Chunk futtatás sikertelen';
-      toast.error(message);
-    },
-  });
+  const totalCatalogPages = Math.max(1, Math.ceil((catalogQuery.data?.total || 0) / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Címkezelő — Discovery & Mátrix</CardTitle>
+          <CardTitle>Címkezelő — új discovery mátrix + raw_venues katalógus</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -260,62 +386,60 @@ export function AdminAddressManager() {
               <Button
                 key={provider}
                 variant={providerFilter === provider ? 'default' : 'outline'}
-                onClick={() => {
-                  setSearchParams((prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.set('provider', provider);
-                    return next;
-                  }, { replace: true });
-                }}
+                onClick={() => setProvider(provider)}
               >
                 {provider}
               </Button>
             ))}
-            <Button variant="outline" onClick={() => configQuery.refetch()} disabled={configQuery.isFetching}>
-              Konfig frissítés
+            <Button variant="outline" onClick={() => {
+              queryClient.invalidateQueries({ queryKey: STATE_QUERY_KEY });
+              queryClient.invalidateQueries({ queryKey: ['address-manager', 'raw-venues'] });
+            }} disabled={stateQuery.isFetching || catalogQuery.isFetching}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Frissítés
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div>
               <Label>Geoapify limit</Label>
-              <Input type="number" value={draftConfig.geo_limit} onChange={(e) => setDraftConfig((prev) => ({ ...prev, geo_limit: e.target.value }))} />
+              <Input type="number" value={draftLimits.geoapify_limit} onChange={(e) => setDraftLimits((prev) => ({ ...prev, geoapify_limit: e.target.value }))} />
             </div>
             <div>
               <Label>TomTom limit</Label>
-              <Input type="number" value={draftConfig.tomtom_limit} onChange={(e) => setDraftConfig((prev) => ({ ...prev, tomtom_limit: e.target.value }))} />
+              <Input type="number" value={draftLimits.tomtom_limit} onChange={(e) => setDraftLimits((prev) => ({ ...prev, tomtom_limit: e.target.value }))} />
             </div>
             <div>
               <Label>Radius (m)</Label>
-              <Input type="number" value={draftConfig.radius_meters} onChange={(e) => setDraftConfig((prev) => ({ ...prev, radius_meters: e.target.value }))} />
+              <Input type="number" value={draftLimits.radius_meters} onChange={(e) => setDraftLimits((prev) => ({ ...prev, radius_meters: e.target.value }))} />
             </div>
             <div>
-              <Label>Provider concurrency</Label>
-              <Input type="number" value={draftConfig.provider_concurrency} onChange={(e) => setDraftConfig((prev) => ({ ...prev, provider_concurrency: e.target.value }))} />
+              <Label>Worker chunk size</Label>
+              <Input type="number" value={draftLimits.worker_chunk_size} onChange={(e) => setDraftLimits((prev) => ({ ...prev, worker_chunk_size: e.target.value }))} />
             </div>
             <div>
-              <Label>Task batch size</Label>
-              <Input type="number" value={draftConfig.task_batch_size} onChange={(e) => setDraftConfig((prev) => ({ ...prev, task_batch_size: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Interval (perc)</Label>
-              <Input type="number" value={draftConfig.interval_minutes} onChange={(e) => setDraftConfig((prev) => ({ ...prev, interval_minutes: e.target.value }))} />
+              <Label>Párhuzamos worker max</Label>
+              <Input type="number" value={draftLimits.max_parallel_workers} onChange={(e) => setDraftLimits((prev) => ({ ...prev, max_parallel_workers: e.target.value }))} />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button className="gradient-primary text-primary-foreground border-0" onClick={() => saveConfigMutation.mutate()} disabled={saveConfigMutation.isPending}>
-              {saveConfigMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Beállítások mentése
+            <Button className="gradient-primary text-primary-foreground border-0" onClick={() => saveLimitsMutation.mutate()} disabled={saveLimitsMutation.isPending}>
+              {saveLimitsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Limitek mentése
+            </Button>
+            <Button onClick={() => runNextMutation.mutate()} disabled={runNextMutation.isPending || selectionMutation.isPending}>
+              {runNextMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Következő worker futtatása
             </Button>
             <div className="rounded border px-3 py-2 text-sm">
-              Kiválasztott cellák: <strong>{selectedCount}</strong> · Várható rekord/chunk: <strong>{expectedRows}</strong>
+              Kiválasztott látható cellák: <strong>{selectedCount}</strong>
             </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
             <div className="space-y-3">
-              <p className="text-sm font-medium">Ország szűrő (URL state)</p>
+              <p className="text-sm font-medium">Ország szűrő</p>
               <Button variant="outline" size="sm" onClick={() => setFilterArray('countries', [])}>Minden ország</Button>
               <div className="max-h-60 overflow-auto space-y-2 border rounded p-2">
                 {countries.map((country) => {
@@ -337,7 +461,7 @@ export function AdminAddressManager() {
                 })}
               </div>
 
-              <p className="text-sm font-medium">Kategória szűrő (URL state)</p>
+              <p className="text-sm font-medium">Kategória szűrő</p>
               <Button variant="outline" size="sm" onClick={() => setFilterArray('categories', [])}>Minden kategória</Button>
               <div className="max-h-60 overflow-auto space-y-2 border rounded p-2">
                 {categories.map(([key, label]) => {
@@ -366,22 +490,29 @@ export function AdminAddressManager() {
                   <tr className="bg-muted/40">
                     <th className="p-2 text-left">Ország</th>
                     <th className="p-2 text-left">Kategória</th>
-                    <th className="p-2 text-left">Aktív</th>
+                    <th className="p-2 text-left">Kiválasztva</th>
                     <th className="p-2 text-left">Állapot</th>
+                    <th className="p-2 text-left">Utolsó futás</th>
+                    <th className="p-2 text-left">Utolsó stat</th>
                     <th className="p-2 text-left">Akciók</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleMatrix.map((cell) => {
-                    const active = selectedKeys.has(cellKey(cell));
+                    const fetchedRows = typeof cell.stats?.fetched_rows === 'number' ? cell.stats.fetched_rows : '—';
                     return (
-                      <tr key={cellKey(cell)} className="border-t">
+                      <tr key={`${cell.provider}:${cell.country_code}:${cell.category_key}`} className="border-t align-top">
                         <td className="p-2">{cell.country_code}</td>
                         <td className="p-2">{cell.category_label}</td>
                         <td className="p-2">
-                          <Checkbox checked={active} onCheckedChange={(next) => toggleCell(cell, Boolean(next))} />
+                          <Checkbox checked={cell.selected} onCheckedChange={(next) => toggleCell(cell, Boolean(next))} />
                         </td>
-                        <td className="p-2">{active ? 'kiválasztva' : 'inaktív'}</td>
+                        <td className="p-2">
+                          <div>{cell.status}</div>
+                          {cell.last_error ? <div className="text-xs text-destructive mt-1">{cell.last_error}</div> : null}
+                        </td>
+                        <td className="p-2">{formatDateTime(cell.last_run_completed_at || cell.last_run_started_at || cell.updated_at)}</td>
+                        <td className="p-2">{String(fetchedRows)}</td>
                         <td className="p-2 space-x-2">
                           <Button size="sm" variant="outline" onClick={() => selectAllForCountry(cell.country_code, true)}>Ország mind</Button>
                           <Button size="sm" variant="outline" onClick={() => selectAllForCategory(cell.category_key, true)}>Kategória mind</Button>
@@ -389,16 +520,81 @@ export function AdminAddressManager() {
                       </tr>
                     );
                   })}
+                  {visibleMatrix.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-4 text-center text-muted-foreground">Nincs a szűrésnek megfelelő mátrix sor.</td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="flex gap-2">
-            <Button onClick={() => runNextChunkMutation.mutate()} disabled={runNextChunkMutation.isPending}>
-              {runNextChunkMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Mentés + sync-local-places enqueue
-            </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle>raw_venues tartalom</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              className="max-w-sm"
+              placeholder="Keresés név / cím / város szerint"
+              defaultValue={searchTerm}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setCatalogSearch((e.target as HTMLInputElement).value);
+              }}
+            />
+            <Button variant="outline" onClick={() => setCatalogSearch('')}>Keresés törlése</Button>
+            <div className="rounded border px-3 py-2 text-sm">
+              Összes rekord a szűrésben: <strong>{catalogQuery.data?.total ?? 0}</strong>
+            </div>
+          </div>
+
+          <div className="overflow-auto rounded border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  <th className="p-2 text-left">Név</th>
+                  <th className="p-2 text-left">Cím</th>
+                  <th className="p-2 text-left">Város</th>
+                  <th className="p-2 text-left">Ország</th>
+                  <th className="p-2 text-left">Kategória</th>
+                  <th className="p-2 text-left">Provider</th>
+                  <th className="p-2 text-left">Frissítve</th>
+                </tr>
+              </thead>
+              <tbody>
+                {catalogQuery.isLoading ? (
+                  <tr><td colSpan={7} className="p-4 text-center"><Loader2 className="inline h-4 w-4 animate-spin" /></td></tr>
+                ) : (catalogQuery.data?.items || []).length === 0 ? (
+                  <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nincs rekord a raw_venues táblában a jelenlegi szűrésre.</td></tr>
+                ) : (
+                  (catalogQuery.data?.items || []).map((row) => (
+                    <tr key={row.id} className="border-t align-top">
+                      <td className="p-2">{row.name || '—'}</td>
+                      <td className="p-2">{row.address || '—'}</td>
+                      <td className="p-2">{row.city || row.district || '—'}</td>
+                      <td className="p-2">{row.country_code || '—'}</td>
+                      <td className="p-2">{row.category_key || '—'}</td>
+                      <td className="p-2">{row.provider}</td>
+                      <td className="p-2">{formatDateTime(row.updated_at)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              Oldal <strong>{page}</strong> / <strong>{totalCatalogPages}</strong>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setCatalogPage(page - 1)}>Előző</Button>
+              <Button variant="outline" disabled={page >= totalCatalogPages} onClick={() => setCatalogPage(page + 1)}>Következő</Button>
+            </div>
           </div>
         </CardContent>
       </Card>
