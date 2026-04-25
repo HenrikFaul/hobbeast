@@ -330,7 +330,12 @@ export function AdminAddressManager() {
     },
     onSuccess: (data) => {
       setSelfTest(data);
-      const ok = data.providerResults.every((p) => p.ok);
+      const list = Array.isArray(data?.providerResults) ? data.providerResults : [];
+      if (list.length === 0) {
+        toast.message('A backend nem küldött providerResults mezőt — valószínűleg a régi address-manager-discovery fut. Telepítsd újra a Supabase functionöket.');
+        return;
+      }
+      const ok = list.every((p) => p.ok);
       if (ok) toast.success('Mindkét provider elérhető');
       else toast.error('Legalább egy provider hibát adott — lásd a tesztpanelt');
     },
@@ -414,13 +419,21 @@ export function AdminAddressManager() {
           {selfTest ? (
             <div className="rounded border p-3 text-sm space-y-2">
               <div className="font-medium">Provider self-test eredmény</div>
-              <div className="text-xs text-muted-foreground">
-                Service role: {selfTest.env.hasServiceRole ? 'OK' : 'HIÁNYZIK'} · Geoapify key: {selfTest.env.hasGeoapifyKey ? 'OK' : 'HIÁNYZIK'} · TomTom key: {selfTest.env.hasTomTomKey ? 'OK' : 'HIÁNYZIK'}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Provider page caps — Geoapify: {selfTest.pageCaps.geoapify} / TomTom: {selfTest.pageCaps.tomtom}
-              </div>
-              {selfTest.providerResults.map((r) => (
+              {selfTest.env ? (
+                <div className="text-xs text-muted-foreground">
+                  Service role: {selfTest.env.hasServiceRole ? 'OK' : 'HIÁNYZIK'} · Geoapify key: {selfTest.env.hasGeoapifyKey ? 'OK' : 'HIÁNYZIK'} · TomTom key: {selfTest.env.hasTomTomKey ? 'OK' : 'HIÁNYZIK'}
+                </div>
+              ) : (
+                <div className="text-xs text-amber-700">
+                  A backend nem küldött <code>env</code> mezőt — valószínűleg a régi address-manager-discovery edge function fut. Telepítsd újra (<code>supabase functions deploy address-manager-discovery</code>).
+                </div>
+              )}
+              {selfTest.pageCaps ? (
+                <div className="text-xs text-muted-foreground">
+                  Provider page caps — Geoapify: {selfTest.pageCaps.geoapify} / TomTom: {selfTest.pageCaps.tomtom}
+                </div>
+              ) : null}
+              {(selfTest.providerResults || []).map((r) => (
                 <div key={r.provider} className="flex items-start gap-2">
                   {r.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600" /> : <XCircle className="h-4 w-4 mt-0.5 text-destructive" />}
                   <div>
@@ -429,6 +442,11 @@ export function AdminAddressManager() {
                   </div>
                 </div>
               ))}
+              {!selfTest.providerResults || selfTest.providerResults.length === 0 ? (
+                <div className="text-xs text-amber-700">
+                  A backend nem küldött <code>providerResults</code> mezőt — telepítsd újra a Supabase functionöket.
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -582,10 +600,10 @@ export function AdminAddressManager() {
                         ) : null}
                       </td>
                       <td className="p-2 text-xs text-muted-foreground">
-                        <div>fetched_rows: {Number(cell.stats?.fetched_rows || 0)}</div>
-                        <div>tile: {Number(cell.stats?.tile_index || 0)} / {Number(cell.stats?.total_tiles || 0)}</div>
-                        {cell.stats?.last_chunk_written !== undefined ? (
-                          <div>last chunk: +{Number(cell.stats?.last_chunk_written || 0)} ({Number(cell.stats?.last_chunk_tiles || 0)} tile)</div>
+                        <div>fetched_rows: {Number((cell.stats || {}).fetched_rows || 0)}</div>
+                        <div>tile: {Number((cell.stats || {}).tile_index || 0)} / {Number((cell.stats || {}).total_tiles || 0)}</div>
+                        {(cell.stats || {}).last_chunk_written !== undefined ? (
+                          <div>last chunk: +{Number((cell.stats || {}).last_chunk_written || 0)} ({Number((cell.stats || {}).last_chunk_tiles || 0)} tile)</div>
                         ) : null}
                       </td>
                       <td className="p-2 space-x-2">

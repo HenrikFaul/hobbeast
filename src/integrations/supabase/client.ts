@@ -9,7 +9,7 @@ import type { Database } from './types';
  * Supabase project via the VITE_* frontend environment variables.
  */
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_PUBLISHABLE_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -31,18 +31,32 @@ export async function invokeFunctionWithDebug<T = unknown>(
     data: { session },
   } = await supabase.auth.getSession();
 
-  const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  // The Supabase function gateway always requires the project anon key in
+  // the `apikey` header for routing — even when the function itself has
+  // verify_jwt = false. The Authorization header carries the user JWT
+  // (used for RLS context) when present.
+  const baseHeaders: Record<string, string> = {};
+  if (SUPABASE_PUBLISHABLE_KEY) baseHeaders.apikey = SUPABASE_PUBLISHABLE_KEY;
+  if (session?.access_token) {
+    baseHeaders.Authorization = `Bearer ${session.access_token}`;
+  } else if (SUPABASE_PUBLISHABLE_KEY) {
+    // Fall back to the publishable key so the gateway never rejects on
+    // missing Authorization (e.g. anonymous admin smoke checks).
+    baseHeaders.Authorization = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
+  }
+
   console.info('[EdgeInvoke] invoking', {
     functionName,
     requestUrl,
-    hasAuthorizationHeader: Boolean(session?.access_token),
+    hasAuthorizationHeader: Boolean(baseHeaders.Authorization),
+    hasApikeyHeader: Boolean(baseHeaders.apikey),
   });
 
   const result = await supabase.functions.invoke<T>(functionName, {
     ...options,
     headers: {
+      ...baseHeaders,
       ...(options?.headers || {}),
-      ...authHeader,
     },
   });
 
