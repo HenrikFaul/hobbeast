@@ -13,13 +13,23 @@ function json(data: unknown, status = 200) {
 
 async function callInternalFunction<T>(req: Request, functionName: string, body: Record<string, unknown>) {
   const baseUrl = resolveInternalSupabaseUrl(req);
+
+  const authorization = req.headers.get('authorization') ?? '';
+  const apikey =
+    req.headers.get('apikey') ??
+    Deno.env.get('SUPABASE_ANON_KEY') ??
+    '';
+
   const res = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(authorization ? { Authorization: authorization } : {}),
+      ...(apikey ? { apikey } : {}),
     },
     body: JSON.stringify(body),
   });
+
   const payload = await res.json().catch(() => ({} as T));
   if (!res.ok) {
     throw new Error(`Internal function ${functionName} failed: ${res.status} ${JSON.stringify(payload)}`);
