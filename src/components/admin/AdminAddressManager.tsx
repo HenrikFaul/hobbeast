@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Wand2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { invokeFunctionWithDebug } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,8 @@ type AddressManagerLimits = {
   radius_meters: number;
   worker_chunk_size: number;
   max_parallel_workers: number;
+  worker_time_budget_ms: number;
+  worker_max_pages_per_tile: number;
 };
 
 type DiscoveryCell = {
@@ -38,6 +40,8 @@ type Summary = {
   totalRawVenues: number;
   totalSelectedCells: number;
   totalCompletedCells: number;
+  totalRunningCells?: number;
+  totalErroredCells?: number;
 };
 
 type VenueRow = {
@@ -76,12 +80,29 @@ type VenueListResponse = {
   error?: string;
 };
 
+type SelfTestResponse = {
+  ok: boolean;
+  providerResults: Array<{
+    provider: ProviderKey;
+    ok: boolean;
+    status: number | null;
+    sampleCount: number;
+    error?: string;
+    endpoint: string;
+  }>;
+  env: { hasGeoapifyKey: boolean; hasTomTomKey: boolean; hasServiceRole: boolean };
+  pageCaps: { geoapify: number; tomtom: number };
+  error?: string;
+};
+
 const DEFAULT_LIMITS: AddressManagerLimits = {
   geoapify_limit: 1000,
   tomtom_limit: 1000,
   radius_meters: 30000,
   worker_chunk_size: 5,
   max_parallel_workers: 2,
+  worker_time_budget_ms: 35_000,
+  worker_max_pages_per_tile: 20,
 };
 
 const DISCOVERY_QUERY_KEY = ['address-manager', 'discovery'];
@@ -141,7 +162,10 @@ export function AdminAddressManager() {
     radius_meters: String(DEFAULT_LIMITS.radius_meters),
     worker_chunk_size: String(DEFAULT_LIMITS.worker_chunk_size),
     max_parallel_workers: String(DEFAULT_LIMITS.max_parallel_workers),
+    worker_time_budget_ms: String(DEFAULT_LIMITS.worker_time_budget_ms),
+    worker_max_pages_per_tile: String(DEFAULT_LIMITS.worker_max_pages_per_tile),
   });
+  const [selfTest, setSelfTest] = useState<SelfTestResponse | null>(null);
 
   const provider = (searchParams.get('provider') || 'geoapify') as ProviderKey;
   const countries = parseCsvParam(searchParams, 'countries');
@@ -163,6 +187,8 @@ export function AdminAddressManager() {
       radius_meters: String(limits.radius_meters),
       worker_chunk_size: String(limits.worker_chunk_size),
       max_parallel_workers: String(limits.max_parallel_workers),
+      worker_time_budget_ms: String(limits.worker_time_budget_ms ?? DEFAULT_LIMITS.worker_time_budget_ms),
+      worker_max_pages_per_tile: String(limits.worker_max_pages_per_tile ?? DEFAULT_LIMITS.worker_max_pages_per_tile),
     });
   }, [discoveryQuery.data?.limits]);
 
@@ -229,6 +255,8 @@ export function AdminAddressManager() {
         radius_meters: parsePositiveInt(draftLimits.radius_meters, discoveryQuery.data?.limits.radius_meters || DEFAULT_LIMITS.radius_meters),
         worker_chunk_size: parsePositiveInt(draftLimits.worker_chunk_size, discoveryQuery.data?.limits.worker_chunk_size || DEFAULT_LIMITS.worker_chunk_size),
         max_parallel_workers: parsePositiveInt(draftLimits.max_parallel_workers, discoveryQuery.data?.limits.max_parallel_workers || DEFAULT_LIMITS.max_parallel_workers),
+        worker_time_budget_ms: parsePositiveInt(draftLimits.worker_time_budget_ms, discoveryQuery.data?.limits.worker_time_budget_ms || DEFAULT_LIMITS.worker_time_budget_ms),
+        worker_max_pages_per_tile: parsePositiveInt(draftLimits.worker_max_pages_per_tile, discoveryQuery.data?.limits.worker_max_pages_per_tile || DEFAULT_LIMITS.worker_max_pages_per_tile),
       };
 
       const { data, error } = await invokeFunctionWithDebug<DiscoveryResponse>('address-manager-discovery', {
@@ -270,6 +298,7 @@ export function AdminAddressManager() {
         ok: boolean;
         totalWritten: number;
         processedSteps: number;
+        steps?: unknown[];
         error?: string;
       }>('address-manager-discovery', {
         body: {
@@ -287,6 +316,50 @@ export function AdminAddressManager() {
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Chunk futtatás sikertelen');
+    },
+  });
+
+  const selfTestMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await invokeFunctionWithDebug<SelfTestResponse>('address-manager-discovery', {
+        body: { action: 'self_test' },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Self-test failed');
+      return data;
+    },
+    onSuccess: (data) => {
+      setSelfTest(data);
+      const ok = data.providerResults.every((p) => p.ok);
+      if (ok) toast.success('Mindkét provider elérhető');
+      else toast.error('Legalább egy provider hibát adott — lásd a tesztpanelt');
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Provider self-test sikertelen');
+    },
+  });
+
+  const resetCellsMutation = useMutation({
+    mutationFn: async (params: { onlyCompleted: boolean }) => {
+      const { data, error } = await invokeFunctionWithDebug<DiscoveryResponse>('address-manager-discovery', {
+        body: {
+          action: 'reset_cells',
+          provider,
+          countries,
+          categories,
+          onlyCompleted: params.onlyCompleted,
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Reset failed');
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success('Cellák visszaállítva (pending)');
+      await refreshAll();
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Visszaállítás sikertelen');
     },
   });
 
@@ -308,7 +381,7 @@ export function AdminAddressManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Címkezelő — új provider-alapú nyers venue katalógus</CardTitle>
+          <CardTitle>Címkezelő — provider-alapú nyers venue katalógus</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
@@ -328,15 +401,44 @@ export function AdminAddressManager() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Frissítés
             </Button>
+            <Button variant="outline" onClick={() => selfTestMutation.mutate()} disabled={selfTestMutation.isPending}>
+              {selfTestMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+              Provider self-test
+            </Button>
+            <Button variant="outline" onClick={() => resetCellsMutation.mutate({ onlyCompleted: true })} disabled={resetCellsMutation.isPending}>
+              {resetCellsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Befejezett cellák újraindítása
+            </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {selfTest ? (
+            <div className="rounded border p-3 text-sm space-y-2">
+              <div className="font-medium">Provider self-test eredmény</div>
+              <div className="text-xs text-muted-foreground">
+                Service role: {selfTest.env.hasServiceRole ? 'OK' : 'HIÁNYZIK'} · Geoapify key: {selfTest.env.hasGeoapifyKey ? 'OK' : 'HIÁNYZIK'} · TomTom key: {selfTest.env.hasTomTomKey ? 'OK' : 'HIÁNYZIK'}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Provider page caps — Geoapify: {selfTest.pageCaps.geoapify} / TomTom: {selfTest.pageCaps.tomtom}
+              </div>
+              {selfTest.providerResults.map((r) => (
+                <div key={r.provider} className="flex items-start gap-2">
+                  {r.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600" /> : <XCircle className="h-4 w-4 mt-0.5 text-destructive" />}
+                  <div>
+                    <div><strong>{r.provider}</strong> — HTTP {r.status ?? 'n/a'} — {r.sampleCount} mintarekord</div>
+                    {r.error ? <div className="text-xs text-destructive break-all">{r.error}</div> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <Label>Geoapify limit</Label>
+              <Label>Geoapify limit / tile (max 500/oldal)</Label>
               <Input type="number" value={draftLimits.geoapify_limit} onChange={(e) => setDraftLimits((prev) => ({ ...prev, geoapify_limit: e.target.value }))} />
             </div>
             <div>
-              <Label>TomTom limit</Label>
+              <Label>TomTom limit / tile (max 100/oldal)</Label>
               <Input type="number" value={draftLimits.tomtom_limit} onChange={(e) => setDraftLimits((prev) => ({ ...prev, tomtom_limit: e.target.value }))} />
             </div>
             <div>
@@ -344,12 +446,20 @@ export function AdminAddressManager() {
               <Input type="number" value={draftLimits.radius_meters} onChange={(e) => setDraftLimits((prev) => ({ ...prev, radius_meters: e.target.value }))} />
             </div>
             <div>
-              <Label>Worker chunk size</Label>
+              <Label>Worker chunk (cellák / kattintás)</Label>
               <Input type="number" value={draftLimits.worker_chunk_size} onChange={(e) => setDraftLimits((prev) => ({ ...prev, worker_chunk_size: e.target.value }))} />
             </div>
             <div>
-              <Label>Max parallel workers</Label>
+              <Label>Max párhuzamos worker</Label>
               <Input type="number" value={draftLimits.max_parallel_workers} onChange={(e) => setDraftLimits((prev) => ({ ...prev, max_parallel_workers: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Worker time budget (ms)</Label>
+              <Input type="number" value={draftLimits.worker_time_budget_ms} onChange={(e) => setDraftLimits((prev) => ({ ...prev, worker_time_budget_ms: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Max oldal / tile</Label>
+              <Input type="number" value={draftLimits.worker_max_pages_per_tile} onChange={(e) => setDraftLimits((prev) => ({ ...prev, worker_max_pages_per_tile: e.target.value }))} />
             </div>
           </div>
 
@@ -363,21 +473,26 @@ export function AdminAddressManager() {
               Kijelölt chunk futtatása
             </Button>
             <div className="rounded border px-3 py-2 text-sm">
-              Kiválasztott cellák: <strong>{selectedCount}</strong> · várható rekord/chunk: <strong>{expectedRows}</strong>
+              Kiválasztott cellák: <strong>{selectedCount}</strong> · várható rekord/cella: <strong>{expectedRows}</strong>
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-5">
             <div className="rounded border p-3 text-sm">Összes raw venue: <strong>{discoveryQuery.data?.summary.totalRawVenues ?? 0}</strong></div>
-            <div className="rounded border p-3 text-sm">Kijelölt mátrixcellák: <strong>{discoveryQuery.data?.summary.totalSelectedCells ?? 0}</strong></div>
-            <div className="rounded border p-3 text-sm">Befejezett cellák: <strong>{discoveryQuery.data?.summary.totalCompletedCells ?? 0}</strong></div>
+            <div className="rounded border p-3 text-sm">Kijelölt cellák: <strong>{discoveryQuery.data?.summary.totalSelectedCells ?? 0}</strong></div>
+            <div className="rounded border p-3 text-sm">Befejezett: <strong>{discoveryQuery.data?.summary.totalCompletedCells ?? 0}</strong></div>
+            <div className="rounded border p-3 text-sm">Fut: <strong>{discoveryQuery.data?.summary.totalRunningCells ?? 0}</strong></div>
+            <div className="rounded border p-3 text-sm">Hibás: <strong className="text-destructive">{discoveryQuery.data?.summary.totalErroredCells ?? 0}</strong></div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-sm font-medium">Ország szűrő</p>
-                <Button size="sm" variant="outline" onClick={() => setCountryFilters([])}>Minden ország</Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setCountryFilters([])}>Minden ország</Button>
+                  <Button size="sm" variant="outline" onClick={() => setCountryFilters(countryOptions)}>Mind kijelöl</Button>
+                </div>
                 <div className="mt-2 max-h-52 overflow-auto rounded border p-2 space-y-2">
                   {countryOptions.map((country) => {
                     const checked = countries.includes(country);
@@ -401,7 +516,10 @@ export function AdminAddressManager() {
 
               <div>
                 <p className="mb-2 text-sm font-medium">Kategória szűrő</p>
-                <Button size="sm" variant="outline" onClick={() => setCategoryFilters([])}>Minden kategória</Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setCategoryFilters([])}>Minden kategória</Button>
+                  <Button size="sm" variant="outline" onClick={() => setCategoryFilters(categoryOptions.map(([k]) => k))}>Mind kijelöl</Button>
+                </div>
                 <div className="mt-2 max-h-52 overflow-auto rounded border p-2 space-y-2">
                   {categoryOptions.map(([key, label]) => {
                     const checked = categories.includes(key);
@@ -455,12 +573,20 @@ export function AdminAddressManager() {
                         />
                       </td>
                       <td className="p-2">
-                        <div>{cell.status}</div>
-                        {cell.last_error ? <div className="mt-1 text-xs text-destructive">{cell.last_error}</div> : null}
+                        <div className={cell.status === 'error' ? 'text-destructive font-medium' : ''}>{cell.status}</div>
+                        {cell.last_error ? (
+                          <div className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                            <span className="break-all">{cell.last_error}</span>
+                          </div>
+                        ) : null}
                       </td>
                       <td className="p-2 text-xs text-muted-foreground">
                         <div>fetched_rows: {Number(cell.stats?.fetched_rows || 0)}</div>
                         <div>tile: {Number(cell.stats?.tile_index || 0)} / {Number(cell.stats?.total_tiles || 0)}</div>
+                        {cell.stats?.last_chunk_written !== undefined ? (
+                          <div>last chunk: +{Number(cell.stats?.last_chunk_written || 0)} ({Number(cell.stats?.last_chunk_tiles || 0)} tile)</div>
+                        ) : null}
                       </td>
                       <td className="p-2 space-x-2">
                         <Button
@@ -516,7 +642,7 @@ export function AdminAddressManager() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            Ez a lista már az új provider-alapú backend tábla tartalmát mutatja: <strong>public.raw_venues</strong>.
+            Az új provider-alapú backend tábla tartalma: <strong>public.raw_venues</strong>.
           </div>
 
           <div className="overflow-auto rounded border">
