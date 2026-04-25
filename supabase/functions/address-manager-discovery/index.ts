@@ -1,6 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin, resolveInternalSupabaseUrl } from '../shared/providerFetch.ts';
+import {
+  corsHeaders,
+  getSupabaseAdmin,
+  jsonResponse,
+  resolveInternalSupabaseUrl,
+  safeServe,
+} from '../_address-manager-shared/edgeRuntime.ts';
 import {
   buildSummary,
   ensureMatrixSeeds,
@@ -11,23 +17,14 @@ import {
   resetCellsByFilter,
   saveLimits,
   setSelections,
-} from '../address-manager-shared/repository.ts';
-import { PROVIDER_CATEGORIES, PROVIDER_PAGE_CAPS } from '../address-manager-shared/constants.ts';
-import type { ProviderKey, ProviderSelfTestResult } from '../address-manager-shared/types.ts';
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+} from '../_address-manager-shared/repository.ts';
+import { PROVIDER_CATEGORIES, PROVIDER_PAGE_CAPS } from '../_address-manager-shared/constants.ts';
+import type { ProviderKey, ProviderSelfTestResult } from '../_address-manager-shared/types.ts';
 
 function resolveServiceKey() {
   return String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
 }
 
-// Internal subcall: use SERVICE_ROLE for both `Authorization` and `apikey`.
-// This bypasses any verify_jwt setting and never depends on a user session.
 async function callInternalFunction<T>(req: Request, functionName: string, body: Record<string, unknown>) {
   const baseUrl = resolveInternalSupabaseUrl(req);
   const serviceKey = resolveServiceKey();
@@ -68,7 +65,6 @@ async function fetchWithTimeout(url: string) {
   }
 }
 
-// Hits each provider with a tiny Budapest sample to validate keys + reachability.
 async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
   const results: ProviderSelfTestResult[] = [];
   const lat = 47.4979;
@@ -136,150 +132,169 @@ async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
   return results;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  const supabaseAdmin = getSupabaseAdmin(req);
+serve(safeServe(async (req) => {
   const body = (await req.json().catch(() => ({}))) as any;
   const action = String(body.action || 'bootstrap');
 
-  try {
+  // ---- health: zero DB access, only env probe ----
+  if (action === 'health') {
+    const baseUrlOk = (() => {
+      try { return Boolean(resolveInternalSupabaseUrl(req)); } catch { return false; }
+    })();
+    return jsonResponse({
+      ok: true,
+      action,
+      env: {
+        hasSupabaseUrl: Boolean(Deno.env.get('SUPABASE_URL')),
+        hasServiceRole: Boolean(resolveServiceKey()),
+        hasGeoapifyKey: Boolean(Deno.env.get('GEOAPIFY_API_KEY')),
+        hasTomTomKey: Boolean(Deno.env.get('TOMTOM_API_KEY')),
+        canResolveInternalUrl: baseUrlOk,
+      },
+      pageCaps: PROVIDER_PAGE_CAPS,
+      categories: PROVIDER_CATEGORIES.map((c) => c.key),
+    });
+  }
+
+  const supabaseAdmin = getSupabaseAdmin(req);
+
+  // Only seed the matrix on bootstrap action — every other action assumes
+  // the seeds are already there. This avoids 512-row upsert on every call.
+  if (action === 'bootstrap' || action === 'reseed') {
     await ensureMatrixSeeds(supabaseAdmin);
+  }
 
-    if (action === 'self_test') {
-      const providerResults = await runSelfTest();
-      return json({
-        ok: true,
-        action,
-        providerResults,
-        env: {
-          hasGeoapifyKey: Boolean(Deno.env.get('GEOAPIFY_API_KEY')),
-          hasTomTomKey: Boolean(Deno.env.get('TOMTOM_API_KEY')),
-          hasServiceRole: Boolean(resolveServiceKey()),
-        },
-        pageCaps: PROVIDER_PAGE_CAPS,
-        categories: PROVIDER_CATEGORIES,
-      });
-    }
+  if (action === 'self_test') {
+    const providerResults = await runSelfTest();
+    return jsonResponse({
+      ok: true,
+      action,
+      providerResults,
+      env: {
+        hasGeoapifyKey: Boolean(Deno.env.get('GEOAPIFY_API_KEY')),
+        hasTomTomKey: Boolean(Deno.env.get('TOMTOM_API_KEY')),
+        hasServiceRole: Boolean(resolveServiceKey()),
+      },
+      pageCaps: PROVIDER_PAGE_CAPS,
+      categories: PROVIDER_CATEGORIES,
+    });
+  }
 
-    if (action === 'save_limits') {
-      const limits = await saveLimits(supabaseAdmin, body.limits || {});
-      return json({
-        ok: true,
-        limits,
-        matrix: await getMatrix(supabaseAdmin),
-        summary: await buildSummary(supabaseAdmin),
-      });
-    }
+  if (action === 'save_limits') {
+    const limits = await saveLimits(supabaseAdmin, body.limits || {});
+    return jsonResponse({
+      ok: true,
+      limits,
+      matrix: await getMatrix(supabaseAdmin),
+      summary: await buildSummary(supabaseAdmin),
+    });
+  }
 
-    if (action === 'save_selection') {
-      await setSelections(supabaseAdmin, Array.isArray(body.updates) ? body.updates : []);
-      return json({
-        ok: true,
-        limits: await loadLimits(supabaseAdmin),
-        matrix: await getMatrix(supabaseAdmin),
-        summary: await buildSummary(supabaseAdmin),
-      });
-    }
-
-    if (action === 'reset_cells') {
-      await resetCellsByFilter(supabaseAdmin, {
-        provider: body.provider as ProviderKey | undefined,
-        country_codes: Array.isArray(body.countries) ? body.countries : undefined,
-        category_keys: Array.isArray(body.categories) ? body.categories : undefined,
-        onlyCompleted: Boolean(body.onlyCompleted),
-      });
-      return json({
-        ok: true,
-        limits: await loadLimits(supabaseAdmin),
-        matrix: await getMatrix(supabaseAdmin),
-        summary: await buildSummary(supabaseAdmin),
-      });
-    }
-
-    if (action === 'release_stale_locks') {
-      await releaseStaleLocks(supabaseAdmin, Number(body.olderThanMinutes || 10));
-      return json({
-        ok: true,
-        matrix: await getMatrix(supabaseAdmin),
-        summary: await buildSummary(supabaseAdmin),
-      });
-    }
-
-    if (action === 'list_venues') {
-      const provider = String(body.provider || 'all') as ProviderKey | 'all';
-      const countries = Array.isArray(body.countries) ? body.countries.map((item: unknown) => String(item).toUpperCase()) : [];
-      const categories = Array.isArray(body.categories) ? body.categories.map((item: unknown) => String(item)) : [];
-      const venues = await listVenues(supabaseAdmin, {
-        provider,
-        countries,
-        categories,
-        page: Number(body.page || 1),
-        pageSize: Number(body.pageSize || 25),
-      });
-      return json({ ok: true, ...venues, summary: await buildSummary(supabaseAdmin) });
-    }
-
-    if (action === 'run_chunk') {
-      const limits = await loadLimits(supabaseAdmin);
-      const iterations = Math.max(1, Math.min(Number(body.iterations || limits.worker_chunk_size || 1), 100));
-      const steps: Array<Record<string, unknown>> = [];
-      let totalWritten = 0;
-
-      for (let index = 0; index < iterations; index += 1) {
-        const generated = await callInternalFunction<{
-          ok: boolean;
-          generated: boolean;
-          task?: Record<string, unknown>;
-          reason?: string;
-        }>(req, 'address-manager-task-generator', {});
-
-        if (!generated.ok || !generated.generated || !generated.task) {
-          steps.push({ step: index + 1, generated: generated.generated || false, reason: generated.reason || 'done' });
-          break;
-        }
-
-        const worker = await callInternalFunction<{
-          ok: boolean;
-          written?: number;
-          processedTiles?: number;
-          done?: boolean;
-          tileIndex?: number;
-          totalTiles?: number;
-          error?: string;
-        }>(req, 'address-manager-worker', { task: generated.task });
-
-        totalWritten += Number(worker.written || 0);
-        steps.push({
-          step: index + 1,
-          generated: true,
-          task: generated.task,
-          worker,
-        });
-
-        if (!worker.ok) break;
-      }
-
-      return json({
-        ok: true,
-        processedSteps: steps.length,
-        totalWritten,
-        steps,
-        limits,
-        matrix: await getMatrix(supabaseAdmin),
-        summary: await buildSummary(supabaseAdmin),
-      });
-    }
-
-    return json({
+  if (action === 'save_selection') {
+    await setSelections(supabaseAdmin, Array.isArray(body.updates) ? body.updates : []);
+    return jsonResponse({
       ok: true,
       limits: await loadLimits(supabaseAdmin),
       matrix: await getMatrix(supabaseAdmin),
       summary: await buildSummary(supabaseAdmin),
-      pageCaps: PROVIDER_PAGE_CAPS,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return json({ ok: false, error: message }, 500);
   }
-});
+
+  if (action === 'reset_cells') {
+    await resetCellsByFilter(supabaseAdmin, {
+      provider: body.provider as ProviderKey | undefined,
+      country_codes: Array.isArray(body.countries) ? body.countries : undefined,
+      category_keys: Array.isArray(body.categories) ? body.categories : undefined,
+      onlyCompleted: Boolean(body.onlyCompleted),
+    });
+    return jsonResponse({
+      ok: true,
+      limits: await loadLimits(supabaseAdmin),
+      matrix: await getMatrix(supabaseAdmin),
+      summary: await buildSummary(supabaseAdmin),
+    });
+  }
+
+  if (action === 'release_stale_locks') {
+    await releaseStaleLocks(supabaseAdmin, Number(body.olderThanMinutes || 10));
+    return jsonResponse({
+      ok: true,
+      matrix: await getMatrix(supabaseAdmin),
+      summary: await buildSummary(supabaseAdmin),
+    });
+  }
+
+  if (action === 'list_venues') {
+    const provider = String(body.provider || 'all') as ProviderKey | 'all';
+    const countries = Array.isArray(body.countries) ? body.countries.map((item: unknown) => String(item).toUpperCase()) : [];
+    const categories = Array.isArray(body.categories) ? body.categories.map((item: unknown) => String(item)) : [];
+    const venues = await listVenues(supabaseAdmin, {
+      provider,
+      countries,
+      categories,
+      page: Number(body.page || 1),
+      pageSize: Number(body.pageSize || 25),
+    });
+    return jsonResponse({ ok: true, ...venues, summary: await buildSummary(supabaseAdmin) });
+  }
+
+  if (action === 'run_chunk') {
+    const limits = await loadLimits(supabaseAdmin);
+    const iterations = Math.max(1, Math.min(Number(body.iterations || limits.worker_chunk_size || 1), 100));
+    const steps: Array<Record<string, unknown>> = [];
+    let totalWritten = 0;
+
+    for (let index = 0; index < iterations; index += 1) {
+      const generated = await callInternalFunction<{
+        ok: boolean;
+        generated: boolean;
+        task?: Record<string, unknown>;
+        reason?: string;
+      }>(req, 'address-manager-task-generator', {});
+
+      if (!generated.ok || !generated.generated || !generated.task) {
+        steps.push({ step: index + 1, generated: generated.generated || false, reason: generated.reason || 'done' });
+        break;
+      }
+
+      const worker = await callInternalFunction<{
+        ok: boolean;
+        written?: number;
+        processedTiles?: number;
+        done?: boolean;
+        tileIndex?: number;
+        totalTiles?: number;
+        error?: string;
+      }>(req, 'address-manager-worker', { task: generated.task });
+
+      totalWritten += Number(worker.written || 0);
+      steps.push({
+        step: index + 1,
+        generated: true,
+        task: generated.task,
+        worker,
+      });
+
+      if (!worker.ok) break;
+    }
+
+    return jsonResponse({
+      ok: true,
+      processedSteps: steps.length,
+      totalWritten,
+      steps,
+      limits,
+      matrix: await getMatrix(supabaseAdmin),
+      summary: await buildSummary(supabaseAdmin),
+    });
+  }
+
+  // Default = bootstrap
+  return jsonResponse({
+    ok: true,
+    limits: await loadLimits(supabaseAdmin),
+    matrix: await getMatrix(supabaseAdmin),
+    summary: await buildSummary(supabaseAdmin),
+    pageCaps: PROVIDER_PAGE_CAPS,
+  });
+}));

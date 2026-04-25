@@ -1,11 +1,11 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { corsHeaders, getSupabaseAdmin } from '../shared/providerFetch.ts';
+import { corsHeaders, getSupabaseAdmin } from '../_address-manager-shared/edgeRuntime.ts';
 import {
   EUROPEAN_COUNTRIES,
   PROVIDER_CATEGORIES,
   PROVIDER_PAGE_CAPS,
-} from '../address-manager-shared/constants.ts';
+} from '../_address-manager-shared/constants.ts';
 
 const FETCH_TIMEOUT_MS = 20_000;
 

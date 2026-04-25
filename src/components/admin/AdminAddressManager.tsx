@@ -406,6 +406,16 @@ export function AdminAddressManager() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Frissítés
             </Button>
+            <Button variant="outline" onClick={async () => {
+              try {
+                const { data } = await invokeFunctionWithDebug<any>('address-manager-discovery', { body: { action: 'health' } });
+                toast.message(`Health: SUPABASE_URL=${data?.env?.hasSupabaseUrl ? 'OK' : 'NO'} · service_role=${data?.env?.hasServiceRole ? 'OK' : 'NO'} · geoapify=${data?.env?.hasGeoapifyKey ? 'OK' : 'NO'} · tomtom=${data?.env?.hasTomTomKey ? 'OK' : 'NO'}`);
+              } catch (e) {
+                toast.error('Health endpoint elérhetetlen — a function még mindig 503-mal jön. Lásd Supabase Dashboard › Functions › Logs.');
+              }
+            }}>
+              Health (zero-DB)
+            </Button>
             <Button variant="outline" onClick={() => selfTestMutation.mutate()} disabled={selfTestMutation.isPending}>
               {selfTestMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Provider self-test
