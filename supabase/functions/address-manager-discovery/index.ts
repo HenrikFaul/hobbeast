@@ -1,8 +1,19 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, getSupabaseAdmin, resolveInternalSupabaseUrl } from '../shared/providerFetch.ts';
-import { buildSummary, ensureMatrixSeeds, getMatrix, listVenues, loadLimits, saveLimits, setSelections } from '../address-manager-shared/repository.ts';
-import type { ProviderKey } from '../address-manager-shared/types.ts';
+import {
+  buildSummary,
+  ensureMatrixSeeds,
+  getMatrix,
+  listVenues,
+  loadLimits,
+  releaseStaleLocks,
+  resetCellsByFilter,
+  saveLimits,
+  setSelections,
+} from '../address-manager-shared/repository.ts';
+import { PROVIDER_CATEGORIES, PROVIDER_PAGE_CAPS } from '../address-manager-shared/constants.ts';
+import type { ProviderKey, ProviderSelfTestResult } from '../address-manager-shared/types.ts';
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -11,41 +22,145 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function resolveServiceKey() {
+  return String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+}
+
+// Internal subcall: use SERVICE_ROLE for both `Authorization` and `apikey`.
+// This bypasses any verify_jwt setting and never depends on a user session.
 async function callInternalFunction<T>(req: Request, functionName: string, body: Record<string, unknown>) {
   const baseUrl = resolveInternalSupabaseUrl(req);
-
-  const authorization = req.headers.get('authorization') ?? '';
-  const apikey =
-    req.headers.get('apikey') ??
-    Deno.env.get('SUPABASE_ANON_KEY') ??
-    '';
+  const serviceKey = resolveServiceKey();
+  if (!serviceKey) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY (cannot call internal function)');
 
   const res = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(authorization ? { Authorization: authorization } : {}),
-      ...(apikey ? { apikey } : {}),
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
     },
     body: JSON.stringify(body),
   });
 
-  const payload = await res.json().catch(() => ({} as T));
+  const text = await res.text();
+  let payload: any = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { raw: text };
+  }
+
   if (!res.ok) {
-    throw new Error(`Internal function ${functionName} failed: ${res.status} ${JSON.stringify(payload)}`);
+    throw new Error(`Internal function ${functionName} failed: ${res.status} ${text.slice(0, 400)}`);
   }
   return payload as T;
+}
+
+const FETCH_TIMEOUT_MS = 12_000;
+async function fetchWithTimeout(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Hits each provider with a tiny Budapest sample to validate keys + reachability.
+async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
+  const results: ProviderSelfTestResult[] = [];
+  const lat = 47.4979;
+  const lon = 19.0402;
+  const radius = 2000;
+
+  // Geoapify
+  {
+    const apiKey = Deno.env.get('GEOAPIFY_API_KEY') || '';
+    const endpoint = `https://api.geoapify.com/v2/places?categories=catering.restaurant&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=5&apiKey=${apiKey ? '***' : ''}`;
+    if (!apiKey) {
+      results.push({ provider: 'geoapify', ok: false, status: null, sampleCount: 0, error: 'Missing GEOAPIFY_API_KEY', endpoint });
+    } else {
+      try {
+        const res = await fetchWithTimeout(
+          `https://api.geoapify.com/v2/places?categories=catering.restaurant&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=5&apiKey=${encodeURIComponent(apiKey)}`,
+        );
+        const text = await res.text();
+        let payload: any = {};
+        try { payload = JSON.parse(text); } catch { payload = {}; }
+        const sampleCount = Array.isArray(payload?.features) ? payload.features.length : 0;
+        results.push({
+          provider: 'geoapify',
+          ok: res.ok,
+          status: res.status,
+          sampleCount,
+          error: res.ok ? undefined : text.slice(0, 400),
+          endpoint,
+        });
+      } catch (err) {
+        results.push({ provider: 'geoapify', ok: false, status: null, sampleCount: 0, error: err instanceof Error ? err.message : String(err), endpoint });
+      }
+    }
+  }
+
+  // TomTom
+  {
+    const apiKey = Deno.env.get('TOMTOM_API_KEY') || '';
+    const endpoint = `https://api.tomtom.com/search/2/categorySearch/restaurant.json?key=${apiKey ? '***' : ''}&lat=${lat}&lon=${lon}&radius=${radius}&limit=5&countrySet=HU`;
+    if (!apiKey) {
+      results.push({ provider: 'tomtom', ok: false, status: null, sampleCount: 0, error: 'Missing TOMTOM_API_KEY', endpoint });
+    } else {
+      try {
+        const res = await fetchWithTimeout(
+          `https://api.tomtom.com/search/2/categorySearch/restaurant.json?key=${encodeURIComponent(apiKey)}&lat=${lat}&lon=${lon}&radius=${radius}&limit=5&countrySet=HU`,
+        );
+        const text = await res.text();
+        let payload: any = {};
+        try { payload = JSON.parse(text); } catch { payload = {}; }
+        const sampleCount = Array.isArray(payload?.results) ? payload.results.length : 0;
+        results.push({
+          provider: 'tomtom',
+          ok: res.ok,
+          status: res.status,
+          sampleCount,
+          error: res.ok ? undefined : text.slice(0, 400),
+          endpoint,
+        });
+      } catch (err) {
+        results.push({ provider: 'tomtom', ok: false, status: null, sampleCount: 0, error: err instanceof Error ? err.message : String(err), endpoint });
+      }
+    }
+  }
+
+  return results;
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const supabaseAdmin = getSupabaseAdmin(req);
-  const body = await req.json().catch(() => ({})) as any;
+  const body = (await req.json().catch(() => ({}))) as any;
   const action = String(body.action || 'bootstrap');
 
   try {
     await ensureMatrixSeeds(supabaseAdmin);
+
+    if (action === 'self_test') {
+      const providerResults = await runSelfTest();
+      return json({
+        ok: true,
+        action,
+        providerResults,
+        env: {
+          hasGeoapifyKey: Boolean(Deno.env.get('GEOAPIFY_API_KEY')),
+          hasTomTomKey: Boolean(Deno.env.get('TOMTOM_API_KEY')),
+          hasServiceRole: Boolean(resolveServiceKey()),
+        },
+        pageCaps: PROVIDER_PAGE_CAPS,
+        categories: PROVIDER_CATEGORIES,
+      });
+    }
 
     if (action === 'save_limits') {
       const limits = await saveLimits(supabaseAdmin, body.limits || {});
@@ -62,6 +177,30 @@ serve(async (req) => {
       return json({
         ok: true,
         limits: await loadLimits(supabaseAdmin),
+        matrix: await getMatrix(supabaseAdmin),
+        summary: await buildSummary(supabaseAdmin),
+      });
+    }
+
+    if (action === 'reset_cells') {
+      await resetCellsByFilter(supabaseAdmin, {
+        provider: body.provider as ProviderKey | undefined,
+        country_codes: Array.isArray(body.countries) ? body.countries : undefined,
+        category_keys: Array.isArray(body.categories) ? body.categories : undefined,
+        onlyCompleted: Boolean(body.onlyCompleted),
+      });
+      return json({
+        ok: true,
+        limits: await loadLimits(supabaseAdmin),
+        matrix: await getMatrix(supabaseAdmin),
+        summary: await buildSummary(supabaseAdmin),
+      });
+    }
+
+    if (action === 'release_stale_locks') {
+      await releaseStaleLocks(supabaseAdmin, Number(body.olderThanMinutes || 10));
+      return json({
+        ok: true,
         matrix: await getMatrix(supabaseAdmin),
         summary: await buildSummary(supabaseAdmin),
       });
@@ -88,22 +227,27 @@ serve(async (req) => {
       let totalWritten = 0;
 
       for (let index = 0; index < iterations; index += 1) {
-        const generated = await callInternalFunction<{ ok: boolean; generated: boolean; task?: Record<string, unknown>; reason?: string }>(
-          req,
-          'address-manager-task-generator',
-          {},
-        );
+        const generated = await callInternalFunction<{
+          ok: boolean;
+          generated: boolean;
+          task?: Record<string, unknown>;
+          reason?: string;
+        }>(req, 'address-manager-task-generator', {});
 
         if (!generated.ok || !generated.generated || !generated.task) {
           steps.push({ step: index + 1, generated: generated.generated || false, reason: generated.reason || 'done' });
           break;
         }
 
-        const worker = await callInternalFunction<{ ok: boolean; written?: number; done?: boolean; tileIndex?: number; nextTileIndex?: number; totalTiles?: number }>(
-          req,
-          'address-manager-worker',
-          { task: generated.task },
-        );
+        const worker = await callInternalFunction<{
+          ok: boolean;
+          written?: number;
+          processedTiles?: number;
+          done?: boolean;
+          tileIndex?: number;
+          totalTiles?: number;
+          error?: string;
+        }>(req, 'address-manager-worker', { task: generated.task });
 
         totalWritten += Number(worker.written || 0);
         steps.push({
@@ -112,6 +256,8 @@ serve(async (req) => {
           task: generated.task,
           worker,
         });
+
+        if (!worker.ok) break;
       }
 
       return json({
@@ -130,6 +276,7 @@ serve(async (req) => {
       limits: await loadLimits(supabaseAdmin),
       matrix: await getMatrix(supabaseAdmin),
       summary: await buildSummary(supabaseAdmin),
+      pageCaps: PROVIDER_PAGE_CAPS,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

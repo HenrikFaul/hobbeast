@@ -20,3 +20,16 @@ verify_jwt = false
 
 [functions.admin-user-profile-update]
 verify_jwt = false
+
+# --- Address Manager (parallel pipeline) ---
+# JWT verify is OFF so the discovery function can fan out internal
+# subcalls (task-generator, worker) without re-issuing the user JWT.
+# Admin authorization is enforced inside the discovery handler.
+[functions.address-manager-discovery]
+verify_jwt = false
+
+[functions.address-manager-task-generator]
+verify_jwt = false
+
+[functions.address-manager-worker]
+verify_jwt = false

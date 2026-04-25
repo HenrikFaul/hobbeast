@@ -2,6 +2,8 @@ import type { CountryBounds, ProviderCategory } from './types.ts';
 
 export const PROVIDERS = ['geoapify', 'tomtom'] as const;
 
+// European country bounding boxes (degrees).
+// We sweep these with a tile grid in the worker.
 export const EUROPEAN_COUNTRIES: CountryBounds[] = [
   { code: 'AT', label: 'Ausztria', minLat: 46.37, maxLat: 49.02, minLon: 9.53, maxLon: 17.16 },
   { code: 'BE', label: 'Belgium', minLat: 49.49, maxLat: 51.51, minLon: 2.54, maxLon: 6.40 },
@@ -37,13 +39,26 @@ export const EUROPEAN_COUNTRIES: CountryBounds[] = [
   { code: 'SK', label: 'Szlovákia', minLat: 47.73, maxLat: 49.61, minLon: 16.85, maxLon: 22.57 },
 ];
 
+// Provider category mapping.
+// - Geoapify: must use Places API category names from
+//   https://apidocs.geoapify.com/docs/places/#categories
+// - TomTom: categorySearch supports POI category keywords;
+//   spaces are OR'd by TomTom search.
 export const PROVIDER_CATEGORIES: ProviderCategory[] = [
   { key: 'restaurant', label: 'Étterem', geoapify: 'catering.restaurant', tomtom: 'restaurant' },
   { key: 'cafe', label: 'Kávézó', geoapify: 'catering.cafe', tomtom: 'cafe' },
-  { key: 'bar', label: 'Bár / Pub', geoapify: 'catering.bar', tomtom: 'pub' },
+  { key: 'bar', label: 'Bár / Pub', geoapify: 'catering.bar,catering.pub', tomtom: 'bar pub' },
   { key: 'supermarket', label: 'Szupermarket', geoapify: 'commercial.supermarket', tomtom: 'supermarket' },
   { key: 'museum', label: 'Múzeum', geoapify: 'entertainment.museum', tomtom: 'museum' },
-  { key: 'fitness', label: 'Fitnesz', geoapify: 'sport.fitness.fitness_centre', tomtom: 'fitness club center gym' },
-  { key: 'cinema', label: 'Mozi', geoapify: 'entertainment.cinema', tomtom: 'movie theater' },
-  { key: 'park', label: 'Park', geoapify: 'leisure.park', tomtom: 'park recreation area' },
+  { key: 'fitness', label: 'Fitnesz', geoapify: 'sport.fitness.fitness_centre,leisure.fitness_centre', tomtom: 'fitness' },
+  { key: 'cinema', label: 'Mozi', geoapify: 'entertainment.cinema', tomtom: 'cinema' },
+  { key: 'park', label: 'Park', geoapify: 'leisure.park', tomtom: 'park' },
 ];
+
+// Provider per-request hard caps documented in their public APIs.
+// The DB stores whatever the admin types ("dumb storage"); the worker
+// only enforces the caps at HTTP-call time so a single page never 400s.
+export const PROVIDER_PAGE_CAPS = {
+  geoapify: 500, // Places API "limit" max
+  tomtom: 100,   // categorySearch "limit" max
+} as const;

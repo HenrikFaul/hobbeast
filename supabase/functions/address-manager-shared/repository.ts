@@ -8,9 +8,14 @@ export const DEFAULT_LIMITS: AddressManagerLimits = {
   radius_meters: 30000,
   worker_chunk_size: 5,
   max_parallel_workers: 2,
+  worker_time_budget_ms: 35_000,
+  worker_max_pages_per_tile: 20,
 };
 
-export function sanitizePositiveInt(value: unknown, fallback: number, max = 1000000) {
+// "Dumb storage" sanitizer — never clamps user intent.
+// Only enforces positive integers and a very loose ceiling to avoid
+// pathological negatives / Infinity / NaN sneaking into JSON.
+export function sanitizePositiveInt(value: unknown, fallback: number, max = 10_000_000) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.min(Math.floor(parsed), max);
@@ -62,6 +67,7 @@ export async function setSelections(supabaseAdmin: any, updates: MatrixSelection
       updated_at: new Date().toISOString(),
     };
     if (row.selected) {
+      // Re-arming a cell: reset status so the task-generator picks it up.
       payload.status = 'pending';
       payload.last_error = null;
     }
@@ -73,6 +79,40 @@ export async function setSelections(supabaseAdmin: any, updates: MatrixSelection
       .eq('category_key', row.category_key);
     if (error) throw error;
   }
+}
+
+// Allow admin to reset cells (e.g. for re-running already completed cells).
+export async function resetCellsByFilter(
+  supabaseAdmin: any,
+  filter: { provider?: ProviderKey; country_codes?: string[]; category_keys?: string[]; onlyCompleted?: boolean },
+) {
+  let query = supabaseAdmin.from('sync_discovery_matrix').update({
+    status: 'pending',
+    last_error: null,
+    cursor: {},
+    last_run_started_at: null,
+    last_run_completed_at: null,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (filter.provider) query = query.eq('provider', filter.provider);
+  if (filter.country_codes?.length) query = query.in('country_code', filter.country_codes);
+  if (filter.category_keys?.length) query = query.in('category_key', filter.category_keys);
+  if (filter.onlyCompleted) query = query.eq('status', 'completed');
+
+  const { error } = await query;
+  if (error) throw error;
+}
+
+// Release stale "running" locks (worker died / timed out without status update).
+export async function releaseStaleLocks(supabaseAdmin: any, olderThanMinutes = 10) {
+  const threshold = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
+  const { error } = await supabaseAdmin
+    .from('sync_discovery_matrix')
+    .update({ status: 'pending', last_error: 'Stale lock auto-released', updated_at: new Date().toISOString() })
+    .eq('status', 'running')
+    .lt('last_run_started_at', threshold);
+  if (error) throw error;
 }
 
 export async function loadLimits(supabaseAdmin: any): Promise<AddressManagerLimits> {
@@ -87,8 +127,10 @@ export async function loadLimits(supabaseAdmin: any): Promise<AddressManagerLimi
     geoapify_limit: sanitizePositiveInt(data?.options?.geoapify_limit, DEFAULT_LIMITS.geoapify_limit),
     tomtom_limit: sanitizePositiveInt(data?.options?.tomtom_limit, DEFAULT_LIMITS.tomtom_limit),
     radius_meters: sanitizePositiveInt(data?.options?.radius_meters, DEFAULT_LIMITS.radius_meters),
-    worker_chunk_size: sanitizePositiveInt(data?.options?.worker_chunk_size, DEFAULT_LIMITS.worker_chunk_size, 250),
-    max_parallel_workers: sanitizePositiveInt(data?.options?.max_parallel_workers, DEFAULT_LIMITS.max_parallel_workers, 25),
+    worker_chunk_size: sanitizePositiveInt(data?.options?.worker_chunk_size, DEFAULT_LIMITS.worker_chunk_size, 1000),
+    max_parallel_workers: sanitizePositiveInt(data?.options?.max_parallel_workers, DEFAULT_LIMITS.max_parallel_workers, 100),
+    worker_time_budget_ms: sanitizePositiveInt(data?.options?.worker_time_budget_ms, DEFAULT_LIMITS.worker_time_budget_ms, 55_000),
+    worker_max_pages_per_tile: sanitizePositiveInt(data?.options?.worker_max_pages_per_tile, DEFAULT_LIMITS.worker_max_pages_per_tile, 200),
   };
 }
 
@@ -98,8 +140,10 @@ export async function saveLimits(supabaseAdmin: any, limits: Partial<AddressMana
     geoapify_limit: sanitizePositiveInt(limits.geoapify_limit, current.geoapify_limit),
     tomtom_limit: sanitizePositiveInt(limits.tomtom_limit, current.tomtom_limit),
     radius_meters: sanitizePositiveInt(limits.radius_meters, current.radius_meters),
-    worker_chunk_size: sanitizePositiveInt(limits.worker_chunk_size, current.worker_chunk_size, 250),
-    max_parallel_workers: sanitizePositiveInt(limits.max_parallel_workers, current.max_parallel_workers, 25),
+    worker_chunk_size: sanitizePositiveInt(limits.worker_chunk_size, current.worker_chunk_size, 1000),
+    max_parallel_workers: sanitizePositiveInt(limits.max_parallel_workers, current.max_parallel_workers, 100),
+    worker_time_budget_ms: sanitizePositiveInt(limits.worker_time_budget_ms, current.worker_time_budget_ms, 55_000),
+    worker_max_pages_per_tile: sanitizePositiveInt(limits.worker_max_pages_per_tile, current.worker_max_pages_per_tile, 200),
   };
 
   const { error } = await supabaseAdmin
@@ -120,7 +164,7 @@ export async function listVenues(
   },
 ) {
   const page = Math.max(1, Number(params.page || 1));
-  const pageSize = Math.min(100, Math.max(1, Number(params.pageSize || 25)));
+  const pageSize = Math.min(200, Math.max(1, Number(params.pageSize || 25)));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -148,15 +192,19 @@ export async function listVenues(
 }
 
 export async function buildSummary(supabaseAdmin: any) {
-  const [{ count: totalRaw }, { count: totalSelected }, { count: totalCompleted }] = await Promise.all([
+  const [{ count: totalRaw }, { count: totalSelected }, { count: totalCompleted }, { count: totalRunning }, { count: totalErrored }] = await Promise.all([
     supabaseAdmin.from('raw_venues').select('id', { head: true, count: 'exact' }),
     supabaseAdmin.from('sync_discovery_matrix').select('id', { head: true, count: 'exact' }).eq('selected', true),
     supabaseAdmin.from('sync_discovery_matrix').select('id', { head: true, count: 'exact' }).eq('status', 'completed'),
+    supabaseAdmin.from('sync_discovery_matrix').select('id', { head: true, count: 'exact' }).eq('status', 'running'),
+    supabaseAdmin.from('sync_discovery_matrix').select('id', { head: true, count: 'exact' }).eq('status', 'error'),
   ]);
 
   return {
     totalRawVenues: totalRaw || 0,
     totalSelectedCells: totalSelected || 0,
     totalCompletedCells: totalCompleted || 0,
+    totalRunningCells: totalRunning || 0,
+    totalErroredCells: totalErrored || 0,
   };
 }

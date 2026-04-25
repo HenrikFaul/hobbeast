@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders, getSupabaseAdmin } from '../shared/providerFetch.ts';
-import { loadLimits } from '../address-manager-shared/repository.ts';
+import { loadLimits, releaseStaleLocks } from '../address-manager-shared/repository.ts';
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -17,6 +17,9 @@ serve(async (req) => {
   try {
     const limits = await loadLimits(supabaseAdmin);
 
+    // Free up cells whose worker died without writing back.
+    await releaseStaleLocks(supabaseAdmin, 10);
+
     const { count: runningCount, error: runningError } = await supabaseAdmin
       .from('sync_discovery_matrix')
       .select('id', { head: true, count: 'exact' })
@@ -25,9 +28,16 @@ serve(async (req) => {
     if (runningError) throw runningError;
 
     if ((runningCount || 0) >= limits.max_parallel_workers) {
-      return json({ ok: true, generated: false, reason: 'no_free_worker_slots', runningCount, maxParallelWorkers: limits.max_parallel_workers });
+      return json({
+        ok: true,
+        generated: false,
+        reason: 'no_free_worker_slots',
+        runningCount,
+        maxParallelWorkers: limits.max_parallel_workers,
+      });
     }
 
+    // Pick the oldest selected pending/error cell.
     const { data: nextCell, error } = await supabaseAdmin
       .from('sync_discovery_matrix')
       .select('*')
