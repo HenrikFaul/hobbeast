@@ -21,11 +21,16 @@ export function NotificationPreferencesCard() {
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notification_preferences')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('notification preferences fetch failed', error);
+      }
+
       if (data) {
         setPrefs({
           friend_request: (data as any).friend_request ?? true,
@@ -35,16 +40,26 @@ export function NotificationPreferencesCard() {
       }
       setLoaded(true);
     };
-    fetch();
+    void fetch();
   }, [user]);
 
   const update = async (key: keyof Prefs, value: boolean) => {
     if (!user) return;
-    setPrefs(prev => ({ ...prev, [key]: value }));
-    const { error } = await supabase
-      .from('notification_preferences')
-      .upsert({ user_id: user.id, [key]: value } as any, { onConflict: 'user_id' });
-    if (error) toast.error('Hiba a mentés során.');
+    setPrefs((prev) => ({ ...prev, [key]: value }));
+
+const { data: existing } = await supabase
+  .from('notification_preferences')
+  .select('id')
+  .eq('user_id', user.id)
+  .maybeSingle();
+
+const operation = existing?.id
+  ? supabase.from('notification_preferences').update({ [key]: value } as any).eq('id', existing.id)
+  : supabase.from('notification_preferences').insert({ user_id: user.id, [key]: value } as any);
+
+const { error } = await operation;
+if (error) toast.error('Hiba a mentés során.');
+
   };
 
   if (!loaded) return null;
@@ -60,23 +75,11 @@ export function NotificationPreferencesCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Állítsd be, milyen értesítéseket szeretnél kapni.
-        </p>
-
+        <p className="text-sm text-muted-foreground">Állítsd be, milyen értesítéseket szeretnél kapni.</p>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm">Barát jelölések</Label>
-            <Switch checked={prefs.friend_request} onCheckedChange={v => update('friend_request', v)} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-sm">Esemény meghívások</Label>
-            <Switch checked={prefs.event_invite} onCheckedChange={v => update('event_invite', v)} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-sm">Kedvenc kategória új esemény</Label>
-            <Switch checked={prefs.favorite_category_event} onCheckedChange={v => update('favorite_category_event', v)} />
-          </div>
+          <div className="flex items-center justify-between"><Label className="text-sm">Barát jelölések</Label><Switch checked={prefs.friend_request} onCheckedChange={(v) => update('friend_request', v)} /></div>
+          <div className="flex items-center justify-between"><Label className="text-sm">Esemény meghívások</Label><Switch checked={prefs.event_invite} onCheckedChange={(v) => update('event_invite', v)} /></div>
+          <div className="flex items-center justify-between"><Label className="text-sm">Kedvenc kategória új esemény</Label><Switch checked={prefs.favorite_category_event} onCheckedChange={(v) => update('favorite_category_event', v)} /></div>
         </div>
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
+import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
 
 export type ParticipationStatus = 'interested' | 'going' | 'waitlist' | 'checked_in' | 'cancelled' | 'no_show';
 export type MessageAudience = 'all' | 'going' | 'waitlist' | 'checked_in' | 'no_show';
@@ -53,14 +54,16 @@ export interface OrganizerMessage {
 export async function getOwnedEvents(userId: string): Promise<OrganizerEventSummary[]> {
   const { data, error } = await supabase
     .from('events')
-    .select('id,title,event_date,event_time,location_city,category,image_emoji,max_attendees,waitlist_enabled,event_participants(status,checked_in_at)')
+    .select('id,title,event_date,event_time,location_city,category,image_emoji,max_attendees,waitlist_enabled')
     .eq('created_by', userId)
     .order('event_date', { ascending: true, nullsFirst: false });
 
   if (error) throw error;
 
+  const statsMap = await getParticipantStatsMap((data ?? []).map((event: any) => event.id));
+
   return (data ?? []).map((event: any) => {
-    const participants = event.event_participants ?? [];
+    const stats = statsMap.get(event.id) ?? { total: 0, going: 0, waitlist: 0, checkedIn: 0, cancelled: 0 };
     return {
       id: event.id,
       title: event.title,
@@ -71,10 +74,10 @@ export async function getOwnedEvents(userId: string): Promise<OrganizerEventSumm
       image_emoji: event.image_emoji,
       max_attendees: event.max_attendees,
       waitlist_enabled: event.waitlist_enabled,
-      participantCount: participants.length,
-      goingCount: participants.filter((p: any) => p.status === 'going').length,
-      waitlistCount: participants.filter((p: any) => p.status === 'waitlist').length,
-      checkedInCount: participants.filter((p: any) => p.status === 'checked_in').length,
+      participantCount: stats.total,
+      goingCount: stats.going,
+      waitlistCount: stats.waitlist,
+      checkedInCount: stats.checkedIn,
     };
   });
 }

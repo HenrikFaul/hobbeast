@@ -83,16 +83,35 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
     };
   }, [event.id]);
 
+
+const hasRequiredLocation = (() => {
+  if (locationType === 'online') return true;
+  if (locationType === 'free') return Boolean(locationFreeText.trim());
+  return Boolean(locationCity.trim() || locationAddress.trim());
+})();
+
+const hasRequiredFields = Boolean(title.trim() && eventDate && eventTime && hasRequiredLocation);
+
+const buildStartTimeIso = () => {
+  if (!eventDate || !eventTime) return null;
+  const [hours, minutes] = eventTime.split(':').map((value) => Number(value));
+  const next = new Date(eventDate);
+  next.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+  return next.toISOString();
+};
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!hasRequiredFields) return;
 
     setLoading(true);
+    const startTimeIso = buildStartTimeIso();
     const updatePayload: any = {
       title: title.trim(),
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
       event_time: eventTime || null,
+      start_time: startTimeIso,
       location_type: locationType,
       location_city: locationCity || null,
       location_district: locationDistrict || null,
@@ -103,6 +122,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      place_categories: [],
     };
 
     if (placeSel) {
@@ -112,13 +132,13 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
       updatePayload.place_lat = placeSel.lat;
       updatePayload.place_lon = placeSel.lon;
       updatePayload.place_source = placeSel.source;
-      updatePayload.place_categories = placeSel.categories;
+      updatePayload.place_categories = placeSel.categories || [];
     }
 
     const { error } = await supabase.from('events').update(updatePayload).eq('id', event.id);
 
     if (error) {
-      toast.error('Hiba a mentés során.');
+      toast.error(error?.message || 'Hiba a mentés során.');
     } else {
       try {
         await upsertEventTripPlan(event.id, tripPlan);
@@ -167,7 +187,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground")}>
@@ -181,7 +201,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont *</Label>
               <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
             </div>
           </div>
@@ -192,7 +212,7 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
           </div>
 
           <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín *</Label>
             <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
@@ -254,6 +274,8 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Címkék (vesszővel)</Label>
             <Input value={tags} onChange={e => setTags(e.target.value)} className="rounded-xl h-11" />
           </div>
+
+          {!hasRequiredFields && (<p className="text-xs text-muted-foreground">A *-gal jelölt mezők kötelezőek. A mentés csak kitöltés után engedélyezett.</p>)}
 
           <Button type="submit" className="w-full h-11 rounded-xl gradient-primary text-primary-foreground shadow-glow font-semibold" disabled={loading || !title.trim()}>
             <Save className="h-4 w-4 mr-2" /> {loading ? 'Mentés...' : 'Módosítások mentése'}

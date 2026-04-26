@@ -129,7 +129,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
     setErrorText(null);
 
     try {
-      const provider = await getAddressSearchProvider();
+      const provider = await getAddressSearchProvider('personal');
       let data: AddressResult[] = [];
 
       if (provider === 'aws') {
@@ -153,11 +153,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder = 'Kezdj el g
       setResults(data);
       setShowDropdown(data.length > 0);
       if (data.length === 0) {
-        setErrorText(
-          provider === 'local_catalog'
-            ? 'A lokális címtábla nem adott találatot. Az admin Import / Címkereső panelen töltsd újra a lokális adatokat, vagy válts másik providerre.'
-            : 'Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.'
-        );
+        setErrorText('Nincs találat erre a címre. Próbáld pontosabban: pl. utca / út / tér megadásával.');
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {

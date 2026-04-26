@@ -1,0 +1,35 @@
+HOBBEAST LOCAL SYNC UI + SCHEDULER RUNBOOK
+
+1. Replace these files in the repo:
+- src/components/admin/AdminEventbrite.tsx
+- supabase/functions/sync-local-places/index.ts
+
+2. Run this migration in the Hobbeast Supabase SQL Editor:
+- supabase/migrations/20260407223000_local_places_scheduler_and_enqueue.sql
+
+3. Redeploy the edge function:
+- sync-local-places
+
+4. Open Hobbeast admin -> Import -> Címkereső
+
+5. In the Lokális címtábla card:
+- set interval_minutes
+- set task_batch_size
+- set provider_concurrency
+- set radius_meters
+- set geo_limit
+- set tomtom_limit
+- click "Lokális sync beállítások mentése"
+
+6. For a fresh rebuild click:
+- "Teljes újratöltés"
+
+7. Then either:
+- click "Következő batch indítása" repeatedly, or
+- enable automatic batch execution and save settings
+
+8. Verify progress:
+- totalRows increases
+- providerCounts fills
+- cursor moves toward task_count
+- status becomes idle when cursor reaches task_count

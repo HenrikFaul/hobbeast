@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info, Database, MapPinned, Save, MapPin, Layers } from 'lucide-react';
+import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info, Database, MapPinned, Save, MapPin, Trash2, PlusCircle } from 'lucide-react';
 import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEvents, type MappedEventbriteEvent } from '@/lib/eventbrite';
 import { previewTicketmasterEvents, syncTicketmasterEvents } from '@/lib/external-events/ticketmaster';
 import { previewSeatGeekEvents, syncSeatGeekEvents } from '@/lib/external-events/seatgeek';
@@ -12,22 +12,22 @@ import type { ExternalEventNormalized, ExternalEventsSearchResult, TicketmasterS
 import { mapExternalEventToCardLike } from '@/lib/external-events/normalize';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getAddressSearchProvider, setAddressSearchProvider, type AddressSearchProvider } from '@/lib/searchProviderConfig';
+import {
+  setAddressSearchProvider,
+  getAllFunctionGroupProviders,
+  FUNCTION_GROUP_LABELS,
+  GEODATA_TABLE_OPTIONS,
+  getDbSearchTableConfigs,
+  saveDbSearchTableConfigs,
+  testDbSearchTableQuery,
+  getProviderDisplayLabel,
+  makeDbProviderId,
+  type AddressSearchProvider,
+  type AddressSearchFunctionGroup,
+  type DbSearchTableConfig,
+  type GeodataTableName,
+} from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
-
-interface LocalCatalogStatus {
-  totalRows: number;
-  state: {
-    status?: string;
-    rows_written?: number;
-    provider_counts?: Record<string, number>;
-    last_run_started_at?: string | null;
-    last_run_completed_at?: string | null;
-    last_error?: string | null;
-  } | null;
-  providerCounts: Record<string, number>;
-  preview: Array<{ provider: string; name: string; city: string | null; category_group: string; synced_at: string }>;
-}
 
 function ExternalEventList({ events }: { events: ExternalEventNormalized[] }) {
   const mapped = useMemo(() => events.map(mapExternalEventToCardLike), [events]);
@@ -62,6 +62,28 @@ function ExternalEventList({ events }: { events: ExternalEventNormalized[] }) {
   );
 }
 
+const BASE_PROVIDER_OPTIONS: Array<{ value: AddressSearchProvider; label: string; detail: string }> = [
+  { value: 'aws', label: 'AWS Places', detail: 'AWS Location Places provider' },
+  { value: 'geoapify_tomtom', label: 'Geoapify+TomTom', detail: 'Live külső provider fallback' },
+  { value: 'mapy', label: 'Mapy.cz', detail: 'Mapy cím- és útvonal provider' },
+];
+
+interface DbConfigFormState {
+  table: GeodataTableName;
+  label: string;
+  city: string;
+  category: string;
+  limit: number;
+}
+
+const DEFAULT_DB_FORM: DbConfigFormState = {
+  table: 'public.unified_pois',
+  label: 'Unified POI',
+  city: 'Budapest',
+  category: '',
+  limit: 10,
+};
+
 export function AdminEventbrite() {
   const [providerTab, setProviderTab] = useState<'eventbrite' | 'ticketmaster' | 'seatgeek' | 'places'>('eventbrite');
 
@@ -94,26 +116,54 @@ export function AdminEventbrite() {
   const [seatgeekLoading, setSeatGeekLoading] = useState(false);
   const [seatgeekInfo, setSeatGeekInfo] = useState<string | null>(null);
 
-  const [currentProvider, setCurrentProvider] = useState<AddressSearchProvider>('aws');
+  const [functionGroupProviders, setFunctionGroupProviders] = useState<Record<AddressSearchFunctionGroup, AddressSearchProvider>>({
+    default: 'aws',
+    personal: 'aws',
+    venue: 'aws',
+    trip_planner: 'aws',
+  });
   const [providerLoading, setProviderLoading] = useState(true);
   const [providerSaving, setProviderSaving] = useState(false);
   const [testQuery, setTestQuery] = useState('Budapest társasjáték');
+  const [testFunctionGroup, setTestFunctionGroup] = useState<AddressSearchFunctionGroup>('venue');
   const [testResults, setTestResults] = useState<NormalizedPlace[]>([]);
   const [testLoading, setTestLoading] = useState(false);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogStatus, setCatalogStatus] = useState<LocalCatalogStatus | null>(null);
+
+  const [dbConfigs, setDbConfigs] = useState<DbSearchTableConfig[]>([]);
+  const [dbConfigLoading, setDbConfigLoading] = useState(false);
+  const [dbConfigSaving, setDbConfigSaving] = useState(false);
+  const [dbForm, setDbForm] = useState<DbConfigFormState>(DEFAULT_DB_FORM);
+  const [dbTestResults, setDbTestResults] = useState<NormalizedPlace[]>([]);
+  const [dbTestLoading, setDbTestLoading] = useState(false);
+  const [dbDebug, setDbDebug] = useState<Record<string, unknown> | null>(null);
+
+  const providerOptions = useMemo(() => {
+    const dbOptions = dbConfigs.map((row) => ({
+      value: row.provider as AddressSearchProvider,
+      label: `${row.provider} · ${row.label}`,
+      detail: row.table,
+    }));
+    return [...BASE_PROVIDER_OPTIONS, ...dbOptions];
+  }, [dbConfigs]);
+
+  const loadProviderState = async () => {
+    setProviderLoading(true);
+    setDbConfigLoading(true);
+    try {
+      const [providers, dbConfigResponse] = await Promise.all([
+        getAllFunctionGroupProviders(),
+        getDbSearchTableConfigs(true),
+      ]);
+      setFunctionGroupProviders(providers);
+      setDbConfigs(dbConfigResponse.tables);
+    } finally {
+      setProviderLoading(false);
+      setDbConfigLoading(false);
+    }
+  };
 
   useEffect(() => {
-    void (async () => {
-      setProviderLoading(true);
-      try {
-        const provider = await getAddressSearchProvider(true);
-        setCurrentProvider(provider);
-      } finally {
-        setProviderLoading(false);
-      }
-      await refreshCatalogStatus();
-    })();
+    void loadProviderState();
   }, []);
 
   const handleSearch = async () => {
@@ -140,10 +190,10 @@ export function AdminEventbrite() {
     setError(null);
     setDebugInfo(null);
     try {
-      const { data, error } = await supabase.functions.invoke('eventbrite-import', {
+      const { data, error: tokenError } = await supabase.functions.invoke('eventbrite-import', {
         body: { action: 'validate_token' },
       });
-      if (error) throw new Error(error.message);
+      if (tokenError) throw new Error(tokenError.message);
       if (data?.ok) {
         toast.success('Eventbrite token validálva');
         setDebugInfo(`Token rendben. Webhook ID: ${data?.config?.webhook_id || 'nincs beállítva'}`);
@@ -228,25 +278,27 @@ export function AdminEventbrite() {
     setSeatGeekLoading(false);
   };
 
-  const refreshCatalogStatus = async () => {
-    setCatalogLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'status' } });
-      if (error) throw error;
-      setCatalogStatus(data as LocalCatalogStatus);
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült lekérni a lokális címtábla állapotát');
-    }
-    setCatalogLoading(false);
-  };
-
-  const handleSaveProvider = async () => {
+  const handleSaveProvider = async (group: AddressSearchFunctionGroup) => {
     setProviderSaving(true);
     try {
-      await setAddressSearchProvider(currentProvider);
-      toast.success('A címkereső provider beállítása elmentve');
+      await setAddressSearchProvider(functionGroupProviders[group], group);
+      toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve`);
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült menteni a provider beállítást');
+    }
+    setProviderSaving(false);
+  };
+
+  const handleSaveAllProviders = async () => {
+    setProviderSaving(true);
+    try {
+      const groups: AddressSearchFunctionGroup[] = ['default', 'personal', 'venue', 'trip_planner'];
+      for (const g of groups) {
+        await setAddressSearchProvider(functionGroupProviders[g], g);
+      }
+      toast.success('Minden provider beállítás elmentve');
+    } catch (err: any) {
+      toast.error(err.message || 'Nem sikerült menteni');
     }
     setProviderSaving(false);
   };
@@ -254,9 +306,10 @@ export function AdminEventbrite() {
   const handleTestProvider = async () => {
     setTestLoading(true);
     try {
-      const results = await searchPlaces(testQuery, undefined, undefined, currentProvider);
+      const provider = functionGroupProviders[testFunctionGroup];
+      const results = await searchPlaces(testQuery, undefined, undefined, provider);
       setTestResults(results);
-      toast.success(`${results.length} cím/hely találat érkezett`);
+      toast.success(`${results.length} találat (${FUNCTION_GROUP_LABELS[testFunctionGroup]} — ${getProviderDisplayLabel(provider, dbConfigs)})`);
     } catch (err: any) {
       toast.error(err.message || 'Provider tesztelési hiba');
       setTestResults([]);
@@ -264,18 +317,86 @@ export function AdminEventbrite() {
     setTestLoading(false);
   };
 
-  const handleReloadLocalCatalog = async () => {
-    setCatalogLoading(true);
+  const persistDbConfigs = async (next: DbSearchTableConfig[]) => {
+    setDbConfigSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-local-places', { body: { action: 'sync', reset: true } });
-      if (error) throw error;
-      toast.success(`Lokális címtábla újratöltve. ${data?.rowsWritten || 0} rekord.`);
-      setCatalogStatus((data?.status as LocalCatalogStatus) || null);
-      await refreshCatalogStatus();
+      const saved = await saveDbSearchTableConfigs(next);
+      setDbConfigs(saved.tables);
+      toast.success('Adatbázistábla provider konfiguráció elmentve');
     } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült újratölteni a lokális címtáblát');
+      toast.error(err.message || 'Nem sikerült menteni az adatbázistábla konfigurációt');
+    } finally {
+      setDbConfigSaving(false);
     }
-    setCatalogLoading(false);
+  };
+
+  const handleAddDbConfig = async () => {
+    const id = makeDbProviderId(dbForm.label, dbForm.table);
+    const now = new Date().toISOString();
+    const nextRow: DbSearchTableConfig = {
+      id,
+      provider: `db:${id}`,
+      label: dbForm.label.trim() || dbForm.table.split('.').pop() || dbForm.table,
+      table: dbForm.table,
+      enabled: true,
+      createdAt: dbConfigs.find((row) => row.id === id)?.createdAt || now,
+      updatedAt: now,
+    };
+    const next = [...dbConfigs.filter((row) => row.id !== id), nextRow];
+    await persistDbConfigs(next);
+  };
+
+  const handleRemoveDbConfig = async (provider: AddressSearchProvider) => {
+    const next = dbConfigs.filter((row) => row.provider !== provider);
+    setFunctionGroupProviders((prev) => {
+      const patched = { ...prev };
+      (Object.keys(patched) as AddressSearchFunctionGroup[]).forEach((group) => {
+        if (patched[group] === provider) patched[group] = 'geoapify_tomtom';
+      });
+      return patched;
+    });
+    await persistDbConfigs(next);
+  };
+
+  const handleEditDbConfig = (row: DbSearchTableConfig) => {
+    setDbForm((prev) => ({ ...prev, table: row.table, label: row.label }));
+  };
+
+  const handleTestDbTable = async () => {
+    setDbTestLoading(true);
+    setDbDebug(null);
+    setDbTestResults([]);
+    try {
+      const result = await testDbSearchTableQuery({
+        table: dbForm.table,
+        label: dbForm.label,
+        city: dbForm.city,
+        category: dbForm.category,
+        limit: dbForm.limit,
+      });
+      const normalized = ((result.results || []) as any[]).map((row) => ({
+        id: `${row.provider}-${row.external_id}`,
+        name: row.name,
+        address: row.address || row.name,
+        city: row.city || '',
+        district: row.district || '',
+        country: typeof row.metadata?.country === 'string' ? row.metadata.country : 'Hungary',
+        postcode: row.postal_code || '',
+        lat: typeof row.latitude === 'number' ? row.latitude : 0,
+        lon: typeof row.longitude === 'number' ? row.longitude : 0,
+        categories: Array.isArray(row.categories) ? row.categories : row.category ? [row.category] : [],
+        source: row.provider,
+        sourceId: row.external_id,
+        confidence: 0.75,
+      }));
+      setDbTestResults(normalized);
+      setDbDebug(result.debug || null);
+      toast.success(`${normalized.length} tesztsor lekérve: ${dbForm.table}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Adatbázistábla teszt hiba');
+    } finally {
+      setDbTestLoading(false);
+    }
   };
 
   return (
@@ -303,18 +424,18 @@ export function AdminEventbrite() {
                   <p className="mt-1 text-xs text-muted-foreground">Az Eventbrite v3 API keresést és szervezeti eseménylistát támogat. Innen preview-zni és ellenőrizni tudod az Eventbrite kapcsolatot.</p>
                 </div>
               </div>
+
               <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Keresés (pl. Budapest, sakk, túra)..." value={keyword} onChange={(e) => setKeyword(e.target.value)} className="pl-9" onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
-                </div>
+                <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Keresés Eventbrite-on..." onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
                 <Button onClick={handleSearch} disabled={loading}><Search className="mr-1 h-4 w-4" />Keresés</Button>
               </div>
+
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={handleTokenTest} disabled={loading}><CheckCircle className="mr-1 h-4 w-4" />Token teszt</Button>
-                <Button variant="outline" size="sm" onClick={handleOrgPull} disabled={loading}><RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Szervezeti események</Button>
+                <Button variant="outline" onClick={handleTokenTest} disabled={loading}>Token teszt</Button>
+                <Button variant="outline" onClick={handleOrgPull} disabled={loading}>Szervezeti események</Button>
               </div>
-              {error && <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
+
+              {error && <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><AlertCircle className="h-4 w-4" />{error}</div>}
               {debugInfo && <div className="flex items-start gap-2 rounded-lg bg-warning/10 p-3 text-sm"><Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" /><span className="text-muted-foreground">{debugInfo}</span></div>}
               {events.length > 0 && (
                 <div className="space-y-3">
@@ -322,16 +443,13 @@ export function AdminEventbrite() {
                     <CheckCircle className="h-4 w-4 text-success" />
                     <span className="text-sm font-medium">{events.length} esemény betöltve</span>
                   </div>
-
                   <div className="max-h-96 overflow-y-auto space-y-2">
                     {events.map((ev) => (
                       <div key={ev.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                         <span className="text-2xl">{ev.image_emoji || '📅'}</span>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">{ev.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {ev.event_date || '—'} · {ev.location_city || 'Online'}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{ev.event_date || '—'} · {ev.location_city || 'Online'}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">{ev.category}</Badge>
@@ -384,87 +502,198 @@ export function AdminEventbrite() {
             </TabsContent>
 
             <TabsContent value="places" className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base"><MapPinned className="h-4 w-4 text-primary" /> Címkereső provider</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-base"><MapPinned className="h-4 w-4 text-primary" /> Címkereső provider — funkció csoportonként</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">Itt runtime konfigurációval választhatod, hogy a Hobbeast cím- és helykeresője AWS Locationt, Geoapify/TomTom Edge Functiont, vagy a lokális adatbázis katalógust használja.</p>
-                    <div className="space-y-2">
-                      {([
-                        { value: 'aws', label: 'Amazon AWS Places V2' },
-                        { value: 'geoapify_tomtom', label: 'Geoapify + TomTom orchestration' },
-                        { value: 'local_catalog', label: 'Lokális címtábla (places_local_catalog)' },
-                      ] as { value: AddressSearchProvider; label: string }[]).map((option) => (
-                        <label key={option.value} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
-                          <input type="radio" name="address-provider" className="h-4 w-4" checked={currentProvider === option.value} onChange={() => setCurrentProvider(option.value)} />
-                          <div>
-                            <p className="font-medium">{option.label}</p>
-                            <p className="text-xs text-muted-foreground">{option.value}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
+                  <CardContent className="space-y-5">
+                    <p className="text-sm text-muted-foreground">
+                      Minden funkcióhoz külön kiválaszthatod, melyik provider szolgálja ki a címkeresést. A korábbi „Lokális katalógus” opció kikerült; helyette a jobb oldali adatbázistábla konfigurátorral létrehozott <code className="rounded bg-muted px-1">db:*</code> providerek választhatók.
+                    </p>
+
+                    {(['default', 'personal', 'venue', 'trip_planner'] as AddressSearchFunctionGroup[]).map((group) => (
+                      <div key={group} className="rounded-lg border p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium">{FUNCTION_GROUP_LABELS[group]}</p>
+                          <Badge variant="outline" className="max-w-[220px] truncate">{getProviderDisplayLabel(functionGroupProviders[group], dbConfigs)}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {providerOptions.map((opt) => (
+                            <label key={`${group}-${opt.value}`} className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/40">
+                              <input
+                                type="radio"
+                                name={`provider-${group}`}
+                                className="h-3 w-3"
+                                checked={functionGroupProviders[group] === opt.value}
+                                onChange={() => setFunctionGroupProviders((prev) => ({ ...prev, [group]: opt.value }))}
+                              />
+                              <span className="min-w-0">
+                                <span className="block font-medium">{opt.label}</span>
+                                <span className="block max-w-[220px] truncate text-muted-foreground">{opt.detail}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => handleSaveProvider(group)} disabled={providerSaving || providerLoading}>
+                          <Save className="mr-1 h-3 w-3" /> Mentés
+                        </Button>
+                      </div>
+                    ))}
+
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleSaveProvider} disabled={providerLoading || providerSaving}><Save className="mr-1 h-4 w-4" />Beállítás mentése</Button>
-                      <Badge variant="outline">Aktív provider: {currentProvider}</Badge>
+                      <Button onClick={handleSaveAllProviders} disabled={providerLoading || providerSaving}>
+                        <Save className="mr-1 h-4 w-4" /> Összes mentése
+                      </Button>
+                      <Button variant="outline" onClick={loadProviderState} disabled={providerLoading || dbConfigLoading}>
+                        <RefreshCw className={`mr-1 h-4 w-4 ${providerLoading || dbConfigLoading ? 'animate-spin' : ''}`} /> Frissítés
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Lokális címtábla</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Adatbázistábla kapcsolat</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">Összes rekord</div>
-                        <div className="text-2xl font-semibold">{catalogStatus?.totalRows ?? 0}</div>
+                    <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+                      Geodata Supabase projekt: <code className="rounded bg-background px-1">https://buuoyyfzincmbxafvihc.supabase.co</code>. Itt választod ki, mely táblákból jöhetnek venue találatok. A mentett sorok <code className="rounded bg-background px-1">db:</code> prefixű providerként jelennek meg a bal oldali menükben.
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1 text-xs font-medium">
+                        Adatbázistábla
+                        <select
+                          className="h-10 w-full rounded-md border bg-background px-3 text-sm font-normal"
+                          value={dbForm.table}
+                          onChange={(e) => setDbForm((prev) => ({ ...prev, table: e.target.value as GeodataTableName }))}
+                        >
+                          {GEODATA_TABLE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-xs font-medium">
+                        Megjelenített név
+                        <Input value={dbForm.label} onChange={(e) => setDbForm((prev) => ({ ...prev, label: e.target.value }))} placeholder="Pl. Unified POI" />
+                      </label>
+                      <label className="space-y-1 text-xs font-medium">
+                        Teszt város
+                        <Input value={dbForm.city} onChange={(e) => setDbForm((prev) => ({ ...prev, city: e.target.value }))} placeholder="Pl. Budapest" />
+                      </label>
+                      <label className="space-y-1 text-xs font-medium">
+                        Teszt kategória
+                        <Input value={dbForm.category} onChange={(e) => setDbForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Pl. cafe, restaurant, társas" />
+                      </label>
+                      <label className="space-y-1 text-xs font-medium">
+                        Teszt lekérdezési darabszám
+                        <Input type="number" min={1} max={80} value={dbForm.limit} onChange={(e) => setDbForm((prev) => ({ ...prev, limit: Math.min(Math.max(Number(e.target.value) || 10, 1), 80) }))} />
+                      </label>
+                      <div className="flex items-end gap-2">
+                        <Button className="flex-1" onClick={handleAddDbConfig} disabled={dbConfigSaving}>
+                          <PlusCircle className="mr-1 h-4 w-4" /> Mentés providerként
+                        </Button>
+                        <Button variant="outline" onClick={handleTestDbTable} disabled={dbTestLoading}>
+                          <Search className={`mr-1 h-4 w-4 ${dbTestLoading ? 'animate-spin' : ''}`} /> Teszt
+                        </Button>
                       </div>
-                      <div className="rounded-lg border p-3">
-                        <div className="text-xs text-muted-foreground">Állapot</div>
-                        <div className="text-lg font-semibold">{catalogStatus?.state?.status || 'ismeretlen'}</div>
-                      </div>
                     </div>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <p>Utolsó start: {catalogStatus?.state?.last_run_started_at || '—'}</p>
-                      <p>Utolsó befejezés: {catalogStatus?.state?.last_run_completed_at || '—'}</p>
-                      {catalogStatus?.state?.last_error && <p className="text-destructive">Utolsó hiba: {catalogStatus.state.last_error}</p>}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={refreshCatalogStatus} disabled={catalogLoading}><RefreshCw className={`mr-1 h-4 w-4 ${catalogLoading ? 'animate-spin' : ''}`} />Állapot frissítése</Button>
-                      <Button onClick={handleReloadLocalCatalog} disabled={catalogLoading}><Database className="mr-1 h-4 w-4" />Lokális adatok újratöltése</Button>
-                    </div>
+
                     <div className="space-y-2">
-                      <p className="text-sm font-medium">Provider szerinti rekordok</p>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(catalogStatus?.providerCounts || {}).map(([provider, count]) => (
-                          <Badge key={provider} variant="secondary">{provider}: {count}</Badge>
-                        ))}
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Mentett db providerek</p>
+                        <Badge variant="secondary">{dbConfigs.length} db</Badge>
                       </div>
+                      {dbConfigs.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                          Még nincs mentett adatbázistábla provider. Válassz táblát, adj neki nevet, teszteld, majd mentsd providerként.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {dbConfigs.map((row) => (
+                            <div key={row.provider} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{row.label}</p>
+                                <p className="truncate text-xs text-muted-foreground"><code>{row.provider}</code> · {row.table}</p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditDbConfig(row)}>Szerkeszt</Button>
+                                <Button size="sm" variant="ghost" onClick={() => handleRemoveDbConfig(row.provider)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+
+                    {dbDebug ? (
+                      <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">Legutóbbi teszt debug</p>
+                        <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap">{JSON.stringify(dbDebug, null, 2)}</pre>
+                      </div>
+                    ) : null}
                   </CardContent>
                 </Card>
               </div>
 
+              {dbTestResults.length > 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Adatbázistábla teszt találatok</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {dbTestResults.map((item) => (
+                        <div key={item.id} className="rounded-lg border p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">{item.address}</p>
+                              <p className="text-xs text-muted-foreground">{[item.city, item.district, item.postcode].filter(Boolean).join(' · ')}</p>
+                            </div>
+                            <Badge variant="outline">{item.source}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Provider teszt és találat preview</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Provider teszt — funkció csoport szerint</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium">Funkció csoport:</span>
+                    {(['default', 'personal', 'venue', 'trip_planner'] as AddressSearchFunctionGroup[]).map((g) => (
+                      <Button
+                        key={g}
+                        size="sm"
+                        variant={testFunctionGroup === g ? 'default' : 'outline'}
+                        onClick={() => setTestFunctionGroup(g)}
+                      >
+                        {FUNCTION_GROUP_LABELS[g].split(' (')[0]}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Aktív provider ehhez a csoporthoz: <Badge variant="outline">{getProviderDisplayLabel(functionGroupProviders[testFunctionGroup], dbConfigs)}</Badge>
+                  </p>
                   <div className="flex gap-2">
-                    <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Pl. Budapest társasjáték, Szeged kávézó, Debrecen koncert" onKeyDown={(e) => e.key === 'Enter' && handleTestProvider()} />
+                    <Input value={testQuery} onChange={(e) => setTestQuery(e.target.value)} placeholder="Pl. Budapest társasjáték, Szeged kávézó" onKeyDown={(e) => e.key === 'Enter' && handleTestProvider()} />
                     <Button onClick={handleTestProvider} disabled={testLoading}><Search className="mr-1 h-4 w-4" />Teszt</Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">A teszt a kiválasztott runtime providerrel fut, így rögtön látod, milyen cím/hely találatokat ad vissza az oldal aktuális beállítása.</p>
                   {testResults.length > 0 && (
                     <div className="max-h-80 space-y-2 overflow-y-auto">
                       {testResults.slice(0, 10).map((item) => (
                         <div key={item.id} className="rounded-lg border p-3">
                           <div className="flex items-center justify-between gap-3">
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-medium">{item.name}</p>
                               <p className="text-xs text-muted-foreground">{item.address}</p>
                               <p className="text-xs text-muted-foreground">{[item.city, item.district, item.postcode].filter(Boolean).join(' · ')}</p>
@@ -478,24 +707,6 @@ export function AdminEventbrite() {
                       ))}
                     </div>
                   )}
-                  {catalogStatus?.preview?.length ? (
-                    <div className="space-y-2">
-                      <p className="flex items-center gap-2 text-sm font-medium"><Layers className="h-4 w-4 text-primary" /> Lokális tábla legfrissebb rekordjai</p>
-                      <div className="max-h-72 space-y-2 overflow-y-auto">
-                        {catalogStatus.preview.map((row, index) => (
-                          <div key={`${row.provider}-${row.name}-${index}`} className="rounded-lg border p-3 text-sm">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <p className="font-medium">{row.name}</p>
-                                <p className="text-xs text-muted-foreground">{[row.city, row.category_group].filter(Boolean).join(' · ')}</p>
-                              </div>
-                              <Badge variant="outline">{row.provider}</Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
                 </CardContent>
               </Card>
             </TabsContent>

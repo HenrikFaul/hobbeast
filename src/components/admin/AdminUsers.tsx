@@ -1,11 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Eye, Calendar, MapPin, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Users, Eye, Calendar, MapPin, Clock, Network, RefreshCw, Filter, Search, Trash2, Ban, CheckCircle2, Mail } from "lucide-react";
+import { toast } from "sonner";
+import { AdminMassUsers } from "./AdminMassUsers";
+import { HubDetailModal } from "./HubDetailModal";
 
 interface ProfileRow {
   id: string;
@@ -21,10 +30,13 @@ interface ProfileRow {
   gender: string | null;
   date_of_birth: string | null;
   preferred_radius_km: number | null;
+  user_origin?: 'real' | 'generated' | null;
+  is_active?: boolean | null;
 }
 
 interface EventParticipation {
   id: string;
+  event_id?: string;
   joined_at: string;
   event: {
     id: string;
@@ -35,34 +47,265 @@ interface EventParticipation {
   };
 }
 
+interface EventOption {
+  id: string;
+  title: string;
+  category: string | null;
+  event_date: string | null;
+  is_active?: boolean | null;
+}
+
+interface VirtualHub {
+  id: string;
+  hobby_category: string;
+  city: string | null;
+  member_count: number;
+  created_at: string;
+}
+
+interface BulkFilters {
+  userType: 'all' | 'real' | 'generated';
+  registeredOlderThanDays: string;
+  inactiveDays: string;
+  hasOpenOwnedEvents: 'all' | 'yes' | 'no';
+  hobbyFilter: string;
+  hubFilter: string;
+}
+
+const EMPTY_FILTERS: BulkFilters = {
+  userType: 'all',
+  registeredOlderThanDays: '',
+  inactiveDays: '',
+  hasOpenOwnedEvents: 'all',
+  hobbyFilter: '',
+  hubFilter: '',
+};
+
 export function AdminUsers() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<ProfileRow | null>(null);
   const [participations, setParticipations] = useState<EventParticipation[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [hubs, setHubs] = useState<VirtualHub[]>([]);
+  const [hubsLoading, setHubsLoading] = useState(false);
+  const [refreshingHubs, setRefreshingHubs] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [bulkFilters, setBulkFilters] = useState<BulkFilters>(EMPTY_FILTERS);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [bulkMatchedCount, setBulkMatchedCount] = useState(0);
+  const [pendingAction, setPendingAction] = useState<'delete' | 'activate' | 'deactivate' | null>(null);
+  const [search, setSearch] = useState('');
+  const [pageSize, setPageSize] = useState<10 | 20 | 50>(10);
+  const [hubPageSize, setHubPageSize] = useState<10 | 20 | 50>(10);
+  const [userHubMap, setUserHubMap] = useState<Map<string, VirtualHub[]>>(new Map());
+  const [selectedHub, setSelectedHub] = useState<VirtualHub | null>(null);
+  const [hubDetailOpen, setHubDetailOpen] = useState(false);
+  const [expandedHobbies, setExpandedHobbies] = useState<Set<string>>(new Set());
+  const [expandedUserHubs, setExpandedUserHubs] = useState<Set<string>>(new Set());
+  const [allEvents, setAllEvents] = useState<EventOption[]>([]);
+  const [allHobbyOptions, setAllHobbyOptions] = useState<string[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [eventSearch, setEventSearch] = useState('');
+  const [hobbySearch, setHobbySearch] = useState('');
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [editGender, setEditGender] = useState<string>('unspecified');
+  const [editActiveStatus, setEditActiveStatus] = useState<'active' | 'inactive'>('active');
+  const [editBio, setEditBio] = useState('');
+  const [selectedHobbies, setSelectedHobbies] = useState<Set<string>>(new Set());
+
+  const ROW_H = 52;
+  const HEAD_H = 48;
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setProfiles((data as ProfileRow[]) || []);
-        setLoading(false);
-      });
+    void loadProfiles();
+    void loadHubs();
   }, []);
+
+  const loadProfiles = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Nem sikerült betölteni a profilokat.');
+      setProfiles([]);
+    } else {
+      setProfiles((data as ProfileRow[]) || []);
+    }
+    setLoading(false);
+  };
+
+  const loadHubs = async () => {
+    setHubsLoading(true);
+    const [hubRes, memberRes] = await Promise.all([
+      supabase.from('virtual_hubs' as any).select('*').order('member_count', { ascending: false }),
+      supabase.from('virtual_hub_members' as any).select('user_id, hub_id'),
+    ]);
+    if (hubRes.error) {
+      console.error(hubRes.error);
+      setHubs([]);
+    } else {
+      const hubsData = (hubRes.data as unknown as VirtualHub[]) || [];
+      setHubs(hubsData);
+      if (!memberRes.error && memberRes.data) {
+        const hubById = new Map<string, VirtualHub>();
+        hubsData.forEach((h) => hubById.set(h.id, h));
+        const map = new Map<string, VirtualHub[]>();
+        (memberRes.data as { user_id: string; hub_id: string }[]).forEach(({ user_id, hub_id }) => {
+          const hub = hubById.get(hub_id);
+          if (!hub || !user_id) return;
+          const arr = map.get(user_id) || [];
+          arr.push(hub);
+          map.set(user_id, arr);
+        });
+        setUserHubMap(map);
+      }
+    }
+    setHubsLoading(false);
+  };
+
+  const refreshHubs = async () => {
+    setRefreshingHubs(true);
+    const { error } = await supabase.rpc('refresh_virtual_hubs' as any);
+    if (error) {
+      console.error('refresh_virtual_hubs error', error);
+      toast.error(`Hiba a hubok újragenerálásakor: ${error.message}`);
+    } else {
+      toast.success('Virtuális közösségek újragenerálva!');
+      await loadHubs();
+    }
+    setRefreshingHubs(false);
+  };
 
   const openDetail = async (profile: ProfileRow) => {
     setSelectedUser(profile);
     setDetailLoading(true);
-    const { data } = await supabase
-      .from('event_participants')
-      .select('id, joined_at, event:events(id, title, category, event_date, image_emoji)')
-      .eq('user_id', profile.user_id)
-      .order('joined_at', { ascending: false });
-    setParticipations((data as unknown as EventParticipation[]) || []);
+    const [participationsRes, eventsRes, hobbiesRes] = await Promise.all([
+      supabase
+        .from('event_participants')
+        .select('id, event_id, joined_at, event:events(id, title, category, event_date, image_emoji)')
+        .eq('user_id', profile.user_id)
+        .order('joined_at', { ascending: false }),
+      supabase
+        .from('events')
+        .select('id, title, category, event_date, is_active')
+        .neq('is_active', false)
+        .order('event_date', { ascending: false })
+        .limit(500),
+      supabase
+        .from('hobby_activities')
+        .select('name, is_active')
+        .eq('is_active', true)
+        .order('name', { ascending: true }),
+    ]);
+
+    if (participationsRes.error) {
+      console.error(participationsRes.error);
+      setParticipations([]);
+      setSelectedEventIds(new Set());
+    } else {
+      const rows = (participationsRes.data as unknown as EventParticipation[]) || [];
+      setParticipations(rows);
+      setSelectedEventIds(new Set(rows.map((row) => row.event?.id || row.event_id).filter(Boolean) as string[]));
+    }
+
+    if (eventsRes.error) {
+      console.error(eventsRes.error);
+      setAllEvents([]);
+    } else {
+      setAllEvents((eventsRes.data as EventOption[]) || []);
+    }
+
+    if (hobbiesRes.error) {
+      console.error(hobbiesRes.error);
+      setAllHobbyOptions([]);
+    } else {
+      const unique = Array.from(new Set(((hobbiesRes.data as { name: string }[]) || []).map((row) => row.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      setAllHobbyOptions(unique);
+    }
+
+    setSelectedHobbies(new Set(profile.hobbies || []));
+    setEditGender(profile.gender || 'unspecified');
+    setEditActiveStatus(profile.is_active === false ? 'inactive' : 'active');
+    setEditBio((profile.bio || '').slice(0, 500));
+    setEventSearch('');
+    setHobbySearch('');
     setDetailLoading(false);
+  };
+
+  const saveUserDetail = async () => {
+    if (!selectedUser?.user_id) {
+      toast.error('A profil user_id hiányzik, ezért nem menthető.');
+      return;
+    }
+    setDetailSaving(true);
+    const payload = {
+      userId: selectedUser.user_id,
+      gender: editGender === 'unspecified' ? null : editGender,
+      isActive: editActiveStatus === 'active',
+      bio: editBio.trim().slice(0, 500),
+      hobbies: Array.from(selectedHobbies),
+      eventIds: Array.from(selectedEventIds),
+    };
+
+    let saveErrorMessage: string | null = null;
+
+    const { error: profileRpcError } = await supabase.rpc('admin_update_member_profile' as any, {
+      _target_user_id: payload.userId,
+      _gender: payload.gender,
+      _is_active: payload.isActive,
+      _bio: payload.bio,
+      _hobbies: payload.hobbies,
+    });
+
+    if (!profileRpcError) {
+      const { error: participationRpcError } = await supabase.rpc('admin_set_member_event_participations' as any, {
+        _target_user_id: payload.userId,
+        _event_ids: payload.eventIds,
+      });
+      if (participationRpcError) {
+        console.warn('admin_set_member_event_participations RPC failed, falling back to edge function', participationRpcError);
+        saveErrorMessage = participationRpcError.message;
+      }
+    } else {
+      console.warn('admin_update_member_profile RPC failed, falling back to edge function', profileRpcError);
+      saveErrorMessage = profileRpcError.message;
+    }
+
+    if (saveErrorMessage) {
+      const { data, error } = await supabase.functions.invoke('admin-user-profile-update', { body: payload });
+      if (error) {
+        toast.error(`Mentési hiba: ${error.message}`);
+        setDetailSaving(false);
+        return;
+      }
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        setDetailSaving(false);
+        return;
+      }
+    }
+
+    toast.success('Profil adatok mentve.');
+    setProfiles((prev) => prev.map((row) => {
+      if (row.user_id !== selectedUser.user_id) return row;
+      return {
+        ...row,
+        gender: payload.gender,
+        is_active: payload.isActive,
+        bio: payload.bio || null,
+        hobbies: payload.hobbies,
+      };
+    }));
+    setSelectedUser((prev) => prev ? {
+      ...prev,
+      gender: payload.gender,
+      is_active: payload.isActive,
+      bio: payload.bio || null,
+      hobbies: payload.hobbies,
+    } : prev);
+    await openDetail({ ...selectedUser, gender: payload.gender, is_active: payload.isActive, bio: payload.bio || null, hobbies: payload.hobbies });
+    setDetailSaving(false);
   };
 
   const getAge = (dob: string | null) => {
@@ -71,64 +314,226 @@ export function AdminUsers() {
     return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
   };
 
-  const getLastActivity = (profile: ProfileRow) => {
-    return new Date(profile.updated_at).toLocaleDateString('hu-HU');
+  const getLastActivity = (profile: ProfileRow) => new Date(profile.updated_at).toLocaleDateString('hu-HU');
+
+  const visibleProfiles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return profiles;
+    return profiles.filter((p) => {
+      const userHubs = userHubMap.get(p.user_id) || [];
+      const hubNames = userHubs.map((h) => `${h.hobby_category} ${h.city || ''}`).join(' ');
+      const haystack = [p.display_name, p.city, p.user_origin, ...(p.hobbies || []), hubNames].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [profiles, search, userHubMap]);
+
+  const allVisibleSelected = visibleProfiles.length > 0 && visibleProfiles.every((profile) => Boolean(profile.user_id) && selectedUserIds.has(profile.user_id));
+
+  const toggleVisible = (checked: boolean) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      visibleProfiles.forEach((profile) => {
+        if (!profile.user_id) return;
+        if (checked) next.add(profile.user_id);
+        else next.delete(profile.user_id);
+      });
+      return next;
+    });
+  };
+
+  const toggleSingle = (userId: string, checked: boolean) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(userId);
+      else next.delete(userId);
+      return next;
+    });
+  };
+
+
+const applyBulkSelection = async () => {
+  const hasServerFilters = bulkFilters.userType !== 'all'
+    || bulkFilters.hasOpenOwnedEvents !== 'all'
+    || !!bulkFilters.registeredOlderThanDays
+    || !!bulkFilters.inactiveDays;
+
+  let ids: Set<string>;
+
+  if (!hasServerFilters) {
+    ids = new Set(profiles.map((p) => p.user_id).filter(Boolean) as string[]);
+  } else {
+    setBulkApplying(true);
+    const { data, error } = await supabase.functions.invoke('admin-bulk-user-actions', {
+      body: {
+        mode: 'preview',
+        filters: {
+          userType: bulkFilters.userType,
+          registeredOlderThanDays: bulkFilters.registeredOlderThanDays ? Number(bulkFilters.registeredOlderThanDays) : null,
+          inactiveDays: bulkFilters.inactiveDays ? Number(bulkFilters.inactiveDays) : null,
+          hasOpenOwnedEvents: bulkFilters.hasOpenOwnedEvents,
+        },
+      },
+    });
+    setBulkApplying(false);
+    if (error) { toast.error(`Tömeges kijelölés hiba: ${error.message}`); return; }
+    const selectedProfileIds = Array.isArray(data?.selectedProfileIds) ? data.selectedProfileIds.filter(Boolean) as string[] : [];
+    const previewUserIds = Array.isArray(data?.selectedUserIds) ? data.selectedUserIds.filter(Boolean) as string[] : [];
+    const userIdsFromProfileIds = profiles.filter((p) => selectedProfileIds.includes(p.id) && p.user_id).map((p) => p.user_id as string);
+    ids = new Set<string>([...previewUserIds, ...userIdsFromProfileIds].filter(Boolean));
+  }
+
+  if (bulkFilters.hobbyFilter.trim()) {
+    const q = bulkFilters.hobbyFilter.trim().toLowerCase();
+    const matched = new Set(profiles.filter((p) => p.user_id && (p.hobbies || []).some((h) => h.toLowerCase().includes(q))).map((p) => p.user_id as string));
+    ids = new Set([...ids].filter((id) => matched.has(id)));
+  }
+  if (bulkFilters.hubFilter.trim()) {
+    const q = bulkFilters.hubFilter.trim().toLowerCase();
+    const matched = new Set<string>();
+    userHubMap.forEach((hs, uid) => { if (hs.some((h) => h.hobby_category.toLowerCase().includes(q) || (h.city || '').toLowerCase().includes(q))) matched.add(uid); });
+    ids = new Set([...ids].filter((id) => matched.has(id)));
+  }
+
+  setSelectedUserIds(ids);
+  setBulkMatchedCount(ids.size);
+  toast.success(`${ids.size} profil kijelölve a szűrők alapján.`);
+};
+
+  const runBulkAction = async (action: 'delete' | 'activate' | 'deactivate') => {
+    if (selectedUserIds.size === 0) return;
+    setBulkApplying(true);
+    const { data, error } = await supabase.functions.invoke('admin-bulk-user-actions', {
+      body: {
+        mode: 'apply',
+        action,
+        userIds: Array.from(selectedUserIds),
+        profileIds: profiles.filter((p) => p.user_id && selectedUserIds.has(p.user_id)).map((p) => p.id),
+      },
+    });
+
+    if (error) {
+      toast.error(`Tömeges művelet hiba: ${error.message}`);
+    } else {
+      const affected = Number(data?.affected || 0);
+      const failures = Number(data?.failures || 0);
+      toast.success(`${affected} profil művelete lefutott.${failures ? ` ${failures} hiba történt.` : ''}`);
+      setPendingAction(null);
+      setSelectedUserIds(new Set());
+      setBulkMatchedCount(0);
+      await loadProfiles();
+    }
+    setBulkApplying(false);
   };
 
   return (
-    <>
+    <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle className="font-display text-lg flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" /> Regisztrált felhasználók ({profiles.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="font-display text-lg flex items-center gap-2 flex-wrap">
+              <Users className="h-5 w-5 text-primary" />
+              <span>Felhasználók: {profiles.length} összes</span>
+              <span className="text-sm font-normal text-muted-foreground">({profiles.filter((p) => p.user_origin !== 'generated').length} regisztrált / {profiles.filter((p) => p.user_origin === 'generated').length} generált)</span>
+            </CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Keresés név, város, hobbi alapján" className="w-64 rounded-xl" />
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v) as 10 | 20 | 50)}>
+                <SelectTrigger className="w-28 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 sor</SelectItem>
+                  <SelectItem value="20">20 sor</SelectItem>
+                  <SelectItem value="50">50 sor</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" className="rounded-xl gap-2" onClick={() => setBulkModalOpen(true)}>
+                <Filter className="h-4 w-4" /> Tömeges kijelölés
+              </Button>
             </div>
-          ) : profiles.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nincs regisztrált felhasználó.</p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="destructive" size="sm" className="rounded-xl gap-2" disabled={selectedUserIds.size === 0} onClick={() => setPendingAction('delete')}>
+              <Trash2 className="h-4 w-4" /> Törlés
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedUserIds.size === 0} onClick={() => setPendingAction('activate')}>
+              <CheckCircle2 className="h-4 w-4" /> Aktiválás
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled={selectedUserIds.size === 0} onClick={() => setPendingAction('deactivate')}>
+              <Ban className="h-4 w-4" /> Deaktiválás
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl gap-2" disabled>
+              <Mail className="h-4 w-4" /> Emlékeztető kiküldése
+            </Button>
+            <Badge variant="outline">Kijelölve: {selectedUserIds.size}</Badge>
+          </div>
+          {loading ? (
+            <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
+          ) : visibleProfiles.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Nincs megjeleníthető felhasználó.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-250px)]" style={{ height: pageSize * ROW_H + HEAD_H }}>
+              <Table containerClassName="relative w-full">
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b">
                   <TableRow>
-                    <TableHead>Név</TableHead>
-                    <TableHead>Város</TableHead>
-                    <TableHead>Hobbik</TableHead>
-                    <TableHead>Regisztráció</TableHead>
-                    <TableHead>Utolsó aktivitás</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="w-10 sticky top-0 z-20 bg-card"><Checkbox checked={allVisibleSelected} onCheckedChange={(v) => toggleVisible(Boolean(v))} /></TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Név</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Forrás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Státusz</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Város</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hobbik</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Hub</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Regisztráció</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card">Utolsó aktivitás</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {profiles.map((p) => (
+                  {visibleProfiles.map((p) => (
                     <TableRow key={p.id}>
+                      <TableCell><Checkbox checked={Boolean(p.user_id) && selectedUserIds.has(p.user_id)} disabled={!p.user_id} onCheckedChange={(v) => p.user_id && toggleSingle(p.user_id, Boolean(v))} /></TableCell>
                       <TableCell className="font-medium">{p.display_name || '—'}</TableCell>
+                      <TableCell>
+                        <Badge variant={p.user_origin === 'generated' ? 'secondary' : 'outline'}>{p.user_origin === 'generated' ? 'Generált' : 'Igazi'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={p.is_active === false ? 'destructive' : 'default'}>{p.is_active === false ? 'Inaktív' : 'Aktív'}</Badge>
+                      </TableCell>
                       <TableCell>{p.city || '—'}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(p.hobbies || []).slice(0, 3).map((h) => (
-                            <Badge key={h} variant="secondary" className="text-xs">{h}</Badge>
-                          ))}
-                          {(p.hobbies || []).length > 3 && (
-                            <Badge variant="outline" className="text-xs">+{p.hobbies!.length - 3}</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(p.created_at).toLocaleDateString('hu-HU')}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {getLastActivity(p)}
+                        {(() => {
+                          const hobbies = p.hobbies || [];
+                          const expanded = expandedHobbies.has(p.user_id);
+                          const visible = expanded ? hobbies : hobbies.slice(0, 1);
+                          const extra = hobbies.length - 1;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {visible.map((h) => <Badge key={h} variant="secondary" className="text-xs">{h}</Badge>)}
+                              {!expanded && extra > 0 && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedHobbies((prev) => new Set([...prev, p.user_id]))}>+{extra}</Badge>}
+                              {expanded && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedHobbies((prev) => { const n = new Set(prev); n.delete(p.user_id); return n; })}>▲</Badge>}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => openDetail(p)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        {(() => {
+                          const userHubs = userHubMap.get(p.user_id) || [];
+                          const expanded = expandedUserHubs.has(p.user_id);
+                          const visible = expanded ? userHubs : userHubs.slice(0, 1);
+                          const extra = userHubs.length - 1;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {userHubs.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                              {visible.map((h) => <Badge key={h.id} variant="secondary" className="text-xs">{h.hobby_category}{h.city ? ` · ${h.city}` : ''}</Badge>)}
+                              {!expanded && extra > 0 && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedUserHubs((prev) => new Set([...prev, p.user_id]))}>+{extra}</Badge>}
+                              {expanded && <Badge variant="outline" className="text-xs cursor-pointer hover:bg-secondary" onClick={() => setExpandedUserHubs((prev) => { const n = new Set(prev); n.delete(p.user_id); return n; })}>▲</Badge>}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('hu-HU')}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{getLastActivity(p)}</TableCell>
+                      <TableCell><Button variant="ghost" size="icon" onClick={() => openDetail(p)}><Eye className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -138,94 +543,254 @@ export function AdminUsers() {
         </CardContent>
       </Card>
 
-      {/* Detail dialog */}
+      <AdminMassUsers onUsersCreated={loadProfiles} />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-display text-lg flex items-center gap-2">
+              <Network className="h-5 w-5 text-primary" /> Virtuális közösségek ({hubs.length})
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={String(hubPageSize)} onValueChange={(v) => setHubPageSize(Number(v) as 10 | 20 | 50)}>
+                <SelectTrigger className="w-28 rounded-xl h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 sor</SelectItem>
+                  <SelectItem value="20">20 sor</SelectItem>
+                  <SelectItem value="50">50 sor</SelectItem>
+                </SelectContent>
+              </Select>
+            <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={refreshHubs} disabled={refreshingHubs}>
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingHubs ? 'animate-spin' : ''}`} /> {refreshingHubs ? 'Frissítés...' : 'Hubok újragenerálása'}
+            </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">A virtuális közösségek automatikusan jönnek létre a felhasználók érdeklődési körei és városuk alapján. Ezek láthatatlanok a felhasználók számára – kizárólag admin célra.</p>
+        </CardHeader>
+        <CardContent>
+          {hubsLoading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div> : hubs.length === 0 ? <p className="text-muted-foreground text-center py-8">Nincsenek virtuális közösségek. Kattints a „Hubok újragenerálása" gombra a létrehozáshoz.</p> : (
+            <div className="overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-[calc(100vh-300px)]" style={{ height: hubPageSize * ROW_H + HEAD_H }}>
+              <Table containerClassName="relative w-full">
+                <TableHeader className="sticky top-0 z-10 bg-card shadow-sm border-b"><TableRow><TableHead>Érdeklődési kör</TableHead><TableHead>Város</TableHead><TableHead>Tagok száma</TableHead><TableHead>Létrehozva</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {hubs.map((hub) => (
+                    <TableRow key={hub.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => { setSelectedHub(hub); setHubDetailOpen(true); }}>
+                      <TableCell className="font-medium">{hub.hobby_category}</TableCell>
+                      <TableCell>{hub.city || 'Országos'}</TableCell>
+                      <TableCell><Badge variant="secondary">{hub.member_count} fő</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(hub.created_at).toLocaleDateString('hu-HU')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={bulkModalOpen} onOpenChange={setBulkModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Tömeges kijelölés szűrőkkel</DialogTitle>
+            <DialogDescription>Szűrj felhasználótípus, aktivitás és eseménygazda státusz alapján, majd jelöld ki a találatokat tömeges művelethez.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Felhasználó típusa</Label>
+                <Select value={bulkFilters.userType} onValueChange={(value: any) => setBulkFilters((prev) => ({ ...prev, userType: value }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Mindegy</SelectItem>
+                    <SelectItem value="real">Igazi user</SelectItem>
+                    <SelectItem value="generated">Generált user</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Van-e nyitott eseménye, aminek ő a gazdája</Label>
+                <Select value={bulkFilters.hasOpenOwnedEvents} onValueChange={(value: any) => setBulkFilters((prev) => ({ ...prev, hasOpenOwnedEvents: value }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Mindegy</SelectItem>
+                    <SelectItem value="yes">Igen</SelectItem>
+                    <SelectItem value="no">Nem</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Regisztráció óta eltelt napok</Label>
+                <Input type="number" min={0} value={bulkFilters.registeredOlderThanDays} onChange={(e) => setBulkFilters((prev) => ({ ...prev, registeredOlderThanDays: e.target.value }))} placeholder="pl. 40" />
+              </div>
+              <div className="space-y-2">
+                <Label>Utolsó belépés óta eltelt napok</Label>
+                <Input type="number" min={0} value={bulkFilters.inactiveDays} onChange={(e) => setBulkFilters((prev) => ({ ...prev, inactiveDays: e.target.value }))} placeholder="pl. 40" />
+              </div>
+              <div className="space-y-2">
+                <Label>Hobbi tartalmaz</Label>
+                <Input value={bulkFilters.hobbyFilter} onChange={(e) => setBulkFilters((prev) => ({ ...prev, hobbyFilter: e.target.value }))} placeholder="pl. futás" />
+              </div>
+              <div className="space-y-2">
+                <Label>Hub (város vagy érdeklődési kör)</Label>
+                <Input value={bulkFilters.hubFilter} onChange={(e) => setBulkFilters((prev) => ({ ...prev, hubFilter: e.target.value }))} placeholder="pl. Budapest" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button className="rounded-xl gap-2" disabled={bulkApplying} onClick={applyBulkSelection}><Filter className="h-4 w-4" /> Szűrés</Button>
+              <Button variant="outline" className="rounded-xl" onClick={() => { setBulkFilters(EMPTY_FILTERS); setSelectedUserIds(new Set()); setBulkMatchedCount(0); }}>Szűrők törlése</Button>
+              <Badge variant="secondary">Kijelölt profilok száma: {selectedUserIds.size}</Badge>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-display flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              {selectedUser?.display_name || 'Felhasználó'}
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="font-display flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> {selectedUser?.display_name || 'Felhasználó'}</DialogTitle><DialogDescription>A kiválasztott profil részletes adatai és esemény részvételei.</DialogDescription></DialogHeader>
           {selectedUser && (
             <div className="space-y-5">
-              {/* Profile info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground text-xs">Város</p>
-                  <p className="font-medium flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {selectedUser.city || '—'}{selectedUser.district ? `, ${selectedUser.district}` : ''}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Kor</p>
-                  <p className="font-medium">{getAge(selectedUser.date_of_birth) ? `${getAge(selectedUser.date_of_birth)} év` : '—'}</p>
-                </div>
-                <div>
+                <div><p className="text-muted-foreground text-xs">Város</p><p className="font-medium flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {selectedUser.city || '—'}{selectedUser.district ? `, ${selectedUser.district}` : ''}</p></div>
+                <div><p className="text-muted-foreground text-xs">Kor</p><p className="font-medium">{getAge(selectedUser.date_of_birth) ? `${getAge(selectedUser.date_of_birth)} év` : '—'}</p></div>
+                <div className="space-y-1">
                   <p className="text-muted-foreground text-xs">Nem</p>
-                  <p className="font-medium">{selectedUser.gender || '—'}</p>
+                  <Select value={editGender} onValueChange={setEditGender}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unspecified">Nincs megadva</SelectItem>
+                      <SelectItem value="male">Férfi</SelectItem>
+                      <SelectItem value="female">Nő</SelectItem>
+                      <SelectItem value="other">Egyéb</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Nem szeretné megadni</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Keresési sugár</p>
-                  <p className="font-medium">{selectedUser.preferred_radius_km ? `${selectedUser.preferred_radius_km} km` : '—'}</p>
+                <div><p className="text-muted-foreground text-xs">Keresési sugár</p><p className="font-medium">{selectedUser.preferred_radius_km ? `${selectedUser.preferred_radius_km} km` : '—'}</p></div>
+                <div><p className="text-muted-foreground text-xs">Forrás</p><p className="font-medium">{selectedUser.user_origin === 'generated' ? 'Generált' : 'Igazi'}</p></div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-xs">Státusz</p>
+                  <Select value={editActiveStatus} onValueChange={(value: 'active' | 'inactive') => setEditActiveStatus(value)}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Aktív</SelectItem>
+                      <SelectItem value="inactive">Inaktív</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-2 space-y-1">
                   <p className="text-muted-foreground text-xs">Bio</p>
-                  <p className="font-medium">{selectedUser.bio || '—'}</p>
+                  <Textarea
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value.slice(0, 500))}
+                    maxLength={500}
+                    rows={3}
+                    className="resize-none"
+                    placeholder="Legfeljebb 500 karakter."
+                  />
+                  <p className="text-[11px] text-muted-foreground text-right">{editBio.length}/500</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Regisztráció</p>
-                  <p className="font-medium flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {new Date(selectedUser.created_at).toLocaleDateString('hu-HU')}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Utolsó aktivitás</p>
-                  <p className="font-medium">{getLastActivity(selectedUser)}</p>
-                </div>
+                <div><p className="text-muted-foreground text-xs">Regisztráció</p><p className="font-medium flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {new Date(selectedUser.created_at).toLocaleDateString('hu-HU')}</p></div>
+                <div><p className="text-muted-foreground text-xs">Utolsó aktivitás</p><p className="font-medium">{getLastActivity(selectedUser)}</p></div>
               </div>
-
-              {/* Hobbies */}
               <div>
                 <p className="text-xs text-muted-foreground mb-2">Hobbik ({(selectedUser.hobbies || []).length})</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(selectedUser.hobbies || []).length === 0 && <p className="text-sm text-muted-foreground">Nincs megadva</p>}
-                  {(selectedUser.hobbies || []).map((h) => (
-                    <Badge key={h} variant="secondary">{h}</Badge>
-                  ))}
+                <Input value={hobbySearch} onChange={(e) => setHobbySearch(e.target.value)} placeholder="Hobbi keresés..." className="mb-2 h-8" />
+                <div className="max-h-36 overflow-y-auto rounded-md border p-2 space-y-1">
+                  {allHobbyOptions
+                    .filter((h) => h.toLowerCase().includes(hobbySearch.trim().toLowerCase()))
+                    .slice(0, 120)
+                    .map((h) => (
+                      <label key={h} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={selectedHobbies.has(h)}
+                          onCheckedChange={(checked) => setSelectedHobbies((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(h);
+                            else next.delete(h);
+                            return next;
+                          })}
+                        />
+                        <span>{h}</span>
+                      </label>
+                    ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {selectedHobbies.size === 0 && <p className="text-sm text-muted-foreground">Nincs kiválasztva</p>}
+                  {Array.from(selectedHobbies).map((h) => <Badge key={h} variant="secondary">{h}</Badge>)}
                 </div>
               </div>
-
-              {/* Event participations */}
               <div>
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" /> Esemény részvételek ({participations.length})
-                </p>
-                {detailLoading ? (
-                  <div className="flex justify-center py-4">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-                  </div>
-                ) : participations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Még nem csatlakozott eseményhez.</p>
-                ) : (
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Esemény részvételek ({participations.length})</p>
+                <Input value={eventSearch} onChange={(e) => setEventSearch(e.target.value)} placeholder="Esemény keresés cím vagy kategória alapján..." className="mb-2 h-8" />
+                <div className="max-h-36 overflow-y-auto rounded-md border p-2 space-y-1 mb-2">
+                  {allEvents
+                    .filter((ev) => {
+                      const q = eventSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return `${ev.title} ${ev.category || ''}`.toLowerCase().includes(q);
+                    })
+                    .map((ev) => (
+                      <label key={ev.id} className="flex items-start gap-2 text-sm">
+                        <Checkbox
+                          checked={selectedEventIds.has(ev.id)}
+                          onCheckedChange={(checked) => setSelectedEventIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(ev.id);
+                            else next.delete(ev.id);
+                            return next;
+                          })}
+                        />
+                        <span>
+                          {ev.title}
+                          <span className="text-xs text-muted-foreground"> · {ev.category || '—'} · {ev.event_date ? new Date(ev.event_date).toLocaleDateString('hu-HU') : '—'}</span>
+                        </span>
+                      </label>
+                    ))}
+                </div>
+                {detailLoading ? <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" /></div> : participations.length === 0 ? <p className="text-sm text-muted-foreground">Még nem csatlakozott eseményhez.</p> : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {participations.map((p) => (
                       <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card text-sm">
                         <span>{p.event?.image_emoji || '🎉'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{p.event?.title || '—'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {p.event?.category} · {p.event?.event_date ? new Date(p.event.event_date).toLocaleDateString('hu-HU') : '—'}
-                          </p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(p.joined_at).toLocaleDateString('hu-HU')}
-                        </span>
+                        <div className="flex-1 min-w-0"><p className="font-medium truncate">{p.event?.title || '—'}</p><p className="text-xs text-muted-foreground">{p.event?.category} · {p.event?.event_date ? new Date(p.event.event_date).toLocaleDateString('hu-HU') : '—'}</p></div>
+                        <span className="text-xs text-muted-foreground">{new Date(p.joined_at).toLocaleDateString('hu-HU')}</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+              <div className="flex justify-end">
+                <Button className="rounded-xl" onClick={saveUserDetail} disabled={detailSaving || detailLoading}>
+                  {detailSaving ? 'Mentés...' : 'Profil mentése'}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </>
+
+      <HubDetailModal hub={selectedHub} open={hubDetailOpen} onClose={() => setHubDetailOpen(false)} onUpdated={loadHubs} />
+
+      <AlertDialog open={pendingAction !== null} onOpenChange={(open) => !open && setPendingAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Biztosan végrehajtod a műveletet?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A kijelölt profilokra fut le a művelet. Kijelölt profilok száma: {selectedUserIds.size}. Ez a művelet különösen törlés esetén nem visszavonható.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mégse</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingAction && runBulkAction(pendingAction)} disabled={bulkApplying}>
+              {pendingAction === 'delete' ? 'Törlés megerősítése' : 'Megerősítés'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

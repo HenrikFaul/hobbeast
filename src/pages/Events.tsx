@@ -15,6 +15,7 @@ import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
+import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
 
 type SourceFilter = 'all' | 'hobbeast' | 'external';
 type LatLng = { lat: number; lon: number };
@@ -239,15 +240,24 @@ const Events = () => {
 
   const fetchEvents = async () => {
     const today = getTodayDateString();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('events')
-      .select('*, event_participants(count)')
+      .select('*')
       .eq('is_active', true)
       .gte('event_date', today);
 
-    if (data) {
-      setDbEvents(data.map((e: any) => ({ ...e, participant_count: e.event_participants?.[0]?.count || 0, source: 'hobbeast' as const, source_label: 'Hobbeast' })));
+    if (error) {
+      console.error('events fetch failed', error);
+      return;
     }
+
+    const statsMap = await getParticipantStatsMap((data ?? []).map((event: any) => event.id));
+    setDbEvents((data ?? []).map((e: any) => ({
+      ...e,
+      participant_count: statsMap.get(e.id)?.total || 0,
+      source: 'hobbeast' as const,
+      source_label: 'Hobbeast',
+    })));
   };
 
   const fetchExternalDbEvents = async () => {
@@ -327,13 +337,30 @@ const Events = () => {
         setDistanceError(null);
         return;
       }
-      const origin = profileLocation?.location_lat && profileLocation?.location_lon
-        ? { lat: profileLocation.location_lat, lon: profileLocation.location_lon }
-        : null;
+
+      // Priority 1: Browser geolocation
+      let origin: LatLng | null = null;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 300000 });
+          });
+          origin = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        } catch {
+          // Fallback to profile
+        }
+      }
+
+      // Fallback: profile location
+      if (!origin) {
+        origin = profileLocation?.location_lat && profileLocation?.location_lon
+          ? { lat: profileLocation.location_lat, lon: profileLocation.location_lon }
+          : null;
+      }
 
       if (!origin) {
         setDistanceFilteredIds(null);
-        setDistanceError('A távolságszűrőhöz előbb ments el egy várost vagy címet a profilodban.');
+        setDistanceError('A távolságszűrőhöz adj meg lokációt a profilodban, vagy engedélyezd a helymeghatározást.');
         return;
       }
 
@@ -582,7 +609,7 @@ const Events = () => {
             <div>
               <h2 className="font-semibold">Távolság alapú szűrés</h2>
               <p className="text-sm text-muted-foreground">
-                A profilodban megadott lokáció alapján szűr. Minél pontosabb a profilban mentett cím, annál pontosabban működik.
+                Először a böngésző helymeghatározásából, majd a profilodban megadott lokáció alapján szűr.
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm font-medium">
@@ -590,7 +617,6 @@ const Events = () => {
                 type="checkbox"
                 checked={distanceFilterEnabled}
                 onChange={(e) => setDistanceFilterEnabled(e.target.checked)}
-                disabled={!profileLocation?.location_lat || !profileLocation?.location_lon}
               />
               Bekapcsolva
             </label>
@@ -627,7 +653,7 @@ const Events = () => {
           <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>
         )}
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {filtered.map((event, i) => {
             const relation: EventRelation =
               user && event.created_by === user.id ? 'own' :
@@ -662,7 +688,7 @@ const Events = () => {
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge variant="secondary" className="text-xs">{event.category}</Badge>
                     {event.source_label && event.source_label !== 'Hobbeast' && (
-                      <Badge variant="outline" className="text-xs border-accent text-accent-foreground">
+                      <Badge variant="outline" className="text-xs border-accent bg-accent/10 text-accent">
                         {event.source_label}
                       </Badge>
                     )}
@@ -748,9 +774,9 @@ const Events = () => {
       </div>
 
       {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl">
-            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-6 py-4">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
+          <div className="w-full sm:max-w-5xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border bg-card shadow-2xl">
+            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-4 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-display font-bold">Kategóriák</h2>
@@ -779,7 +805,7 @@ const Events = () => {
               </div>
             </div>
 
-            <div className="space-y-4 p-6">
+            <div className="space-y-4 p-4 sm:p-6">
               {HOBBY_CATALOG.map((category) => {
                 const categorySelected = selectedCategoryIds.has(category.id);
                 const categoryExpanded = expandedCategories.has(category.id);

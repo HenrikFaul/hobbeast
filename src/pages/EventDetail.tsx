@@ -13,6 +13,7 @@ import { EditEventDialog } from "@/components/EditEventDialog";
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
+import { getParticipantStats } from '@/lib/eventParticipantStats';
 
 interface EventData {
   id: string;
@@ -77,14 +78,14 @@ const EventDetail = () => {
     }
 
     // Check if it's an external event (stored in sessionStorage from Events page)
-    if (id.startsWith('eb-')) {
+    if (id.startsWith('eb-') || id.startsWith('ext-')) {
       const stored = sessionStorage.getItem(`event-${id}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         setEvent(parsed);
         setIsExternal(true);
-        setExternalUrl(parsed.eventbrite_url || null);
-        setExternalSource(parsed.source_label || 'Eventbrite');
+        setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
+        setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
         setParticipantCount(parsed.participant_count || 0);
       }
       setLoading(false);
@@ -95,12 +96,13 @@ const EventDetail = () => {
     const fetchEvent = async () => {
       const { data } = await supabase
         .from('events')
-        .select('*, event_participants(count)')
+.select('*')
         .eq('id', id)
         .single();
       if (data) {
         setEvent(data);
-        setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+        const stats = await getParticipantStats(id);
+        setParticipantCount(stats.total);
         try {
           const loadedTripPlan = await getEventTripPlan(id);
           setTripPlan(loadedTripPlan);
@@ -388,11 +390,12 @@ const EventDetail = () => {
             setShowEdit(false);
             // Re-fetch
             if (id) {
-              supabase.from('events').select('*, event_participants(count)').eq('id', id).single()
-                .then(({ data }) => {
+              supabase.from('events').select('*').eq('id', id).single()
+                .then(async ({ data }) => {
                   if (data) {
                     setEvent(data);
-                    setParticipantCount((data as any).event_participants?.[0]?.count || 0);
+                    const stats = await getParticipantStats(id);
+                    setParticipantCount(stats.total);
                     getEventTripPlan(id)
                       .then((plan) => setTripPlan(plan))
                       .catch((error) => console.error('Failed to refresh trip plan', error));

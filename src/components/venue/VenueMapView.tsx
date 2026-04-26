@@ -41,6 +41,10 @@ export function VenueMapView({ venues, bias, onSelectVenue }: VenueMapViewProps)
       zoomControl: true,
     });
 
+    // Fix z-index stacking: ensure map tiles/controls don't escape the container
+    containerRef.current.style.position = 'relative';
+    containerRef.current.style.zIndex = '0';
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
       maxZoom: 19,
@@ -74,7 +78,8 @@ export function VenueMapView({ venues, bias, onSelectVenue }: VenueMapViewProps)
   return (
     <div
       ref={containerRef}
-      className="w-full h-[280px] rounded-xl border overflow-hidden"
+      className="w-full h-[280px] rounded-xl border overflow-hidden relative"
+      style={{ isolation: 'isolate' }}
     />
   );
 }

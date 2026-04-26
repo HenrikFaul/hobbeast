@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, Layers, FolderTree, Activity, Plus, Pencil, 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { getCatalogStats } from "@/lib/hobbyCategories";
+import type { TablesInsert } from "@/integrations/supabase/types";
 
 interface DbCategory {
   id: string;
@@ -44,6 +45,44 @@ interface DbActivity {
 }
 
 type EditMode = 'category' | 'subcategory' | 'activity';
+
+
+async function saveCategoryBySlug(slug: string, payload: TablesInsert<'hobby_categories'>) {
+  const { data: existing } = await supabase.from('hobby_categories').select('id').eq('slug', slug).maybeSingle();
+  if (existing?.id) {
+    const { data, error } = await supabase.from('hobby_categories').update(payload).eq('id', existing.id).select().single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase.from('hobby_categories').insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function saveSubcategoryBySlug(slug: string, payload: TablesInsert<'hobby_subcategories'>) {
+  const { data: existing } = await supabase.from('hobby_subcategories').select('id').eq('slug', slug).maybeSingle();
+  if (existing?.id) {
+    const { data, error } = await supabase.from('hobby_subcategories').update(payload).eq('id', existing.id).select().single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase.from('hobby_subcategories').insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function saveActivityBySlug(slug: string, payload: TablesInsert<'hobby_activities'>) {
+  const { data: existing } = await supabase.from('hobby_activities').select('id').eq('slug', slug).maybeSingle();
+  if (existing?.id) {
+    const { data, error } = await supabase.from('hobby_activities').update(payload).eq('id', existing.id).select().single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase.from('hobby_activities').insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
 
 export function AdminCatalog() {
   const codeStats = getCatalogStats();
@@ -80,19 +119,17 @@ export function AdminCatalog() {
     try {
       let sortCat = 0;
       for (const cat of HOBBY_CATALOG) {
-        const { data: catData, error: catErr } = await supabase
-          .from('hobby_categories')
-          .upsert({ slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ }, { onConflict: 'slug' })
-          .select()
-          .single();
-        if (catErr) { console.error(catErr); continue; }
+        let catData;
+        try {
+          catData = await saveCategoryBySlug(cat.id, { slug: cat.id, name: cat.name, emoji: cat.emoji, description: cat.description, sort_order: sortCat++ });
+        } catch (catErr) { console.error(catErr); continue; }
 
         let sortSub = 0;
         for (const sub of cat.subcategories) {
           const profile = sub.profile;
-          const { data: subData, error: subErr } = await supabase
-            .from('hobby_subcategories')
-            .upsert({
+          let subData;
+          try {
+            subData = await saveSubcategoryBySlug(sub.id, {
               category_id: catData.id,
               slug: sub.id,
               name: sub.name,
@@ -111,16 +148,13 @@ export function AdminCatalog() {
               is_team_based: profile.isTeamBased,
               can_be_online: profile.canBeOnline,
               suggested_duration_min: profile.suggestedDurationMin || 90,
-            }, { onConflict: 'slug' })
-            .select()
-            .single();
-          if (subErr) { console.error(subErr); continue; }
+            });
+          } catch (subErr) { console.error(subErr); continue; }
 
           let sortAct = 0;
           for (const act of sub.activities) {
-            await supabase
-              .from('hobby_activities')
-              .upsert({
+            try {
+              await saveActivityBySlug(act.id, {
                 subcategory_id: subData.id,
                 slug: act.id,
                 name: act.name,
@@ -131,7 +165,10 @@ export function AdminCatalog() {
                 is_team_based: act.profile?.isTeamBased ?? null,
                 can_be_online: act.profile?.canBeOnline ?? null,
                 age_restriction: act.profile?.ageRestriction || null,
-              }, { onConflict: 'slug' });
+              });
+            } catch (actErr) {
+              console.error(actErr);
+            }
           }
         }
       }

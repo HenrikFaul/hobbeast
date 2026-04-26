@@ -3,19 +3,41 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 export function useAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { setIsAdmin(false); setLoading(false); return; }
+    // Wait for auth to fully resolve before running the admin check.
+    // Without this, React 18 batches the initial effects and creates a
+    // window where authLoading=false + user=<user> + adminLoading=false
+    // simultaneously, triggering a premature redirect.
+    if (authLoading) return;
 
-    supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' })
-      .then(({ data }) => {
-        setIsAdmin(!!data);
+    let active = true;
+    if (!user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' } as any)
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (error) {
+          console.error('has_role failed', error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(Boolean(data));
+        }
         setLoading(false);
       });
-  }, [user]);
 
-  return { isAdmin, loading };
+    return () => {
+      active = false;
+    };
+  }, [user, authLoading]);
+
+  return { isAdmin, loading: loading || authLoading };
 }

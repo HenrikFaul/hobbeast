@@ -26,6 +26,8 @@ import {
   type TripPlanDraft,
   type TripPlanPoint,
 } from '@/lib/mapy';
+import { searchPlaces } from '@/lib/placeSearch';
+import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
 import { cn } from '@/lib/utils';
 
 interface MapyTripPlannerProps {
@@ -46,7 +48,10 @@ const ROUTE_TYPES: Array<{ value: MapyRouteType; label: string }> = [
 
 function pointToText(point?: TripPlanPoint | null) {
   if (!point) return 'Nincs kiválasztva';
-  return point.location ? `${point.label} — ${point.location}` : point.label;
+  if (point.location && !point.label.includes(point.location)) {
+    return `${point.label} — ${point.location}`;
+  }
+  return point.label;
 }
 
 function formatMeters(lengthM?: number | null) {
@@ -74,18 +79,32 @@ function MapySearchInput({
   onSelect: (point: TripPlanPoint | null) => void;
   disabled?: boolean;
 }) {
-  const [query, setQuery] = useState(value?.label ?? '');
+  const [query, setQuery] = useState(pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value));
   const [results, setResults] = useState<MapySuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const preserveTypedQueryRef = useRef(false);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
-    setQuery(value?.label ?? '');
-  }, [value?.label]);
+    if (preserveTypedQueryRef.current && !value) {
+      preserveTypedQueryRef.current = false;
+      return;
+    }
+
+    const text = pointToText(value) === 'Nincs kiválasztva' ? '' : pointToText(value);
+    justSelectedRef.current = true;
+    setQuery(text);
+  }, [value]);
 
   useEffect(() => {
     if (disabled) return;
+    // Skip search if a selection was just made (query changed because of selection, not typing)
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     if (!query.trim() || query.trim().length < 3) {
       setResults([]);
       setOpen(false);
@@ -96,7 +115,25 @@ function MapySearchInput({
     const handle = window.setTimeout(async () => {
       try {
         setLoading(true);
-        const items = await suggestMapyLocations(query);
+        const provider = await getAddressSearchProvider('trip_planner');
+        let items: MapySuggestion[];
+        if (provider === 'mapy' || !provider) {
+          items = await suggestMapyLocations(query);
+        } else {
+          const places = await searchPlaces(query, undefined, undefined, provider, 'trip_planner');
+          items = places.map((p) => ({
+            id: p.sourceId || p.id,
+            label: p.name,
+            lat: p.lat,
+            lon: p.lon,
+            type: 'poi' as const,
+            providerId: p.sourceId,
+            location: p.city || null,
+            region: p.district || null,
+            country: p.country || null,
+            bbox: null,
+          }));
+        }
         setResults(items);
         setOpen(items.length > 0);
         setActiveIndex(items.length > 0 ? 0 : -1);
@@ -113,8 +150,11 @@ function MapySearchInput({
   }, [query, disabled]);
 
   const selectResult = (result: MapySuggestion | null) => {
+    preserveTypedQueryRef.current = false;
+    justSelectedRef.current = true;
     onSelect(result);
-    setQuery(result?.label ?? '');
+    setQuery(result ? pointToText(result) : '');
+    setResults([]);
     setOpen(false);
     setActiveIndex(-1);
   };
@@ -127,8 +167,19 @@ function MapySearchInput({
           value={query}
           disabled={disabled}
           onChange={(event) => {
-            setQuery(event.target.value);
-            if (!event.target.value.trim()) {
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+
+            const selectedText = value ? pointToText(value) : '';
+            if (value && nextQuery.trim() !== selectedText) {
+              preserveTypedQueryRef.current = true;
+              onSelect(null);
+              setResults([]);
+              setOpen(false);
+              setActiveIndex(-1);
+            }
+
+            if (!nextQuery.trim()) {
               setResults([]);
               selectResult(null);
             }
@@ -345,7 +396,15 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
     setLoadingElevation(true);
     try {
       const enriched = await enrichMapyElevation(routePlan);
+      if (enriched.elevationProfile && enriched.elevationProfile.length > 0) {
+        toast.success('Szintprofil sikeresen betöltve!');
+      } else {
+        toast.warning('Nem sikerült szintprofil adatokat lekérni az útvonalhoz.');
+      }
       setRoutePlan(enriched);
+    } catch (err) {
+      console.error('Elevation enrichment error:', err);
+      toast.error(`Szintprofil dúsítás sikertelen: ${err instanceof Error ? err.message : 'Ismeretlen hiba'}`);
     } finally {
       setLoadingElevation(false);
     }
@@ -419,7 +478,7 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
           )}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="relative z-[1000] grid gap-3 md:grid-cols-2">
           <MapySearchInput label="Kezdőpont" value={start} onSelect={(point) => { setStart(point); setRoutePlan(null); }} disabled={readOnly} />
           <MapySearchInput label="Végpont" value={end} onSelect={(point) => { setEnd(point); setRoutePlan(null); }} disabled={readOnly} />
         </div>

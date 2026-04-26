@@ -31,47 +31,38 @@ export function OrganizerModeProvider({ children }: { children: ReactNode }) {
 
     void supabase
       .from('events')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('created_by', user.id)
-      .then(({ count }) => {
+      .then(({ data, error }) => {
         if (!active) return;
-        setOwnedEventCount(count ?? 0);
-        if ((count ?? 0) === 0 && mode === 'organizer') {
+        if (error) {
+          console.error('owned events count failed', error);
+          setOwnedEventCount(0);
+          return;
+        }
+        const count = (data || []).length;
+        setOwnedEventCount(count);
+        if (count === 0 && mode === 'organizer') {
           setModeState('community');
           window.localStorage.setItem(STORAGE_KEY, 'community');
         }
       });
 
-    return () => {
-      active = false;
-    };
-  }, [user]);
+    return () => { active = false; };
+  }, [user, mode]);
 
   const setMode = (nextMode: 'community' | 'organizer') => {
-    if (nextMode === 'organizer' && ownedEventCount === 0) {
-      return;
-    }
+    if (nextMode === 'organizer' && ownedEventCount === 0) return;
     setModeState(nextMode);
     window.localStorage.setItem(STORAGE_KEY, nextMode);
   };
 
-  const value = useMemo(
-    () => ({
-      mode,
-      setMode,
-      canUseOrganizerMode: ownedEventCount > 0,
-      ownedEventCount,
-    }),
-    [mode, ownedEventCount],
-  );
-
+  const value = useMemo(() => ({ mode, setMode, canUseOrganizerMode: ownedEventCount > 0, ownedEventCount }), [mode, ownedEventCount]);
   return <OrganizerModeContext.Provider value={value}>{children}</OrganizerModeContext.Provider>;
 }
 
 export function useOrganizerMode() {
   const context = useContext(OrganizerModeContext);
-  if (!context) {
-    throw new Error('useOrganizerMode must be used within OrganizerModeProvider');
-  }
+  if (!context) throw new Error('useOrganizerMode must be used within OrganizerModeProvider');
   return context;
 }

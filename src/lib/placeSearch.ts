@@ -2,11 +2,12 @@
  * Normalized place search client — supports runtime provider switching:
  * - AWS Location
  * - Geoapify + TomTom via Edge Function
- * - Local catalog via Edge Function / RPC
+ * - Configured Supabase Geodata table providers via Edge Function (db:* providers)
  */
 
 import { getPlace, isAwsLocationConfigured, searchTextPlaces, suggestPlaces } from '@/lib/awsLocation';
-import { getAddressSearchProvider, type AddressSearchProvider } from '@/lib/searchProviderConfig';
+import { getAddressSearchProvider, isDbAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
+import { suggestMapyLocations, isMapyConfigured } from '@/lib/mapy';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface NormalizedPlace {
@@ -20,7 +21,7 @@ export interface NormalizedPlace {
   lat: number;
   lon: number;
   categories: string[];
-  source: 'geoapify' | 'tomtom' | 'aws' | 'local_catalog';
+  source: string;
   sourceId: string;
   confidence: number;
 }
@@ -33,6 +34,7 @@ interface EdgePlaceRow {
   categories?: string[];
   address?: string;
   city?: string;
+  district?: string;
   postal_code?: string;
   latitude?: number;
   longitude?: number;
@@ -42,12 +44,14 @@ interface EdgePlaceRow {
 }
 
 function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
-  const provider = row.provider === 'tomtom' ? 'tomtom' : row.provider === 'geoapify' ? 'geoapify' : 'local_catalog';
-  const district = typeof row.metadata?.district === 'string'
-    ? row.metadata.district
-    : typeof row.metadata?.county === 'string'
-      ? row.metadata.county
-      : '';
+  const provider = row.provider || 'geoapify';
+  const district = row.district || (
+    typeof row.metadata?.district === 'string'
+      ? row.metadata.district
+      : typeof row.metadata?.county === 'string'
+        ? row.metadata.county
+        : ''
+  );
 
   return {
     id: `${provider}-${row.external_id}`,
@@ -66,12 +70,14 @@ function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
         : [],
     source: provider,
     sourceId: row.external_id,
-    confidence: typeof row.rating === 'number' ? Math.min(1, Math.max(0.4, row.rating / 5)) : 0.7,
+    confidence: typeof row.rating === 'number' ? Math.min(1, Math.max(0.4, row.rating / 5)) : 0.75,
   };
 }
 
 function resolveUsableProvider(provider: AddressSearchProvider): AddressSearchProvider {
   if (provider === 'aws' && !isAwsLocationConfigured()) return 'geoapify_tomtom';
+  if (provider === 'mapy' && !isMapyConfigured()) return 'geoapify_tomtom';
+  if (isDbAddressSearchProvider(provider)) return provider;
   return provider;
 }
 
@@ -123,14 +129,44 @@ async function searchAwsPlaces(query: string): Promise<NormalizedPlace[]> {
   return Array.from(deduped.values());
 }
 
+async function searchMapyPlaces(query: string): Promise<NormalizedPlace[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2 || !isMapyConfigured()) return [];
+  try {
+    const suggestions = await suggestMapyLocations(trimmed);
+    return suggestions.map((s) => ({
+      id: `mapy-${s.id}`,
+      name: s.label,
+      address: s.label,
+      city: s.location || '',
+      district: s.region || '',
+      country: s.country || 'Hungary',
+      postcode: '',
+      lat: s.lat,
+      lon: s.lon,
+      categories: [],
+      source: 'mapy',
+      sourceId: s.id,
+      confidence: 0.85,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function searchPlaces(
   query: string,
   bias?: { lat: number; lon: number },
   activityHint?: string,
   providerOverride?: AddressSearchProvider,
+  functionGroup?: AddressSearchFunctionGroup,
 ): Promise<NormalizedPlace[]> {
   if (!query || query.trim().length < 2) return [];
-  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider());
+  const provider = resolveUsableProvider(providerOverride || await getAddressSearchProvider(functionGroup || 'default'));
+
+  if (provider === 'mapy') {
+    return searchMapyPlaces(query);
+  }
 
   if (provider === 'aws') {
     return searchAwsPlaces(query);
@@ -148,7 +184,7 @@ export async function searchPlaces(
 export async function reverseGeocodePlace(lat: number, lon: number): Promise<NormalizedPlace | null> {
   const provider = resolveUsableProvider(await getAddressSearchProvider());
 
-  if (provider === 'aws') {
+  if (provider === 'aws' || provider === 'mapy' || isDbAddressSearchProvider(provider)) {
     return null;
   }
 
@@ -172,6 +208,10 @@ export async function geocodePlace(query: string, providerOverride?: AddressSear
       }
     }
     return results[0] || null;
+  }
+
+  if (provider === 'mapy') {
+    return (await searchMapyPlaces(query))[0] || null;
   }
 
   const results = await callPlaceSearch({ action: 'geocode', query, provider_mode: provider });

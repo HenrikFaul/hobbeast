@@ -157,14 +157,19 @@ function normalizeEntity(entity: MapyEntity, fallbackId: string): MapySuggestion
   const country = entity.regionalStructure?.find((item) => item.type === 'regional.country')?.isoCode ||
     entity.regionalStructure?.find((item) => item.type === 'regional.country')?.name || null;
 
+  const baseName = entity.name || entity.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  const loc = entity.location || null;
+  // Build a disambiguated label: "Name — Location" when location is available
+  const displayLabel = loc ? `${baseName} — ${loc}` : baseName;
+
   return {
     id: entity.id || fallbackId,
-    label: entity.name || entity.location || entity.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    label: displayLabel,
     lat,
     lon,
     type: inferResultType(entity.type),
     providerId: entity.id || null,
-    location: entity.location || null,
+    location: loc,
     region,
     country,
     bbox: entity.bbox || null,
@@ -188,7 +193,7 @@ export function getMapyAttributionText() {
 }
 
 function buildMapySearchParams(query: string, locality = MAPY_DEFAULT_LOCALITY) {
-  const params = new URLSearchParams({ query: query.trim(), lang: 'en', limit: '8', type: 'regional,poi' });
+  const params = new URLSearchParams({ query: query.trim(), lang: 'cs', limit: '8', type: 'regional,poi' });
   if (locality) params.set('locality', locality);
   return params;
 }
@@ -271,38 +276,58 @@ export async function planMapyRoute(input: {
 
 export async function enrichMapyElevation(plan: TripPlanDraft): Promise<TripPlanDraft> {
   const points = sampleGeoJsonGeometry(plan.geometry, 128);
-  if (!points.length) return plan;
+  if (!points.length) throw new Error('Nincs geometria az útvonalban a szintprofil kiszámításához.');
 
   const params = new URLSearchParams({
     positions: points.map((p) => `${p.lon},${p.lat}`).join(';'),
     lang: 'hu',
   });
 
-  try {
-    const payload = await fetchJsonWithFallback<Array<{ position?: [number, number]; elevation?: number }>>(ELEVATION_ENDPOINTS, params);
-    const profile = payload
-      .filter((item) => item.position && typeof item.elevation === 'number')
-      .map((item) => ({ lat: item.position![1], lon: item.position![0], elevation: item.elevation! }));
+  const rawPayload = await fetchJsonWithFallback<unknown>(ELEVATION_ENDPOINTS, params);
 
-    let ascentM = 0;
-    let descentM = 0;
-    for (let i = 1; i < profile.length; i++) {
-      const delta = profile[i].elevation - profile[i - 1].elevation;
-      if (delta > 0) ascentM += delta;
-      if (delta < 0) descentM += Math.abs(delta);
-    }
-
-    return {
-      ...plan,
-      elevationProfile: profile,
-      elevationSummary: {
-        ascentM: Math.round(ascentM),
-        descentM: Math.round(descentM),
-      },
-    };
-  } catch {
-    return plan;
+  // The API may return an array directly, or wrap it in { items: [...] } or { results: [...] }
+  let elevationItems: Array<Record<string, unknown>>;
+  if (Array.isArray(rawPayload)) {
+    elevationItems = rawPayload;
+  } else if (rawPayload && typeof rawPayload === 'object') {
+    const obj = rawPayload as Record<string, unknown>;
+    const candidates = [obj.items, obj.results, obj.data, obj.elevations];
+    elevationItems = (candidates.find((c) => Array.isArray(c)) as Array<Record<string, unknown>>) || [];
+  } else {
+    elevationItems = [];
   }
+
+  if (elevationItems.length === 0) {
+    throw new Error('A Mapy.cz szintprofil API nem adott vissza adatot.');
+  }
+
+  const profile = elevationItems
+    .filter((item) => item.position && typeof item.elevation === 'number')
+    .map((item) => {
+      const pos = item.position as [number, number];
+      return { lat: pos[1], lon: pos[0], elevation: item.elevation as number };
+    });
+
+  if (profile.length < 2) {
+    throw new Error('Nem sikerült elegendő szintadatot kinyerni.');
+  }
+
+  let ascentM = 0;
+  let descentM = 0;
+  for (let i = 1; i < profile.length; i++) {
+    const delta = profile[i].elevation - profile[i - 1].elevation;
+    if (delta > 0) ascentM += delta;
+    if (delta < 0) descentM += Math.abs(delta);
+  }
+
+  return {
+    ...plan,
+    elevationProfile: profile,
+    elevationSummary: {
+      ascentM: Math.round(ascentM),
+      descentM: Math.round(descentM),
+    },
+  };
 }
 
 export function buildMapyExternalRouteUrl(input: {

@@ -1,9 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { getSupabaseAdmin } from '../shared/providerFetch.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
@@ -19,19 +22,10 @@ serve(async (req) => {
       throw new Error('Missing EXTERNAL_SUPABASE_URL or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY');
     }
 
-    // Destination: current project
-    const localUrl = Deno.env.get('SUPABASE_URL');
-    const localKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!localUrl || !localKey) {
-      throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-    }
-
     const extClient = createClient(extUrl, extKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const localClient = createClient(localUrl, localKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const localClient = getSupabaseAdmin(req);
 
     // Fetch all active external events from the source project
     let allRows: any[] = [];

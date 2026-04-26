@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
 import { VenueSuggestionsPanel, type VenueSelection } from '@/components/VenueSuggestionsPanel';
+import { EventTemplateSelector, SaveAsTemplateButton } from '@/components/EventTemplateSelector';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -140,44 +141,74 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
     selectedActivity?.name,
   ].filter(Boolean).join(' › ');
 
+
+const hasRequiredLocation = useMemo(() => {
+  if (locationType === 'online') return true;
+  if (locationType === 'free') return Boolean(locationFreeText.trim());
+  return Boolean(locationCity.trim() || locationAddress.trim());
+}, [locationType, locationFreeText, locationCity, locationAddress]);
+
+const hasRequiredFields = Boolean(
+  user &&
+  title.trim() &&
+  selectedCategoryId &&
+  selectedSubcategoryId &&
+  eventDate &&
+  eventTime &&
+  hasRequiredLocation
+);
+
+const buildStartTimeIso = () => {
+  if (!eventDate || !eventTime) return null;
+  const [hours, minutes] = eventTime.split(':').map((value) => Number(value));
+  const next = new Date(eventDate);
+  next.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+  return next.toISOString();
+};
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !title.trim() || !selectedCategoryId || !selectedSubcategoryId) return;
+    if (!hasRequiredFields || !user) return;
 
     setLoading(true);
+    const startTimeIso = buildStartTimeIso();
+    const eventInsertPayload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      category: categoryString,
+      event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
+      event_time: eventTime || null,
+      start_time: startTimeIso,
+      created_by: user.id,
+      location_type: locationType,
+      location_city: locationCity || null,
+      location_district: locationDistrict || null,
+      location_address: locationAddress || null,
+      location_free_text: locationFreeText || null,
+      location_lat: locationLat,
+      location_lon: locationLon,
+      max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
+      image_emoji: imageEmoji,
+      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      organizer_id: user.id,
+      // Place data from normalized search
+      place_name: placeData?.displayName || null,
+      place_address: placeData?.address || null,
+      place_city: placeData?.city || null,
+      place_lat: placeData?.lat || null,
+      place_lon: placeData?.lon || null,
+      place_source: placeData?.source || null,
+      place_categories: placeData?.categories || [],
+    } as any;
+
     const { data, error } = await supabase
       .from('events')
-      .insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        category: categoryString,
-        event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
-        event_time: eventTime || null,
-        location_type: locationType,
-        location_city: locationCity || null,
-        location_district: locationDistrict || null,
-        location_address: locationAddress || null,
-        location_free_text: locationFreeText || null,
-        location_lat: locationLat,
-        location_lon: locationLon,
-        max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
-        image_emoji: imageEmoji,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-        created_by: user.id,
-        // Place data from normalized search
-        place_name: placeData?.displayName || null,
-        place_address: placeData?.address || null,
-        place_city: placeData?.city || null,
-        place_lat: placeData?.lat || null,
-        place_lon: placeData?.lon || null,
-        place_source: placeData?.source || null,
-        place_categories: placeData?.categories || null,
-      })
+      .insert(eventInsertPayload)
       .select('id')
       .single();
 
     if (error || !data) {
-      toast.error('Hiba az esemény létrehozásakor.');
+      toast.error(error?.message || 'Hiba az esemény létrehozásakor.');
     } else {
       try {
         await upsertEventTripPlan(data.id, tripPlan);
@@ -207,6 +238,48 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         </div>
 
         <form onSubmit={handleCreate} className="space-y-4">
+          {/* Template selector + Save as template */}
+          <div className="flex flex-wrap items-center gap-2">
+            <EventTemplateSelector onSelect={(tpl) => {
+              // Pre-fill fields from template
+              const parts = tpl.category.split(' › ');
+              const cat = HOBBY_CATALOG.find(c => c.name === parts[0]);
+              if (cat) {
+                setSelectedCategoryId(cat.id);
+                const sub = cat.subcategories.find(s => s.name === parts[1]);
+                if (sub) {
+                  setSelectedSubcategoryId(sub.id);
+                  const act = sub.activities.find(a => a.name === parts[2]);
+                  if (act) setSelectedActivityId(act.id);
+                }
+              }
+              setDescription(tpl.description || '');
+              setImageEmoji(tpl.image_emoji || '🎉');
+              setTags((tpl.tags || []).join(', '));
+              setLocationType(tpl.location_type || 'city');
+              setLocationCity(tpl.location_city || '');
+              setLocationDistrict(tpl.location_district || '');
+              setLocationAddress(tpl.location_address || '');
+              setLocationFreeText(tpl.location_free_text || '');
+              setMaxAttendees(tpl.max_attendees ? String(tpl.max_attendees) : '');
+              setEventTime(tpl.event_time || '');
+              toast.info(`Sablon betöltve: ${tpl.template_name}`);
+            }} />
+            <SaveAsTemplateButton
+              category={categoryString}
+              description={description}
+              imageEmoji={imageEmoji}
+              tags={tags}
+              locationType={locationType}
+              locationCity={locationCity}
+              locationDistrict={locationDistrict}
+              locationAddress={locationAddress}
+              locationFreeText={locationFreeText}
+              maxAttendees={maxAttendees}
+              eventTime={eventTime}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve *</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="pl. Vasárnapi futás" required className="rounded-xl h-11" />
@@ -306,7 +379,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dátum *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className={cn("w-full justify-start text-left font-normal rounded-xl h-11", !eventDate && "text-muted-foreground")}>
@@ -320,7 +393,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Időpont *</Label>
               <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
             </div>
           </div>
@@ -379,7 +452,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
 
           {/* Location */}
           <div className="space-y-3">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa</Label>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyszín típusa *</Label>
             <Select value={locationType} onValueChange={(nextType) => {
               setLocationType(nextType);
               if (nextType === 'free' || nextType === 'online') {
@@ -442,8 +515,12 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="pl. Kezdő-barát, Reggeli, Ingyenes" className="rounded-xl h-11" />
           </div>
 
+          {!hasRequiredFields && (
+            <p className="text-xs text-muted-foreground">A *-gal jelölt mezők kötelezőek. Az esemény létrehozása csak kitöltés után engedélyezett.</p>
+          )}
+
           <Button type="submit" className="w-full h-11 rounded-xl gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold"
-            disabled={loading || !title.trim() || !selectedCategoryId || !selectedSubcategoryId}>
+            disabled={loading || !hasRequiredFields}>
             {loading ? 'Létrehozás...' : 'Esemény létrehozása'}
           </Button>
         </form>
