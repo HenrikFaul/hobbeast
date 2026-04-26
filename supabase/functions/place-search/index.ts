@@ -22,15 +22,18 @@ type ProviderConfigAction =
   | 'save_db_table_config'
   | 'test_db_table_query'
 
+type ProviderConfigGroup = 'default' | 'personal' | 'venue' | 'trip_planner'
+type GeodataTableName = 'public.unified_pois' | 'public.local_pois' | 'public.geoapify_pois'
+
 interface SearchBody {
   action?: ProviderConfigAction
   query?: string
   category?: string
   activityHint?: string
   city?: string
-  table?: GeodataTableName
+  table?: GeodataTableName | string
   label?: string
-  tables?: DbSearchTableConfig[]
+  tables?: Partial<DbSearchTableConfig>[]
   latitude?: number
   longitude?: number
   lat?: number
@@ -41,7 +44,7 @@ interface SearchBody {
   limit?: number
   lenient?: boolean
   provider_mode?: ProviderMode | string
-  group?: ProviderConfigGroup
+  group?: ProviderConfigGroup | string
   provider?: ProviderMode | string
 }
 
@@ -76,15 +79,6 @@ interface ProviderPlace {
   match_type?: 'query' | 'nearby' | 'db'
 }
 
-const PROVIDER_CONFIG_KEY_PREFIX = 'address_search'
-const PROVIDER_GROUPS = ['default', 'personal', 'venue', 'trip_planner'] as const
-type ProviderConfigGroup = typeof PROVIDER_GROUPS[number]
-
-const DB_TABLE_CONFIG_KEY = `${PROVIDER_CONFIG_KEY_PREFIX}:db_tables`
-const GEODATA_DEFAULT_URL = 'https://buuoyyfzincmbxafvihc.supabase.co'
-const GEODATA_ALLOWED_TABLES = ['public.unified_pois', 'public.local_pois', 'public.geoapify_pois'] as const
-type GeodataTableName = typeof GEODATA_ALLOWED_TABLES[number]
-
 interface DbSearchTableConfig {
   id: string
   provider: DbProviderMode
@@ -95,33 +89,58 @@ interface DbSearchTableConfig {
   updatedAt?: string
 }
 
+const PROVIDER_CONFIG_KEY_PREFIX = 'address_search'
+const PROVIDER_GROUPS = ['default', 'personal', 'venue', 'trip_planner'] as const
+const DB_TABLE_CONFIG_KEY = `${PROVIDER_CONFIG_KEY_PREFIX}:db_tables`
+const GEODATA_DEFAULT_URL = 'https://buuoyyfzincmbxafvihc.supabase.co'
+const GEODATA_ALLOWED_TABLES = ['public.unified_pois', 'public.local_pois', 'public.geoapify_pois'] as const
+
 const GEODATA_AVAILABLE_TABLES = [
   { value: 'public.unified_pois', label: 'public.unified_pois', description: 'Egységesített, deduplikált POI tábla — venue kereséshez ajánlott első választás.' },
   { value: 'public.local_pois', label: 'public.local_pois', description: 'Lokális forrásokból egységesített POI tábla, gazdag cím- és szolgáltatásmezőkkel.' },
   { value: 'public.geoapify_pois', label: 'public.geoapify_pois', description: 'Nyers/forrásközeli Geoapify POI tábla, részletes provider metaadatokkal.' },
 ] as const
 
-function normalizeInternalUrl(value?: string | null) {
-  return String(value || '').trim().replace(/\/+$/, '')
+const GEODATA_SELECT_COLUMNS: Record<GeodataTableName, string> = {
+  'public.unified_pois': [
+    'id', 'source_provider', 'source_id', 'name', 'name_international', 'categories', 'country', 'country_code', 'country_code_iso3', 'iso3166_2',
+    'state_region', 'city', 'district', 'suburb', 'postal_code', 'street', 'street_number', 'formatted_address', 'address_line1', 'address_line2',
+    'lat', 'lon', 'phone', 'email', 'website', 'facebook', 'instagram', 'tripadvisor', 'opening_hours', 'operator', 'brand', 'branch', 'cuisine',
+    'diet', 'capacity', 'reservation', 'wheelchair', 'outdoor_seating', 'indoor_seating', 'internet_access', 'air_conditioning', 'smoking',
+    'toilets', 'takeaway', 'delivery', 'payment_options', 'classification_code', 'osm_id', 'building_type', 'source_fetched_at', 'unified_at'
+  ].join(','),
+  'public.local_pois': [
+    'id', 'provider_id', 'source_provider', 'name', 'name_international', 'categories', 'country', 'country_code', 'country_code_iso3', 'iso3166_2',
+    'state_region', 'city', 'district', 'suburb', 'postal_code', 'street', 'street_number', 'formatted_address', 'address_line1', 'address_line2',
+    'lat', 'lon', 'phone', 'email', 'website', 'facebook', 'instagram', 'tripadvisor', 'opening_hours', 'operator', 'brand', 'branch', 'cuisine',
+    'diet', 'capacity', 'reservation', 'wheelchair', 'outdoor_seating', 'indoor_seating', 'internet_access', 'air_conditioning', 'smoking',
+    'toilets', 'takeaway', 'delivery', 'payment_options', 'classification_code', 'osm_id', 'building_type', 'source_fetched_at', 'source_unified_at',
+    'last_loaded_at', 'created_at', 'updated_at'
+  ].join(','),
+  'public.geoapify_pois': [
+    'id', 'external_id', 'name', 'country', 'country_code', 'state', 'city', 'postcode', 'district', 'suburb', 'street', 'housenumber', 'iso3166_2',
+    'lat', 'lon', 'formatted_address', 'address_line1', 'address_line2', 'categories', 'details', 'website', 'opening_hours', 'phone', 'email',
+    'facebook', 'instagram', 'tripadvisor', 'operator', 'brand', 'branch', 'cuisine', 'diet', 'capacity', 'reservation', 'wheelchair',
+    'outdoor_seating', 'indoor_seating', 'internet_access', 'air_conditioning', 'smoking', 'toilets', 'takeaway', 'delivery', 'payment_options',
+    'name_international', 'name_other', 'datasource_name', 'osm_id', 'osm_type', 'building_type', 'fetch_category', 'fetched_at'
+  ].join(','),
 }
 
-function resolveInternalSupabaseUrl(request: Request) {
-  const requestOrigin = normalizeInternalUrl(new URL(request.url).origin)
-  if (requestOrigin) {
-    try {
-      const hostname = new URL(requestOrigin).hostname
-      if (/\.supabase\.co$/i.test(hostname)) {
-        return requestOrigin
-      }
-    } catch {
-      // ignore invalid URL and fall back to env
-    }
+const SEARCHABLE_COLUMNS = ['name', 'formatted_address', 'address_line1', 'address_line2', 'street', 'city', 'brand', 'operator', 'cuisine']
+
+class HttpError extends Error {
+  status: number
+  details?: unknown
+
+  constructor(message: string, status = 500, details?: unknown) {
+    super(message)
+    this.status = status
+    this.details = details
   }
+}
 
-  const envUrl = normalizeInternalUrl(Deno.env.get('SUPABASE_URL'))
-  if (envUrl) return envUrl
-
-  throw new Error('Missing internal Supabase project URL')
+function normalizeUrl(value?: string | null) {
+  return String(value || '').trim().replace(/\/+$/, '')
 }
 
 function json(data: unknown, status = 200) {
@@ -131,26 +150,66 @@ function json(data: unknown, status = 200) {
   })
 }
 
+function errorJson(error: unknown, fallbackStatus = 500) {
+  const message = error instanceof Error ? error.message : String(error || 'Unknown error')
+  const status = error instanceof HttpError ? error.status : fallbackStatus
+  const details = error instanceof HttpError ? error.details : undefined
+  console.error('[place-search] error', { status, message, details })
+  return json({ error: message, details }, status)
+}
+
+function resolveInternalSupabaseUrl(request: Request) {
+  const requestOrigin = normalizeUrl(new URL(request.url).origin)
+  if (requestOrigin) {
+    try {
+      const hostname = new URL(requestOrigin).hostname
+      if (/\.supabase\.co$/i.test(hostname)) return requestOrigin
+    } catch {
+      // fall back to env
+    }
+  }
+
+  const envUrl = normalizeUrl(Deno.env.get('SUPABASE_URL'))
+  if (envUrl) return envUrl
+  throw new HttpError('Missing internal Supabase project URL', 500)
+}
+
+function resolveInternalServiceRoleKey() {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || ''
+  if (!key) {
+    throw new HttpError('Missing SUPABASE_SERVICE_ROLE_KEY for Hobbeast runtime configuration writes.', 500)
+  }
+  return key
+}
+
+function resolveGeodataAuth() {
+  const url = normalizeUrl(Deno.env.get('GEODATA_SUPABASE_URL') || GEODATA_DEFAULT_URL)
+  const key =
+    Deno.env.get('GEODATA_SUPABASE_SERVICE_ROLE_KEY') ||
+    Deno.env.get('GEODATA_SUPABASE_SECRET_KEY') ||
+    Deno.env.get('GEODATA_SUPABASE_ANON_KEY') ||
+    Deno.env.get('GEODATA_SUPABASE_PUBLISHABLE_KEY') ||
+    ''
+
+  if (!url) throw new HttpError('Missing GEODATA_SUPABASE_URL', 500)
+  if (!key) {
+    throw new HttpError('Missing Geodata Supabase key. Set GEODATA_SUPABASE_SERVICE_ROLE_KEY or GEODATA_SUPABASE_SECRET_KEY.', 500)
+  }
+  return { url, key }
+}
+
 async function restFetch(url: string, init: RequestInit = {}) {
   const response = await fetch(url, init)
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(`${response.status} ${response.statusText}: ${text}`)
+    throw new HttpError(`${response.status} ${response.statusText}: ${text}`, response.status, { url })
   }
   return response
 }
 
-function bodyCenter(body: SearchBody): Coordinates | null {
-  if (Number.isFinite(Number(body.latitude)) && Number.isFinite(Number(body.longitude))) {
-    return { latitude: Number(body.latitude), longitude: Number(body.longitude) }
-  }
-  if (Number.isFinite(Number(body.lat)) && Number.isFinite(Number(body.lon))) {
-    return { latitude: Number(body.lat), longitude: Number(body.lon) }
-  }
-  if (Number.isFinite(Number(body.bias?.lat)) && Number.isFinite(Number(body.bias?.lon))) {
-    return { latitude: Number(body.bias?.lat), longitude: Number(body.bias?.lon) }
-  }
-  return null
+async function restFetchJson<T = unknown>(url: string, init: RequestInit = {}): Promise<T> {
+  const response = await restFetch(url, init)
+  return await response.json() as T
 }
 
 function configKey(group: ProviderConfigGroup = 'default') {
@@ -161,8 +220,47 @@ function isProviderConfigGroup(value: unknown): value is ProviderConfigGroup {
   return typeof value === 'string' && (PROVIDER_GROUPS as readonly string[]).includes(value)
 }
 
+function requireProviderGroup(value: unknown): ProviderConfigGroup {
+  if (value === undefined || value === null || value === '') return 'default'
+  if (!isProviderConfigGroup(value)) throw new HttpError(`Invalid provider group: ${String(value)}`, 400)
+  return value
+}
+
 function isDbProvider(value: unknown): value is DbProviderMode {
   return typeof value === 'string' && /^db:[a-z0-9][a-z0-9_-]{1,62}$/i.test(value)
+}
+
+function isBaseProvider(value: unknown): value is BaseProviderMode {
+  return value === 'aws' || value === 'geoapify_tomtom' || value === 'mapy'
+}
+
+function isProviderMode(value: unknown): value is ProviderMode {
+  return isBaseProvider(value) || isDbProvider(value)
+}
+
+function requireProviderMode(value: unknown): ProviderMode {
+  if (isProviderMode(value)) return value
+  if (typeof value === 'string' && value.includes('{{')) {
+    throw new HttpError(`Unresolved Postman/environment provider variable: ${value}`, 400)
+  }
+  throw new HttpError(`Invalid provider value: ${String(value || '')}. Expected aws, geoapify_tomtom, mapy, or db:<id>.`, 400)
+}
+
+function normalizeProviderConfigValue(value: unknown): ProviderMode {
+  if (isProviderMode(value)) return value
+  return 'geoapify_tomtom'
+}
+
+function isAllowedGeodataTable(value: unknown): value is GeodataTableName {
+  return typeof value === 'string' && (GEODATA_ALLOWED_TABLES as readonly string[]).includes(value)
+}
+
+function requireGeodataTable(value: unknown): GeodataTableName {
+  if (isAllowedGeodataTable(value)) return value
+  if (typeof value === 'string' && value.includes('{{')) {
+    throw new HttpError(`Unresolved Postman/environment table variable: ${value}`, 400)
+  }
+  throw new HttpError(`Invalid Geodata table: ${String(value || '')}`, 400)
 }
 
 function normalizeProviderSlug(value: string) {
@@ -177,20 +275,58 @@ function normalizeProviderSlug(value: string) {
   return normalized || 'poi-table'
 }
 
-function normalizeProviderConfigValue(value: unknown): ProviderMode {
-  if (isDbProvider(value)) return value
-  if (value === 'aws' || value === 'geoapify_tomtom' || value === 'mapy') return value
-  return 'geoapify_tomtom'
+function makeDbProviderId(label: string, table: string) {
+  const tablePart = table.split('.').pop() || table
+  return normalizeProviderSlug(label || tablePart)
+}
+
+function sanitizeDbTableConfigs(input: unknown): DbSearchTableConfig[] {
+  const rows = Array.isArray(input) ? input : []
+  const used = new Set<string>()
+  const now = new Date().toISOString()
+  const cleaned: DbSearchTableConfig[] = []
+
+  for (const raw of rows) {
+    if (!raw || typeof raw !== 'object') continue
+    const row = raw as Partial<DbSearchTableConfig>
+    const table = requireGeodataTable(row.table)
+    const label = String(row.label || table.split('.').pop() || table).trim().slice(0, 80)
+    const explicitId = typeof row.id === 'string' && !row.id.includes('{{') ? row.id : ''
+    const explicitProvider = isDbProvider(row.provider) ? row.provider.replace(/^db:/, '') : ''
+    const baseId = normalizeProviderSlug(explicitProvider || explicitId || makeDbProviderId(label, table))
+    let id = baseId
+    let suffix = 2
+    while (used.has(id)) {
+      id = `${baseId}-${suffix}`.slice(0, 56)
+      suffix += 1
+    }
+    used.add(id)
+    cleaned.push({
+      id,
+      provider: `db:${id}` as DbProviderMode,
+      label,
+      table,
+      enabled: row.enabled !== false,
+      createdAt: row.createdAt || now,
+      updatedAt: now,
+    })
+  }
+
+  return cleaned.filter((row) => row.enabled)
+}
+
+function appRuntimeHeaders(serviceRoleKey: string, prefer?: string) {
+  return {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+    'Content-Type': 'application/json',
+    ...(prefer ? { Prefer: prefer } : {}),
+  }
 }
 
 async function getProviderConfigRow(supabaseUrl: string, serviceRoleKey: string, key: string) {
-  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?key=eq.${encodeURIComponent(key)}&select=key,provider,options&limit=1`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
-  })
-  const rows = await response.json()
+  const url = `${supabaseUrl}/rest/v1/app_runtime_config?key=eq.${encodeURIComponent(key)}&select=key,provider,options&limit=1`
+  const rows = await restFetchJson<any[]>(url, { headers: appRuntimeHeaders(serviceRoleKey) })
   return Array.isArray(rows) && rows[0] ? rows[0] : null
 }
 
@@ -218,66 +354,13 @@ async function saveProviderConfigValue(
   group: ProviderConfigGroup,
   provider: ProviderMode,
 ) {
-  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`, {
+  const url = `${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`
+  const rows = await restFetchJson<any[]>(url, {
     method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=representation',
-    },
-    body: JSON.stringify([
-      {
-        key: configKey(group),
-        provider,
-        options: {},
-      },
-    ]),
+    headers: appRuntimeHeaders(serviceRoleKey, 'resolution=merge-duplicates,return=representation'),
+    body: JSON.stringify([{ key: configKey(group), provider, options: {} }]),
   })
-  const rows = await response.json()
-  return Array.isArray(rows) && rows[0]?.provider ? normalizeProviderConfigValue(rows[0].provider) : provider
-}
-
-function isAllowedGeodataTable(value: unknown): value is GeodataTableName {
-  return typeof value === 'string' && (GEODATA_ALLOWED_TABLES as readonly string[]).includes(value)
-}
-
-function makeDbProviderId(label: string, table: string) {
-  const tablePart = table.split('.').pop() || table
-  return normalizeProviderSlug(label || tablePart)
-}
-
-function sanitizeDbTableConfigs(input: unknown): DbSearchTableConfig[] {
-  const rows = Array.isArray(input) ? input : []
-  const used = new Set<string>()
-  const now = new Date().toISOString()
-  const cleaned: DbSearchTableConfig[] = []
-
-  for (const raw of rows) {
-    if (!raw || typeof raw !== 'object') continue
-    const row = raw as Partial<DbSearchTableConfig>
-    if (!isAllowedGeodataTable(row.table)) continue
-    const label = String(row.label || row.table.split('.').pop() || row.table).trim().slice(0, 80)
-    const baseId = normalizeProviderSlug(row.id || makeDbProviderId(label, row.table))
-    let id = baseId
-    let suffix = 2
-    while (used.has(id)) {
-      id = `${baseId}-${suffix}`.slice(0, 56)
-      suffix += 1
-    }
-    used.add(id)
-    cleaned.push({
-      id,
-      provider: `db:${id}` as DbProviderMode,
-      label,
-      table: row.table,
-      enabled: row.enabled !== false,
-      createdAt: row.createdAt || now,
-      updatedAt: now,
-    })
-  }
-
-  return cleaned.filter((row) => row.enabled)
+  return Array.isArray(rows) && rows[0]?.provider ? requireProviderMode(rows[0].provider) : provider
 }
 
 async function getDbTableConfigs(supabaseUrl: string, serviceRoleKey: string): Promise<DbSearchTableConfig[]> {
@@ -287,43 +370,39 @@ async function getDbTableConfigs(supabaseUrl: string, serviceRoleKey: string): P
 
 async function saveDbTableConfigs(supabaseUrl: string, serviceRoleKey: string, tables: unknown) {
   const sanitized = sanitizeDbTableConfigs(tables)
-  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`, {
+  if (sanitized.length === 0) {
+    throw new HttpError('At least one enabled Geodata table config is required.', 400)
+  }
+
+  const url = `${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`
+  const rows = await restFetchJson<any[]>(url, {
     method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=representation',
-    },
-    body: JSON.stringify([
-      {
-        key: DB_TABLE_CONFIG_KEY,
-        provider: 'supabase',
-        options: {
-          geodata_url: GEODATA_DEFAULT_URL,
-          tables: sanitized,
-        },
+    headers: appRuntimeHeaders(serviceRoleKey, 'resolution=merge-duplicates,return=representation'),
+    body: JSON.stringify([{
+      key: DB_TABLE_CONFIG_KEY,
+      provider: 'supabase',
+      options: {
+        geodata_url: GEODATA_DEFAULT_URL,
+        tables: sanitized,
       },
-    ]),
+    }]),
   })
-  const rows = await response.json()
   return sanitizeDbTableConfigs(rows?.[0]?.options?.tables || sanitized)
 }
 
-function resolveGeodataAuth() {
-  const url = normalizeInternalUrl(Deno.env.get('GEODATA_SUPABASE_URL') || GEODATA_DEFAULT_URL)
-  const key =
-    Deno.env.get('GEODATA_SUPABASE_SERVICE_ROLE_KEY') ||
-    Deno.env.get('GEODATA_SUPABASE_ANON_KEY') ||
-    Deno.env.get('GEODATA_SUPABASE_PUBLISHABLE_KEY') ||
-    ''
 
-  if (!url) throw new Error('Missing GEODATA_SUPABASE_URL')
-  if (!key) {
-    throw new Error('Missing Geodata Supabase key. Set GEODATA_SUPABASE_SERVICE_ROLE_KEY or GEODATA_SUPABASE_ANON_KEY for buuoyyfzincmbxafvihc.')
+function geodataHeaders(key: string) {
+  const headers: Record<string, string> = {
+    apikey: key,
+    'Content-Type': 'application/json',
   }
 
-  return { url, key }
+  // Legacy service_role/anon JWT keys work as Bearer tokens. New sb_secret_ / sb_publishable_ keys are API keys, not JWT Bearer tokens.
+  if (!/^sb_(secret|publishable)_/i.test(key)) {
+    headers.Authorization = `Bearer ${key}`
+  }
+
+  return headers
 }
 
 function postgrestSafe(value: string) {
@@ -341,15 +420,18 @@ function tablePath(table: GeodataTableName) {
 function coerceStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
   if (typeof value === 'string' && value.trim()) return [value]
-  if (value && typeof value === 'object') return Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => Boolean(v))
-    .map(([k, v]) => v === true ? k : `${k}:${String(v)}`)
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => Boolean(v))
+      .map(([k, v]) => v === true ? k : `${k}:${String(v)}`)
+  }
   return []
 }
 
 function firstString(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   }
   return ''
 }
@@ -357,11 +439,11 @@ function firstString(...values: unknown[]) {
 function buildAddress(row: Record<string, any>) {
   const formatted = firstString(row.formatted_address, row.address_line1)
   if (formatted) return formatted
-
   const streetNumber = firstString(row.street_number, row.housenumber)
   const street = firstString(row.street)
-  const line = [row.postal_code || row.postcode, row.city, [street, streetNumber].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-  return line || firstString(row.address_line2, row.name)
+  const streetLine = [street, streetNumber].filter(Boolean).join(' ')
+  const line = [row.postal_code || row.postcode, row.city, streetLine].filter(Boolean).join(', ')
+  return line || firstString(row.address_line2, row.name, row.brand, row.operator)
 }
 
 function rowCategories(row: Record<string, any>) {
@@ -382,19 +464,21 @@ function mapGeodataRow(row: Record<string, any>, tableConfig: DbSearchTableConfi
   const address = buildAddress(row)
   const externalId = firstString(row.source_id, row.provider_id, row.external_id, row.osm_id, row.id) || crypto.randomUUID()
   const providerLabel = firstString(row.source_provider, row.datasource_name, tableConfig.table)
+  const lat = Number(row.lat)
+  const lon = Number(row.lon)
 
   return {
     provider: tableConfig.provider,
     external_id: externalId,
     name: firstString(row.name, row.brand, row.operator, address, 'Helyszín'),
-    category: categories[0] || providerLabel,
+    category: categories[0] || providerLabel || 'venue',
     categories,
     address,
     city: firstString(row.city),
     district: firstString(row.district, row.suburb, row.state_region, row.state),
     postal_code: firstString(row.postal_code, row.postcode),
-    latitude: Number.isFinite(Number(row.lat)) ? Number(row.lat) : undefined,
-    longitude: Number.isFinite(Number(row.lon)) ? Number(row.lon) : undefined,
+    latitude: Number.isFinite(lat) ? lat : undefined,
+    longitude: Number.isFinite(lon) ? lon : undefined,
     phone: firstString(row.phone) || null,
     email: firstString(row.email) || null,
     website: firstString(row.website, row.facebook, row.instagram, row.tripadvisor) || null,
@@ -420,7 +504,6 @@ function mapGeodataRow(row: Record<string, any>, tableConfig: DbSearchTableConfi
       toilets: row.toilets ?? null,
       takeaway: row.takeaway ?? null,
       delivery: row.delivery ?? null,
-      raw: row.raw_data ?? row,
     },
   }
 }
@@ -438,48 +521,57 @@ function categoryMatches(row: ProviderPlace, category?: string) {
 function textMatchesQuery(row: ProviderPlace, query?: string) {
   const normalizedQuery = String(query || '').trim().toLowerCase()
   if (!normalizedQuery) return true
-  const haystack = [row.name, row.address, row.city, row.category, ...(row.categories || [])]
+  const haystack = [row.name, row.address, row.city, row.category, ...(row.categories || []), row.metadata?.brand, row.metadata?.operator]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
   return haystack.includes(normalizedQuery)
 }
 
-async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: SearchBody): Promise<ProviderPlace[]> {
-  const { url, key } = resolveGeodataAuth()
-  const limit = Math.min(Math.max(Number(params.limit || 24), 1), 80)
-  const fetchLimit = Math.min(Math.max(limit * 4, limit), 200)
-  const query = postgrestSafe(params.query || '')
-  const city = postgrestSafe(params.city || '')
-  const category = postgrestSafe(params.category || params.activityHint || '')
-
-  const restUrl = new URL(`${url}/rest/v1/${tablePath(tableConfig.table)}`)
-  restUrl.searchParams.set('select', '*')
-  restUrl.searchParams.set('limit', String(fetchLimit))
-
-  if (city) {
-    restUrl.searchParams.set('city', `ilike.*${city}*`)
+function bodyCenter(body: SearchBody): Coordinates | null {
+  if (Number.isFinite(Number(body.latitude)) && Number.isFinite(Number(body.longitude))) {
+    return { latitude: Number(body.latitude), longitude: Number(body.longitude) }
   }
-
-  if (query) {
-    const searchableColumns = ['name', 'formatted_address', 'address_line1', 'address_line2', 'street', 'city', 'brand', 'operator', 'cuisine']
-    restUrl.searchParams.set('or', `(${searchableColumns.map((column) => `${column}.ilike.*${query}*`).join(',')})`)
+  if (Number.isFinite(Number(body.lat)) && Number.isFinite(Number(body.lon))) {
+    return { latitude: Number(body.lat), longitude: Number(body.lon) }
   }
+  if (Number.isFinite(Number(body.bias?.lat)) && Number.isFinite(Number(body.bias?.lon))) {
+    return { latitude: Number(body.bias?.lat), longitude: Number(body.bias?.lon) }
+  }
+  return null
+}
 
-  const response = await restFetch(restUrl.toString(), {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-  })
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
-  const rows = await response.json()
-  const mapped = (Array.isArray(rows) ? rows : [])
-    .map((row) => mapGeodataRow(row, tableConfig))
-    .filter((row) => categoryMatches(row, category))
+function scoreRow(row: ProviderPlace, query: string, center?: Coordinates | null) {
+  let score = 0
+  if (query && textMatchesQuery(row, query)) score += 100
+  if (row.match_type === 'query') score += 40
+  if (row.match_type === 'db') score += 35
+  if (typeof row.rating === 'number') score += Math.min(row.rating, 5) * 2
+  if (typeof row.distance_km === 'number') score += Math.max(0, 30 - row.distance_km)
+  if (!row.distance_km && center && typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+    score += Math.max(0, 30 - haversineKm(center.latitude, center.longitude, row.latitude, row.longitude))
+  }
+  return score
+}
 
-  return mapped.slice(0, limit)
+function dedupe(results: ProviderPlace[]) {
+  const seen = new Map<string, ProviderPlace>()
+  for (const row of results) {
+    const key = `${row.name}|${row.address || ''}|${Math.round((row.latitude || 0) * 1000)}|${Math.round((row.longitude || 0) * 1000)}`.toLowerCase()
+    const current = seen.get(key)
+    if (!current || (row.score || 0) > (current.score || 0)) seen.set(key, row)
+  }
+  return Array.from(seen.values())
 }
 
 async function resolveDbTableConfig(
@@ -489,17 +581,64 @@ async function resolveDbTableConfig(
   directTable?: unknown,
   directLabel?: unknown,
 ): Promise<DbSearchTableConfig> {
-  if (isAllowedGeodataTable(directTable)) {
-    const label = String(directLabel || directTable.split('.').pop() || directTable).trim()
-    const id = makeDbProviderId(label, directTable)
-    return { id, provider: `db:${id}`, label, table: directTable, enabled: true }
+  if (directTable !== undefined && directTable !== null && directTable !== '') {
+    const table = requireGeodataTable(directTable)
+    const label = String(directLabel || table.split('.').pop() || table).trim()
+    const id = makeDbProviderId(label, table)
+    return { id, provider: `db:${id}`, label, table, enabled: true }
   }
 
-  if (!isDbProvider(provider)) throw new Error('Valid db:* provider or table is required')
+  if (!isDbProvider(provider)) throw new HttpError('Valid db:* provider or direct table is required.', 400)
   const configs = await getDbTableConfigs(supabaseUrl, serviceRoleKey)
   const match = configs.find((row) => row.provider === provider && row.enabled)
-  if (!match) throw new Error(`Configured database provider not found: ${provider}`)
+  if (!match) throw new HttpError(`Configured database provider not found: ${provider}`, 404, { configured: configs })
   return match
+}
+
+async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: SearchBody): Promise<{ results: ProviderPlace[]; debug: Record<string, unknown> }> {
+  const { url, key } = resolveGeodataAuth()
+  const limit = Math.min(Math.max(Number(params.limit || 24), 1), 80)
+  const fetchLimit = Math.min(Math.max(limit * 8, limit), 200)
+  const query = postgrestSafe(params.query || '')
+  const city = postgrestSafe(params.city || '')
+  const category = postgrestSafe(params.category || params.activityHint || '')
+  const center = bodyCenter(params)
+
+  const restUrl = new URL(`${url}/rest/v1/${tablePath(tableConfig.table)}`)
+  restUrl.searchParams.set('select', GEODATA_SELECT_COLUMNS[tableConfig.table])
+  restUrl.searchParams.set('limit', String(fetchLimit))
+  restUrl.searchParams.set('order', 'name.asc.nullslast')
+
+  if (city) restUrl.searchParams.set('city', `ilike.*${city}*`)
+  if (query) {
+    restUrl.searchParams.set('or', `(${SEARCHABLE_COLUMNS.map((column) => `${column}.ilike.*${query}*`).join(',')})`)
+  }
+
+  const rows = await restFetchJson<Record<string, any>[]>(restUrl.toString(), {
+    headers: geodataHeaders(key),
+  })
+
+  const rawRows = Array.isArray(rows) ? rows : []
+  const mapped = rawRows
+    .map((row) => mapGeodataRow(row, tableConfig))
+    .filter((row) => categoryMatches(row, category))
+    .filter((row) => textMatchesQuery(row, query))
+    .map((row) => ({ ...row, score: scoreRow(row, query, center) }))
+
+  return {
+    results: dedupe(mapped).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit),
+    debug: {
+      geodata_url: url,
+      table: tableConfig.table,
+      provider: tableConfig.provider,
+      query,
+      city,
+      category,
+      fetch_limit: fetchLimit,
+      raw_candidate_count: rawRows.length,
+      filtered_candidate_count: mapped.length,
+    },
+  }
 }
 
 function normalizeCategory(category?: string, activityHint?: string) {
@@ -530,52 +669,7 @@ function tomTomQuery(category?: string, activityHint?: string) {
   if (normalized === 'bar') return 'bar'
   if (normalized === 'entertainment') return 'entertainment'
   if (normalized === 'leisure') return 'leisure'
-  return 'pub'
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-function dedupe(results: ProviderPlace[]) {
-  const seen = new Map<string, ProviderPlace>()
-  for (const row of results) {
-    const key = `${row.name}|${row.address || ''}|${Math.round((row.latitude || 0) * 1000)}|${Math.round((row.longitude || 0) * 1000)}`.toLowerCase()
-    const current = seen.get(key)
-    if (!current || (row.score || 0) > (current.score || 0)) {
-      seen.set(key, row)
-    }
-  }
-  return Array.from(seen.values())
-}
-
-function scoreRow(row: ProviderPlace, query: string, center?: Coordinates | null) {
-  let score = 0
-  if (query && textMatchesQuery(row, query)) score += 100
-  if (row.match_type === 'query') score += 40
-  if (row.match_type === 'db') score += 35
-  if (typeof row.rating === 'number') score += Math.min(row.rating, 5) * 2
-  if (typeof row.distance_km === 'number') score += Math.max(0, 30 - row.distance_km)
-  if (!row.distance_km && center && typeof row.latitude === 'number' && typeof row.longitude === 'number') {
-    score += Math.max(0, 30 - haversineKm(center.latitude, center.longitude, row.latitude, row.longitude))
-  }
-  return score
-}
-
-async function resolveProviderMode(supabaseUrl: string, serviceRoleKey: string, requested?: ProviderMode | string): Promise<ProviderMode> {
-  if (requested) return normalizeProviderConfigValue(requested)
-  try {
-    const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, 'default')
-    return normalizeProviderConfigValue(provider)
-  } catch {
-    return 'geoapify_tomtom'
-  }
+  return 'venue'
 }
 
 async function geocodeGeoapify(query: string, apiKey: string): Promise<Coordinates | null> {
@@ -590,30 +684,16 @@ async function geocodeGeoapify(query: string, apiKey: string): Promise<Coordinat
   const feature = payload.features?.[0]
   const lon = feature?.geometry?.coordinates?.[0]
   const lat = feature?.geometry?.coordinates?.[1]
-  if (typeof lat === 'number' && typeof lon === 'number') return { latitude: lat, longitude: lon }
-  return null
+  return typeof lat === 'number' && typeof lon === 'number' ? { latitude: lat, longitude: lon } : null
 }
 
-async function geocodeTomTom(query: string, apiKey: string): Promise<Coordinates | null> {
-  const url = new URL(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(query)}.json`)
-  url.searchParams.set('key', apiKey)
-  url.searchParams.set('countrySet', 'HU')
-  url.searchParams.set('limit', '1')
-  const response = await fetch(url.toString())
-  if (!response.ok) return null
-  const payload = await response.json()
-  const pos = payload.results?.[0]?.position
-  if (typeof pos?.lat === 'number' && typeof pos?.lon === 'number') return { latitude: pos.lat, longitude: pos.lon }
-  return null
-}
-
-async function searchGeoapifyByName(params: SearchBody, apiKey: string, center: Coordinates | null, query: string): Promise<ProviderPlace[]> {
+async function searchGeoapify(params: SearchBody, apiKey: string, center: Coordinates | null, query: string): Promise<ProviderPlace[]> {
   const url = new URL('https://api.geoapify.com/v2/places')
   url.searchParams.set('categories', geoapifyCategoryFilter(params.category, params.activityHint))
-  url.searchParams.set('filter', 'countrycode:hu')
-  url.searchParams.set('name', query)
-  url.searchParams.set('limit', String(Math.min(params.limit || 24, 50)))
+  url.searchParams.set('filter', center ? `circle:${center.longitude},${center.latitude},${Math.max(1, params.radius_km || 10) * 1000}` : 'countrycode:hu')
+  if (query) url.searchParams.set('name', query)
   if (center) url.searchParams.set('bias', `proximity:${center.longitude},${center.latitude}`)
+  url.searchParams.set('limit', String(Math.min(Number(params.limit || 24), 50)))
   url.searchParams.set('apiKey', apiKey)
   const response = await fetch(url.toString())
   if (!response.ok) return []
@@ -622,7 +702,7 @@ async function searchGeoapifyByName(params: SearchBody, apiKey: string, center: 
     const p = feature.properties || {}
     return {
       provider: 'geoapify',
-      external_id: String(p.place_id || feature.properties?.datasource?.raw?.osm_id || crypto.randomUUID()),
+      external_id: String(p.place_id || p.datasource?.raw?.osm_id || crypto.randomUUID()),
       name: String(p.name || p.address_line1 || 'Helyszín'),
       category: p.categories?.[0] || normalizeCategory(params.category, params.activityHint),
       categories: Array.isArray(p.categories) ? p.categories : [],
@@ -635,61 +715,30 @@ async function searchGeoapifyByName(params: SearchBody, apiKey: string, center: 
       website: p.website,
       phone: p.contact?.phone || p.phone,
       distance_km: typeof p.distance === 'number' ? p.distance / 1000 : undefined,
-      match_type: 'query',
+      match_type: query ? 'query' : 'nearby',
       metadata: p,
     } as ProviderPlace
   })
 }
 
-async function searchGeoapifyNearby(params: SearchBody, apiKey: string, center: Coordinates): Promise<ProviderPlace[]> {
-  const radius = Math.max(1, params.radius_km || 10) * 1000
-  const url = new URL('https://api.geoapify.com/v2/places')
-  url.searchParams.set('categories', geoapifyCategoryFilter(params.category, params.activityHint))
-  url.searchParams.set('filter', `circle:${center.longitude},${center.latitude},${radius}`)
-  url.searchParams.set('bias', `proximity:${center.longitude},${center.latitude}`)
-  url.searchParams.set('limit', String(Math.min(params.limit || 24, 50)))
-  url.searchParams.set('apiKey', apiKey)
-  const response = await fetch(url.toString())
-  if (!response.ok) return []
-  const payload = await response.json()
-  return (payload.features || []).map((feature: any) => {
-    const p = feature.properties || {}
-    return {
-      provider: 'geoapify',
-      external_id: String(p.place_id || feature.properties?.datasource?.raw?.osm_id || crypto.randomUUID()),
-      name: String(p.name || p.address_line1 || 'Helyszín'),
-      category: p.categories?.[0] || normalizeCategory(params.category, params.activityHint),
-      categories: Array.isArray(p.categories) ? p.categories : [],
-      address: p.formatted || p.address_line2 || p.address_line1,
-      city: p.city || p.town || p.village,
-      district: p.district || p.suburb || p.county,
-      postal_code: p.postcode,
-      latitude: feature.geometry?.coordinates?.[1],
-      longitude: feature.geometry?.coordinates?.[0],
-      website: p.website,
-      phone: p.contact?.phone || p.phone,
-      distance_km: typeof p.distance === 'number' ? p.distance / 1000 : undefined,
-      match_type: 'nearby',
-      metadata: p,
-    } as ProviderPlace
-  })
-}
-
-async function searchTomTomByName(params: SearchBody, apiKey: string, center: Coordinates | null, query: string): Promise<ProviderPlace[]> {
-  const url = new URL(`https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json`)
+async function searchTomTom(params: SearchBody, apiKey: string, center: Coordinates | null, query: string): Promise<ProviderPlace[]> {
+  const url = query
+    ? new URL(`https://api.tomtom.com/search/2/search/${encodeURIComponent(query)}.json`)
+    : new URL(`https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(tomTomQuery(params.category, params.activityHint))}.json`)
   url.searchParams.set('key', apiKey)
   url.searchParams.set('countrySet', 'HU')
-  url.searchParams.set('limit', String(Math.min(params.limit || 24, 50)))
+  url.searchParams.set('limit', String(Math.min(Number(params.limit || 24), 50)))
   if (center) {
     url.searchParams.set('lat', String(center.latitude))
     url.searchParams.set('lon', String(center.longitude))
+    url.searchParams.set('radius', String(Math.max(1, params.radius_km || 10) * 1000))
   }
   const response = await fetch(url.toString())
   if (!response.ok) return []
   const payload = await response.json()
   return (payload.results || []).map((result: any) => ({
     provider: 'tomtom',
-    external_id: String(result.id),
+    external_id: String(result.id || crypto.randomUUID()),
     name: String(result.poi?.name || result.address?.freeformAddress || 'Helyszín'),
     category: result.poi?.classifications?.[0]?.code || tomTomQuery(params.category, params.activityHint),
     categories: Array.isArray(result.poi?.categories) ? result.poi.categories : [],
@@ -702,225 +751,114 @@ async function searchTomTomByName(params: SearchBody, apiKey: string, center: Co
     website: result.poi?.url,
     phone: result.poi?.phone,
     distance_km: typeof result.dist === 'number' ? result.dist / 1000 : undefined,
-    match_type: 'query',
+    match_type: query ? 'query' : 'nearby',
     metadata: result,
   }))
 }
 
-async function searchTomTomNearby(params: SearchBody, apiKey: string, center: Coordinates): Promise<ProviderPlace[]> {
-  const radius = Math.max(1, params.radius_km || 10) * 1000
-  const url = new URL(`https://api.tomtom.com/search/2/categorySearch/${encodeURIComponent(tomTomQuery(params.category, params.activityHint))}.json`)
-  url.searchParams.set('key', apiKey)
-  url.searchParams.set('countrySet', 'HU')
-  url.searchParams.set('limit', String(Math.min(params.limit || 24, 50)))
-  url.searchParams.set('lat', String(center.latitude))
-  url.searchParams.set('lon', String(center.longitude))
-  url.searchParams.set('radius', String(radius))
-  url.searchParams.set('openingHours', 'nextSevenDays')
-  const response = await fetch(url.toString())
-  if (!response.ok) return []
-  const payload = await response.json()
-  return (payload.results || []).map((result: any) => ({
-    provider: 'tomtom',
-    external_id: String(result.id),
-    name: String(result.poi?.name || 'Helyszín'),
-    category: result.poi?.classifications?.[0]?.code || tomTomQuery(params.category, params.activityHint),
-    categories: Array.isArray(result.poi?.categories) ? result.poi.categories : [],
-    address: result.address?.freeformAddress,
-    city: result.address?.municipality,
-    district: result.address?.municipalitySubdivision || result.address?.countrySecondarySubdivision,
-    postal_code: result.address?.postalCode,
-    latitude: result.position?.lat,
-    longitude: result.position?.lon,
-    website: result.poi?.url,
-    phone: result.poi?.phone,
-    distance_km: typeof result.dist === 'number' ? result.dist / 1000 : undefined,
-    match_type: 'nearby',
-    metadata: result,
-  }))
-}
+async function searchExternalProviders(params: SearchBody): Promise<{ results: ProviderPlace[]; debug: Record<string, unknown> }> {
+  const query = postgrestSafe(params.query || '')
+  const center = bodyCenter(params) || (query ? await geocodeGeoapify(query, Deno.env.get('GEOAPIFY_API_KEY') || '') : null)
+  if (!query && !center) throw new HttpError('query or coordinates are required', 400)
 
-async function cacheRemoteRows(supabaseUrl: string, serviceRoleKey: string, rows: ProviderPlace[]) {
-  if (rows.length === 0) return
-  try {
-    await fetch(`${supabaseUrl}/rest/v1/places_cache?on_conflict=cache_key`, {
-      method: 'POST',
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify(
-        rows.map((row) => ({
-          cache_key: `${row.provider}:${row.external_id}`,
-          provider: row.provider,
-          response_data: row,
-          expires_at: new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
-        }))
-      ),
-    })
-  } catch {
-    // cache write is best-effort only
+  const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
+  const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || Deno.env.get('TOMTOM_SEARCH_API_KEY') || ''
+
+  const [geoapify, tomtom] = await Promise.all([
+    geoapifyKey ? searchGeoapify(params, geoapifyKey, center, query).catch(() => []) : Promise.resolve([]),
+    tomtomKey ? searchTomTom(params, tomtomKey, center, query).catch(() => []) : Promise.resolve([]),
+  ])
+
+  const results = dedupe([...geoapify, ...tomtom]
+    .map((row) => ({ ...row, score: scoreRow(row, query, center) })))
+    .sort((a, b) => (b.score || 0) - (a.score || 0))
+    .slice(0, Math.min(Number(params.limit || 24), 80))
+
+  return {
+    results,
+    debug: {
+      provider_mode: 'geoapify_tomtom',
+      query,
+      center,
+      geoapify_count: geoapify.length,
+      tomtom_count: tomtom.length,
+    },
   }
+}
+
+async function handleConfigAction(action: ProviderConfigAction, body: SearchBody, request: Request) {
+  const supabaseUrl = resolveInternalSupabaseUrl(request)
+  const serviceRoleKey = resolveInternalServiceRoleKey()
+
+  if (action === 'get_provider_config') {
+    const group = requireProviderGroup(body.group)
+    const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, group)
+    return json({ group, provider })
+  }
+
+  if (action === 'get_all_provider_configs') {
+    const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
+    return json({ providers })
+  }
+
+  if (action === 'save_provider_config') {
+    const group = requireProviderGroup(body.group)
+    const provider = requireProviderMode(body.provider)
+    const saved = await saveProviderConfigValue(supabaseUrl, serviceRoleKey, group, provider)
+    return json({ group, provider: saved })
+  }
+
+  if (action === 'get_db_table_config') {
+    const tables = await getDbTableConfigs(supabaseUrl, serviceRoleKey)
+    return json({ availableTables: GEODATA_AVAILABLE_TABLES, tables, geodata_url: GEODATA_DEFAULT_URL })
+  }
+
+  if (action === 'save_db_table_config') {
+    const tables = await saveDbTableConfigs(supabaseUrl, serviceRoleKey, body.tables || [])
+    return json({ availableTables: GEODATA_AVAILABLE_TABLES, tables, geodata_url: GEODATA_DEFAULT_URL })
+  }
+
+  return null
 }
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const body = (await request.json().catch(() => ({}))) as SearchBody
-    const trimmedQuery = String(body.query || '').trim()
-    const explicitCenter = bodyCenter(body)
-    const limit = Math.min(Math.max(Number(body.limit || 24), 1), 80)
-    const action = body.action || 'autocomplete'
+    const body = await request.json().catch(() => ({})) as SearchBody
+    const action = (body.action || 'autocomplete') as ProviderConfigAction
 
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const configResponse = await handleConfigAction(action, body, request)
+    if (configResponse) return configResponse
+
     const supabaseUrl = resolveInternalSupabaseUrl(request)
-    if (!supabaseUrl || !serviceRoleKey) {
-      return json({ results: [], error: 'Missing Supabase service env', debug: { raw_candidate_count: 0 } }, 500)
-    }
-
-    const requestedGroup = isProviderConfigGroup(body.group) ? body.group : 'default'
-
-    if (action === 'get_provider_config') {
-      const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, requestedGroup)
-      return json({ group: requestedGroup, provider })
-    }
-
-    if (action === 'get_all_provider_configs') {
-      const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
-      return json({ providers })
-    }
-
-    if (action === 'save_provider_config') {
-      if (!body.provider) return json({ error: 'provider is required' }, 400)
-      const provider = await saveProviderConfigValue(
-        supabaseUrl,
-        serviceRoleKey,
-        requestedGroup,
-        normalizeProviderConfigValue(body.provider),
-      )
-      return json({ group: requestedGroup, provider })
-    }
-
-    if (action === 'get_db_table_config') {
-      const tables = await getDbTableConfigs(supabaseUrl, serviceRoleKey)
-      return json({ availableTables: GEODATA_AVAILABLE_TABLES, tables })
-    }
-
-    if (action === 'save_db_table_config') {
-      const tables = await saveDbTableConfigs(supabaseUrl, serviceRoleKey, body.tables || [])
-      return json({ availableTables: GEODATA_AVAILABLE_TABLES, tables })
-    }
+    const serviceRoleKey = resolveInternalServiceRoleKey()
 
     if (action === 'test_db_table_query') {
       const tableConfig = await resolveDbTableConfig(supabaseUrl, serviceRoleKey, body.provider, body.table, body.label)
-      const results = await queryGeodataTable(tableConfig, { ...body, limit })
-      return json({
-        results,
-        debug: {
-          provider_mode: tableConfig.provider,
-          table: tableConfig.table,
-          returned_count: results.length,
-          city: body.city || null,
-          category: body.category || null,
-          geodata_url: GEODATA_DEFAULT_URL,
-        },
-      })
+      const { results, debug } = await queryGeodataTable(tableConfig, body)
+      return json({ results, debug })
     }
 
-    if (!explicitCenter && !trimmedQuery) {
-      return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0 } }, 400)
-    }
-
-    const providerMode = await resolveProviderMode(supabaseUrl, serviceRoleKey, body.provider_mode)
+    const requestedProvider = body.provider_mode || body.provider
+    const providerMode = requestedProvider
+      ? normalizeProviderConfigValue(requestedProvider)
+      : await getProviderConfigValue(supabaseUrl, serviceRoleKey, requireProviderGroup(body.group || 'default'))
 
     if (isDbProvider(providerMode)) {
       const tableConfig = await resolveDbTableConfig(supabaseUrl, serviceRoleKey, providerMode)
-      const dbRows = await queryGeodataTable(tableConfig, { ...body, query: trimmedQuery, limit })
-      const scored = dbRows
-        .map((row) => ({ ...row, score: scoreRow(row, trimmedQuery, explicitCenter) + 100 }))
-        .filter((row) => !trimmedQuery || textMatchesQuery(row, trimmedQuery) || body.lenient)
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .slice(0, limit)
-      return json({
-        results: scored,
-        debug: {
-          provider_mode: providerMode,
-          table: tableConfig.table,
-          raw_candidate_count: dbRows.length,
-          returned_count: scored.length,
-          used_lenient_mode: Boolean(body.lenient),
-          resolved_center: explicitCenter,
-        },
-      })
+      const { results, debug } = await queryGeodataTable(tableConfig, body)
+      return json({ results, debug })
     }
 
-    const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY') || ''
-    const tomtomKey = Deno.env.get('TOMTOM_API_KEY') || ''
-
-    let resolvedCenter = explicitCenter
-    if (!resolvedCenter && trimmedQuery) {
-      resolvedCenter = (geoapifyKey ? await geocodeGeoapify(trimmedQuery, geoapifyKey) : null) || (tomtomKey ? await geocodeTomTom(trimmedQuery, tomtomKey) : null)
+    if (action === 'reverse') {
+      // The old function did not support DB reverse geocoding. Keep a safe no-op fallback instead of breaking callers.
+      return json({ results: [], debug: { action, provider_mode: providerMode, note: 'reverse lookup is not supported by this hotfix handler' } })
     }
 
-    const [geoByName, tomtomByName, geoNearby, tomtomNearby] = await Promise.all([
-      trimmedQuery && geoapifyKey ? searchGeoapifyByName({ ...body, limit }, geoapifyKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
-      trimmedQuery && tomtomKey ? searchTomTomByName({ ...body, limit }, tomtomKey, explicitCenter || resolvedCenter, trimmedQuery) : Promise.resolve([]),
-      resolvedCenter && geoapifyKey ? searchGeoapifyNearby({ ...body, limit }, geoapifyKey, resolvedCenter) : Promise.resolve([]),
-      resolvedCenter && tomtomKey ? searchTomTomNearby({ ...body, limit }, tomtomKey, resolvedCenter) : Promise.resolve([]),
-    ])
-
-    const rawCandidates = dedupe([...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => ({
-      ...row,
-      distance_km:
-        typeof row.distance_km === 'number'
-          ? row.distance_km
-          : resolvedCenter && typeof row.latitude === 'number' && typeof row.longitude === 'number'
-            ? haversineKm(resolvedCenter.latitude, resolvedCenter.longitude, row.latitude, row.longitude)
-            : undefined,
-    }))
-
-    let merged = rawCandidates.map((row) => ({
-      ...row,
-      score: scoreRow(row, trimmedQuery, resolvedCenter),
-    }))
-
-    if (body.open_now) {
-      merged = merged.filter((row) => row.open_now !== false)
-    }
-
-    const strictMatches = trimmedQuery
-      ? merged.filter((row) => textMatchesQuery(row, trimmedQuery))
-      : merged
-
-    const finalResults = (strictMatches.length > 0 && !body.lenient ? strictMatches : merged)
-      .sort((left, right) => {
-        const scoreDelta = (right.score || 0) - (left.score || 0)
-        if (scoreDelta !== 0) return scoreDelta
-        const leftDistance = typeof left.distance_km === 'number' ? left.distance_km : Number.MAX_SAFE_INTEGER
-        const rightDistance = typeof right.distance_km === 'number' ? right.distance_km : Number.MAX_SAFE_INTEGER
-        if (leftDistance !== rightDistance) return leftDistance - rightDistance
-        return (right.rating || 0) - (left.rating || 0)
-      })
-      .slice(0, limit)
-
-    await cacheRemoteRows(supabaseUrl, serviceRoleKey, finalResults)
-
-    return json({
-      results: finalResults,
-      debug: {
-        provider_mode: providerMode,
-        raw_candidate_count: rawCandidates.length,
-        strict_match_count: strictMatches.length,
-        returned_count: finalResults.length,
-        used_lenient_mode: Boolean(body.lenient) || (strictMatches.length === 0 && merged.length > 0),
-        resolved_center: resolvedCenter,
-      },
-    })
+    const { results, debug } = await searchExternalProviders(body)
+    return json({ results, debug: { ...debug, requested_provider: providerMode } })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return json({ results: [], error: message, debug: { raw_candidate_count: 0 } }, 500)
+    return errorJson(error, error instanceof HttpError ? error.status : 500)
   }
 })
