@@ -1,9 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { isAwsLocationConfigured } from '@/lib/awsLocation';
 
+<<<<<<< HEAD
 export type BaseAddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'mapy';
 export type DbAddressSearchProvider = `db:${string}`;
 export type AddressSearchProvider = BaseAddressSearchProvider | DbAddressSearchProvider;
+=======
+export type AddressSearchProvider = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy';
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 
 /**
  * Function groups for address search - each can have its own provider.
@@ -20,6 +24,7 @@ export const FUNCTION_GROUP_LABELS: Record<AddressSearchFunctionGroup, string> =
   venue: 'Helyszínkereső (esemény, venue)',
   trip_planner: 'Túratervező címkereső',
 };
+<<<<<<< HEAD
 
 export const GEODATA_TABLE_OPTIONS = [
   { value: 'public.unified_pois', label: 'public.unified_pois', description: 'Egységesített, deduplikált POI tábla — venue kereséshez ajánlott első választás.' },
@@ -58,18 +63,28 @@ export interface DbSearchTableTestResult {
   results: unknown[];
   debug?: Record<string, unknown>;
 }
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 
 const CONFIG_CACHE_MS = 60_000;
 
 type CachedConfig = { provider: AddressSearchProvider; expiresAt: number };
 
 type ProviderConfigPayload = {
+<<<<<<< HEAD
   provider?: AddressSearchProvider | string;
   providers?: Partial<Record<AddressSearchFunctionGroup, AddressSearchProvider | string>>;
 };
 
 const cachedConfigs: Record<string, CachedConfig> = {};
 let cachedDbTables: { tables: DbSearchTableConfig[]; expiresAt: number } | null = null;
+=======
+  provider?: AddressSearchProvider;
+  providers?: Partial<Record<AddressSearchFunctionGroup, AddressSearchProvider>>;
+};
+
+const cachedConfigs: Record<string, CachedConfig> = {};
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 
 function cacheKey(group: AddressSearchFunctionGroup = 'default'): string {
   return group;
@@ -101,8 +116,12 @@ export function makeDbProviderId(label: string, table: string): string {
 }
 
 function normalizeProvider(value: unknown): AddressSearchProvider {
+<<<<<<< HEAD
   if (isDbAddressSearchProvider(value)) return value;
   if (value === 'geoapify_tomtom' || value === 'mapy') return value;
+=======
+  if (value === 'geoapify_tomtom' || value === 'local_catalog' || value === 'mapy') return value;
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   if (value === 'aws' && isAwsLocationConfigured()) return 'aws';
   return getDefaultProvider();
 }
@@ -177,6 +196,7 @@ export async function getAllFunctionGroupProviders(): Promise<Record<AddressSear
     const merged = {
       ...defaults,
       ...(payload?.providers || {}),
+<<<<<<< HEAD
     } as Record<AddressSearchFunctionGroup, AddressSearchProvider | string>;
 
     const result = {} as Record<AddressSearchFunctionGroup, AddressSearchProvider>;
@@ -187,6 +207,17 @@ export async function getAllFunctionGroupProviders(): Promise<Record<AddressSear
     });
 
     return result;
+=======
+    } as Record<AddressSearchFunctionGroup, AddressSearchProvider>;
+
+    (Object.keys(merged) as AddressSearchFunctionGroup[]).forEach((group) => {
+      const provider = normalizeProvider(merged[group]);
+      merged[group] = provider;
+      cachedConfigs[cacheKey(group)] = { provider, expiresAt: Date.now() + CONFIG_CACHE_MS };
+    });
+
+    return merged;
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   } catch {
     const fallback = getDefaultProvider();
     const result: Record<AddressSearchFunctionGroup, AddressSearchProvider> = {
@@ -200,6 +231,7 @@ export async function getAllFunctionGroupProviders(): Promise<Record<AddressSear
     });
     return result;
   }
+<<<<<<< HEAD
 }
 
 export async function getDbSearchTableConfigs(force = false): Promise<DbSearchTableConfigResponse> {
@@ -254,11 +286,16 @@ export function getProviderDisplayLabel(provider: AddressSearchProvider | string
     return match ? `${provider} · ${match.label}` : provider;
   }
   return String(provider || '—');
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 }
 
 export function resetAddressSearchProviderCache() {
   for (const key of Object.keys(cachedConfigs)) {
     delete cachedConfigs[key];
   }
+<<<<<<< HEAD
   cachedDbTables = null;
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 }

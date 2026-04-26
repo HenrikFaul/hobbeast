@@ -6,7 +6,11 @@
  */
 
 import { getPlace, isAwsLocationConfigured, searchTextPlaces, suggestPlaces } from '@/lib/awsLocation';
+<<<<<<< HEAD
 import { getAddressSearchProvider, isDbAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
+=======
+import { getAddressSearchProvider, type AddressSearchProvider, type AddressSearchFunctionGroup } from '@/lib/searchProviderConfig';
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 import { suggestMapyLocations, isMapyConfigured } from '@/lib/mapy';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -77,7 +81,10 @@ function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
 function resolveUsableProvider(provider: AddressSearchProvider): AddressSearchProvider {
   if (provider === 'aws' && !isAwsLocationConfigured()) return 'geoapify_tomtom';
   if (provider === 'mapy' && !isMapyConfigured()) return 'geoapify_tomtom';
+<<<<<<< HEAD
   if (isDbAddressSearchProvider(provider)) return provider;
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   return provider;
 }
 
@@ -145,7 +152,11 @@ async function searchMapyPlaces(query: string): Promise<NormalizedPlace[]> {
       lat: s.lat,
       lon: s.lon,
       categories: [],
+<<<<<<< HEAD
       source: 'mapy',
+=======
+      source: 'geoapify' as const,
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
       sourceId: s.id,
       confidence: 0.85,
     }));
