@@ -232,7 +232,6 @@ After review, rename or replace the active root changelog with this canonical st
 - **Invoke diagnosztikai irány**: A kliensoldali invoke hívásoknál a cél URL, Authorization Bearer jelenlét és hiba/body kontextus naplózható, ami gyorsítja az edge connectivity hibák feltárását.
 - **Edge connectivity hardening irány**: Az `internal_edge_function_base_url` normalizálása, a slash-mentes fix Supabase URL használata és a JSON `CHECK` korlátok oldása része a stabil kapcsolódási stratégiának.
 - **sync-local-places request diagnosztika**: A request oldali method/url/auth-header jelenlét logolása bevezethető úgy, hogy az `OPTIONS` / CORS ág változatlan maradjon.
-<<<<<<< HEAD
 
 ---
 
@@ -264,5 +263,17 @@ After review, rename or replace the active root changelog with this canonical st
 ### Validation
 - `tsc --noEmit --pretty false` passed.
 - `npm run build` was attempted, but the sandbox command timed out while invoking Vite; no TypeScript errors were reported by `tsc`.
-=======
->>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
+
+---
+
+## [1.6.6] — 2026-04-26
+### Fixed
+- Resolved unresolved Git merge conflict markers accidentally left in deploy-facing files after the Geodata db provider merge.
+- Restored clean `src/lib/placeSearch.ts` imports and provider branching so `db:*` providers remain valid while Mapy remains mapped to `source: 'mapy'`.
+- Restored clean Common Admin metadata and Common Admin panel implementation without duplicated legacy local catalog blocks.
+- Kept the retired local catalog provider out of runtime provider selectors and integration tests.
+
+### Validation
+- Repository scan for merge conflict markers returned no results in source/deploy files.
+- Focused static review completed for the files reported by GitHub code search / Vercel build failure: `placeSearch.ts`, `CommonAdminPanel.tsx`, `commonAdminMetadata.ts`, `AdminEventbrite.tsx`, `searchProviderConfig.ts`, `supabase/config.toml`, `supabase/functions/place-search/index.ts`.
+- Full Vite build was not executed in this sandbox because install/build dependencies are not available here; this package is prepared to fix the Vercel `Unexpected "<<"` syntax failure and the follow-on conflict-marker failures.

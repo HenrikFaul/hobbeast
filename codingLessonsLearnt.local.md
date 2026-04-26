@@ -35,3 +35,15 @@ SOHA ne töröld a meglévő tartalmat — csak hozzáadni szabad.
 - **Gyökérok**: Korábbi migrációk statikus provider-listára építettek, miközben az új üzleti igény konfigurátorból generált provider azonosítókat kér.
 - **Javítás**: A provider check constraint `provider like 'db:%'` feltétellel bővült, a régi lokális provider beállítások pedig `geoapify_tomtom` fallbackre állnak.
 - **Megelőzés**: Dinamikus admin konfigurációknál a DB constraint legyen explicit, de engedje a kontrollált prefix-alapú névtereket.
+
+---
+
+## ➕ APPEND — 2026-04-26 deploy conflict-marker hotfix
+
+### [HIBA-059] Merge conflict marker nem maradhat deployolható forrásfájlban
+- **Dátum**: 2026-04-26 (v1.6.6)
+- **Fájl**: `src/lib/placeSearch.ts`, `src/components/admin/CommonAdminPanel.tsx`, `src/lib/commonAdminMetadata.ts`, `src/components/admin/AdminEventbrite.tsx`, `src/lib/searchProviderConfig.ts`, `supabase/config.toml`, `supabase/functions/place-search/index.ts`
+- **Hibaüzenet / tünet**: Vercel build: `[vite:esbuild] Transform failed ... Unexpected "<<"` a `src/lib/placeSearch.ts` fájlban.
+- **Gyökérok**: A merge során Git conflict marker (`<<<<<<<`, `=======`, `>>>>>>>`) maradt több forrásfájlban. A Vite/esbuild már az első `<<<<<<< HEAD` sornál megállt, de a repo további konfliktusos fájlokat is tartalmazott.
+- **Javítás**: Minden érintett deploy-facing fájl tiszta, konfliktusmentes verzióra lett cserélve; a Geodata db provider ág maradt meg, a régi lokális címtábla ág pedig nem került vissza.
+- **Megelőzés**: Minden deploy előtt kötelező futtatni: `grep -RInE '^(<<<<<<<|=======|>>>>>>>)' . --exclude-dir=node_modules --exclude-dir=.git --exclude='*.patch'`. Ha találat van, a deploy tilos.

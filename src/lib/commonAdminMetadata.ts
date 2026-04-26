@@ -13,24 +13,15 @@ export const COMMON_ADMIN_INTEGRATIONS: CommonAdminIntegrationEntry[] = [
   { name: 'Ticketmaster', detail: 'preview + import (ticketmaster / universe / frontgate / tmr)', active: true, category: 'events' },
   { name: 'SeatGeek', detail: 'preview + import', active: true, category: 'events' },
   { name: 'Amazon AWS Places V2', detail: 'runtime választható provider', active: true, category: 'places' },
-<<<<<<< HEAD
   { name: 'Geoapify + TomTom', detail: 'live külső provider fallback', active: true, category: 'places' },
   { name: 'Geodata Supabase db:*', detail: 'konfigurálható public.unified_pois / local_pois / geoapify_pois venue források', active: true, category: 'places' },
   { name: 'Mapy.cz', detail: 'címkeresés / útvonaltervezés', active: true, category: 'places' },
-=======
-  { name: 'Geoapify + TomTom', detail: 'edge orchestration + local sync', active: true, category: 'places' },
-  { name: 'Lokális címtábla', detail: 'manual sync + preview + state', active: true, category: 'places' },
->>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   { name: 'Supabase Auth/DB', detail: 'felhasználók, táblák, edge functionök', active: true, category: 'infra' },
   { name: 'Supabase Realtime', detail: 'live update / event sync capability', active: true, category: 'infra' },
 ];
 
 export const COMMON_ADMIN_RELEASE: CommonAdminReleaseSnapshot = {
-<<<<<<< HEAD
   version: '1.6.5',
-=======
-  version: '1.4.4',
->>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   deployedAt: 'Deployment ideje environment alapján ellenőrizendő',
   delivered: [
     'Multi-provider import panel: Eventbrite, Ticketmaster, SeatGeek',
