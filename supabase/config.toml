@@ -6,6 +6,12 @@ verify_jwt = false
 [functions.admin-bulk-user-actions]
 verify_jwt = false
 
+<<<<<<< HEAD
+=======
+[functions.sync-local-places]
+verify_jwt = false
+
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 [functions.place-search]
 verify_jwt = false
 
