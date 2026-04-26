@@ -232,6 +232,7 @@ After review, rename or replace the active root changelog with this canonical st
 - **Invoke diagnosztikai irány**: A kliensoldali invoke hívásoknál a cél URL, Authorization Bearer jelenlét és hiba/body kontextus naplózható, ami gyorsítja az edge connectivity hibák feltárását.
 - **Edge connectivity hardening irány**: Az `internal_edge_function_base_url` normalizálása, a slash-mentes fix Supabase URL használata és a JSON `CHECK` korlátok oldása része a stabil kapcsolódási stratégiának.
 - **sync-local-places request diagnosztika**: A request oldali method/url/auth-header jelenlét logolása bevezethető úgy, hogy az `OPTIONS` / CORS ág változatlan maradjon.
+<<<<<<< HEAD
 
 ---
 
@@ -263,3 +264,5 @@ After review, rename or replace the active root changelog with this canonical st
 ### Validation
 - `tsc --noEmit --pretty false` passed.
 - `npm run build` was attempted, but the sandbox command timed out while invoking Vite; no TypeScript errors were reported by `tsc`.
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
