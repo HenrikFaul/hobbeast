@@ -7,9 +7,13 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
+<<<<<<< HEAD
 type DbProviderMode = `db:${string}`
 type BaseProviderMode = 'aws' | 'geoapify_tomtom' | 'mapy'
 type ProviderMode = BaseProviderMode | DbProviderMode
+=======
+type ProviderMode = 'aws' | 'geoapify_tomtom' | 'local_catalog' | 'mapy'
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 
 type ProviderConfigAction =
   | 'autocomplete'
@@ -18,9 +22,12 @@ type ProviderConfigAction =
   | 'get_provider_config'
   | 'get_all_provider_configs'
   | 'save_provider_config'
+<<<<<<< HEAD
   | 'get_db_table_config'
   | 'save_db_table_config'
   | 'test_db_table_query'
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 
 interface SearchBody {
   action?: ProviderConfigAction
@@ -40,9 +47,15 @@ interface SearchBody {
   open_now?: boolean
   limit?: number
   lenient?: boolean
+<<<<<<< HEAD
   provider_mode?: ProviderMode | string
   group?: ProviderConfigGroup
   provider?: ProviderMode | string
+=======
+  provider_mode?: ProviderMode
+  group?: 'default' | 'personal' | 'venue' | 'trip_planner'
+  provider?: ProviderMode
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 }
 
 interface Coordinates {
@@ -124,6 +137,30 @@ function resolveInternalSupabaseUrl(request: Request) {
   throw new Error('Missing internal Supabase project URL')
 }
 
+
+function normalizeInternalUrl(value?: string | null) {
+  return String(value || '').trim().replace(/\/+$/, '')
+}
+
+function resolveInternalSupabaseUrl(request: Request) {
+  const requestOrigin = normalizeInternalUrl(new URL(request.url).origin)
+  if (requestOrigin) {
+    try {
+      const hostname = new URL(requestOrigin).hostname
+      if (/\.supabase\.co$/i.test(hostname)) {
+        return requestOrigin
+      }
+    } catch {
+      // ignore invalid URL and fall back to env
+    }
+  }
+
+  const envUrl = normalizeInternalUrl(Deno.env.get('SUPABASE_URL'))
+  if (envUrl) return envUrl
+
+  throw new Error('Missing internal Supabase project URL')
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -153,10 +190,19 @@ function bodyCenter(body: SearchBody): Coordinates | null {
   return null
 }
 
+<<<<<<< HEAD
+=======
+
+const PROVIDER_CONFIG_KEY_PREFIX = 'address_search'
+const PROVIDER_GROUPS = ['default', 'personal', 'venue', 'trip_planner'] as const
+type ProviderConfigGroup = typeof PROVIDER_GROUPS[number]
+
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 function configKey(group: ProviderConfigGroup = 'default') {
   return group === 'default' ? PROVIDER_CONFIG_KEY_PREFIX : `${PROVIDER_CONFIG_KEY_PREFIX}:${group}`
 }
 
+<<<<<<< HEAD
 function isProviderConfigGroup(value: unknown): value is ProviderConfigGroup {
   return typeof value === 'string' && (PROVIDER_GROUPS as readonly string[]).includes(value)
 }
@@ -185,6 +231,19 @@ function normalizeProviderConfigValue(value: unknown): ProviderMode {
 
 async function getProviderConfigRow(supabaseUrl: string, serviceRoleKey: string, key: string) {
   const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?key=eq.${encodeURIComponent(key)}&select=key,provider,options&limit=1`, {
+=======
+function normalizeProviderConfigValue(value: unknown): ProviderMode {
+  if (value === 'aws' || value === 'geoapify_tomtom' || value === 'local_catalog' || value === 'mapy') return value
+  return 'geoapify_tomtom'
+}
+
+function normalizeProviderModeForSearch(value: ProviderMode): 'geoapify_tomtom' | 'local_catalog' {
+  return value === 'local_catalog' ? 'local_catalog' : 'geoapify_tomtom'
+}
+
+async function getProviderConfigRow(supabaseUrl: string, serviceRoleKey: string, key: string) {
+  const response = await restFetch(`${supabaseUrl}/rest/v1/app_runtime_config?key=eq.${encodeURIComponent(key)}&select=key,provider&limit=1`, {
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
     headers: {
       apikey: serviceRoleKey,
       Authorization: `Bearer ${serviceRoleKey}`,
@@ -201,7 +260,11 @@ async function getProviderConfigValue(supabaseUrl: string, serviceRoleKey: strin
     const fallback = await getProviderConfigRow(supabaseUrl, serviceRoleKey, configKey('default')).catch(() => null)
     if (fallback?.provider) return normalizeProviderConfigValue(fallback.provider)
   }
+<<<<<<< HEAD
   return 'geoapify_tomtom' as ProviderMode
+=======
+  return 'geoapify_tomtom'
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 }
 
 async function getAllProviderConfigValues(supabaseUrl: string, serviceRoleKey: string) {
@@ -238,6 +301,7 @@ async function saveProviderConfigValue(
   return Array.isArray(rows) && rows[0]?.provider ? normalizeProviderConfigValue(rows[0].provider) : provider
 }
 
+<<<<<<< HEAD
 function isAllowedGeodataTable(value: unknown): value is GeodataTableName {
   return typeof value === 'string' && (GEODATA_ALLOWED_TABLES as readonly string[]).includes(value)
 }
@@ -502,6 +566,8 @@ async function resolveDbTableConfig(
   return match
 }
 
+=======
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
 function normalizeCategory(category?: string, activityHint?: string) {
   const lower = `${category || ''} ${activityHint || ''}`.toLowerCase()
   if (/(restaurant|étterem|food|drink|gasztro)/.test(lower)) return 'restaurant'
@@ -568,11 +634,28 @@ function scoreRow(row: ProviderPlace, query: string, center?: Coordinates | null
   return score
 }
 
+<<<<<<< HEAD
 async function resolveProviderMode(supabaseUrl: string, serviceRoleKey: string, requested?: ProviderMode | string): Promise<ProviderMode> {
   if (requested) return normalizeProviderConfigValue(requested)
   try {
     const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, 'default')
     return normalizeProviderConfigValue(provider)
+=======
+async function restFetch(url: string, init: RequestInit = {}) {
+  const response = await fetch(url, init)
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`${response.status} ${response.statusText}: ${text}`)
+  }
+  return response
+}
+
+async function resolveProviderMode(supabaseUrl: string, serviceRoleKey: string, requested?: ProviderMode): Promise<'geoapify_tomtom' | 'local_catalog'> {
+  if (requested) return normalizeProviderModeForSearch(requested)
+  try {
+    const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, 'default')
+    return normalizeProviderModeForSearch(provider)
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
   } catch {
     return 'geoapify_tomtom'
   }
@@ -830,10 +913,13 @@ Deno.serve(async (request) => {
       })
     }
 
-    if (!explicitCenter && !trimmedQuery) {
+    const action = body.action || 'autocomplete'
+
+    if (action !== 'get_provider_config' && action !== 'get_all_provider_configs' && action !== 'save_provider_config' && !explicitCenter && !trimmedQuery) {
       return json({ results: [], error: 'query or coordinates are required', debug: { raw_candidate_count: 0 } }, 400)
     }
 
+<<<<<<< HEAD
     const providerMode = await resolveProviderMode(supabaseUrl, serviceRoleKey, body.provider_mode)
 
     if (isDbProvider(providerMode)) {
@@ -842,6 +928,49 @@ Deno.serve(async (request) => {
       const scored = dbRows
         .map((row) => ({ ...row, score: scoreRow(row, trimmedQuery, explicitCenter) + 100 }))
         .filter((row) => !trimmedQuery || textMatchesQuery(row, trimmedQuery) || body.lenient)
+=======
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseUrl = resolveInternalSupabaseUrl(request)
+    if (!supabaseUrl || !serviceRoleKey) {
+      return json({ results: [], error: 'Missing Supabase service env', debug: { raw_candidate_count: 0 } }, 500)
+    }
+
+    const requestedGroup = (body.group || 'default') as ProviderConfigGroup
+
+    if (action === 'get_provider_config') {
+      const provider = await getProviderConfigValue(supabaseUrl, serviceRoleKey, requestedGroup)
+      return json({ group: requestedGroup, provider })
+    }
+
+    if (action === 'get_all_provider_configs') {
+      const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
+      return json({ providers })
+    }
+
+    if (action === 'save_provider_config') {
+      if (!body.provider) return json({ error: 'provider is required' }, 400)
+      const provider = await saveProviderConfigValue(
+        supabaseUrl,
+        serviceRoleKey,
+        requestedGroup,
+        normalizeProviderConfigValue(body.provider),
+      )
+      return json({ group: requestedGroup, provider })
+    }
+
+    const providerMode = await resolveProviderMode(supabaseUrl, serviceRoleKey, body.provider_mode)
+
+    const localRows = await searchLocalCatalog(supabaseUrl, serviceRoleKey, body)
+    const normalizedLocal = localRows.map((row: any) => ({
+      ...row,
+      provider: row.provider || 'local_catalog',
+      match_type: 'local',
+    })) as ProviderPlace[]
+
+    if (providerMode === 'local_catalog') {
+      const scoredLocal = normalizedLocal
+        .map((row) => ({ ...row, score: scoreRow(row, trimmedQuery, explicitCenter) + 100 }))
+>>>>>>> 4ddfa564f90f9638a41adb38adb70d6754044976
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit)
       return json({
@@ -872,7 +1001,7 @@ Deno.serve(async (request) => {
       resolvedCenter && tomtomKey ? searchTomTomNearby({ ...body, limit }, tomtomKey, resolvedCenter) : Promise.resolve([]),
     ])
 
-    const rawCandidates = dedupe([...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => ({
+    const rawCandidates = dedupe([...normalizedLocal, ...geoByName, ...tomtomByName, ...geoNearby, ...tomtomNearby]).map((row) => ({
       ...row,
       distance_km:
         typeof row.distance_km === 'number'
@@ -884,7 +1013,7 @@ Deno.serve(async (request) => {
 
     let merged = rawCandidates.map((row) => ({
       ...row,
-      score: scoreRow(row, trimmedQuery, resolvedCenter),
+      score: scoreRow(row, trimmedQuery, resolvedCenter) + (row.match_type === 'local' ? 100 : 0),
     }))
 
     if (body.open_now) {
@@ -917,6 +1046,7 @@ Deno.serve(async (request) => {
         returned_count: finalResults.length,
         used_lenient_mode: Boolean(body.lenient) || (strictMatches.length === 0 && merged.length > 0),
         resolved_center: resolvedCenter,
+        local_candidate_count: normalizedLocal.length,
       },
     })
   } catch (error) {
