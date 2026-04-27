@@ -1324,12 +1324,24 @@ Deno.serve(async (request) => {
       : await getProviderConfigValue(supabaseUrl, serviceRoleKey, requireProviderGroup(body.group || 'default'))
 
     if (isDbProvider(providerMode)) {
+      if (action === 'reverse') {
+        // DB-backed reverse lookup is intentionally not implemented in this hotfix.
+        // Return a safe empty response instead of falling through to text autocomplete.
+        return json({
+          runtime_version: PLACE_SEARCH_RUNTIME_VERSION,
+          results: [],
+          debug: {
+            action,
+            provider_mode: providerMode,
+            mode: 'db_reverse_noop',
+            note: 'reverse lookup is not supported by the db:* autocomplete handler',
+          },
+        })
+      }
+
       const tableConfig = await resolveDbTableConfig(supabaseUrl, serviceRoleKey, providerMode)
       const { results, debug } = await autocompleteGeodataPlaces(tableConfig, body)
       return json({ runtime_version: PLACE_SEARCH_RUNTIME_VERSION, results, debug })
-    }
-      // The old function did not support DB reverse geocoding. Keep a safe no-op fallback instead of breaking callers.
-      return json({ results: [], debug: { action, provider_mode: providerMode, note: 'reverse lookup is not supported by this hotfix handler' } })
     }
 
     const { results, debug } = await searchExternalProviders(body)
