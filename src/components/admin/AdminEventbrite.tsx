@@ -96,6 +96,70 @@ function formatDbCell(value: unknown): string {
   return String(value);
 }
 
+function getNestedValue(source: any, path: string): unknown {
+  return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), source);
+}
+
+function valueFromMappedProviderResult(row: any, column: string): unknown {
+  const metadata = row?.metadata || {};
+  const aliases: Record<string, unknown> = {
+    id: row?.id ?? row?.external_id,
+    external_id: row?.external_id,
+    name: row?.name,
+    city: row?.city,
+    district: row?.district,
+    formatted_address: row?.formatted_address ?? row?.address,
+    address: row?.address,
+    lat: row?.lat ?? row?.latitude,
+    lon: row?.lon ?? row?.longitude,
+    latitude: row?.latitude,
+    longitude: row?.longitude,
+    categories: row?.categories,
+    source_provider: metadata?.source_provider ?? row?.source_provider ?? row?.provider,
+    datasource_name: metadata?.datasource_name ?? metadata?.source_provider ?? row?.datasource_name,
+    brand: metadata?.brand ?? row?.brand,
+    operator: metadata?.operator ?? row?.operator,
+    cuisine: metadata?.cuisine ?? row?.cuisine,
+    phone: row?.phone,
+    website: row?.website,
+    email: row?.email,
+    postal_code: row?.postal_code,
+    provider: row?.provider,
+  };
+  if (column in aliases) return aliases[column];
+  return row?.[column] ?? metadata?.[column] ?? getNestedValue(row, column) ?? getNestedValue(metadata, column);
+}
+
+function buildDisplayRowsFromPlaceSearchResult(result: any, selectedColumns: string[]): Record<string, unknown>[] {
+  if (Array.isArray(result?.rows) && result.rows.length > 0) {
+    return result.rows.map((row: Record<string, unknown>) => {
+      const projected: Record<string, unknown> = {};
+      selectedColumns.forEach((column) => {
+        projected[column] = row[column];
+      });
+      return projected;
+    });
+  }
+
+  const mappedResults = Array.isArray(result?.results) ? result.results : [];
+  return mappedResults.map((row: any) => {
+    const projected: Record<string, unknown> = {};
+    selectedColumns.forEach((column) => {
+      projected[column] = valueFromMappedProviderResult(row, column);
+    });
+    return projected;
+  });
+}
+
+function resolveTotalCountFromPlaceSearchResult(result: any, displayRows: Record<string, unknown>[]): number | null {
+  if (typeof result?.totalCount === 'number') return result.totalCount;
+  if (typeof result?.total_count === 'number') return result.total_count;
+  if (typeof result?.debug?.total_count === 'number') return result.debug.total_count;
+  if (typeof result?.debug?.filtered_candidate_count === 'number') return result.debug.filtered_candidate_count;
+  if (typeof result?.debug?.raw_candidate_count === 'number') return result.debug.raw_candidate_count;
+  return displayRows.length > 0 ? displayRows.length : null;
+}
+
 
 interface DbConfigFormState {
   table: GeodataTableName;
@@ -445,13 +509,14 @@ export function AdminEventbrite() {
         confidence: 0.75,
       }));
       const selectedColumns = result.columns && result.columns.length > 0 ? result.columns : dbForm.columns;
-      const returnedRows = result.rows || [];
+      const returnedRows = buildDisplayRowsFromPlaceSearchResult(result, selectedColumns);
+      const totalCount = resolveTotalCountFromPlaceSearchResult(result, returnedRows);
       setDbTestResults(normalized);
       setDbTestRows(returnedRows);
       setDbTestColumns(selectedColumns);
-      setDbTotalCount(typeof result.totalCount === 'number' ? result.totalCount : null);
+      setDbTotalCount(totalCount);
       setDbDebug(result.debug || null);
-      const countLabel = typeof result.totalCount === 'number' ? ` / ${result.totalCount} találat az adatbázisban` : '';
+      const countLabel = typeof totalCount === 'number' ? ` / ${totalCount} találat az adatbázisban` : '';
       toast.success(`${returnedRows.length} sor lekérve: ${dbForm.table}${countLabel}`);
     } catch (err: any) {
       const message = err.message || 'Adatbázistábla lekérdezési hiba';
