@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { MapPin, Loader2, List, Map, Clock, SlidersHorizontal } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { MapPin, Loader2, List, Map, Clock, SlidersHorizontal, SearchX } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -9,57 +8,10 @@ import { Label } from '@/components/ui/label';
 import { VenueDetailModal } from '@/components/venue/VenueDetailModal';
 import { VenueMapView } from '@/components/venue/VenueMapView';
 import { haversineKm, isLikelyOpenNow } from '@/components/venue/venueUtils';
+import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
 import type { CachedVenue, VenueSelection } from '@/components/venue/types';
 
 export type { VenueSelection };
-
-// Map activity hints to venue_cache tags
-const HINT_TAG_MAP: Record<string, string[]> = {
-  'társas': ['board_game', 'tabletop', 'cafe', 'entertainment'],
-  'társasjáték': ['board_game', 'tabletop', 'cafe', 'entertainment'],
-  'sakk': ['board_game', 'tabletop', 'cafe'],
-  'szabadulószoba': ['escape_room', 'entertainment'],
-  'tánc': ['dance', 'dance_studio'],
-  'fejszedobálás': ['axe_throwing', 'entertainment'],
-  'futás': ['park', 'outdoor', 'sport'],
-  'kerékpár': ['park', 'outdoor', 'sport'],
-  'bicikli': ['park', 'outdoor', 'sport'],
-  'úszás': ['swimming', 'pool', 'sport'],
-  'tenisz': ['tennis', 'sport'],
-  'mászás': ['climbing', 'boulder', 'sport'],
-  'boulder': ['climbing', 'boulder', 'sport'],
-  'fitnesz': ['fitness', 'gym', 'sport'],
-  'jóga': ['yoga', 'wellness', 'fitness'],
-  'box': ['martial_arts', 'dojo', 'sport'],
-  'küzdősport': ['martial_arts', 'dojo', 'sport'],
-  'zene': ['music', 'concert', 'venue'],
-  'koncert': ['music', 'concert', 'venue'],
-  'bowling': ['bowling', 'entertainment'],
-  'mozi': ['cinema', 'entertainment'],
-  'múzeum': ['museum', 'culture'],
-  'színház': ['theater', 'culture'],
-  'festés': ['workshop', 'creative', 'art'],
-  'kézműves': ['workshop', 'creative', 'art'],
-  'főzés': ['restaurant', 'dining', 'gastro'],
-  'bor': ['wine', 'beer', 'tasting'],
-  'sör': ['wine', 'beer', 'tasting'],
-  'gaming': ['gaming', 'esport', 'internet_cafe'],
-  'labda': ['ball', 'sport', 'stadium'],
-  'foci': ['ball', 'sport', 'stadium'],
-  'kosár': ['ball', 'sport', 'stadium'],
-  'horgolás': ['workshop', 'creative', 'art'],
-  'kötés': ['workshop', 'creative', 'art'],
-};
-
-function getTagsForHint(hint: string): string[] {
-  const lower = hint.toLowerCase();
-  const matchedTags = new Set<string>();
-  for (const [keyword, tags] of Object.entries(HINT_TAG_MAP)) {
-    if (lower.includes(keyword)) tags.forEach(t => matchedTags.add(t));
-  }
-  if (matchedTags.size === 0) return ['entertainment', 'cafe', 'community'];
-  return Array.from(matchedTags);
-}
 
 interface VenueSuggestionsPanelProps {
   activityHint: string;
@@ -68,12 +20,51 @@ interface VenueSuggestionsPanelProps {
   onSelectVenue: (venue: VenueSelection) => void;
 }
 
+const SLOW_QUERY_MS = 500;
+
+function normalizedPlaceToCachedVenue(place: NormalizedPlace): CachedVenue {
+  return {
+    id: place.id,
+    provider: place.source,
+    external_id: place.sourceId,
+    name: place.name,
+    category: place.categories[0] || null,
+    tags: place.categories,
+    address: place.address,
+    city: place.city,
+    lat: place.lat,
+    lon: place.lon,
+    phone: null,
+    website: null,
+    rating: null,
+    image_url: null,
+    opening_hours_text: null,
+    details: {
+      district: place.district,
+      postcode: place.postcode,
+      country: place.country,
+      confidence: place.confidence,
+    },
+  };
+}
+
+function buildVenueQuery(activityHint: string, cityName?: string) {
+  const hint = activityHint.trim();
+  if (hint.length >= 2) return hint;
+  return cityName?.trim() || 'venue';
+}
+
 export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVenue }: VenueSuggestionsPanelProps) {
   const [rawVenues, setRawVenues] = useState<CachedVenue[]>([]);
   const [effectiveBias, setEffectiveBias] = useState(bias);
   const [loading, setLoading] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [selectedVenue, setSelectedVenue] = useState<CachedVenue | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeqRef = useRef(0);
 
   // Filters
   const [openNowOnly, setOpenNowOnly] = useState(false);
@@ -82,10 +73,30 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
   const [showFilters, setShowFilters] = useState(false);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
 
-  const fetchSuggestions = async () => {
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+  }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
+
     setLoading(true);
+    setOptimizing(false);
+    setErrorMessage('');
+
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    slowTimerRef.current = setTimeout(() => {
+      if (!controller.signal.aborted && requestSeqRef.current === requestSeq) {
+        setOptimizing(true);
+      }
+    }, SLOW_QUERY_MS);
+
     try {
-      // Priority 1: Browser geolocation
       let useBias = bias;
       if (!useBias && navigator.geolocation) {
         setGeoStatus('requesting');
@@ -93,6 +104,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 300000 });
           });
+          if (controller.signal.aborted) return;
           useBias = { lat: pos.coords.latitude, lon: pos.coords.longitude };
           setEffectiveBias(useBias);
           setGeoStatus('granted');
@@ -101,49 +113,51 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
         }
       }
 
-      // Fallback: city name geocoding
-      if (!useBias && cityName) {
-        const { geocodePlace } = await import('@/lib/placeSearch');
-        const geo = await geocodePlace(cityName);
-        if (geo) {
-          useBias = { lat: geo.lat, lon: geo.lon };
-          setEffectiveBias(useBias);
+      const query = buildVenueQuery(activityHint, cityName);
+      const places = await searchPlaces(query, useBias, activityHint, undefined, 'venue', {
+        signal: controller.signal,
+        limit: 24,
+        category: activityHint,
+        suppressErrors: true,
+      });
+
+      if (controller.signal.aborted || requestSeqRef.current !== requestSeq) return;
+
+      const rows = places.map(normalizedPlaceToCachedVenue);
+      const biasToUse = useBias || effectiveBias;
+      rows.forEach((v) => {
+        if (biasToUse && Number.isFinite(v.lat) && Number.isFinite(v.lon)) {
+          v.distanceKm = haversineKm(biasToUse.lat, biasToUse.lon, v.lat, v.lon);
         }
-      }
+      });
 
-      const tags = getTagsForHint(activityHint);
-
-      // Query venue_cache — filter by city if we have a cityName
-      let query = supabase
-        .from('venue_cache')
-        .select('*')
-        .overlaps('tags', tags)
-        .limit(50);
-
-      if (cityName) {
-        query = query.ilike('city', `%${cityName}%`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('venue_cache query error:', error);
-        setRawVenues([]);
-      } else {
-        const rows = (data || []) as unknown as CachedVenue[];
-        const biasToUse = useBias || effectiveBias;
-        rows.forEach((v) => {
-          if (biasToUse) v.distanceKm = haversineKm(biasToUse.lat, biasToUse.lon, v.lat, v.lon);
-        });
-        setRawVenues(rows);
-      }
+      setRawVenues(rows);
       setLoaded(true);
-    } catch {
+      if (rows.length === 0) {
+        setErrorMessage('Nem találtunk helyszínt ehhez a tevékenységhez. Próbálj általánosabb kulcsszót vagy másik kategóriát.');
+      }
+    } catch (error) {
+      if (controller.signal.aborted || requestSeqRef.current !== requestSeq) return;
+      console.error('[VenueSuggestionsPanel] venue suggestion fetch failed', {
+        error,
+        activityHint,
+        cityName,
+        bias,
+      });
       setRawVenues([]);
       setLoaded(true);
+      setErrorMessage('A helyszínjavaslatok betöltése sikertelen. Hálózati vagy adatbázis-konzisztencia probléma lehet.');
+    } finally {
+      if (requestSeqRef.current === requestSeq) {
+        setLoading(false);
+        setOptimizing(false);
+      }
+      if (slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current);
+        slowTimerRef.current = null;
+      }
     }
-    setLoading(false);
-  };
+  }, [activityHint, bias, cityName, effectiveBias]);
 
   // Filter + sort
   const filteredVenues = useMemo(() => {
@@ -166,7 +180,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
     onSelectVenue({
       displayName: [venue.name, venue.city].filter(Boolean).join(', '),
       city: venue.city || '',
-      district: '',
+      district: typeof venue.details?.district === 'string' ? venue.details.district : '',
       address: venue.address || venue.name,
       lat: venue.lat,
       lon: venue.lon,
@@ -182,19 +196,24 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
 
   if (!loaded) {
     return (
-      <Button
-        type="button"
-        variant="default"
-        className="rounded-xl h-10 font-semibold"
-        onClick={fetchSuggestions}
-        disabled={loading}
-      >
-        {loading ? (
-          <><Loader2 className="h-4 w-4 animate-spin mr-2" />Keresés...</>
-        ) : (
-          <><MapPin className="h-4 w-4 mr-2" />Helyszínjavaslatok mutatása</>
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="default"
+          className="rounded-xl h-10 font-semibold"
+          onClick={fetchSuggestions}
+          disabled={loading}
+        >
+          {loading ? (
+            <><Loader2 className="h-4 w-4 animate-spin mr-2" />Keresés...</>
+          ) : (
+            <><MapPin className="h-4 w-4 mr-2" />Helyszínjavaslatok mutatása</>
+          )}
+        </Button>
+        {optimizing && (
+          <p className="text-xs text-primary">Optimizing query... A helyszínadatbázis lassabban válaszol.</p>
         )}
-      </Button>
+      </div>
     );
   }
 
@@ -206,7 +225,6 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
           Helyszínek ({filteredVenues.length})
         </p>
         <div className="flex items-center gap-1">
-          {/* View toggle */}
           <Button
             type="button"
             variant={viewMode === 'list' ? 'secondary' : 'ghost'}
@@ -228,7 +246,6 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
             <Map className="h-3.5 w-3.5" />
           </Button>
 
-          {/* Filter toggle */}
           <Button
             type="button"
             variant={showFilters ? 'secondary' : 'ghost'}
@@ -244,17 +261,21 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
             variant="ghost"
             size="sm"
             className="text-xs rounded-xl h-7"
-            onClick={() => { setLoaded(false); setRawVenues([]); setSelectedVenue(null); }}
+            onClick={() => { abortRef.current?.abort(); setLoaded(false); setRawVenues([]); setSelectedVenue(null); setErrorMessage(''); }}
           >
             Bezárás
           </Button>
         </div>
       </div>
 
-      {/* Filters panel */}
+      {optimizing && (
+        <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+          Optimizing query... A korábbi kérések megszakítva, az aktuális keresés fut.
+        </p>
+      )}
+
       {showFilters && (
         <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
-          {/* Open now toggle */}
           <div className="flex items-center justify-between">
             <Label className="text-xs flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
@@ -263,7 +284,6 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
             <Switch checked={openNowOnly} onCheckedChange={setOpenNowOnly} />
           </div>
 
-          {/* Distance slider */}
           {(bias || effectiveBias) && (
             <div className="space-y-1.5">
               <Label className="text-xs flex items-center justify-between">
@@ -283,14 +303,26 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
               />
             </div>
           )}
+
+          {geoStatus === 'denied' && (
+            <p className="text-xs text-muted-foreground">
+              A böngésző nem adott pozíciót, ezért város/tevékenység alapján keresünk.
+            </p>
+          )}
         </div>
       )}
 
-      {/* Content */}
       {filteredVenues.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          Nem találtunk helyszínt a szűrési feltételeknek megfelelően.
-        </p>
+        <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+          <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
+            <SearchX className="h-4 w-4 text-primary" />
+            Nincs találat
+          </div>
+          <p>{errorMessage || 'Nem találtunk helyszínt a szűrési feltételeknek megfelelően.'}</p>
+          <Button type="button" variant="outline" size="sm" className="mt-3 rounded-xl" onClick={fetchSuggestions}>
+            Újrapróbálás
+          </Button>
+        </div>
       ) : viewMode === 'list' ? (
         <div className="rounded-xl border bg-popover max-h-[280px] overflow-y-auto divide-y">
           {filteredVenues.map((v) => (
@@ -335,7 +367,6 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
         />
       )}
 
-      {/* Venue detail modal */}
       <AnimatePresence>
         {selectedVenue && (
           <VenueDetailModal

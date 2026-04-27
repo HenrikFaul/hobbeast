@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { Component, type ErrorInfo, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
@@ -34,6 +34,69 @@ interface CreateEventDialogProps {
   onClose: () => void;
   onCreated: () => void;
 }
+
+interface EventDialogErrorBoundaryProps {
+  children: ReactNode;
+  onClose: () => void;
+}
+
+interface EventDialogErrorBoundaryState {
+  hasError: boolean;
+  message: string;
+}
+
+class EventDialogErrorBoundary extends Component<EventDialogErrorBoundaryProps, EventDialogErrorBoundaryState> {
+  state: EventDialogErrorBoundaryState = { hasError: false, message: '' };
+
+  static getDerivedStateFromError(error: Error): EventDialogErrorBoundaryState {
+    return {
+      hasError: true,
+      message: error.message || 'Ismeretlen megjelenítési hiba történt.',
+    };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[CreateEventDialog] render boundary caught error', {
+      error,
+      componentStack: info.componentStack,
+    });
+    toast.error('Az eseménylétrehozó ablak egyik része hibázott, de az ablak nyitva maradt.');
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4">
+        <div className="w-full max-w-xl rounded-2xl border bg-card p-6 shadow-modal">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-lg font-bold">Az eseménylétrehozó stabilitási védelemre váltott</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                A modal nem záródott be automatikusan. Frissítsd újra az ablakot, vagy zárd be kézzel, ha már mentetted az adatokat.
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="icon" className="rounded-xl" onClick={this.props.onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <pre className="max-h-40 overflow-auto rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+            {this.state.message}
+          </pre>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => this.setState({ hasError: false, message: '' })}>
+              Újrapróbálás
+            </Button>
+            <Button type="button" className="rounded-xl" onClick={this.props.onClose}>
+              Bezárás
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
 
 export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps) {
   const { user } = useAuth();
@@ -81,46 +144,44 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   }, [selectedSubcategory, selectedActivity]);
 
   // Auto-set defaults when profile changes
-  const handleCategoryChange = (catId: string) => {
+  const handleCategoryChange = useCallback((catId: string) => {
     setSelectedCategoryId(catId);
     setSelectedSubcategoryId('');
     setSelectedActivityId('');
-  };
+    setVenueSearchHint('');
+  }, []);
 
-  const handleSubcategoryChange = (subId: string) => {
+  const handleSubcategoryChange = useCallback((subId: string) => {
     setSelectedSubcategoryId(subId);
     setSelectedActivityId('');
     const sub = selectedCategory?.subcategories.find(s => s.id === subId);
     if (sub) {
-      // Auto-set emoji and defaults from profile
       setImageEmoji(sub.emoji || selectedCategory?.emoji || '🎉');
       if (sub.profile.suggestedDurationMin) setDuration(String(sub.profile.suggestedDurationMin));
       setMaxAttendees(String(sub.profile.groupSize.typical));
-      // Set location type based on profile
+      setVenueSearchHint(sub.name);
       if (sub.profile.canBeOnline && sub.profile.locationTypes.includes('online')) {
         setLocationType('online');
       } else {
         setLocationType('city');
       }
     }
-  };
+  }, [selectedCategory]);
 
-  const handleActivityChange = (actId: string) => {
+  const handleActivityChange = useCallback((actId: string) => {
     setSelectedActivityId(actId);
     const act = selectedSubcategory?.activities.find(a => a.id === actId);
     if (act?.emoji) setImageEmoji(act.emoji);
-    // Update venue search hint
     const hint = [act?.name, selectedSubcategory?.name].filter(Boolean).join(' ');
     setVenueSearchHint(hint);
-  };
+  }, [selectedSubcategory]);
 
-  const handleActivityAutocomplete = (sel: ActivitySelection) => {
+  const handleActivityAutocomplete = useCallback((sel: ActivitySelection) => {
     setSelectedCategoryId(sel.categoryId);
     setSelectedSubcategoryId(sel.subcategoryId);
     setSelectedActivityId(sel.activityId);
     setImageEmoji(sel.emoji);
     setVenueSearchHint(sel.venueSearchHint);
-    // Also apply defaults from the subcategory profile
     const cat = HOBBY_CATALOG.find(c => c.id === sel.categoryId);
     const sub = cat?.subcategories.find(s => s.id === sel.subcategoryId);
     if (sub) {
@@ -132,7 +193,7 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
         setLocationType('city');
       }
     }
-  };
+  }, []);
 
   // Build category string for DB: "Category > Subcategory > Activity"
   const categoryString = [
@@ -158,6 +219,34 @@ const hasRequiredFields = Boolean(
   hasRequiredLocation
 );
 
+const isDirty = useMemo(() => Boolean(
+  title.trim() ||
+  description.trim() ||
+  selectedCategoryId ||
+  selectedSubcategoryId ||
+  selectedActivityId ||
+  locationCity.trim() ||
+  locationAddress.trim() ||
+  locationFreeText.trim() ||
+  tags.trim()
+), [title, description, selectedCategoryId, selectedSubcategoryId, selectedActivityId, locationCity, locationAddress, locationFreeText, tags]);
+
+const handleRequestClose = useCallback(() => {
+  if (isDirty && !loading) {
+    toast.warning('Az ablakban kitöltött adatok vannak. A bezáráshoz használd újra a Bezárás gombot, ha biztos vagy benne.');
+  }
+  onClose();
+}, [isDirty, loading, onClose]);
+
+const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+  if (event.target !== event.currentTarget) return;
+  if (isDirty) {
+    toast.info('Az eseménylétrehozó nem záródott be, mert már vannak kitöltött mezők.');
+    return;
+  }
+  onClose();
+}, [isDirty, onClose]);
+
 const buildStartTimeIso = () => {
   if (!eventDate || !eventTime) return null;
   const [hours, minutes] = eventTime.split(':').map((value) => Number(value));
@@ -171,60 +260,68 @@ const buildStartTimeIso = () => {
     if (!hasRequiredFields || !user) return;
 
     setLoading(true);
-    const startTimeIso = buildStartTimeIso();
-    const eventInsertPayload = {
-      title: title.trim(),
-      description: description.trim() || null,
-      category: categoryString,
-      event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
-      event_time: eventTime || null,
-      start_time: startTimeIso,
-      created_by: user.id,
-      location_type: locationType,
-      location_city: locationCity || null,
-      location_district: locationDistrict || null,
-      location_address: locationAddress || null,
-      location_free_text: locationFreeText || null,
-      location_lat: locationLat,
-      location_lon: locationLon,
-      max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
-      image_emoji: imageEmoji,
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-      organizer_id: user.id,
-      // Place data from normalized search
-      place_name: placeData?.displayName || null,
-      place_address: placeData?.address || null,
-      place_city: placeData?.city || null,
-      place_lat: placeData?.lat || null,
-      place_lon: placeData?.lon || null,
-      place_source: placeData?.source || null,
-      place_categories: placeData?.categories || [],
-    } as any;
+    try {
+      const startTimeIso = buildStartTimeIso();
+      const eventInsertPayload: Record<string, unknown> = {
+        title: title.trim(),
+        description: description.trim() || null,
+        category: categoryString,
+        event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
+        event_time: eventTime || null,
+        start_time: startTimeIso,
+        created_by: user.id,
+        location_type: locationType,
+        location_city: locationCity || null,
+        location_district: locationDistrict || null,
+        location_address: locationAddress || null,
+        location_free_text: locationFreeText || null,
+        location_lat: locationLat,
+        location_lon: locationLon,
+        max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
+        image_emoji: imageEmoji,
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        organizer_id: user.id,
+        place_name: placeData?.displayName || null,
+        place_address: placeData?.address || null,
+        place_city: placeData?.city || null,
+        place_lat: placeData?.lat || null,
+        place_lon: placeData?.lon || null,
+        place_source: placeData?.source || null,
+        place_categories: placeData?.categories || [],
+      };
 
-    const { data, error } = await supabase
-      .from('events')
-      .insert(eventInsertPayload)
-      .select('id')
-      .single();
+      const { data, error } = await supabase
+        .from('events')
+        .insert(eventInsertPayload)
+        .select('id')
+        .single();
 
-    if (error || !data) {
-      toast.error(error?.message || 'Hiba az esemény létrehozásakor.');
-    } else {
+      if (error || !data) {
+        console.error('[CreateEventDialog] event insert failed', { error, eventInsertPayload });
+        toast.error(error?.message || 'Hiba az esemény létrehozásakor. Ellenőrizd a kötelező mezőket és próbáld újra.');
+        return;
+      }
+
       try {
         await upsertEventTripPlan(data.id, tripPlan);
         toast.success('Esemény sikeresen létrehozva!');
         onCreated();
       } catch (tripPlanError) {
-        console.error('Trip plan save failed', tripPlanError);
+        console.error('[CreateEventDialog] trip plan save failed', tripPlanError);
         toast.error('Az esemény létrejött, de az útvonalterv mentése nem sikerült.');
         onCreated();
       }
+    } catch (error) {
+      console.error('[CreateEventDialog] create flow failed', error);
+      toast.error('Váratlan hiba történt létrehozás közben. A modal nyitva maradt, az adatok nem vesztek el.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={onClose}>
+    <EventDialogErrorBoundary onClose={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={handleBackdropClick}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.2 }}
         className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between">
@@ -234,7 +331,7 @@ const buildStartTimeIso = () => {
             </div>
             <h3 className="font-display text-lg font-bold">Új esemény létrehozása</h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-xl"><X className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={handleRequestClose} className="rounded-xl"><X className="h-4 w-4" /></Button>
         </div>
 
         <form onSubmit={handleCreate} className="space-y-4">
@@ -526,5 +623,6 @@ const buildStartTimeIso = () => {
         </form>
       </motion.div>
     </div>
+    </EventDialogErrorBoundary>
   );
 }

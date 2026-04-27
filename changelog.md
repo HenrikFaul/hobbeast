@@ -242,3 +242,21 @@ After review, rename or replace the active root changelog with this canonical st
 - Added admin UI semantic category assistance: Hungarian user inputs such as venue/food/game concepts are compared against live database category keys and surfaced as “Erre gondoltál?” suggestions.
 - Added “Live from Database” transparency marker, response-time visibility, and >500 ms “Optimizing query...” feedback.
 - Added diagnostics for empty results, including table reachability, row availability, and suggested live categories.
+
+## v1.7.5 — Event Creation Stability & Place Search Hardening
+
+### Fixed
+- Stabilized the event creation location search path by fixing the `place-search` runtime crash caused by a missing `buildPseudoSql` helper in the dynamic discovery handler.
+- Hardened `db:*` provider autocomplete so it returns normalized `results` and raw `rows` consistently instead of failing with non-2xx responses during typing.
+- Added AbortController-backed request cancellation to the frontend place search client and location input, preventing stale requests from racing after fast typing or modal interaction.
+- Added a guarded event creation modal Error Boundary so a rendering failure in the location search / suggestion panel no longer collapses the whole modal unexpectedly.
+- Added actionable empty/error states and slow-query feedback for location autocomplete and venue suggestions.
+
+### Changed
+- Place search calls now use a small client-side cache and structured diagnostic logging for slow responses over 500 ms.
+- Venue suggestions now use the configured address provider path instead of the older direct `venue_cache` dependency, preserving the dynamic Geodata provider flow.
+- Backdrop clicks no longer close a dirty event creation modal, reducing accidental data loss.
+
+### Regression guard
+- Admin Import / Geodata DB provider configuration remains untouched except for backend stability compatibility.
+- Existing AWS, Mapy.cz, and Geoapify+TomTom provider fallbacks remain available.
