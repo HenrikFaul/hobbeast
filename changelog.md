@@ -280,18 +280,15 @@ After review, rename or replace the active root changelog with this canonical st
 - DB autocomplete debug mode: `db_autocomplete_resilient`.
 - Admin direct query debug mode remains: `direct_table_select`.
 
-
-## v1.7.7 — Admin import hardening and Address Manager retirement prep
-
+## [1.7.7] — 2026-04-28
 ### Changed
-- Removed the dedicated admin `Címkezelő` tab from the visible admin surface so the no-longer-needed Address Manager flow cannot be opened from the frontend.
-- Added per-column real-time filtering to the Import / Geodata DB query result table, directly above every displayed column.
-- Added a visible `Fordító / mapper` table view next to the raw DB projection so the normalized mapper output can also be queried and checked from the admin UI.
+- Az admin felületről kikerült a korábban létrehozott `Címkezelő / Address Manager` tab és route-state, így az elavult surface már nem jelenik meg az UI-ban.
+- Az Import / Címkereső nyers DB eredménytáblája oszloponkénti, realtime frontend-szűrést kapott a megjelenített oszlopokra.
+- Az Import / Címkereső új, látható `Fordító / mapper nézetet` kapott, amely ugyanarra a lekérdezésre kirakja az eredeti provider kategóriakulcsokat, a magyar fordítást és a Hobbeast lokális katalógushoz becsült megfeleltetést.
 
 ### Added
-- Added root-level `supabase_cleanup_candidates.md` as an append-only backend cleanup checklist for Supabase functions/tables that may be removable after the Address Manager frontend retirement is verified.
+- `docs/sql/geodata_project_mapper_tables.sql`: Geodata projekt célú DDL a `public.provider_category_mapper` és `public.aws_local_address_mapper` táblákhoz.
+- `docs/address_matching_strategy.md`: AWS ↔ helyi címtábla megfeleltetés, scoring és review-flow terv internetes/primer forrásokra támaszkodó összefoglalóval.
 
-### Regression guard
-- Existing Import provider configuration, DB provider persistence, and runtime place-search query execution were preserved.
-- The new filters are client-side on top of the already returned rows, so the existing backend query contract was not changed.
-
+### Notes
+- A most látható mapper nézet még frontend derived layer; a tartós Supabase táblák ehhez a körhöz SQL fájlban kerültek előkészítésre a Geodata projekt számára, nem a Hobbeast projekt migrációi közé.

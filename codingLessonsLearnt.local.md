@@ -45,18 +45,10 @@ Keep `test_db_table_query` as direct table projection, but route `autocomplete` 
 ### Prevention
 Never reuse admin/debug projection endpoints as production autocomplete behavior. Admin query tools and user-facing search must have separate contracts and fallback logic.
 
+## v1.7.7 — Admin import mapper visibility and geodata-only persistence split
 
-## v1.7.7 — Admin diagnostic tables must support visible per-column verification
-
-- **Symptom**: The Import / Geodata admin page could return rows, but reviewers still could not verify partial matches fast enough because once columns were selected there was no live per-column filtering in the rendered table.
-- **Root cause**: The admin diagnostics stopped at backend query execution and raw rendering, without adding the last-mile inspection layer that QA/business users need for real search verification.
-- **Fix**: Added client-side, per-column, real-time filters directly in the table header area and a parallel mapper-output table so raw DB rows and normalized search output can be checked side by side.
-- **Prevention**: Any future admin diagnostics for search/import flows must include an operator-facing inspection layer (filterable columns, visible counts, and normalized-output view), not just a raw backend response dump.
-
-## v1.7.7 — Frontend retirement should leave an explicit backend cleanup trail
-
-- **Symptom**: A frontend-only removal can make old Edge Functions and Supabase tables invisible in the UI while they still remain deployed and therefore easy to forget.
-- **Root cause**: UI retirement and backend decommissioning happen in separate steps, and without an append-only note the second step is often missed.
-- **Fix**: Added a root-level append-only cleanup candidate note listing the Address Manager Supabase functions, config keys, and tables that should be reviewed for deletion after usage verification.
-- **Prevention**: When a feature surface is removed from the frontend, always leave an explicit backend cleanup checklist in the repo if immediate destructive deletion is not part of the same safe delivery.
-
+- **Symptom**: Az új mapper nézet már szűrhető volt, de a legfontosabb kategóriafordítások nem látszottak, ezért operátori ellenőrzésre kevésbé volt használható.
+- **Root cause**: A nyers DB projection és a frontend mapper nézet között nem jelent meg külön, explicit oszlopként az angol provider kategória, a magyar fordítás és a lokális Hobbeast-katalógus megfeleltetés.
+- **Fix**: A mapper nézet most derived oszlopokat rak ki (`categories_en`, `categories_hu`, `local_catalog_path_hu`, `local_catalog_slug`) és ezek is oszloponként, realtime szűrhetők.
+- **Prevention**: Diagnosztikai admin tábláknál nem elég a nyers mezőket kilistázni; az operátori döntéshez szükséges normalizált / fordított / lokális megfeleltető mezőket is explicit oszlopként kell megjeleníteni.
+- **Architecture note**: Ha a tényleges perzisztencia másik Supabase projektben él (itt: Geodata), a Hobbeast repo-ban külön jelölni kell, hogy a jelen kör frontendje csak derived nézetet ad, a célprojekt DDL pedig külön SQL fájlban van előkészítve.
