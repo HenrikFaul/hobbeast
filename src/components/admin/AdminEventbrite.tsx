@@ -20,11 +20,14 @@ import {
   getDbSearchTableConfigs,
   saveDbSearchTableConfigs,
   testDbSearchTableQuery,
+  discoverDbSearchTableFacets,
   getProviderDisplayLabel,
   makeDbProviderId,
   type AddressSearchProvider,
   type AddressSearchFunctionGroup,
   type DbSearchTableConfig,
+  type DbFacetOption,
+  type DbTableFacetDiscoveryResult,
   type GeodataTableName,
 } from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
@@ -161,6 +164,83 @@ function resolveTotalCountFromPlaceSearchResult(result: any, displayRows: Record
 }
 
 
+function normalizeHumanSearch(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function titleCaseFromKey(value: string): string {
+  return value
+    .replace(/[_.-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const left = normalizeHumanSearch(a);
+  const right = normalizeHumanSearch(b);
+  const matrix = Array.from({ length: left.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= right.length; j += 1) matrix[0][j] = j;
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1),
+      );
+    }
+  }
+  return matrix[left.length][right.length];
+}
+
+function expandHungarianCategoryHints(input: string): string[] {
+  const normalized = normalizeHumanSearch(input);
+  const hints = new Set<string>([normalized]);
+  if (/(vendeg|etel|etterem|kaja|gasztro|iszogat|ital)/.test(normalized)) {
+    ['catering', 'restaurant', 'cafe', 'bar', 'pub', 'food', 'drink'].forEach((item) => hints.add(item));
+  }
+  if (/(kave|kavezo|cafe)/.test(normalized)) ['cafe', 'coffee', 'catering'].forEach((item) => hints.add(item));
+  if (/(tarsas|jatek|gondolkodas|board)/.test(normalized)) ['game', 'board', 'pub', 'entertainment', 'leisure'].forEach((item) => hints.add(item));
+  if (/(sport|edzes|fitness|mozgas)/.test(normalized)) ['sport', 'fitness', 'leisure'].forEach((item) => hints.add(item));
+  if (/(zene|koncert|buli|szorakozas)/.test(normalized)) ['music', 'concert', 'entertainment', 'nightclub'].forEach((item) => hints.add(item));
+  return Array.from(hints).filter(Boolean);
+}
+
+function rankDiscoveredCategoryMatches(input: string, categories: DbFacetOption[]) {
+  const terms = expandHungarianCategoryHints(input);
+  if (terms.length === 0) return [];
+  return categories
+    .map((category) => {
+      const normalizedValue = normalizeHumanSearch(category.value);
+      const normalizedLabel = normalizeHumanSearch(category.label || category.value);
+      let score = 0;
+      for (const term of terms) {
+        if (!term) continue;
+        if (normalizedValue === term || normalizedLabel === term) score = Math.max(score, 1);
+        if (normalizedValue.includes(term) || normalizedLabel.includes(term) || term.includes(normalizedValue)) score = Math.max(score, 0.82);
+        const distance = Math.min(levenshteinDistance(term, normalizedValue), levenshteinDistance(term, normalizedLabel));
+        const basis = Math.max(term.length, normalizedValue.length, normalizedLabel.length, 1);
+        score = Math.max(score, Math.max(0, 1 - distance / basis) * 0.72);
+      }
+      return { ...category, displayLabel: titleCaseFromKey(category.value), confidence: Number(score.toFixed(2)) };
+    })
+    .filter((item) => item.confidence >= 0.45)
+    .sort((a, b) => b.confidence - a.confidence || b.count - a.count)
+    .slice(0, 6);
+}
+
+function resolveMappedCategory(input: string, categories: DbFacetOption[]) {
+  const [best] = rankDiscoveredCategoryMatches(input, categories);
+  return best && best.confidence >= 0.62 ? best.value : input;
+}
+
 interface DbConfigFormState {
   table: GeodataTableName;
   label: string;
@@ -238,6 +318,11 @@ export function AdminEventbrite() {
   const [dbDebug, setDbDebug] = useState<Record<string, unknown> | null>(null);
   const [dbQueryExecuted, setDbQueryExecuted] = useState(false);
   const [dbQueryError, setDbQueryError] = useState<string | null>(null);
+  const [dbDiscovery, setDbDiscovery] = useState<DbTableFacetDiscoveryResult | null>(null);
+  const [dbDiscoveryLoading, setDbDiscoveryLoading] = useState(false);
+  const [dbDiscoveryError, setDbDiscoveryError] = useState<string | null>(null);
+  const [dbSlowQueryNotice, setDbSlowQueryNotice] = useState(false);
+  const [dbResponseMs, setDbResponseMs] = useState<number | null>(null);
 
   const providerOptions = useMemo(() => {
     const dbOptions = dbConfigs.map((row) => ({
@@ -247,6 +332,23 @@ export function AdminEventbrite() {
     }));
     return [...BASE_PROVIDER_OPTIONS, ...dbOptions];
   }, [dbConfigs]);
+
+  const dbCategorySuggestions = useMemo(() => rankDiscoveredCategoryMatches(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
+  const dbMappedCategory = useMemo(() => resolveMappedCategory(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
+
+  const loadDbDiscovery = async (table = dbForm.table, label = dbForm.label) => {
+    setDbDiscoveryLoading(true);
+    setDbDiscoveryError(null);
+    try {
+      const discovery = await discoverDbSearchTableFacets({ table, label, limit: 5000 });
+      setDbDiscovery(discovery);
+    } catch (err: any) {
+      setDbDiscovery(null);
+      setDbDiscoveryError(err.message || 'Nem sikerült betölteni az élő kategória-felderítést.');
+    } finally {
+      setDbDiscoveryLoading(false);
+    }
+  };
 
   const loadProviderState = async () => {
     setProviderLoading(true);
@@ -267,6 +369,10 @@ export function AdminEventbrite() {
   useEffect(() => {
     void loadProviderState();
   }, []);
+
+  useEffect(() => {
+    if (providerTab === 'places') void loadDbDiscovery(dbForm.table, dbForm.label);
+  }, [providerTab, dbForm.table]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -483,12 +589,16 @@ export function AdminEventbrite() {
     }
 
     setDbTestLoading(true);
+    setDbSlowQueryNotice(false);
+    const slowTimer = window.setTimeout(() => setDbSlowQueryNotice(true), 500);
+    const startedAt = performance.now();
     try {
+      const mappedCategory = dbMappedCategory || dbForm.category;
       const result = await testDbSearchTableQuery({
         table: dbForm.table,
         label: dbForm.label,
         city: dbForm.city,
-        category: dbForm.category,
+        category: mappedCategory,
         source: dbForm.source,
         columns: dbForm.columns,
         limit: dbForm.limit,
@@ -515,7 +625,9 @@ export function AdminEventbrite() {
       setDbTestRows(returnedRows);
       setDbTestColumns(selectedColumns);
       setDbTotalCount(totalCount);
-      setDbDebug(result.debug || null);
+      const responseMs = Math.round(performance.now() - startedAt);
+      setDbResponseMs(typeof result.debug?.response_ms === 'number' ? result.debug.response_ms : responseMs);
+      setDbDebug({ ...(result.debug || {}), requested_category: dbForm.category, mapped_category: mappedCategory, frontend_response_ms: responseMs });
       const countLabel = typeof totalCount === 'number' ? ` / ${totalCount} találat az adatbázisban` : '';
       toast.success(`${returnedRows.length} sor lekérve: ${dbForm.table}${countLabel}`);
     } catch (err: any) {
@@ -523,6 +635,8 @@ export function AdminEventbrite() {
       setDbQueryError(message);
       toast.error(message);
     } finally {
+      window.clearTimeout(slowTimer);
+      setDbSlowQueryNotice(false);
       setDbTestLoading(false);
     }
   };
@@ -710,13 +824,51 @@ export function AdminEventbrite() {
                         Teszt város
                         <Input value={dbForm.city} onChange={(e) => setDbForm((prev) => ({ ...prev, city: e.target.value }))} placeholder="Pl. Budapest" />
                       </label>
-                      <label className="space-y-1 text-xs font-medium">
-                        Teszt kategória
-                        <Input value={dbForm.category} onChange={(e) => setDbForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Pl. cafe, restaurant, társas" />
-                      </label>
+                      <div className="space-y-1 text-xs font-medium">
+                        <div className="flex items-center justify-between gap-2">
+                          <span>Teszt kategória</span>
+                          <Badge variant="outline" className="gap-1"><Database className="h-3 w-3" /> Live from Database</Badge>
+                        </div>
+                        <Input
+                          value={dbForm.category}
+                          onChange={(e) => setDbForm((prev) => ({ ...prev, category: e.target.value }))}
+                          placeholder="Pl. Vendéglátás, cafe, restaurant, társas"
+                          list="geodata-category-discovery"
+                        />
+                        <datalist id="geodata-category-discovery">
+                          {(dbDiscovery?.categories || []).slice(0, 80).map((category) => (
+                            <option key={category.value} value={category.value}>{titleCaseFromKey(category.value)} ({category.count})</option>
+                          ))}
+                        </datalist>
+                        <div className="text-[11px] text-muted-foreground">
+                          {dbDiscoveryLoading ? 'Élő kategóriák felderítése...' : dbDiscovery ? `${dbDiscovery.categories.length} kategória · ${dbDiscovery.rowCount ?? dbDiscovery.sampleSize} sor mintázva` : 'A kategóriák az adatbázisból töltődnek.'}
+                        </div>
+                        {dbForm.category && dbMappedCategory && dbMappedCategory !== dbForm.category ? (
+                          <div className="rounded-md border bg-muted/30 p-2 text-[11px]">
+                            <span className="font-medium">Erre gondoltál?</span>{' '}
+                            <button type="button" className="text-primary underline" onClick={() => setDbForm((prev) => ({ ...prev, category: dbMappedCategory }))}>{titleCaseFromKey(dbMappedCategory)}</button>
+                            <span className="text-muted-foreground"> · automatikus semantic mapping a lekérdezéshez</span>
+                          </div>
+                        ) : null}
+                        {dbCategorySuggestions.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {dbCategorySuggestions.map((suggestion) => (
+                              <Button key={suggestion.value} type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDbForm((prev) => ({ ...prev, category: suggestion.value }))}>
+                                {titleCaseFromKey(suggestion.value)} · {suggestion.count}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : null}
+                        {dbDiscoveryError ? <p className="text-[11px] text-destructive">{dbDiscoveryError}</p> : null}
+                      </div>
                       <label className="space-y-1 text-xs font-medium">
                         Teszt forrás
-                        <Input value={dbForm.source} onChange={(e) => setDbForm((prev) => ({ ...prev, source: e.target.value }))} placeholder="Pl. geoapify, osm, local" />
+                        <Input value={dbForm.source} onChange={(e) => setDbForm((prev) => ({ ...prev, source: e.target.value }))} placeholder="Pl. geoapify, osm, local" list="geodata-source-discovery" />
+                        <datalist id="geodata-source-discovery">
+                          {(dbDiscovery?.sources || []).map((source) => (
+                            <option key={source.value} value={source.value}>{source.value} ({source.count})</option>
+                          ))}
+                        </datalist>
                       </label>
                       <label className="space-y-1 text-xs font-medium">
                         Teszt lekérdezési darabszám
@@ -831,6 +983,8 @@ export function AdminEventbrite() {
                     <Badge variant="outline">Kategória: {dbForm.category || 'nincs szűrő'}</Badge>
                     <Badge variant="outline">Forrás: {dbForm.source || 'nincs szűrő'}</Badge>
                     <Badge variant="outline">Oszlopok: {dbForm.columns.length}</Badge>
+                    {dbResponseMs !== null ? <Badge variant={dbResponseMs > 500 ? 'secondary' : 'outline'}>Válaszidő: {dbResponseMs} ms</Badge> : null}
+                    {dbMappedCategory && dbForm.category && dbMappedCategory !== dbForm.category ? <Badge variant="outline">Mapped: {dbMappedCategory}</Badge> : null}
                   </div>
 
                   {!dbQueryExecuted && !dbTestLoading ? (
@@ -840,6 +994,12 @@ export function AdminEventbrite() {
                         <p className="font-medium text-foreground">Itt fognak megjelenni a lekérdezett sorok.</p>
                         <p>Válaszd ki a szűrőket és az oszlopokat, majd kattints a <strong>Lekérdezés futtatása</strong> gombra.</p>
                       </div>
+                    </div>
+                  ) : null}
+
+                  {dbSlowQueryNotice ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm">
+                      <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Optimizing query... a Supabase válaszideje 500 ms fölött van, fut a lekérdezés.
                     </div>
                   ) : null}
 
@@ -861,7 +1021,7 @@ export function AdminEventbrite() {
 
                   {dbQueryExecuted && !dbTestLoading && !dbQueryError && dbTestRows.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                      Nincs megjeleníthető sor a megadott szűrőkkel. Próbáld üresen hagyni a kategória vagy forrás szűrőt, vagy növeld a lekérdezési darabszámot.
+                      Nincs megjeleníthető sor a megadott szűrőkkel. A tábla {dbDiscovery?.diagnostics?.tableReachable ? 'elérhető' : 'nem ellenőrzött'}, a mintában {dbDiscovery?.diagnostics?.hasAnyRows ? 'van adat' : 'nincs adat'}. {dbForm.category ? `A(z) „${dbForm.category}” kategória mapped értéke: „${dbMappedCategory || dbForm.category}”. Próbáld meg: ${dbDiscovery?.categories?.slice(0, 3).map((item) => titleCaseFromKey(item.value)).join(', ') || 'másik kategória'}.` : 'Próbáld üresen hagyni a kategória vagy forrás szűrőt, vagy növeld a lekérdezési darabszámot.'}
                     </div>
                   ) : null}
 

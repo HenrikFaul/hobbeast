@@ -49,7 +49,8 @@ export interface DbSearchTableTestInput {
   provider?: DbAddressSearchProvider;
   label?: string;
   city?: string;
-  category?: string;
+  category?: string | string[];
+  categories?: string[];
   source?: string;
   query?: string;
   columns?: string[];
@@ -62,6 +63,43 @@ export interface DbSearchTableTestResult {
   columns?: string[];
   totalCount?: number | null;
   debug?: Record<string, unknown>;
+  diagnostics?: Record<string, unknown>;
+  responseMs?: number;
+}
+
+export interface DbFacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface DbTableFacetDiscoveryInput {
+  table?: GeodataTableName;
+  provider?: DbAddressSearchProvider;
+  label?: string;
+  limit?: number;
+}
+
+export interface DbTableFacetDiscoveryResult {
+  runtime_version?: string;
+  table: GeodataTableName;
+  provider: DbAddressSearchProvider;
+  rowCount: number | null;
+  sampleLimit: number;
+  sampleSize: number;
+  categories: DbFacetOption[];
+  sources: DbFacetOption[];
+  cities: DbFacetOption[];
+  responseMs: number;
+  diagnostics?: {
+    tableReachable?: boolean;
+    hasAnyRows?: boolean;
+    categoryCount?: number;
+    sourceCount?: number;
+    sourceColumn?: string;
+    mode?: string;
+    note?: string;
+  };
 }
 
 const CONFIG_CACHE_MS = 60_000;
@@ -258,6 +296,13 @@ export async function saveDbSearchTableConfigs(tables: DbSearchTableConfig[]): P
   // Read back from the runtime store immediately. This prevents optimistic UI
   // state from showing success when the row was not actually persisted.
   return getDbSearchTableConfigs(true);
+}
+
+export async function discoverDbSearchTableFacets(input: DbTableFacetDiscoveryInput): Promise<DbTableFacetDiscoveryResult> {
+  return invokePlaceSearchConfig<DbTableFacetDiscoveryResult>({
+    action: 'discover_db_table_facets',
+    ...input,
+  });
 }
 
 export async function testDbSearchTableQuery(input: DbSearchTableTestInput): Promise<DbSearchTableTestResult> {

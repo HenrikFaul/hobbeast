@@ -233,59 +233,12 @@ After review, rename or replace the active root changelog with this canonical st
 - **Edge connectivity hardening irány**: Az `internal_edge_function_base_url` normalizálása, a slash-mentes fix Supabase URL használata és a JSON `CHECK` korlátok oldása része a stabil kapcsolódási stratégiának.
 - **sync-local-places request diagnosztika**: A request oldali method/url/auth-header jelenlét logolása bevezethető úgy, hogy az `OPTIONS` / CORS ág változatlan maradjon.
 
----
+## v1.7.4 — Dynamic Address Integration & Auto-Mapping Engine
 
-## [1.6.5] — 2026-04-26
-### Changed
-- Retired the previous local catalog / local address table admin flow from the Import → Címkereső admin area.
-- Removed the local catalog provider option from all address-search function-group provider selectors.
-- Replaced the old local address table panel with a new **Adatbázistábla kapcsolat** configurator.
-- Added configurable Geodata Supabase table providers with mandatory `db:` prefix for venue/address search.
-- Added dynamic provider options generated from configured Geodata tables instead of hardcoded local catalog choices.
-- Added test query support for selected Geodata tables with configurable city, category, and row limit.
-- Extended the `place-search` edge function with db table config actions and db provider search support.
-- Removed `sync-local-places` from Supabase function deployment configuration and removed its function directory from the deployable source tree.
-
-### Added
-- Supported Geodata source tables:
-  - `public.unified_pois`
-  - `public.local_pois`
-  - `public.geoapify_pois`
-- New runtime config row: `address_search:db_tables` for configured `db:*` provider definitions.
-- New migration: `20260426203000_geodata_db_address_providers.sql` to allow `db:%` provider values and seed the Geodata config row.
-- Common Admin smoke test for the Geodata Supabase db provider path.
-
-### Notes
-- The Geodata query runs server-side from the `place-search` edge function.
-- Deployment must provide one Geodata key secret: `GEODATA_SUPABASE_SERVICE_ROLE_KEY` or `GEODATA_SUPABASE_ANON_KEY` / `GEODATA_SUPABASE_PUBLISHABLE_KEY`.
-- The default Geodata project URL is `https://buuoyyfzincmbxafvihc.supabase.co`.
-
-### Validation
-- `tsc --noEmit --pretty false` passed.
-- `npm run build` was attempted, but the sandbox command timed out while invoking Vite; no TypeScript errors were reported by `tsc`.
-
----
-
-## [1.6.6] — 2026-04-26
-### Fixed
-- Resolved unresolved Git merge conflict markers accidentally left in deploy-facing files after the Geodata db provider merge.
-- Restored clean `src/lib/placeSearch.ts` imports and provider branching so `db:*` providers remain valid while Mapy remains mapped to `source: 'mapy'`.
-- Restored clean Common Admin metadata and Common Admin panel implementation without duplicated legacy local catalog blocks.
-- Kept the retired local catalog provider out of runtime provider selectors and integration tests.
-
-### Validation
-- Repository scan for merge conflict markers returned no results in source/deploy files.
-- Focused static review completed for the files reported by GitHub code search / Vercel build failure: `placeSearch.ts`, `CommonAdminPanel.tsx`, `commonAdminMetadata.ts`, `AdminEventbrite.tsx`, `searchProviderConfig.ts`, `supabase/config.toml`, `supabase/functions/place-search/index.ts`.
-- Full Vite build was not executed in this sandbox because install/build dependencies are not available here; this package is prepared to fix the Vercel `Unexpected "<<"` syntax failure and the follow-on conflict-marker failures.
-
-
-## [1.6.8] — 2026-04-27
-### Fixed
-- **Geodata db provider persistence verification**: `place-search` no longer returns optimistic success for `save_db_table_config` or `save_provider_config`. After every runtime config write it now reads the `app_runtime_config` row back and fails with a detailed verification error if the persisted row does not match the requested provider/table configuration.
-- **Provider refresh consistency**: The admin Címkereső provider UI now reloads provider state after successful DB provider saves and function-group provider saves, preventing stale local state from looking successful when the backend did not persist it.
-- **Provider diagnostics**: `get_all_provider_configs` now returns the saved `dbTables` list and runtime config metadata so Postman and UI diagnostics can verify both the selected provider groups and the configured `db:*` table providers in one response.
-- **Supabase project mismatch visibility**: The frontend Supabase client now logs an explicit error if `VITE_SUPABASE_URL` points to a project other than the canonical Hobbeast project `dsymdijzydaehntlmfzl`.
-- **Repository hygiene**: Removed leftover conflict markers from the generated `supabase relationships.txt` schema snapshot.
-
-### Operational note
-- The uploaded `.env` snapshot still showed `VITE_SUPABASE_URL=https://olzvughcoqnfkdpvbwjy.supabase.co` while the Hobbeast backend/runtime config is expected on `https://dsymdijzydaehntlmfzl.supabase.co`. Vercel/Lovable/Codespace frontend env values must point to `dsymdijzydaehntlmfzl`; the Geodata project `buuoyyfzincmbxafvihc` must remain server-side only through Edge Function secrets.
+- Replaced static/manual category assumptions in the Geodata DB provider test flow with dynamic database discovery.
+- Added `discover_db_table_facets` support in `place-search` to discover live category/source/city values from the selected Geodata table.
+- Added Smart Filter logic for category searches: exact category matching is attempted first; if no result is found, the backend falls back to fuzzy/contains matching across category-like fields.
+- Added multi-category backend support through string arrays or comma-separated values.
+- Added admin UI semantic category assistance: Hungarian user inputs such as venue/food/game concepts are compared against live database category keys and surfaced as “Erre gondoltál?” suggestions.
+- Added “Live from Database” transparency marker, response-time visibility, and >500 ms “Optimizing query...” feedback.
+- Added diagnostics for empty results, including table reachability, row availability, and suggested live categories.
