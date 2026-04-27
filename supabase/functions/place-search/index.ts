@@ -348,19 +348,43 @@ async function getAllProviderConfigValues(supabaseUrl: string, serviceRoleKey: s
   return values
 }
 
+function compareDbProviderLists(expected: DbSearchTableConfig[], actual: DbSearchTableConfig[]) {
+  const normalize = (rows: DbSearchTableConfig[]) => rows
+    .map((row) => `${row.provider}|${row.table}|${row.label}|${row.enabled !== false}`)
+    .sort()
+    .join('\n')
+  return normalize(expected) === normalize(actual)
+}
+
+function ensurePersistedProviderRow(row: any, expectedKey: string, expectedProvider: ProviderMode) {
+  const actualProvider = row?.provider
+  if (row?.key !== expectedKey || actualProvider !== expectedProvider) {
+    throw new HttpError('Runtime provider config write verification failed.', 500, {
+      key: expectedKey,
+      expectedProvider,
+      persistedKey: row?.key ?? null,
+      persistedProvider: actualProvider ?? null,
+    })
+  }
+  return requireProviderMode(actualProvider)
+}
+
 async function saveProviderConfigValue(
   supabaseUrl: string,
   serviceRoleKey: string,
   group: ProviderConfigGroup,
   provider: ProviderMode,
 ) {
+  const key = configKey(group)
   const url = `${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`
-  const rows = await restFetchJson<any[]>(url, {
+  await restFetchJson<any[]>(url, {
     method: 'POST',
     headers: appRuntimeHeaders(serviceRoleKey, 'resolution=merge-duplicates,return=representation'),
-    body: JSON.stringify([{ key: configKey(group), provider, options: {} }]),
+    body: JSON.stringify([{ key, provider, options: {} }]),
   })
-  return Array.isArray(rows) && rows[0]?.provider ? requireProviderMode(rows[0].provider) : provider
+
+  const persisted = await getProviderConfigRow(supabaseUrl, serviceRoleKey, key)
+  return ensurePersistedProviderRow(persisted, key, provider)
 }
 
 async function getDbTableConfigs(supabaseUrl: string, serviceRoleKey: string): Promise<DbSearchTableConfig[]> {
@@ -370,12 +394,8 @@ async function getDbTableConfigs(supabaseUrl: string, serviceRoleKey: string): P
 
 async function saveDbTableConfigs(supabaseUrl: string, serviceRoleKey: string, tables: unknown) {
   const sanitized = sanitizeDbTableConfigs(tables)
-  if (sanitized.length === 0) {
-    throw new HttpError('At least one enabled Geodata table config is required.', 400)
-  }
-
   const url = `${supabaseUrl}/rest/v1/app_runtime_config?on_conflict=key`
-  const rows = await restFetchJson<any[]>(url, {
+  await restFetchJson<any[]>(url, {
     method: 'POST',
     headers: appRuntimeHeaders(serviceRoleKey, 'resolution=merge-duplicates,return=representation'),
     body: JSON.stringify([{
@@ -387,7 +407,21 @@ async function saveDbTableConfigs(supabaseUrl: string, serviceRoleKey: string, t
       },
     }]),
   })
-  return sanitizeDbTableConfigs(rows?.[0]?.options?.tables || sanitized)
+
+  const persisted = await getProviderConfigRow(supabaseUrl, serviceRoleKey, DB_TABLE_CONFIG_KEY)
+  const verifiedTables = sanitizeDbTableConfigs(persisted?.options?.tables || [])
+  if (persisted?.key !== DB_TABLE_CONFIG_KEY || persisted?.provider !== 'supabase' || !compareDbProviderLists(sanitized, verifiedTables)) {
+    throw new HttpError('Runtime db table config write verification failed.', 500, {
+      key: DB_TABLE_CONFIG_KEY,
+      expectedProvider: 'supabase',
+      persistedKey: persisted?.key ?? null,
+      persistedProvider: persisted?.provider ?? null,
+      expectedTables: sanitized.map(({ id, provider, label, table, enabled }) => ({ id, provider, label, table, enabled })),
+      persistedTables: verifiedTables.map(({ id, provider, label, table, enabled }) => ({ id, provider, label, table, enabled })),
+    })
+  }
+
+  return verifiedTables
 }
 
 
@@ -797,15 +831,19 @@ async function handleConfigAction(action: ProviderConfigAction, body: SearchBody
   }
 
   if (action === 'get_all_provider_configs') {
-    const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
-    return json({ providers })
+    const [providers, dbTables] = await Promise.all([
+      getAllProviderConfigValues(supabaseUrl, serviceRoleKey),
+      getDbTableConfigs(supabaseUrl, serviceRoleKey),
+    ])
+    return json({ providers, dbTables, runtime: { supabaseUrl, dbTableConfigKey: DB_TABLE_CONFIG_KEY } })
   }
 
   if (action === 'save_provider_config') {
     const group = requireProviderGroup(body.group)
     const provider = requireProviderMode(body.provider)
     const saved = await saveProviderConfigValue(supabaseUrl, serviceRoleKey, group, provider)
-    return json({ group, provider: saved })
+    const providers = await getAllProviderConfigValues(supabaseUrl, serviceRoleKey)
+    return json({ group, provider: saved, providers })
   }
 
   if (action === 'get_db_table_config') {

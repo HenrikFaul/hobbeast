@@ -47,3 +47,24 @@ SOHA ne töröld a meglévő tartalmat — csak hozzáadni szabad.
 - **Gyökérok**: A merge során Git conflict marker (`<<<<<<<`, `=======`, `>>>>>>>`) maradt több forrásfájlban. A Vite/esbuild már az első `<<<<<<< HEAD` sornál megállt, de a repo további konfliktusos fájlokat is tartalmazott.
 - **Javítás**: Minden érintett deploy-facing fájl tiszta, konfliktusmentes verzióra lett cserélve; a Geodata db provider ág maradt meg, a régi lokális címtábla ág pedig nem került vissza.
 - **Megelőzés**: Minden deploy előtt kötelező futtatni: `grep -RInE '^(<<<<<<<|=======|>>>>>>>)' . --exclude-dir=node_modules --exclude-dir=.git --exclude='*.patch'`. Ha találat van, a deploy tilos.
+
+
+---
+
+## ➕ APPEND — 2026-04-27 Geodata provider persistence verification
+
+### [HIBA-060] Admin UI nem mondhat sikert, ha a runtime config nem maradt meg visszaolvasáskor
+- **Dátum**: 2026-04-27 (v1.6.8)
+- **Fájl**: `supabase/functions/place-search/index.ts`, `src/lib/searchProviderConfig.ts`, `src/components/admin/AdminEventbrite.tsx`
+- **Hibaüzenet / tünet**: A Címkereső admin felület néha sikeres mentést jelzett, de oldalfrissítés után a `db:*` provider eltűnt, a Postman `get_all_provider_configs` pedig továbbra is `geoapify_tomtom` / `aws` értékeket mutatott.
+- **Gyökérok**: A mentési útvonal optimistán hitt a write válaszban, de nem olvasta vissza kötelezően az `app_runtime_config` sort. Így a frontend átmenetileg mutathatott olyan DB providert, amely ténylegesen nem volt tartósan elmentve.
+- **Javítás**: Minden `save_db_table_config` és `save_provider_config` után backend oldali read-after-write verification fut. A frontend a mentés után újratölti a provider állapotot, és csak visszaellenőrzött mentés után jelez sikert.
+- **Megelőzés**: Runtime konfiguráció mentésnél a siker definíciója nem az, hogy a write request lefutott, hanem az, hogy ugyanaz az érték visszaolvasható a konfigurációs store-ból.
+
+### [HIBA-061] Több Supabase projekt párhuzamos használatánál kötelező explicit project-ref ellenőrzés
+- **Dátum**: 2026-04-27 (v1.6.8)
+- **Fájl**: `.env`, `src/integrations/supabase/client.ts`
+- **Hibaüzenet / tünet**: A Geodata direkt REST hívás működött, a Hobbeast Edge Function is működött, mégis a UI és Postman állapotok eltértek.
+- **Gyökérok**: A repo snapshotban a nem-VITE Supabase URL a Hobbeast projektre (`dsymdijzydaehntlmfzl`) mutatott, de a frontend `VITE_SUPABASE_URL` egy másik projektre (`olzvughcoqnfkdpvbwjy`). Ez könnyen olyan hatást kelt, mintha a mentés elveszne, miközben másik projektet olvasunk vissza.
+- **Javítás**: A frontend kliens explicit console hibát ír, ha nem a kanonikus Hobbeast project-refre mutat.
+- **Megelőzés**: Multi-project integrációnál a frontend mindig a saját app projektjét hívja; külső adatforrás projekt csak Edge Function secreten keresztül használható.

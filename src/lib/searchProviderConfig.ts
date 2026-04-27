@@ -66,6 +66,8 @@ type CachedConfig = { provider: AddressSearchProvider; expiresAt: number };
 type ProviderConfigPayload = {
   provider?: AddressSearchProvider | string;
   providers?: Partial<Record<AddressSearchFunctionGroup, AddressSearchProvider | string>>;
+  dbTables?: DbSearchTableConfig[];
+  runtime?: Record<string, unknown>;
 };
 
 const cachedConfigs: Record<string, CachedConfig> = {};
@@ -158,7 +160,16 @@ export async function setAddressSearchProvider(
   });
 
   const normalized = normalizeProvider(payload?.provider ?? provider);
+  if (normalized !== provider) {
+    throw new Error(`A backend más providert igazolt vissza (${normalized}), mint amit menteni próbáltunk (${provider}).`);
+  }
+
   cachedConfigs[cacheKey(group)] = { provider: normalized, expiresAt: Date.now() + CONFIG_CACHE_MS };
+
+  const verified = await getAddressSearchProvider(true, group);
+  if (verified !== provider) {
+    throw new Error(`A provider mentése nem maradt meg visszaolvasáskor: ${group}=${verified}, várt=${provider}.`);
+  }
 }
 
 export async function getAllFunctionGroupProviders(): Promise<Record<AddressSearchFunctionGroup, AddressSearchProvider>> {
@@ -230,12 +241,18 @@ export async function saveDbSearchTableConfigs(tables: DbSearchTableConfig[]): P
     action: 'save_db_table_config',
     tables,
   });
+
+  const savedTables = (payload?.tables || []) as DbSearchTableConfig[];
+  if (tables.length > 0 && savedTables.length === 0) {
+    throw new Error('A backend nem igazolta vissza a mentett db provider konfigurációt.');
+  }
+
   cachedDbTables = null;
   resetAddressSearchProviderCache();
-  return {
-    availableTables: GEODATA_TABLE_OPTIONS,
-    tables: (payload?.tables || []) as DbSearchTableConfig[],
-  };
+
+  // Read back from the runtime store immediately. This prevents optimistic UI
+  // state from showing success when the row was not actually persisted.
+  return getDbSearchTableConfigs(true);
 }
 
 export async function testDbSearchTableQuery(input: DbSearchTableTestInput): Promise<DbSearchTableTestResult> {

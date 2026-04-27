@@ -8,8 +8,30 @@ import type { Database } from './types';
  * All web-app database queries and Edge Function calls must target the dsymdijzydaehntlmfzl
  * Supabase project via the VITE_* frontend environment variables.
  */
+const CANONICAL_HOBBEAST_PROJECT_REF = 'dsymdijzydaehntlmfzl';
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
 const SUPABASE_PUBLISHABLE_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
+
+function projectRefFromSupabaseUrl(url: string): string {
+  try {
+    return new URL(url).hostname.split('.')[0] || '';
+  } catch {
+    return '';
+  }
+}
+
+const configuredProjectRef = projectRefFromSupabaseUrl(SUPABASE_URL);
+if (configuredProjectRef && configuredProjectRef !== CANONICAL_HOBBEAST_PROJECT_REF) {
+  console.error('[SupabaseConfig] Hobbeast frontend is pointing to the wrong Supabase project.', {
+    configuredProjectRef,
+    expectedProjectRef: CANONICAL_HOBBEAST_PROJECT_REF,
+    configuredUrl: SUPABASE_URL,
+  });
+}
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error('[SupabaseConfig] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY.');
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

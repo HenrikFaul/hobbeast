@@ -277,3 +277,15 @@ After review, rename or replace the active root changelog with this canonical st
 - Repository scan for merge conflict markers returned no results in source/deploy files.
 - Focused static review completed for the files reported by GitHub code search / Vercel build failure: `placeSearch.ts`, `CommonAdminPanel.tsx`, `commonAdminMetadata.ts`, `AdminEventbrite.tsx`, `searchProviderConfig.ts`, `supabase/config.toml`, `supabase/functions/place-search/index.ts`.
 - Full Vite build was not executed in this sandbox because install/build dependencies are not available here; this package is prepared to fix the Vercel `Unexpected "<<"` syntax failure and the follow-on conflict-marker failures.
+
+
+## [1.6.8] — 2026-04-27
+### Fixed
+- **Geodata db provider persistence verification**: `place-search` no longer returns optimistic success for `save_db_table_config` or `save_provider_config`. After every runtime config write it now reads the `app_runtime_config` row back and fails with a detailed verification error if the persisted row does not match the requested provider/table configuration.
+- **Provider refresh consistency**: The admin Címkereső provider UI now reloads provider state after successful DB provider saves and function-group provider saves, preventing stale local state from looking successful when the backend did not persist it.
+- **Provider diagnostics**: `get_all_provider_configs` now returns the saved `dbTables` list and runtime config metadata so Postman and UI diagnostics can verify both the selected provider groups and the configured `db:*` table providers in one response.
+- **Supabase project mismatch visibility**: The frontend Supabase client now logs an explicit error if `VITE_SUPABASE_URL` points to a project other than the canonical Hobbeast project `dsymdijzydaehntlmfzl`.
+- **Repository hygiene**: Removed leftover conflict markers from the generated `supabase relationships.txt` schema snapshot.
+
+### Operational note
+- The uploaded `.env` snapshot still showed `VITE_SUPABASE_URL=https://olzvughcoqnfkdpvbwjy.supabase.co` while the Hobbeast backend/runtime config is expected on `https://dsymdijzydaehntlmfzl.supabase.co`. Vercel/Lovable/Codespace frontend env values must point to `dsymdijzydaehntlmfzl`; the Geodata project `buuoyyfzincmbxafvihc` must remain server-side only through Edge Function secrets.

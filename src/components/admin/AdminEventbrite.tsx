@@ -282,7 +282,8 @@ export function AdminEventbrite() {
     setProviderSaving(true);
     try {
       await setAddressSearchProvider(functionGroupProviders[group], group);
-      toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve`);
+      await loadProviderState();
+      toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve és visszaellenőrizve`);
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült menteni a provider beállítást');
     }
@@ -296,7 +297,8 @@ export function AdminEventbrite() {
       for (const g of groups) {
         await setAddressSearchProvider(functionGroupProviders[g], g);
       }
-      toast.success('Minden provider beállítás elmentve');
+      await loadProviderState();
+      toast.success('Minden provider beállítás elmentve és visszaellenőrizve');
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült menteni');
     }
@@ -322,7 +324,8 @@ export function AdminEventbrite() {
     try {
       const saved = await saveDbSearchTableConfigs(next);
       setDbConfigs(saved.tables);
-      toast.success('Adatbázistábla provider konfiguráció elmentve');
+      await loadProviderState();
+      toast.success('Adatbázistábla provider konfiguráció elmentve és visszaellenőrizve');
     } catch (err: any) {
       toast.error(err.message || 'Nem sikerült menteni az adatbázistábla konfigurációt');
     } finally {
