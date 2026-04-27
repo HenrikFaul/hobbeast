@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info, Database, MapPinned, Save, MapPin, Trash2, PlusCircle } from 'lucide-react';
+import { RefreshCw, Search, ExternalLink, AlertCircle, CheckCircle, Info, Database, MapPinned, Save, MapPin, Trash2, PlusCircle, TableProperties } from 'lucide-react';
 import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEvents, type MappedEventbriteEvent } from '@/lib/eventbrite';
 import { previewTicketmasterEvents, syncTicketmasterEvents } from '@/lib/external-events/ticketmaster';
 import { previewSeatGeekEvents, syncSeatGeekEvents } from '@/lib/external-events/seatgeek';
@@ -163,6 +163,16 @@ function resolveTotalCountFromPlaceSearchResult(result: any, displayRows: Record
   return displayRows.length > 0 ? displayRows.length : null;
 }
 
+function matchesColumnFilter(value: unknown, filter: string): boolean {
+  if (!filter.trim()) return true;
+  return formatDbCell(value).toLowerCase().includes(filter.trim().toLowerCase());
+}
+
+function filterRowsByColumns(rows: Record<string, unknown>[], columns: string[], filters: Record<string, string>) {
+  if (rows.length === 0 || columns.length === 0) return rows;
+  return rows.filter((row) => columns.every((column) => matchesColumnFilter(row[column], filters[column] || '')));
+}
+
 
 function normalizeHumanSearch(value: string): string {
   return value
@@ -310,9 +320,12 @@ export function AdminEventbrite() {
   const [dbConfigLoading, setDbConfigLoading] = useState(false);
   const [dbConfigSaving, setDbConfigSaving] = useState(false);
   const [dbForm, setDbForm] = useState<DbConfigFormState>(DEFAULT_DB_FORM);
-  const [dbTestResults, setDbTestResults] = useState<NormalizedPlace[]>([]);
+  const [dbTestResults, setDbTestResults] = useState<any[]>([]);
   const [dbTestRows, setDbTestRows] = useState<Record<string, unknown>[]>([]);
   const [dbTestColumns, setDbTestColumns] = useState<string[]>(DEFAULT_DB_TEST_COLUMNS);
+  const [dbColumnFilters, setDbColumnFilters] = useState<Record<string, string>>({});
+  const [mapperColumns, setMapperColumns] = useState<string[]>(['id', 'name', 'city', 'formatted_address', 'categories', 'source_provider']);
+  const [mapperColumnFilters, setMapperColumnFilters] = useState<Record<string, string>>({});
   const [dbTotalCount, setDbTotalCount] = useState<number | null>(null);
   const [dbTestLoading, setDbTestLoading] = useState(false);
   const [dbDebug, setDbDebug] = useState<Record<string, unknown> | null>(null);
@@ -335,6 +348,17 @@ export function AdminEventbrite() {
 
   const dbCategorySuggestions = useMemo(() => rankDiscoveredCategoryMatches(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
   const dbMappedCategory = useMemo(() => resolveMappedCategory(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
+  const filteredDbRows = useMemo(() => filterRowsByColumns(dbTestRows, dbTestColumns, dbColumnFilters), [dbTestRows, dbTestColumns, dbColumnFilters]);
+  const filteredMapperRows = useMemo(() => {
+    const mapperRows = dbTestResults.map((row) => {
+      const projected: Record<string, unknown> = {};
+      mapperColumns.forEach((column) => {
+        projected[column] = valueFromMappedProviderResult(row, column);
+      });
+      return projected;
+    });
+    return filterRowsByColumns(mapperRows, mapperColumns, mapperColumnFilters);
+  }, [dbTestResults, mapperColumns, mapperColumnFilters]);
 
   const loadDbDiscovery = async (table = dbForm.table, label = dbForm.label) => {
     setDbDiscoveryLoading(true);
@@ -603,27 +627,18 @@ export function AdminEventbrite() {
         columns: dbForm.columns,
         limit: dbForm.limit,
       });
-      const normalized = ((result.results || []) as any[]).map((row) => ({
-        id: `${row.provider}-${row.external_id}`,
-        name: row.name,
-        address: row.address || row.name,
-        city: row.city || '',
-        district: row.district || '',
-        country: typeof row.metadata?.country === 'string' ? row.metadata.country : 'Hungary',
-        postcode: row.postal_code || '',
-        lat: typeof row.latitude === 'number' ? row.latitude : 0,
-        lon: typeof row.longitude === 'number' ? row.longitude : 0,
-        categories: Array.isArray(row.categories) ? row.categories : row.category ? [row.category] : [],
-        source: row.provider,
-        sourceId: row.external_id,
-        confidence: 0.75,
-      }));
+      const mappedRows = (result.results || []) as any[];
       const selectedColumns = result.columns && result.columns.length > 0 ? result.columns : dbForm.columns;
       const returnedRows = buildDisplayRowsFromPlaceSearchResult(result, selectedColumns);
       const totalCount = resolveTotalCountFromPlaceSearchResult(result, returnedRows);
-      setDbTestResults(normalized);
+      setDbTestResults(mappedRows);
       setDbTestRows(returnedRows);
       setDbTestColumns(selectedColumns);
+      setDbColumnFilters((prev) => Object.fromEntries(selectedColumns.map((column) => [column, prev[column] || ''])));
+      const defaultMapperColumns = ['id', 'name', 'city', 'formatted_address', 'categories', 'source_provider'];
+      const nextMapperColumns = Array.from(new Set(defaultMapperColumns.filter((column) => selectedColumns.includes(column) || defaultMapperColumns.includes(column))));
+      setMapperColumns(nextMapperColumns);
+      setMapperColumnFilters((prev) => Object.fromEntries(nextMapperColumns.map((column) => [column, prev[column] || ''])));
       setDbTotalCount(totalCount);
       const responseMs = Math.round(performance.now() - startedAt);
       setDbResponseMs(typeof result.debug?.response_ms === 'number' ? result.debug.response_ms : responseMs);
@@ -972,7 +987,7 @@ export function AdminEventbrite() {
                             ? 'Még nincs futtatva'
                             : dbTotalCount === null
                               ? `${dbTestRows.length} sor`
-                              : `${dbTotalCount} találat / ${dbTestRows.length} sor lekérve`}
+                              : `${dbTotalCount} találat / ${filteredDbRows.length} megjelenített sor`}
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -1026,25 +1041,94 @@ export function AdminEventbrite() {
                   ) : null}
 
                   {dbTestRows.length > 0 ? (
-                    <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
-                      <table className="w-max min-w-full text-xs">
-                        <thead className="bg-muted/40 text-muted-foreground">
-                          <tr>
-                            {dbTestColumns.map((column) => (
-                              <th key={column} className="whitespace-nowrap px-3 py-2 text-left font-medium">{column}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dbTestRows.map((row, index) => (
-                            <tr key={index} className="border-t align-top">
+                    <div className="space-y-3">
+                      <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
+                        A megjelenített oszlopok most már oszloponként real-time szűrhetők. Gépelés közben azonnal szűkül a lista, így ugyanazt a keresési logikát tudod ellenőrizni, amit az eseménykezelő helyszínkeresőjénél is vársz.
+                      </div>
+                      {filteredDbRows.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                          A lekérdezés adott vissza sorokat, de az oszlopfejlécek feletti szűrők jelenleg mindet kiszűrik. Töröld vagy módosítsd a fejléc fölötti filtereket.
+                        </div>
+                      ) : null}
+                      <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
+                        <table className="w-max min-w-full text-xs">
+                          <thead className="bg-muted/40 text-muted-foreground">
+                            <tr>
                               {dbTestColumns.map((column) => (
-                                <td key={column} className="max-w-[260px] truncate px-3 py-2" title={formatDbCell(row[column])}>{formatDbCell(row[column])}</td>
+                                <th key={column} className="min-w-[180px] whitespace-nowrap px-3 py-2 text-left font-medium">
+                                  <div className="space-y-2">
+                                    <Input
+                                      value={dbColumnFilters[column] || ''}
+                                      onChange={(e) => setDbColumnFilters((prev) => ({ ...prev, [column]: e.target.value }))}
+                                      placeholder={`${column} szűrés...`}
+                                      className="h-8 min-w-[160px] bg-background text-xs"
+                                    />
+                                    <span className="block text-[11px] font-medium text-foreground">{column}</span>
+                                  </div>
+                                </th>
                               ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {filteredDbRows.map((row, index) => (
+                              <tr key={index} className="border-t align-top">
+                                {dbTestColumns.map((column) => (
+                                  <td key={column} className="max-w-[260px] truncate px-3 py-2" title={formatDbCell(row[column])}>{formatDbCell(row[column])}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {dbQueryExecuted && !dbTestLoading && !dbQueryError ? (
+                    <div className="space-y-3 rounded-lg border p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="flex items-center gap-2 text-sm font-medium"><TableProperties className="h-4 w-4 text-primary" /> Fordító / mapper nézet</p>
+                          <p className="text-xs text-muted-foreground">Ez a place-search mapper normalizált kimenete ugyanarra a lekérdezésre, így a nyers táblás eredmény és a frontend által ténylegesen használt mezők egymás mellett ellenőrizhetők.</p>
+                        </div>
+                        <Badge variant="outline">{filteredMapperRows.length} megjelenített mapper sor</Badge>
+                      </div>
+
+                      {filteredMapperRows.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                          A mapper nézetben nincs megjeleníthető sor. Ennek oka lehet, hogy a backend nem adott normalizált mapper eredményt ehhez a lekérdezéshez, vagy a mapper-szűrők mindent kiszűrtek.
+                        </div>
+                      ) : (
+                        <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
+                          <table className="w-max min-w-full text-xs">
+                            <thead className="bg-muted/40 text-muted-foreground">
+                              <tr>
+                                {mapperColumns.map((column) => (
+                                  <th key={column} className="min-w-[180px] whitespace-nowrap px-3 py-2 text-left font-medium">
+                                    <div className="space-y-2">
+                                      <Input
+                                        value={mapperColumnFilters[column] || ''}
+                                        onChange={(e) => setMapperColumnFilters((prev) => ({ ...prev, [column]: e.target.value }))}
+                                        placeholder={`${column} szűrés...`}
+                                        className="h-8 min-w-[160px] bg-background text-xs"
+                                      />
+                                      <span className="block text-[11px] font-medium text-foreground">{column}</span>
+                                    </div>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredMapperRows.map((row, index) => (
+                                <tr key={index} className="border-t align-top">
+                                  {mapperColumns.map((column) => (
+                                    <td key={column} className="max-w-[260px] truncate px-3 py-2" title={formatDbCell(row[column])}>{formatDbCell(row[column])}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </CardContent>

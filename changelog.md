@@ -279,3 +279,19 @@ After review, rename or replace the active root changelog with this canonical st
 - Edge runtime marker: `v1.7.6-stable-db-autocomplete`.
 - DB autocomplete debug mode: `db_autocomplete_resilient`.
 - Admin direct query debug mode remains: `direct_table_select`.
+
+
+## v1.7.7 — Admin import hardening and Address Manager retirement prep
+
+### Changed
+- Removed the dedicated admin `Címkezelő` tab from the visible admin surface so the no-longer-needed Address Manager flow cannot be opened from the frontend.
+- Added per-column real-time filtering to the Import / Geodata DB query result table, directly above every displayed column.
+- Added a visible `Fordító / mapper` table view next to the raw DB projection so the normalized mapper output can also be queried and checked from the admin UI.
+
+### Added
+- Added root-level `supabase_cleanup_candidates.md` as an append-only backend cleanup checklist for Supabase functions/tables that may be removable after the Address Manager frontend retirement is verified.
+
+### Regression guard
+- Existing Import provider configuration, DB provider persistence, and runtime place-search query execution were preserved.
+- The new filters are client-side on top of the already returned rows, so the existing backend query contract was not changed.
+

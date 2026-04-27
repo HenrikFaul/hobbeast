@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, BookOpen, Users, Calendar, BarChart3, RefreshCw, Settings, MapPin } from "lucide-react";
+import { Shield, BookOpen, Users, Calendar, BarChart3, RefreshCw, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { AdminCatalog } from "@/components/admin/AdminCatalog";
@@ -11,14 +11,13 @@ import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminMetrics } from "@/components/admin/AdminMetrics";
 import { AdminEventbrite } from "@/components/admin/AdminEventbrite";
 import { CommonAdminPanel } from "@/components/admin/CommonAdminPanel";
-import { AdminAddressManager } from "@/components/admin/AdminAddressManager";
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const allowedTabs = ['catalog', 'users', 'auto-events', 'events', 'metrics', 'eventbrite', 'common-admin', 'address-manager'] as const;
+  const allowedTabs = ['catalog', 'users', 'auto-events', 'events', 'metrics', 'eventbrite', 'common-admin'] as const;
   const searchTab = searchParams.get('tab');
   const activeTab = allowedTabs.includes(searchTab as (typeof allowedTabs)[number]) ? searchTab : 'catalog';
   useEffect(() => {
@@ -46,8 +45,8 @@ const Admin = () => {
           }, { replace: true });
         }}
         className="w-full"
-      ><TabsList className="grid w-full grid-cols-3 md:grid-cols-8 mb-6"><TabsTrigger value="catalog" className="text-xs sm:text-sm"><BookOpen className="h-4 w-4 mr-1 hidden sm:inline" /> Katalógus</TabsTrigger><TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="h-4 w-4 mr-1 hidden sm:inline" /> Felhasználók</TabsTrigger><TabsTrigger value="auto-events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> AI események</TabsTrigger><TabsTrigger value="events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> Események</TabsTrigger><TabsTrigger value="metrics" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Metrikák</TabsTrigger><TabsTrigger value="eventbrite" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Import</TabsTrigger><TabsTrigger value="common-admin" className="text-xs sm:text-sm"><Settings className="h-4 w-4 mr-1 hidden sm:inline" /> Common Admin</TabsTrigger><TabsTrigger value="address-manager" className="text-xs sm:text-sm"><MapPin className="h-4 w-4 mr-1 hidden sm:inline" /> Címkezelő</TabsTrigger></TabsList>
-      <TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="auto-events"><AdminAutoEvents /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent><TabsContent value="address-manager"><AdminAddressManager /></TabsContent></Tabs></div></main>
+      ><TabsList className="grid w-full grid-cols-3 md:grid-cols-7 mb-6"><TabsTrigger value="catalog" className="text-xs sm:text-sm"><BookOpen className="h-4 w-4 mr-1 hidden sm:inline" /> Katalógus</TabsTrigger><TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="h-4 w-4 mr-1 hidden sm:inline" /> Felhasználók</TabsTrigger><TabsTrigger value="auto-events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> AI események</TabsTrigger><TabsTrigger value="events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> Események</TabsTrigger><TabsTrigger value="metrics" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Metrikák</TabsTrigger><TabsTrigger value="eventbrite" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Import</TabsTrigger><TabsTrigger value="common-admin" className="text-xs sm:text-sm"><Settings className="h-4 w-4 mr-1 hidden sm:inline" /> Common Admin</TabsTrigger></TabsList>
+      <TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="auto-events"><AdminAutoEvents /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent></Tabs></div></main>
   );
 };
 export default Admin;
