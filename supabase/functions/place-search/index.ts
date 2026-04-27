@@ -554,6 +554,104 @@ function normalizeFilterText(value: unknown) {
     .replace(/\s+/g, ' ')
 }
 
+const CATEGORY_SEGMENT_TRANSLATIONS: Record<string, string> = {
+  sport: 'sport',
+  fitness: 'fitnesz',
+  fitness_club: 'fitnesz klub',
+  sports_centre: 'sportkozpont',
+  stadium: 'stadion',
+  leisure: 'szabadido',
+  entertainment: 'szorakozas',
+  tourism: 'turizmus',
+  attraction: 'latnivalo',
+  sights: 'latnivalok',
+  museum: 'muzeum',
+  memorial: 'emlekhely',
+  park: 'park',
+  playground: 'jatszoter',
+  catering: 'vendeglatas',
+  restaurant: 'etterem',
+  cafe: 'kavezo',
+  pub: 'pub',
+  bar: 'bar',
+  bakery: 'pekseg',
+  building: 'epulet',
+  commercial: 'kereskedelmi',
+  historic: 'tortenelmi',
+  community: 'kozossegi',
+  club: 'klub',
+  event_venue: 'rendezvenyhelyszin',
+  board_game: 'tarsasjatek',
+  games: 'jatekok',
+}
+
+function categoryAliasTerms(value: string): string[] {
+  const raw = String(value || '').trim()
+  if (!raw) return []
+  const segments = raw
+    .split('.')
+    .flatMap((segment) => segment.split('_'))
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+  const english = segments.map((segment) => segment.replace(/[_.-]+/g, ' '))
+  const hungarian = segments.map((segment) => CATEGORY_SEGMENT_TRANSLATIONS[segment] || segment.replace(/[_.-]+/g, ' '))
+  return Array.from(new Set([
+    raw,
+    raw.replace(/\./g, ' '),
+    english.join(' '),
+    hungarian.join(' '),
+    ...english,
+    ...hungarian,
+  ].map((item) => normalizeFilterText(item)).filter(Boolean)))
+}
+
+async function expandCategoryTermsWithMapper(tableConfig: DbSearchTableConfig, url: string, key: string, terms: string[]) {
+  const normalizedTerms = Array.from(new Set(terms.map((term) => normalizeFilterText(term)).filter(Boolean)))
+  if (normalizedTerms.length === 0) return { expandedTerms: normalizedTerms, matchedMappings: [] as Array<Record<string, unknown>> }
+
+  try {
+    const mapperUrl = new URL(`${url}/rest/v1/provider_category_mapper`)
+    mapperUrl.searchParams.set('select', 'provider,source_table,provider_category_key,provider_category_en,provider_category_hu,hobbeast_category_slug,hobbeast_category_path_hu,hobbeast_category_path_en')
+    mapperUrl.searchParams.set('source_table', `eq.${tableConfig.table}`)
+    mapperUrl.searchParams.set('is_active', 'eq.true')
+    mapperUrl.searchParams.set('limit', '1500')
+
+    const rows = await restFetchJson<Record<string, unknown>[]>(mapperUrl.toString(), { headers: geodataHeaders(key) }).catch(() => [])
+    const matchedMappings = (Array.isArray(rows) ? rows : []).filter((row) => {
+      const aliases = Array.from(new Set([
+        ...categoryAliasTerms(String(row.provider_category_key || '')),
+        ...categoryAliasTerms(String(row.provider_category_en || '')),
+        ...categoryAliasTerms(String(row.provider_category_hu || '')),
+        ...categoryAliasTerms(String(row.hobbeast_category_slug || '')),
+        ...categoryAliasTerms(String(row.hobbeast_category_path_hu || '')),
+        ...categoryAliasTerms(String(row.hobbeast_category_path_en || '')),
+      ]))
+      return normalizedTerms.some((term) => aliases.some((alias) => alias.includes(term) || term.includes(alias)))
+    })
+
+    const expandedTerms = Array.from(new Set([
+      ...normalizedTerms,
+      ...matchedMappings.flatMap((row) => {
+        const keyValue = normalizeFilterText(String(row.provider_category_key || ''))
+        const root = keyValue.split(' ')[0]
+        return [keyValue, root].filter(Boolean)
+      }),
+    ].filter(Boolean)))
+
+    return {
+      expandedTerms,
+      matchedMappings: matchedMappings.slice(0, 12).map((row) => ({
+        provider: row.provider,
+        provider_category_key: row.provider_category_key,
+        provider_category_hu: row.provider_category_hu,
+        hobbeast_category_slug: row.hobbeast_category_slug,
+      })),
+    }
+  } catch (_error) {
+    return { expandedTerms: normalizedTerms, matchedMappings: [] as Array<Record<string, unknown>> }
+  }
+}
+
 function semanticCategoryHints(...values: unknown[]): string[] {
   const text = normalizeFilterText(values.map((value) => stringifyForFilter(value)).join(' '))
   const terms: string[] = []
@@ -609,7 +707,9 @@ async function autocompleteGeodataPlaces(tableConfig: DbSearchTableConfig, param
   const center = bodyCenter(params)
   const explicitCategoryTerms = normalizeCategoryTerms(params.category || params.activityHint || '')
   const semanticTerms = semanticCategoryHints(params.query, params.activityHint, params.category)
-  const categoryTerms = explicitCategoryTerms.length > 0 ? explicitCategoryTerms : semanticTerms
+  const requestedCategoryTerms = explicitCategoryTerms.length > 0 ? explicitCategoryTerms : semanticTerms
+  const mapperExpansion = await expandCategoryTermsWithMapper(tableConfig, url, key, requestedCategoryTerms)
+  const categoryTerms = mapperExpansion.expandedTerms.length > 0 ? mapperExpansion.expandedTerms : requestedCategoryTerms
   const selectColumns = buildSelectColumns(tableConfig.table, DEFAULT_DB_TEST_COLUMNS)
   const fetchLimit = Math.min(Math.max(limit * 90, 900), 2500)
 
@@ -679,6 +779,9 @@ async function autocompleteGeodataPlaces(tableConfig: DbSearchTableConfig, param
       source_column: sourceColumn,
       explicit_category_terms: explicitCategoryTerms,
       semantic_category_terms: semanticTerms,
+      mapper_expanded_category_terms: mapperExpansion.expandedTerms,
+      mapper_match_count: mapperExpansion.matchedMappings.length,
+      mapper_matches: mapperExpansion.matchedMappings,
       applied_category_terms: categoryTerms,
       fallback_strategy: strategy,
       fetch_limit: fetchLimit,

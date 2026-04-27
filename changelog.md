@@ -292,3 +292,19 @@ After review, rename or replace the active root changelog with this canonical st
 
 ### Notes
 - A most látható mapper nézet még frontend derived layer; a tartós Supabase táblák ehhez a körhöz SQL fájlban kerültek előkészítésre a Geodata projekt számára, nem a Hobbeast projekt migrációi közé.
+
+## [1.7.8] — 2026-04-28
+### Fixed
+- Regressziójavítás: az Import / Címkereső nyers DB eredménytábla oszlopfejléc alatti realtime szűrősora és a Fordító / mapper nézet együtt maradnak aktívak; egyik sem kerülhet ki a felületről a másik bővítése miatt.
+- A kategória mező Live from Database ajánlói most már a nyers provider kulcs mellett a magyar aliasokat is kirakják, így HU/EN gépelésre ugyanabból a mezőből lehet pontosabban rászűrni.
+
+### Changed
+- A mapper nézet preferált oszlopai kiegészültek a lokális katalógus angol útvonalával (`local_catalog_path_en`) is, hogy a magyar és angol megfeleltetés egyszerre ellenőrizhető legyen.
+- A `place-search` DB autocomplete most már megpróbálja a Geodata projekt `public.provider_category_mapper` táblájából kibővíteni a kategória kifejezéseket, ezért a HU/EN / Hobbeast slug inputok jobban rá tudnak fordulni a provider kategóriakulcsokra.
+
+### Added
+- `docs/sql/geodata_project_mapper_tables.sql` bootstrap seed blokkot kapott, amely feltölthető kezdő HU/EN provider ↔ Hobbeast kategóriamapping sorokat ad a Geodata projekthez.
+
+### Notes
+- A Hobbeast lokális katalógustábla neve: `public.places_local_catalog`.
+- A Geodata projektben használt tartós kategóriamapper tábla neve: `public.provider_category_mapper`.

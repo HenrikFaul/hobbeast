@@ -352,6 +352,36 @@ function titleCaseFromKey(value: string): string {
     .join(' ');
 }
 
+function deriveCategoryAliasInfo(categoryValue: string) {
+  const segments = categoryValue
+    .split('.')
+    .flatMap((segment) => segment.split('_'))
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const englishParts = segments.map((segment) => titleCaseFromKey(segment));
+  const hungarianParts = segments.map((segment) => CATEGORY_SEGMENT_TRANSLATIONS[segment] || titleCaseFromKey(segment));
+  const aliases = Array.from(new Set([
+    categoryValue,
+    categoryValue.replace(/\./g, ' '),
+    englishParts.join(' '),
+    hungarianParts.join(' '),
+    ...englishParts,
+    ...hungarianParts,
+  ].filter(Boolean)));
+  return {
+    english: englishParts.join(' > ') || titleCaseFromKey(categoryValue),
+    hungarian: hungarianParts.join(' > ') || titleCaseFromKey(categoryValue),
+    aliases,
+  };
+}
+
+interface RankedCategorySuggestion extends DbFacetOption {
+  displayLabel: string;
+  confidence: number;
+  aliasHu: string;
+  aliasEn: string;
+}
+
 function levenshteinDistance(a: string, b: string): number {
   const left = normalizeHumanSearch(a);
   const right = normalizeHumanSearch(b);
@@ -384,25 +414,42 @@ function expandHungarianCategoryHints(input: string): string[] {
 
 function rankDiscoveredCategoryMatches(input: string, categories: DbFacetOption[]) {
   const terms = expandHungarianCategoryHints(input);
-  if (terms.length === 0) return [];
+  if (terms.length === 0) return [] as RankedCategorySuggestion[];
   return categories
     .map((category) => {
+      const aliasInfo = deriveCategoryAliasInfo(category.value);
       const normalizedValue = normalizeHumanSearch(category.value);
       const normalizedLabel = normalizeHumanSearch(category.label || category.value);
+      const normalizedAliases = aliasInfo.aliases.map((alias) => normalizeHumanSearch(alias)).filter(Boolean);
       let score = 0;
       for (const term of terms) {
         if (!term) continue;
-        if (normalizedValue === term || normalizedLabel === term) score = Math.max(score, 1);
-        if (normalizedValue.includes(term) || normalizedLabel.includes(term) || term.includes(normalizedValue)) score = Math.max(score, 0.82);
-        const distance = Math.min(levenshteinDistance(term, normalizedValue), levenshteinDistance(term, normalizedLabel));
-        const basis = Math.max(term.length, normalizedValue.length, normalizedLabel.length, 1);
-        score = Math.max(score, Math.max(0, 1 - distance / basis) * 0.72);
+        if (normalizedValue === term || normalizedLabel === term || normalizedAliases.some((alias) => alias === term)) score = Math.max(score, 1);
+        if (
+          normalizedValue.includes(term) ||
+          normalizedLabel.includes(term) ||
+          term.includes(normalizedValue) ||
+          normalizedAliases.some((alias) => alias.includes(term) || term.includes(alias))
+        ) score = Math.max(score, 0.84);
+        const distance = Math.min(
+          levenshteinDistance(term, normalizedValue),
+          levenshteinDistance(term, normalizedLabel),
+          ...normalizedAliases.map((alias) => levenshteinDistance(term, alias)),
+        );
+        const basis = Math.max(term.length, normalizedValue.length, normalizedLabel.length, ...normalizedAliases.map((alias) => alias.length), 1);
+        score = Math.max(score, Math.max(0, 1 - distance / basis) * 0.74);
       }
-      return { ...category, displayLabel: titleCaseFromKey(category.value), confidence: Number(score.toFixed(2)) };
+      return {
+        ...category,
+        displayLabel: `${titleCaseFromKey(category.value)} · ${aliasInfo.hungarian}`,
+        aliasHu: aliasInfo.hungarian,
+        aliasEn: aliasInfo.english,
+        confidence: Number(score.toFixed(2)),
+      } satisfies RankedCategorySuggestion;
     })
     .filter((item) => item.confidence >= 0.45)
     .sort((a, b) => b.confidence - a.confidence || b.count - a.count)
-    .slice(0, 6);
+    .slice(0, 8);
 }
 
 function resolveMappedCategory(input: string, categories: DbFacetOption[]) {
@@ -506,10 +553,15 @@ export function AdminEventbrite() {
 
   const dbCategorySuggestions = useMemo(() => rankDiscoveredCategoryMatches(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
   const dbMappedCategory = useMemo(() => resolveMappedCategory(dbForm.category, dbDiscovery?.categories || []), [dbForm.category, dbDiscovery]);
+  const dbDiscoveryCategoryAliases = useMemo(() => (dbDiscovery?.categories || []).slice(0, 120).map((category) => ({
+    value: category.value,
+    count: category.count,
+    ...deriveCategoryAliasInfo(category.value),
+  })), [dbDiscovery]);
 
   const mapperRows = useMemo(() => dbTestRows.map(enrichMapperRow), [dbTestRows]);
   const mapperColumns = useMemo(() => {
-    const preferred = ['id', 'name', 'city', 'formatted_address', 'categories', 'categories_en', 'categories_hu', 'local_catalog_path_hu', 'local_catalog_slug', 'source_provider', 'translation_source'];
+    const preferred = ['id', 'name', 'city', 'formatted_address', 'categories', 'categories_en', 'categories_hu', 'local_catalog_path_hu', 'local_catalog_path_en', 'local_catalog_slug', 'source_provider', 'translation_source'];
     const seen = new Set<string>();
     return [...preferred, ...dbTestColumns].filter((column) => {
       if (seen.has(column)) return false;
@@ -1022,29 +1074,30 @@ export function AdminEventbrite() {
                           list="geodata-category-discovery"
                         />
                         <datalist id="geodata-category-discovery">
-                          {(dbDiscovery?.categories || []).slice(0, 80).map((category) => (
-                            <option key={category.value} value={category.value}>{titleCaseFromKey(category.value)} ({category.count})</option>
+                          {dbDiscoveryCategoryAliases.map((category) => (
+                            <option key={category.value} value={category.value}>{category.value} · {category.hungarian} ({category.count})</option>
                           ))}
                         </datalist>
                         <div className="text-[11px] text-muted-foreground">
-                          {dbDiscoveryLoading ? 'Élő kategóriák felderítése...' : dbDiscovery ? `${dbDiscovery.categories.length} kategória · ${dbDiscovery.rowCount ?? dbDiscovery.sampleSize} sor mintázva` : 'A kategóriák az adatbázisból töltődnek.'}
+                          {dbDiscoveryLoading ? 'Élő kategóriák felderítése...' : dbDiscovery ? `${dbDiscovery.categories.length} kategória · ${dbDiscovery.rowCount ?? dbDiscovery.sampleSize} sor mintázva` : 'A kategóriák az adatbázisból töltődnek, és magyar aliasokkal együtt ajánljuk őket.'}
                         </div>
                         {dbForm.category && dbMappedCategory && dbMappedCategory !== dbForm.category ? (
                           <div className="rounded-md border bg-muted/30 p-2 text-[11px]">
                             <span className="font-medium">Erre gondoltál?</span>{' '}
                             <button type="button" className="text-primary underline" onClick={() => setDbForm((prev) => ({ ...prev, category: dbMappedCategory }))}>{titleCaseFromKey(dbMappedCategory)}</button>
-                            <span className="text-muted-foreground"> · automatikus semantic mapping a lekérdezéshez</span>
+                            <span className="text-muted-foreground"> · automatikus semantic mapping a lekérdezéshez, HU/EN aliasokkal</span>
                           </div>
                         ) : null}
                         {dbCategorySuggestions.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {dbCategorySuggestions.map((suggestion) => (
                               <Button key={suggestion.value} type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setDbForm((prev) => ({ ...prev, category: suggestion.value }))}>
-                                {titleCaseFromKey(suggestion.value)} · {suggestion.count}
+                                {suggestion.displayLabel} · {suggestion.count}
                               </Button>
                             ))}
                           </div>
                         ) : null}
+                        <p className="text-[11px] text-muted-foreground">Lokális Hobbeast katalógustábla: <code>public.places_local_catalog</code>. A tartós provider ↔ Hobbeast mapper tábla a Geodata projektben: <code>public.provider_category_mapper</code>.</p>
                         {dbDiscoveryError ? <p className="text-[11px] text-destructive">{dbDiscoveryError}</p> : null}
                       </div>
                       <label className="space-y-1 text-xs font-medium">

@@ -52,3 +52,11 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
 - **Fix**: A mapper nézet most derived oszlopokat rak ki (`categories_en`, `categories_hu`, `local_catalog_path_hu`, `local_catalog_slug`) és ezek is oszloponként, realtime szűrhetők.
 - **Prevention**: Diagnosztikai admin tábláknál nem elég a nyers mezőket kilistázni; az operátori döntéshez szükséges normalizált / fordított / lokális megfeleltető mezőket is explicit oszlopként kell megjeleníteni.
 - **Architecture note**: Ha a tényleges perzisztencia másik Supabase projektben él (itt: Geodata), a Hobbeast repo-ban külön jelölni kell, hogy a jelen kör frontendje csak derived nézetet ad, a célprojekt DDL pedig külön SQL fájlban van előkészítve.
+
+## v1.7.8 — Realtime admin filters and mapper-assisted category search must co-exist
+
+- **Symptom**: Egy új kategóriafordítási bővítés után könnyen eltűnhet a nyers DB eredménytábla fejléces realtime szűrése vagy maga a mapper nézet, mert ugyanazon admin panelen több, egymásra épülő diagnosztikai réteg él.
+- **Root cause**: A feature-t nem külön regressziós invariánsként kezeltük: a raw-table filter sor és a mapper-table filter sor egyszerre kötelező capability, nem egymást helyettesítő UI-elemek.
+- **Fix**: A két tábla külön, explicit blokkban marad, mindkettő saját oszlopfejléc-alatti realtime szűrőkkel. A kategória ajánló logika külön réteg lett, nem írhatja felül a raw/mapper gridet.
+- **Prevention**: Admin diagnosztikai képernyőknél előre rögzíteni kell az invariánsokat: (1) raw projection table látszik, (2) mapper table látszik, (3) mindkettő szűrhető, (4) új suggestion/mapping logika csak additív lehet.
+- **Search architecture note**: Ha HU/EN / local catalog aliasokkal akarunk provider kategóriára rákeresni, azt a dedikált mapper tábla (`public.provider_category_mapper`) term-expansion rétegében kell megoldani, nem a raw találati táblák egyszerűsítésével.

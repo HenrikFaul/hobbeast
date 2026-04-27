@@ -102,3 +102,60 @@ for each row execute function public.touch_mapper_updated_at();
 create trigger trg_aws_local_address_mapper_updated_at
 before update on public.aws_local_address_mapper
 for each row execute function public.touch_mapper_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Optional bootstrap seed for bilingual provider-category mapping.
+-- Target DB: Geodata project
+-- Related local Hobbeast catalog table (separate project): public.places_local_catalog
+-- Usage: run AFTER the DDL above, then maintain with upserts / admin review.
+-- ---------------------------------------------------------------------------
+
+insert into public.provider_category_mapper (
+  provider,
+  source_table,
+  provider_category_key,
+  provider_category_en,
+  provider_category_hu,
+  hobbeast_category_slug,
+  hobbeast_category_path_hu,
+  hobbeast_category_path_en,
+  confidence,
+  mapping_source,
+  notes
+)
+values
+  ('geoapify', 'public.unified_pois', 'catering.restaurant', 'Catering > Restaurant', 'Vendeglatas > Etterem', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9600, 'bootstrap_seed_v1', 'Core gastro mapping for HU/EN typing and suggestion.'),
+  ('geoapify', 'public.unified_pois', 'catering.cafe', 'Catering > Cafe', 'Vendeglatas > Kavezo', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9600, 'bootstrap_seed_v1', 'Cafe / coffee search bridge.'),
+  ('geoapify', 'public.unified_pois', 'catering.pub', 'Catering > Pub', 'Vendeglatas > Pub', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.8900, 'bootstrap_seed_v1', 'Board-game meetup fallback to pub/cafe venues.'),
+  ('geoapify', 'public.unified_pois', 'catering.bar', 'Catering > Bar', 'Vendeglatas > Bar', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.8600, 'bootstrap_seed_v1', 'Board-game meetup fallback to bar venues.'),
+  ('geoapify', 'public.unified_pois', 'entertainment', 'Entertainment', 'Szorakozas', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.8200, 'bootstrap_seed_v1', 'Entertainment venue fallback for social game queries.'),
+  ('geoapify', 'public.unified_pois', 'leisure', 'Leisure', 'Szabadido', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.7800, 'bootstrap_seed_v1', 'General leisure fallback.'),
+  ('geoapify', 'public.unified_pois', 'sport.fitness', 'Sport > Fitness', 'Sport > Fitnesz', 'sports-fitness', 'Sport › Fitnesz', 'Sport > Fitness', 0.9600, 'bootstrap_seed_v1', 'Fitness related search bridge.'),
+  ('geoapify', 'public.unified_pois', 'sport.sports_centre', 'Sport > Sports Centre', 'Sport > Sportkozpont', 'sports-fitness', 'Sport › Fitnesz', 'Sport > Fitness', 0.9300, 'bootstrap_seed_v1', 'Sports centre bridge.'),
+  ('geoapify', 'public.unified_pois', 'sport.stadium', 'Sport > Stadium', 'Sport > Stadion', 'sports-fitness', 'Sport › Fitnesz', 'Sport > Fitness', 0.8800, 'bootstrap_seed_v1', 'Sport venue bridge.'),
+  ('geoapify', 'public.unified_pois', 'tourism.sights', 'Tourism > Sights', 'Turizmus > Latnivalok', 'social-community', 'Kozosseg › Social / Seta', 'Community > Social / Walking', 0.7600, 'bootstrap_seed_v1', 'Walking / sightseeing fallback.'),
+  ('geoapify', 'public.unified_pois', 'tourism.attraction', 'Tourism > Attraction', 'Turizmus > Latnivalo', 'social-community', 'Kozosseg › Social / Seta', 'Community > Social / Walking', 0.7600, 'bootstrap_seed_v1', 'Sightseeing fallback.'),
+  ('geoapify', 'public.unified_pois', 'building.commercial.catering', 'Building > Commercial > Catering', 'Epulet > Kereskedelmi > Vendeglatas', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9000, 'bootstrap_seed_v1', 'Commercial food venue bridge.'),
+  ('geoapify', 'public.unified_pois', 'community.club', 'Community > Club', 'Kozossegi > Klub', 'social-community', 'Kozosseg › Klub', 'Community > Club', 0.8400, 'bootstrap_seed_v1', 'Community club fallback.'),
+  ('tomtom', 'public.unified_pois', 'restaurant', 'Restaurant', 'Etterem', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9600, 'bootstrap_seed_v1', 'TomTom restaurant bridge.'),
+  ('tomtom', 'public.unified_pois', 'cafe', 'Cafe', 'Kavezo', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9600, 'bootstrap_seed_v1', 'TomTom cafe bridge.'),
+  ('tomtom', 'public.unified_pois', 'pub', 'Pub', 'Pub', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.9000, 'bootstrap_seed_v1', 'TomTom pub fallback for board-game searches.'),
+  ('tomtom', 'public.unified_pois', 'bar', 'Bar', 'Bar', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.8600, 'bootstrap_seed_v1', 'TomTom bar fallback for board-game searches.'),
+  ('osm', 'public.unified_pois', 'amenity=cafe', 'Amenity = Cafe', 'Amenity = Kavezo', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9400, 'bootstrap_seed_v1', 'OSM amenity bridge.'),
+  ('osm', 'public.unified_pois', 'amenity=restaurant', 'Amenity = Restaurant', 'Amenity = Etterem', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9400, 'bootstrap_seed_v1', 'OSM amenity bridge.'),
+  ('local', 'public.local_pois', 'board_game_cafe', 'Board Game Cafe', 'Tarsasjatek kavezo', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.9800, 'bootstrap_seed_v1', 'Local curated venue type.'),
+  ('local', 'public.local_pois', 'board_game_pub', 'Board Game Pub', 'Tarsasjatekos pub', 'games-gaming/board-games/board-games', 'Jatek & Gaming › Tarsasjatekok › Tarsasjatek', 'Games & Gaming > Board Games > Board Games', 0.9800, 'bootstrap_seed_v1', 'Local curated venue type.'),
+  ('local', 'public.local_pois', 'cafe', 'Cafe', 'Kavezo', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9400, 'bootstrap_seed_v1', 'Local curated venue type.'),
+  ('local', 'public.local_pois', 'restaurant', 'Restaurant', 'Etterem', 'gastronomy', 'Gasztronomia › Etterem / Kavezo / Bar', 'Gastronomy > Restaurant / Cafe / Bar', 0.9400, 'bootstrap_seed_v1', 'Local curated venue type.')
+on conflict (provider, source_table, provider_category_key)
+do update set
+  provider_category_en = excluded.provider_category_en,
+  provider_category_hu = excluded.provider_category_hu,
+  hobbeast_category_slug = excluded.hobbeast_category_slug,
+  hobbeast_category_path_hu = excluded.hobbeast_category_path_hu,
+  hobbeast_category_path_en = excluded.hobbeast_category_path_en,
+  confidence = excluded.confidence,
+  mapping_source = excluded.mapping_source,
+  notes = excluded.notes,
+  is_active = true,
+  updated_at = now();
