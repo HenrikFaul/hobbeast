@@ -743,9 +743,9 @@ export function AdminEventbrite() {
               <ExternalEventList events={seatgeekPreview} />
             </TabsContent>
 
-            <TabsContent value="places" className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                <Card>
+            <TabsContent value="places" className="space-y-5 max-w-full overflow-hidden">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(280px,0.9fr)_minmax(360px,1.1fr)]">
+                <Card className="min-w-0 overflow-hidden">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base"><MapPinned className="h-4 w-4 text-primary" /> Címkereső provider — funkció csoportonként</CardTitle>
                   </CardHeader>
@@ -794,7 +794,7 @@ export function AdminEventbrite() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="min-w-0 overflow-hidden">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Adatbázistábla kapcsolat</CardTitle>
                   </CardHeader>
@@ -952,14 +952,14 @@ export function AdminEventbrite() {
                     {dbDebug ? (
                       <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
                         <p className="font-medium text-foreground">Legutóbbi teszt debug</p>
-                        <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap">{JSON.stringify(dbDebug, null, 2)}</pre>
+                        <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(dbDebug, null, 2)}</pre>
                       </div>
                     ) : null}
                   </CardContent>
                 </Card>
               </div>
 
-              <Card>
+              <Card className="min-w-0 overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
                     <span className="flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Lekérdezés eredménye</span>
@@ -1026,8 +1026,8 @@ export function AdminEventbrite() {
                   ) : null}
 
                   {dbTestRows.length > 0 ? (
-                    <div className="overflow-x-auto rounded-lg border">
-                      <table className="min-w-full text-xs">
+                    <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
+                      <table className="w-max min-w-full text-xs">
                         <thead className="bg-muted/40 text-muted-foreground">
                           <tr>
                             {dbTestColumns.map((column) => (

@@ -622,28 +622,8 @@ async function autocompleteGeodataPlaces(tableConfig: DbSearchTableConfig, param
 
   const fetchedRows = await restFetchJson<Record<string, any>[]>(restUrl.toString(), { headers: geodataHeaders(key) })
   const rawRows = Array.isArray(fetchedRows) ? fetchedRows : []
-  let categoryPrefetchRows: Record<string, any>[] = []
-  if (categoryTerms.length > 0 && available.has('categories') && tableConfig.table !== 'public.local_pois') {
-    const categoryKeys = Array.from(new Set(categoryTerms.flatMap((term) => {
-      const dotted = term.replace(/\s+/g, '.')
-      const root = dotted.split('.')[0]
-      return [dotted, root]
-    }).filter(Boolean))).slice(0, 20)
-    if (categoryKeys.length > 0) {
-      const categoryUrl = new URL(`${url}/rest/v1/${tablePath(tableConfig.table)}`)
-      categoryUrl.searchParams.set('select', selectColumns)
-      categoryUrl.searchParams.set('limit', String(fetchLimit))
-      categoryUrl.searchParams.set('categories', `ov.{${categoryKeys.join(',')}}`)
-      if (city && available.has('city')) categoryUrl.searchParams.set('city', `ilike.*${city}*`)
-      if (source && available.has(sourceColumn)) categoryUrl.searchParams.set(sourceColumn, `ilike.*${source}*`)
-      categoryPrefetchRows = await restFetchJson<Record<string, any>[]>(categoryUrl.toString(), { headers: geodataHeaders(key) }).catch(() => [])
-    }
-  }
-  const rowPool = categoryPrefetchRows.length > 0
-    ? Array.from(new Map([...categoryPrefetchRows, ...rawRows].map((row) => [String(row.id || row.source_id || row.provider_id || row.external_id || JSON.stringify(row)), row])).values())
-    : rawRows
-  const queryRows = query ? rowPool.filter((row) => rowMatchesQueryFuzzy(row, query)) : rowPool
-  const categoryRows = categoryTerms.length > 0 ? rowPool.filter((row) => rowMatchesCategoryFuzzy(row, categoryTerms)) : []
+  const queryRows = query ? rawRows.filter((row) => rowMatchesQueryFuzzy(row, query)) : rawRows
+  const categoryRows = categoryTerms.length > 0 ? rawRows.filter((row) => rowMatchesCategoryFuzzy(row, categoryTerms)) : []
 
   let strategy = 'query_match'
   let candidateRows = queryRows
@@ -651,10 +631,10 @@ async function autocompleteGeodataPlaces(tableConfig: DbSearchTableConfig, param
     strategy = 'semantic_category_fallback'
     candidateRows = categoryRows
   }
-  if (candidateRows.length === 0 && rowPool.length > 0) {
+  if (candidateRows.length === 0 && rawRows.length > 0) {
     strategy = 'broad_db_fallback'
-    candidateRows = rowPool.filter(rowHasUsefulVenueSignal)
-    if (candidateRows.length === 0) candidateRows = rowPool
+    candidateRows = rawRows.filter(rowHasUsefulVenueSignal)
+    if (candidateRows.length === 0) candidateRows = rawRows
   }
 
   const mapped = candidateRows
@@ -683,8 +663,6 @@ async function autocompleteGeodataPlaces(tableConfig: DbSearchTableConfig, param
       fallback_strategy: strategy,
       fetch_limit: fetchLimit,
       raw_candidate_count: rawRows.length,
-      category_prefetch_count: categoryPrefetchRows.length,
-      row_pool_count: rowPool.length,
       query_candidate_count: queryRows.length,
       semantic_candidate_count: categoryRows.length,
       returned_row_count: results.length,
@@ -1128,6 +1106,27 @@ async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: Searc
         : 'A számosság PostgREST exact count alapján jött a város/forrás szűrőkre.',
     },
   }
+}
+
+function normalizeCategory(category?: string, activityHint?: string) {
+  const lower = `${category || ''} ${activityHint || ''}`.toLowerCase()
+  if (/(restaurant|étterem|food|drink|gasztro)/.test(lower)) return 'restaurant'
+  if (/(cafe|kávé|coffee)/.test(lower)) return 'cafe'
+  if (/(bar|bár|nightlife|cocktail)/.test(lower)) return 'bar'
+  if (/(pub|board game|tarsas|társas|game|jatek|játék)/.test(lower)) return 'pub'
+  if (/(entertainment|music|concert|show)/.test(lower)) return 'entertainment'
+  if (/(leisure|sport|fitness|outdoor|hike|tura|túra)/.test(lower)) return 'leisure'
+  return 'venue'
+}
+
+function geoapifyCategoryFilter(category?: string, activityHint?: string) {
+  const normalized = normalizeCategory(category, activityHint)
+  if (normalized === 'restaurant') return 'catering.restaurant,catering.cafe,catering.bar,catering.pub'
+  if (normalized === 'cafe') return 'catering.cafe,catering.restaurant'
+  if (normalized === 'bar') return 'catering.bar,catering.pub'
+  if (normalized === 'entertainment') return 'entertainment'
+  if (normalized === 'leisure') return 'leisure,sport'
+  return 'catering.restaurant,catering.cafe,catering.bar,catering.pub,entertainment,leisure'
 }
 
 function tomTomQuery(category?: string, activityHint?: string) {

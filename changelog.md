@@ -260,3 +260,22 @@ After review, rename or replace the active root changelog with this canonical st
 ### Regression guard
 - Admin Import / Geodata DB provider configuration remains untouched except for backend stability compatibility.
 - Existing AWS, Mapy.cz, and Geoapify+TomTom provider fallbacks remain available.
+
+## v1.7.6 — Event location DB autocomplete stabilization
+
+### Fixed
+- Stabilized event creation location search when active provider is a configured `db:*` Geodata provider.
+- Split DB provider behavior by use case: `test_db_table_query` remains direct table projection for admin diagnostics, while `autocomplete` now uses resilient venue autocomplete.
+- Fixed the regression where venue autocomplete returned direct-select diagnostic payloads and empty results for activity-like terms such as `board`, `hobbeast`, `társas`, or `játék`.
+- Added semantic fallback so board-game/social activity queries can surface useful cafe/pub/venue candidates from live Geodata rows.
+- Contained Import → Címkereső diagnostic layout with `min-w-0`, horizontal overflow containment, and safer debug wrapping.
+
+### Regression guard
+- Traffic Import/Eventbrite provider panels were not modified.
+- API key lab and provider persistence logic were not changed.
+- Geodata service-role usage remains server-side in Supabase Edge Function secrets only.
+
+### Verification notes
+- Edge runtime marker: `v1.7.6-stable-db-autocomplete`.
+- DB autocomplete debug mode: `db_autocomplete_resilient`.
+- Admin direct query debug mode remains: `direct_table_select`.

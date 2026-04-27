@@ -30,3 +30,17 @@ SOHA ne töröld a meglévő tartalmat — csak hozzáadni szabad.
 - **Fix**: Added the missing backend helper, AbortController-backed frontend search cancellation, a short cache, slow-query diagnostics, and an Error Boundary around the event creation modal.
 - **Prevention**: Any future address/location search feature must support debounce, request cancellation, stale-response protection, UI empty/error states, and backend runtime marker checks before deployment.
 - **Regression note**: Do not reintroduce direct `venue_cache`-only search paths for event venue suggestions when `db:*` providers are active; use the configured address provider path.
+
+## v1.7.6 — Separate admin DB projection from runtime venue autocomplete
+
+### Symptom
+Typing activity-like text such as `board`, `hobbeast`, `társas`, or `játék` into event creation location search produced empty results while `db:unified-poi` was active.
+
+### Root cause
+The same direct table projection function was used for both admin diagnostics and runtime venue autocomplete. Admin diagnostics need raw selected columns and counts; runtime autocomplete needs mapped venue results, semantic fallback, and user-safe empty/error behavior.
+
+### Fix
+Keep `test_db_table_query` as direct table projection, but route `autocomplete` for `db:*` providers through a dedicated resilient DB autocomplete engine.
+
+### Prevention
+Never reuse admin/debug projection endpoints as production autocomplete behavior. Admin query tools and user-facing search must have separate contracts and fallback logic.
