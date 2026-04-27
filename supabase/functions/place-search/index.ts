@@ -31,6 +31,7 @@ interface SearchBody {
   category?: string
   activityHint?: string
   city?: string
+  source?: string
   table?: GeodataTableName | string
   label?: string
   tables?: Partial<DbSearchTableConfig>[]
@@ -44,6 +45,7 @@ interface SearchBody {
   limit?: number
   lenient?: boolean
   provider_mode?: ProviderMode | string
+  columns?: string[]
   group?: ProviderConfigGroup | string
   provider?: ProviderMode | string
 }
@@ -127,6 +129,24 @@ const GEODATA_SELECT_COLUMNS: Record<GeodataTableName, string> = {
 }
 
 const SEARCHABLE_COLUMNS = ['name', 'formatted_address', 'address_line1', 'address_line2', 'street', 'city', 'brand', 'operator', 'cuisine']
+
+const DEFAULT_DB_TEST_COLUMNS = [
+  'id',
+  'name',
+  'city',
+  'district',
+  'formatted_address',
+  'lat',
+  'lon',
+  'categories',
+  'source_provider',
+  'datasource_name',
+  'brand',
+  'operator',
+  'cuisine',
+  'phone',
+  'website',
+] as const
 
 class HttpError extends Error {
   status: number
@@ -451,6 +471,47 @@ function tablePath(table: GeodataTableName) {
   return table.split('.').pop() || table
 }
 
+function tableColumns(table: GeodataTableName) {
+  return new Set(GEODATA_SELECT_COLUMNS[table].split(',').map((column) => column.trim()).filter(Boolean))
+}
+
+function sourceColumnForTable(table: GeodataTableName) {
+  return table === 'public.geoapify_pois' ? 'datasource_name' : 'source_provider'
+}
+
+function normalizeRequestedColumns(table: GeodataTableName, requested?: unknown): string[] {
+  const available = tableColumns(table)
+  const raw = Array.isArray(requested) && requested.length > 0
+    ? requested.map((item) => String(item || '').trim()).filter(Boolean)
+    : Array.from(DEFAULT_DB_TEST_COLUMNS)
+  const cleaned = Array.from(new Set(raw)).filter((column) => available.has(column))
+  const fallback = Array.from(DEFAULT_DB_TEST_COLUMNS).filter((column) => available.has(column))
+  return cleaned.length > 0 ? cleaned : fallback
+}
+
+function buildSelectColumns(table: GeodataTableName, resultColumns: string[]) {
+  const available = tableColumns(table)
+  const requiredForMapping = [
+    'id', 'source_id', 'provider_id', 'external_id', 'osm_id',
+    'source_provider', 'datasource_name', 'name', 'brand', 'operator',
+    'formatted_address', 'address_line1', 'address_line2', 'street', 'street_number', 'housenumber',
+    'postal_code', 'postcode', 'city', 'district', 'suburb', 'state_region', 'state',
+    'lat', 'lon', 'categories', 'details', 'payment_options', 'diet', 'fetch_category',
+    'classification_code', 'cuisine', 'building_type', 'phone', 'email', 'website',
+    'facebook', 'instagram', 'tripadvisor', 'opening_hours', 'branch', 'capacity',
+    'reservation', 'wheelchair', 'outdoor_seating', 'indoor_seating', 'internet_access',
+    'air_conditioning', 'smoking', 'toilets', 'takeaway', 'delivery',
+  ]
+  return Array.from(new Set([...resultColumns, ...requiredForMapping])).filter((column) => available.has(column)).join(',')
+}
+
+function pickColumns(row: Record<string, any>, columns: string[]) {
+  return columns.reduce((acc, column) => {
+    acc[column] = row[column] ?? null
+    return acc
+  }, {} as Record<string, unknown>)
+}
+
 function coerceStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
   if (typeof value === 'string' && value.trim()) return [value]
@@ -629,38 +690,73 @@ async function resolveDbTableConfig(
   return match
 }
 
-async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: SearchBody): Promise<{ results: ProviderPlace[]; debug: Record<string, unknown> }> {
+async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: SearchBody): Promise<{ results: ProviderPlace[]; rows: Record<string, unknown>[]; columns: string[]; totalCount: number | null; debug: Record<string, unknown> }> {
   const { url, key } = resolveGeodataAuth()
-  const limit = Math.min(Math.max(Number(params.limit || 24), 1), 80)
-  const fetchLimit = Math.min(Math.max(limit * 8, limit), 200)
+  const limit = Math.min(Math.max(Number(params.limit || 24), 1), 200)
+  const fetchLimit = Math.min(Math.max(limit * 8, 500), 1000)
   const query = postgrestSafe(params.query || '')
   const city = postgrestSafe(params.city || '')
   const category = postgrestSafe(params.category || params.activityHint || '')
+  const source = postgrestSafe(params.source || '')
   const center = bodyCenter(params)
+  const resultColumns = normalizeRequestedColumns(tableConfig.table, params.columns)
+  const sourceColumn = sourceColumnForTable(tableConfig.table)
+
+  const applyFilters = (restUrl: URL) => {
+    if (city) restUrl.searchParams.set('city', `ilike.*${city}*`)
+    if (source) restUrl.searchParams.set(sourceColumn, `ilike.*${source}*`)
+    if (query) {
+      const searchableColumns = SEARCHABLE_COLUMNS.filter((column) => tableColumns(tableConfig.table).has(column))
+      if (searchableColumns.length > 0) {
+        const orFilter = '(' + searchableColumns.map((column) => column + '.ilike.*' + query + '*').join(',') + ')'
+        restUrl.searchParams.set('or', orFilter)
+      }
+    }
+  }
+
+  const countUrl = new URL(`${url}/rest/v1/${tablePath(tableConfig.table)}`)
+  countUrl.searchParams.set('select', 'id')
+  countUrl.searchParams.set('limit', '1')
+  applyFilters(countUrl)
+
+  let exactPreCategoryCount: number | null = null
+  try {
+    const countResponse = await fetch(countUrl.toString(), {
+      headers: { ...geodataHeaders(key), Prefer: 'count=exact' },
+    })
+    const contentRange = countResponse.headers.get('content-range') || ''
+    const match = contentRange.match(/\/(\d+)$/)
+    exactPreCategoryCount = match ? Number(match[1]) : null
+  } catch {
+    exactPreCategoryCount = null
+  }
 
   const restUrl = new URL(`${url}/rest/v1/${tablePath(tableConfig.table)}`)
-  restUrl.searchParams.set('select', GEODATA_SELECT_COLUMNS[tableConfig.table])
+  restUrl.searchParams.set('select', buildSelectColumns(tableConfig.table, resultColumns))
   restUrl.searchParams.set('limit', String(fetchLimit))
-  restUrl.searchParams.set('order', 'name.asc.nullslast')
-
-  if (city) restUrl.searchParams.set('city', `ilike.*${city}*`)
-  if (query) {
-    restUrl.searchParams.set('or', `(${SEARCHABLE_COLUMNS.map((column) => `${column}.ilike.*${query}*`).join(',')})`)
-  }
+  if (tableColumns(tableConfig.table).has('name')) restUrl.searchParams.set('order', 'name.asc.nullslast')
+  applyFilters(restUrl)
 
   const rows = await restFetchJson<Record<string, any>[]>(restUrl.toString(), {
     headers: geodataHeaders(key),
   })
 
   const rawRows = Array.isArray(rows) ? rows : []
-  const mapped = rawRows
-    .map((row) => mapGeodataRow(row, tableConfig))
-    .filter((row) => categoryMatches(row, category))
-    .filter((row) => textMatchesQuery(row, query))
-    .map((row) => ({ ...row, score: scoreRow(row, query, center) }))
+  const filtered = rawRows
+    .map((row) => ({ raw: row, mapped: mapGeodataRow(row, tableConfig) }))
+    .filter(({ mapped }) => categoryMatches(mapped, category))
+    .filter(({ mapped }) => textMatchesQuery(mapped, query))
+    .map(({ raw, mapped }) => ({ raw, mapped: { ...mapped, score: scoreRow(mapped, query, center) } }))
+    .sort((a, b) => (b.mapped.score || 0) - (a.mapped.score || 0))
+
+  const limited = filtered.slice(0, limit)
+  const totalCount = category ? filtered.length : exactPreCategoryCount
 
   return {
-    results: dedupe(mapped).sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, limit),
+    results: limited.map((item) => item.mapped),
+    rows: limited.map((item) => pickColumns(item.raw, resultColumns)),
+    columns: resultColumns,
+    totalCount,
     debug: {
       geodata_url: url,
       table: tableConfig.table,
@@ -668,9 +764,15 @@ async function queryGeodataTable(tableConfig: DbSearchTableConfig, params: Searc
       query,
       city,
       category,
+      source,
+      source_column: sourceColumn,
+      selected_columns: resultColumns,
       fetch_limit: fetchLimit,
+      exact_pre_category_count: exactPreCategoryCount,
+      total_count: totalCount,
       raw_candidate_count: rawRows.length,
-      filtered_candidate_count: mapped.length,
+      filtered_candidate_count: filtered.length,
+      count_note: category ? 'A kategória szűrés alkalmazásszinten történik, ezért a számosság a lekért minta alapján visszaellenőrzött érték.' : 'A számosság PostgREST exact count alapján jött a város/forrás/szöveg szűrőkre.',
     },
   }
 }
@@ -874,8 +976,8 @@ Deno.serve(async (request) => {
 
     if (action === 'test_db_table_query') {
       const tableConfig = await resolveDbTableConfig(supabaseUrl, serviceRoleKey, body.provider, body.table, body.label)
-      const { results, debug } = await queryGeodataTable(tableConfig, body)
-      return json({ results, debug })
+      const { results, rows, columns, totalCount, debug } = await queryGeodataTable(tableConfig, body)
+      return json({ results, rows, columns, totalCount, debug })
     }
 
     const requestedProvider = body.provider_mode || body.provider

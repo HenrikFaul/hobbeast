@@ -68,11 +68,42 @@ const BASE_PROVIDER_OPTIONS: Array<{ value: AddressSearchProvider; label: string
   { value: 'mapy', label: 'Mapy.cz', detail: 'Mapy cím- és útvonal provider' },
 ];
 
+const DB_TEST_COLUMN_OPTIONS = [
+  { value: 'id', label: 'ID' },
+  { value: 'name', label: 'Név' },
+  { value: 'city', label: 'Város' },
+  { value: 'district', label: 'Kerület / körzet' },
+  { value: 'formatted_address', label: 'Formázott cím' },
+  { value: 'lat', label: 'Latitude' },
+  { value: 'lon', label: 'Longitude' },
+  { value: 'categories', label: 'Kategóriák' },
+  { value: 'source_provider', label: 'Forrás provider' },
+  { value: 'datasource_name', label: 'Datasource név' },
+  { value: 'brand', label: 'Brand' },
+  { value: 'operator', label: 'Operator' },
+  { value: 'cuisine', label: 'Cuisine' },
+  { value: 'phone', label: 'Telefon' },
+  { value: 'website', label: 'Weboldal' },
+] as const;
+
+const DEFAULT_DB_TEST_COLUMNS = DB_TEST_COLUMN_OPTIONS.map((column) => column.value);
+
+function formatDbCell(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'boolean') return value ? 'igen' : 'nem';
+  return String(value);
+}
+
+
 interface DbConfigFormState {
   table: GeodataTableName;
   label: string;
   city: string;
   category: string;
+  source: string;
+  columns: string[];
   limit: number;
 }
 
@@ -81,6 +112,8 @@ const DEFAULT_DB_FORM: DbConfigFormState = {
   label: 'Unified POI',
   city: 'Budapest',
   category: '',
+  source: '',
+  columns: DEFAULT_DB_TEST_COLUMNS,
   limit: 10,
 };
 
@@ -134,6 +167,9 @@ export function AdminEventbrite() {
   const [dbConfigSaving, setDbConfigSaving] = useState(false);
   const [dbForm, setDbForm] = useState<DbConfigFormState>(DEFAULT_DB_FORM);
   const [dbTestResults, setDbTestResults] = useState<NormalizedPlace[]>([]);
+  const [dbTestRows, setDbTestRows] = useState<Record<string, unknown>[]>([]);
+  const [dbTestColumns, setDbTestColumns] = useState<string[]>(DEFAULT_DB_TEST_COLUMNS);
+  const [dbTotalCount, setDbTotalCount] = useState<number | null>(null);
   const [dbTestLoading, setDbTestLoading] = useState(false);
   const [dbDebug, setDbDebug] = useState<Record<string, unknown> | null>(null);
 
@@ -369,12 +405,16 @@ export function AdminEventbrite() {
     setDbTestLoading(true);
     setDbDebug(null);
     setDbTestResults([]);
+    setDbTestRows([]);
+    setDbTotalCount(null);
     try {
       const result = await testDbSearchTableQuery({
         table: dbForm.table,
         label: dbForm.label,
         city: dbForm.city,
         category: dbForm.category,
+        source: dbForm.source,
+        columns: dbForm.columns,
         limit: dbForm.limit,
       });
       const normalized = ((result.results || []) as any[]).map((row) => ({
@@ -393,8 +433,12 @@ export function AdminEventbrite() {
         confidence: 0.75,
       }));
       setDbTestResults(normalized);
+      setDbTestRows(result.rows || []);
+      setDbTestColumns(result.columns || dbForm.columns);
+      setDbTotalCount(typeof result.totalCount === 'number' ? result.totalCount : null);
       setDbDebug(result.debug || null);
-      toast.success(`${normalized.length} tesztsor lekérve: ${dbForm.table}`);
+      const countLabel = typeof result.totalCount === 'number' ? ` / ${result.totalCount} találat` : '';
+      toast.success(`${normalized.length} tesztsor lekérve: ${dbForm.table}${countLabel}`);
     } catch (err: any) {
       toast.error(err.message || 'Adatbázistábla teszt hiba');
     } finally {
@@ -590,6 +634,10 @@ export function AdminEventbrite() {
                         <Input value={dbForm.category} onChange={(e) => setDbForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Pl. cafe, restaurant, társas" />
                       </label>
                       <label className="space-y-1 text-xs font-medium">
+                        Teszt forrás
+                        <Input value={dbForm.source} onChange={(e) => setDbForm((prev) => ({ ...prev, source: e.target.value }))} placeholder="Pl. geoapify, osm, local" />
+                      </label>
+                      <label className="space-y-1 text-xs font-medium">
                         Teszt lekérdezési darabszám
                         <Input type="number" min={1} max={80} value={dbForm.limit} onChange={(e) => setDbForm((prev) => ({ ...prev, limit: Math.min(Math.max(Number(e.target.value) || 10, 1), 80) }))} />
                       </label>
@@ -603,7 +651,40 @@ export function AdminEventbrite() {
                       </div>
                     </div>
 
+                    <div className="rounded-lg border bg-muted/10 p-3 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">Tesztben megjelenített oszlopok</p>
+                          <p className="text-xs text-muted-foreground">A 15 legfontosabb POI mezőből választhatsz. A nem létező oszlopokat a backend automatikusan kihagyja az adott táblánál.</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setDbForm((prev) => ({ ...prev, columns: DEFAULT_DB_TEST_COLUMNS }))}>Kiválaszt mind</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDbForm((prev) => ({ ...prev, columns: [] }))}>Kiválasztások törlése</Button>
+                        </div>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {DB_TEST_COLUMN_OPTIONS.map((column) => (
+                          <label key={column.value} className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/40">
+                            <input
+                              type="checkbox"
+                              className="h-3.5 w-3.5"
+                              checked={dbForm.columns.includes(column.value)}
+                              onChange={(e) => setDbForm((prev) => ({
+                                ...prev,
+                                columns: e.target.checked
+                                  ? Array.from(new Set([...prev.columns, column.value]))
+                                  : prev.columns.filter((value) => value !== column.value),
+                              }))}
+                            />
+                            <span>{column.label}</span>
+                            <code className="ml-auto text-[10px] text-muted-foreground">{column.value}</code>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
+
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium">Mentett db providerek</p>
                         <Badge variant="secondary">{dbConfigs.length} db</Badge>
@@ -642,25 +723,34 @@ export function AdminEventbrite() {
                 </Card>
               </div>
 
-              {dbTestResults.length > 0 ? (
+              {dbTestRows.length > 0 ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4 text-primary" /> Adatbázistábla teszt találatok</CardTitle>
+                    <CardTitle className="flex items-center justify-between gap-2 text-base">
+                      <span className="flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Adatbázistábla teszt találatok</span>
+                      <Badge variant="secondary">{dbTotalCount === null ? `${dbTestRows.length} sor` : `${dbTotalCount} találat / ${dbTestRows.length} sor`}</Badge>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                      {dbTestResults.map((item) => (
-                        <div key={item.id} className="rounded-lg border p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.address}</p>
-                              <p className="text-xs text-muted-foreground">{[item.city, item.district, item.postcode].filter(Boolean).join(' · ')}</p>
-                            </div>
-                            <Badge variant="outline">{item.source}</Badge>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-muted/40 text-muted-foreground">
+                          <tr>
+                            {dbTestColumns.map((column) => (
+                              <th key={column} className="whitespace-nowrap px-3 py-2 text-left font-medium">{column}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dbTestRows.map((row, index) => (
+                            <tr key={index} className="border-t align-top">
+                              {dbTestColumns.map((column) => (
+                                <td key={column} className="max-w-[260px] truncate px-3 py-2" title={formatDbCell(row[column])}>{formatDbCell(row[column])}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </CardContent>
                 </Card>

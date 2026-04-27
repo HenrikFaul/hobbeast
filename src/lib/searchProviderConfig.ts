@@ -50,12 +50,17 @@ export interface DbSearchTableTestInput {
   label?: string;
   city?: string;
   category?: string;
+  source?: string;
   query?: string;
+  columns?: string[];
   limit?: number;
 }
 
 export interface DbSearchTableTestResult {
   results: unknown[];
+  rows?: Record<string, unknown>[];
+  columns?: string[];
+  totalCount?: number | null;
   debug?: Record<string, unknown>;
 }
 
