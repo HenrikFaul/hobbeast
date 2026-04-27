@@ -172,6 +172,8 @@ export function AdminEventbrite() {
   const [dbTotalCount, setDbTotalCount] = useState<number | null>(null);
   const [dbTestLoading, setDbTestLoading] = useState(false);
   const [dbDebug, setDbDebug] = useState<Record<string, unknown> | null>(null);
+  const [dbQueryExecuted, setDbQueryExecuted] = useState(false);
+  const [dbQueryError, setDbQueryError] = useState<string | null>(null);
 
   const providerOptions = useMemo(() => {
     const dbOptions = dbConfigs.map((row) => ({
@@ -402,11 +404,21 @@ export function AdminEventbrite() {
   };
 
   const handleTestDbTable = async () => {
-    setDbTestLoading(true);
+    setDbQueryExecuted(true);
+    setDbQueryError(null);
     setDbDebug(null);
     setDbTestResults([]);
     setDbTestRows([]);
     setDbTotalCount(null);
+
+    if (dbForm.columns.length === 0) {
+      const message = 'Válassz ki legalább egy megjelenítendő oszlopot a lekérdezés futtatásához.';
+      setDbQueryError(message);
+      toast.error(message);
+      return;
+    }
+
+    setDbTestLoading(true);
     try {
       const result = await testDbSearchTableQuery({
         table: dbForm.table,
@@ -432,15 +444,19 @@ export function AdminEventbrite() {
         sourceId: row.external_id,
         confidence: 0.75,
       }));
+      const selectedColumns = result.columns && result.columns.length > 0 ? result.columns : dbForm.columns;
+      const returnedRows = result.rows || [];
       setDbTestResults(normalized);
-      setDbTestRows(result.rows || []);
-      setDbTestColumns(result.columns || dbForm.columns);
+      setDbTestRows(returnedRows);
+      setDbTestColumns(selectedColumns);
       setDbTotalCount(typeof result.totalCount === 'number' ? result.totalCount : null);
       setDbDebug(result.debug || null);
-      const countLabel = typeof result.totalCount === 'number' ? ` / ${result.totalCount} találat` : '';
-      toast.success(`${normalized.length} tesztsor lekérve: ${dbForm.table}${countLabel}`);
+      const countLabel = typeof result.totalCount === 'number' ? ` / ${result.totalCount} találat az adatbázisban` : '';
+      toast.success(`${returnedRows.length} sor lekérve: ${dbForm.table}${countLabel}`);
     } catch (err: any) {
-      toast.error(err.message || 'Adatbázistábla teszt hiba');
+      const message = err.message || 'Adatbázistábla lekérdezési hiba';
+      setDbQueryError(message);
+      toast.error(message);
     } finally {
       setDbTestLoading(false);
     }
@@ -645,8 +661,8 @@ export function AdminEventbrite() {
                         <Button className="flex-1" onClick={handleAddDbConfig} disabled={dbConfigSaving}>
                           <PlusCircle className="mr-1 h-4 w-4" /> Mentés providerként
                         </Button>
-                        <Button variant="outline" onClick={handleTestDbTable} disabled={dbTestLoading}>
-                          <Search className={`mr-1 h-4 w-4 ${dbTestLoading ? 'animate-spin' : ''}`} /> Teszt
+                        <Button variant="outline" onClick={handleTestDbTable} disabled={dbTestLoading || dbForm.columns.length === 0}>
+                          <Search className={`mr-1 h-4 w-4 ${dbTestLoading ? 'animate-spin' : ''}`} /> Lekérdezés
                         </Button>
                       </div>
                     </div>
@@ -657,9 +673,12 @@ export function AdminEventbrite() {
                           <p className="text-sm font-medium">Tesztben megjelenített oszlopok</p>
                           <p className="text-xs text-muted-foreground">A 15 legfontosabb POI mezőből választhatsz. A nem létező oszlopokat a backend automatikusan kihagyja az adott táblánál.</p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button size="sm" variant="outline" onClick={() => setDbForm((prev) => ({ ...prev, columns: DEFAULT_DB_TEST_COLUMNS }))}>Kiválaszt mind</Button>
                           <Button size="sm" variant="outline" onClick={() => setDbForm((prev) => ({ ...prev, columns: [] }))}>Kiválasztások törlése</Button>
+                          <Button size="sm" onClick={handleTestDbTable} disabled={dbTestLoading || dbForm.columns.length === 0}>
+                            <Search className={`mr-1 h-4 w-4 ${dbTestLoading ? 'animate-spin' : ''}`} /> Lekérdezés futtatása
+                          </Button>
                         </div>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -723,15 +742,65 @@ export function AdminEventbrite() {
                 </Card>
               </div>
 
-              {dbTestRows.length > 0 ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between gap-2 text-base">
-                      <span className="flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Adatbázistábla teszt találatok</span>
-                      <Badge variant="secondary">{dbTotalCount === null ? `${dbTestRows.length} sor` : `${dbTotalCount} találat / ${dbTestRows.length} sor`}</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                    <span className="flex items-center gap-2"><Database className="h-4 w-4 text-primary" /> Lekérdezés eredménye</span>
+                    <Badge variant={dbQueryError ? 'destructive' : 'secondary'}>
+                      {dbTestLoading
+                        ? 'Lekérdezés folyamatban'
+                        : dbQueryError
+                          ? 'Hiba'
+                          : !dbQueryExecuted
+                            ? 'Még nincs futtatva'
+                            : dbTotalCount === null
+                              ? `${dbTestRows.length} sor`
+                              : `${dbTotalCount} találat / ${dbTestRows.length} sor lekérve`}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="outline">Tábla: {dbForm.table}</Badge>
+                    <Badge variant="outline">Város: {dbForm.city || 'nincs szűrő'}</Badge>
+                    <Badge variant="outline">Kategória: {dbForm.category || 'nincs szűrő'}</Badge>
+                    <Badge variant="outline">Forrás: {dbForm.source || 'nincs szűrő'}</Badge>
+                    <Badge variant="outline">Oszlopok: {dbForm.columns.length}</Badge>
+                  </div>
+
+                  {!dbQueryExecuted && !dbTestLoading ? (
+                    <div className="flex items-start gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">Itt fognak megjelenni a lekérdezett sorok.</p>
+                        <p>Válaszd ki a szűrőket és az oszlopokat, majd kattints a <strong>Lekérdezés futtatása</strong> gombra.</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {dbTestLoading ? (
+                    <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+                      <Search className="h-4 w-4 animate-spin" /> Lekérdezés futtatása...
+                    </div>
+                  ) : null}
+
+                  {dbQueryError ? (
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <p className="font-medium">A lekérdezés nem sikerült</p>
+                        <p>{dbQueryError}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {dbQueryExecuted && !dbTestLoading && !dbQueryError && dbTestRows.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      Nincs megjeleníthető sor a megadott szűrőkkel. Próbáld üresen hagyni a kategória vagy forrás szűrőt, vagy növeld a lekérdezési darabszámot.
+                    </div>
+                  ) : null}
+
+                  {dbTestRows.length > 0 ? (
                     <div className="overflow-x-auto rounded-lg border">
                       <table className="min-w-full text-xs">
                         <thead className="bg-muted/40 text-muted-foreground">
@@ -752,9 +821,9 @@ export function AdminEventbrite() {
                         </tbody>
                       </table>
                     </div>
-                  </CardContent>
-                </Card>
-              ) : null}
+                  ) : null}
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader>
