@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Network, MapPin, Users, Calendar, Save } from 'lucide-react';
+import { Network, MapPin, Users, Calendar, Save, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface HubBasic {
@@ -29,9 +29,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onUpdated: () => void;
+  onViewMember?: (userId: string) => void;
 }
 
-export function HubDetailModal({ hub, open, onClose, onUpdated }: Props) {
+export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<MemberProfile[]>([]);
@@ -135,6 +136,17 @@ export function HubDetailModal({ hub, open, onClose, onUpdated }: Props) {
                         <p className="text-xs text-muted-foreground">{p.city || 'ismeretlen város'}</p>
                       </div>
                       <Badge variant="secondary" className="text-[10px]">{(p.hobbies || []).length} hobbi</Badge>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => p.user_id && onViewMember?.(p.user_id)}
+                        title="Tag megtekintése"
+                        disabled={!p.user_id || !onViewMember}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>

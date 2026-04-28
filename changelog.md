@@ -308,3 +308,12 @@ After review, rename or replace the active root changelog with this canonical st
 ### Notes
 - A Hobbeast lokális katalógustábla neve: `public.places_local_catalog`.
 - A Geodata projektben használt tartós kategóriamapper tábla neve: `public.provider_category_mapper`.
+
+---
+
+## [1.7.9] — 2026-04-28
+### Admin / planner stability and reusable faceted-search documentation
+- Documented the counted suggestion overlay / live faceted typeahead pattern in `docs/live-faceted-search-pattern.md` for reuse across admin and mapping screens.
+- Fixed a route-planner regression source where provider results with missing coordinates could degrade into `0,0` and create Gulf-of-Guinea start/end points.
+- Added coordinate validation and AWS detail fallback before accepting planner suggestions.
+- Virtual hub member lists now support inline profile viewing via eye icon without forcing the hub detail dialog to close.

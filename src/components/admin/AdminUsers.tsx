@@ -177,6 +177,15 @@ export function AdminUsers() {
     setRefreshingHubs(false);
   };
 
+  const openUserDetailById = async (userId: string) => {
+    const profile = profiles.find((row) => row.user_id === userId);
+    if (!profile) {
+      toast.error('A kiválasztott tag profilja nem található.');
+      return;
+    }
+    await openDetail(profile);
+  };
+
   const openDetail = async (profile: ProfileRow) => {
     setSelectedUser(profile);
     setDetailLoading(true);
@@ -773,7 +782,13 @@ const applyBulkSelection = async () => {
         </DialogContent>
       </Dialog>
 
-      <HubDetailModal hub={selectedHub} open={hubDetailOpen} onClose={() => setHubDetailOpen(false)} onUpdated={loadHubs} />
+      <HubDetailModal
+        hub={selectedHub}
+        open={hubDetailOpen}
+        onClose={() => setHubDetailOpen(false)}
+        onUpdated={loadHubs}
+        onViewMember={(userId) => { void openUserDetailById(userId); }}
+      />
 
       <AlertDialog open={pendingAction !== null} onOpenChange={(open) => !open && setPendingAction(null)}>
         <AlertDialogContent>

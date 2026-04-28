@@ -60,3 +60,12 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
 - **Fix**: A két tábla külön, explicit blokkban marad, mindkettő saját oszlopfejléc-alatti realtime szűrőkkel. A kategória ajánló logika külön réteg lett, nem írhatja felül a raw/mapper gridet.
 - **Prevention**: Admin diagnosztikai képernyőknél előre rögzíteni kell az invariánsokat: (1) raw projection table látszik, (2) mapper table látszik, (3) mindkettő szűrhető, (4) új suggestion/mapping logika csak additív lehet.
 - **Search architecture note**: Ha HU/EN / local catalog aliasokkal akarunk provider kategóriára rákeresni, azt a dedikált mapper tábla (`public.provider_category_mapper`) term-expansion rétegében kell megoldani, nem a raw találati táblák egyszerűsítésével.
+
+## v1.7.9 — Faceted suggestion overlays must be reusable, and trip planners must reject null-island coordinates
+
+- **Symptom**: The counted suggestion overlay proved highly effective for category exploration, but without naming and documenting the pattern it becomes hard to reuse consistently across future admin screens.
+- **Pattern name**: Treat this UI as a `live faceted typeahead with counted suggestions` (or `FacetTypeahead`) instead of a generic dropdown.
+- **Implementation lesson**: Keep the source rows, normalized aliases, bucket aggregation, count rendering, and keyboard interaction as separate layers so the same component can be reused for provider categories, cities, hubs, and address mappers.
+- **Planner bug**: Address providers can occasionally return incomplete hits without valid coordinates; silently coercing these to numeric zero creates random `0,0` route points.
+- **Fix**: Route-planning suggestion pipelines must validate coordinates and either enrich missing provider coordinates from a details endpoint or drop the invalid suggestion before selection.
+- **Prevention**: Any autocomplete that feeds a map or router must treat `0,0` as invalid unless it is explicitly intended, and nested admin detail dialogs should open additive overlays instead of replacing the parent modal.

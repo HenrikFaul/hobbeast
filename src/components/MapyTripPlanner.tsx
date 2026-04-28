@@ -68,6 +68,14 @@ function formatDuration(durationS?: number | null) {
   return `${minutes} p`;
 }
 
+function isValidTripPoint(point: Pick<TripPlanPoint, 'lat' | 'lon'> | null | undefined) {
+  if (!point) return false;
+  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return false;
+  if (Math.abs(point.lat) > 90 || Math.abs(point.lon) > 180) return false;
+  if (Math.abs(point.lat) < 0.000001 && Math.abs(point.lon) < 0.000001) return false;
+  return true;
+}
+
 function MapySearchInput({
   label,
   value,
@@ -134,9 +142,10 @@ function MapySearchInput({
             bbox: null,
           }));
         }
-        setResults(items);
-        setOpen(items.length > 0);
-        setActiveIndex(items.length > 0 ? 0 : -1);
+        const validItems = items.filter((item) => isValidTripPoint(item));
+        setResults(validItems);
+        setOpen(validItems.length > 0);
+        setActiveIndex(validItems.length > 0 ? 0 : -1);
       } catch {
         setResults([]);
         setOpen(false);
@@ -152,6 +161,13 @@ function MapySearchInput({
   const selectResult = (result: MapySuggestion | null) => {
     preserveTypedQueryRef.current = false;
     justSelectedRef.current = true;
+    if (result && !isValidTripPoint(result)) {
+      toast.error('Ehhez a találathoz nem érkezett használható koordináta. Válassz másik címet.');
+      setResults((current) => current.filter((item) => item.id !== result.id));
+      setOpen(true);
+      setActiveIndex(-1);
+      return;
+    }
     onSelect(result);
     setQuery(result ? pointToText(result) : '');
     setResults([]);

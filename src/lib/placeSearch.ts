@@ -90,6 +90,13 @@ function safeNumber(...values: unknown[]): number {
   return 0;
 }
 
+function isValidCoordinate(lat: number, lon: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
+  if (Math.abs(lat) < 0.000001 && Math.abs(lon) < 0.000001) return false;
+  return true;
+}
+
 function coerceStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => normalizeText(item)).filter(Boolean);
   if (typeof value === 'string' && value.trim()) return [value.trim()];
@@ -222,7 +229,9 @@ async function callPlaceSearch(
           ? (payload as EdgePlaceRow[])
           : [];
 
-    const normalized = rows.map(mapEdgePlace).filter((row) => Boolean(row.id && row.name));
+    const normalized = rows
+      .map(mapEdgePlace)
+      .filter((row) => Boolean(row.id && row.name && isValidCoordinate(row.lat, row.lon)));
     writeCache(key, normalized);
     return normalized;
   } catch (error) {
@@ -253,6 +262,22 @@ async function searchAwsPlaces(query: string): Promise<NormalizedPlace[]> {
   for (const item of [...suggestions, ...searchText]) {
     const label = item.place?.label || item.text || '';
     if (!label) continue;
+
+    let lon = item.place?.position?.[0] ?? null;
+    let lat = item.place?.position?.[1] ?? null;
+
+    if ((!isValidCoordinate(Number(lat), Number(lon))) && item.placeId) {
+      const details = await getPlace(item.placeId).catch(() => null);
+      if (details?.position) {
+        lon = details.position[0];
+        lat = details.position[1];
+      }
+    }
+
+    const normalizedLat = Number(lat);
+    const normalizedLon = Number(lon);
+    if (!isValidCoordinate(normalizedLat, normalizedLon)) continue;
+
     const mapped: NormalizedPlace = {
       id: `aws-${item.placeId || label}`,
       name: label,
@@ -261,8 +286,8 @@ async function searchAwsPlaces(query: string): Promise<NormalizedPlace[]> {
       district: item.place?.district || '',
       country: item.place?.country || 'Hungary',
       postcode: item.place?.postalCode || '',
-      lat: item.place?.position?.[1] || 0,
-      lon: item.place?.position?.[0] || 0,
+      lat: normalizedLat,
+      lon: normalizedLon,
       categories: [],
       source: 'aws',
       sourceId: item.placeId || label,
