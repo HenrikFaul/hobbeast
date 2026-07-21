@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +31,14 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// P0 (v1.7.4): back-compat redirect for any stale `/events/:id/organize`
+// link (bookmarks, external references). The canonical route is
+// `/organizer?event=:id`.
+const OrganizeEventRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/organizer?event=${id}` : '/organizer'} replace />;
+};
 
 const RouteFallback = () => (
   <div
@@ -65,6 +73,7 @@ const App = () => (
                         <Route path="/explore" element={<Explore />} />
                         <Route path="/events" element={<Events />} />
                         <Route path="/events/:id" element={<EventDetail />} />
+                        <Route path="/events/:id/organize" element={<OrganizeEventRedirect />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/organizer" element={<OrganizerDashboard />} />
