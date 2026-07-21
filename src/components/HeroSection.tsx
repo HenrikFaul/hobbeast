@@ -98,6 +98,11 @@ const HeroSection = () => {
               <img
                 src={heroImg}
                 alt="Közösség hobbikkal"
+                width={1600}
+                height={900}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
                 className="w-full h-[300px] sm:h-[380px] md:h-[460px] lg:h-[540px] object-cover opacity-90"
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,hsl(228_24%_6%/0.08),hsl(228_24%_6%/0.48))]" />

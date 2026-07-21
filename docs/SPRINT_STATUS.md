@@ -27,7 +27,7 @@ Legend: ✅ done · 🟡 partial · ⬜ deferred
 ## Sprint 5 – Product & Brand Finalization
 - ✅ 5.a Brand/messaging pivot (light teal/emerald palette, "shared experiences" copy) — landed in an earlier turn.
 - ✅ 5.b `index.html` head metadata already sets Hobbeast-specific `<title>`, description, `og:*`, and `twitter:*`.
-- 🟡 5.c Bundle performance — Sprint 1.4 code-splitting delivers the initial payload win. A follow-up asset audit (images ≥ 100 KB) is queued.
+- ✅ 5.c Bundle & asset performance — Sprint 1.4 code-splitting cut initial payload from 1.35 MB to 136 KB; v1.7.2 asset audit re-compressed `src/assets/hero-community.jpg` (215 KB → 200 KB, quality 82, stripped metadata) and removed the unused duplicate `public/hobbeast-logo.png`. Hero `<img>` now declares intrinsic `width`/`height` plus `decoding="async"` and `fetchPriority="high"` to prevent CLS and prioritize the LCP element.
 
 ## Why some sprints are deferred
 
