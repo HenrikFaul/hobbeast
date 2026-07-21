@@ -7,6 +7,7 @@ import { fetchTomTomRows } from './providers/tomtom.ts';
 import { getStatus, resetCatalog, upsertSyncState, writeCatalogRows } from './repositories.ts';
 import { buildTasks } from './taskBuilder.ts';
 import type { BatchResult, LocalCatalogRow, SyncBody, SyncTask } from './types.ts';
+import { requireEnv } from '../shared/env.ts';
 
 /** Auto-reset a run that has been stuck in 'running' for longer than this. */
 const STALE_RUN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
