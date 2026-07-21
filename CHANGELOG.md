@@ -12,6 +12,29 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.7.5] — 2026-07-21
+
+Documentation + CI-only pass covering the low-risk half of the remaining v2 audit backlog. No runtime code, no SQL, no dep bumps in this release — those still require per-item sign-off (key rotation, migration approval, breaking upgrades) and are staged in the new docs so a future round can execute each one atomically.
+
+### Added
+- `.github/workflows/ci.yml` – quality gate on push/PR: `tsc --noEmit`, `vitest run`, `scripts/validate-release.mjs`, `vite build`. First CI gate the repo has; purely additive, does not block existing flows.
+- `docs/SECURITY_DEFINER_AUDIT.md` – full inventory of every `SECURITY DEFINER` function in `supabase/migrations/`, per-function risk rating, and the exact remediation template (add `has_role(auth.uid(), 'admin')` guard, `REVOKE ... FROM PUBLIC`, one function per migration). No SQL executed; audit only.
+- `docs/MULTI_SUPABASE_CONTRACT.md` – written contract for which project (Lovable Cloud `olzvugh...`, target `dsymdijzydaehntlmfzl`, geodata) each layer (frontend `.env`, Edge Functions, CLI) must point at, plus the failure signatures for misrouting.
+- `docs/DEP_UPGRADE_PLAN.md` – sequenced major-upgrade plan (Zod 4 → date-fns 4 → Router 7 → Tailwind 4 → Vite 6 → React 19) with per-step verification gate and rollback rule ("one major per PR").
+
+### Changed
+- `package.json` version `1.7.4` → `1.7.5`.
+
+### Deferred (still — decisions required from operator)
+- **Secret rotation** for Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster: must be done in each provider's console; the repo already reads from env only (v1.7.4), no code change unblocks this.
+- **SECURITY DEFINER remediation migrations** (Round B in the audit): one migration per High-risk function, needs approval per migration.
+- **Multi-Supabase runtime assertion** module: designed in the contract doc, waiting for a build window with regression time.
+- **Dependency majors**: sequenced in the upgrade plan; each bump lands as its own PR with a matching revert draft.
+- **`place-search/index.ts` 1455-line refactor** and **notification/community domain rebuild**: still gated on characterization tests, per the repo non-negotiable rule.
+
+---
+
+
 ## [1.7.4] — 2026-07-21
 
 Focused P0 hardening pass from the fresh 5-sprint audit (`Hobbeast_friss_repoaudit_es_hatralevo_5_sprintes_fejlesztesi_terv_v2.md`). Only the concrete, decision-free code fixes were shipped in this round — the deeper multi-Supabase-project contract, SECURITY DEFINER SQL audit, dependency upgrades, CI quality gate, and full domain refactors are deferred and require per-sprint execution with rotation runbooks and characterization tests.

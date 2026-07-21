@@ -29,6 +29,17 @@ Legend: ✅ done · 🟡 partial · ⬜ deferred
 - ✅ 5.b `index.html` head metadata already sets Hobbeast-specific `<title>`, description, `og:*`, and `twitter:*`.
 - ✅ 5.c Bundle & asset performance — Sprint 1.4 code-splitting cut initial payload from 1.35 MB to 136 KB; v1.7.2 asset audit re-compressed `src/assets/hero-community.jpg` (215 KB → 200 KB, quality 82, stripped metadata) and removed the unused duplicate `public/hobbeast-logo.png`. Hero `<img>` now declares intrinsic `width`/`height` plus `decoding="async"` and `fetchPriority="high"` to prevent CLS and prioritize the LCP element.
 
+## v2 audit backlog (from `Hobbeast_friss_repoaudit_es_hatralevo_5_sprintes_fejlesztesi_terv_v2.md`)
+
+- ✅ v1.7.4 P0 hardening (Mapy key removed, `?redirect` sanitizer, OAuth origin fix, EventDetail try/catch, legacy `/organize` route).
+- ✅ v1.7.5 CI + docs pass: `.github/workflows/ci.yml`, `docs/SECURITY_DEFINER_AUDIT.md`, `docs/MULTI_SUPABASE_CONTRACT.md`, `docs/DEP_UPGRADE_PLAN.md`.
+- ⬜ Secret rotation (Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster) — operator action in provider consoles.
+- ⬜ SECURITY DEFINER Round B — one migration per High-risk function; template in the audit doc.
+- ⬜ Multi-Supabase runtime assertion module — contract written, code deferred.
+- ⬜ Dep majors (Zod 4 → date-fns 4 → Router 7 → Tailwind 4 → Vite 6 → React 19) — one PR each, plan in `docs/DEP_UPGRADE_PLAN.md`.
+- ⬜ `supabase/functions/place-search/index.ts` (1455 LOC) refactor — blocked on characterization tests.
+- ⬜ Notification / community domain rebuild — blocked on characterization tests.
+
 ## Why some sprints are deferred
 
 The plan file specifies aggressive refactors of files that are load-bearing for admin workflows the user actively depends on (bulk user actions, hub management, organizer dashboard). Executing them inside a single automated pass would violate the repo's non-negotiable rule ("never break already working functionality"). Ship them behind targeted requests, one component at a time, with characterization tests in the same change.
