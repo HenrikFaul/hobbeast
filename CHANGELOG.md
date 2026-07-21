@@ -14,6 +14,7 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 - Sprint 1.1 – canonical `README.md`, canonical `CHANGELOG.md`, `RELEASE_PROCESS.md`, `scripts/validate-release.mjs`, `npm run release:validate`.
 - `docs/releases/` archive for legacy `CHANGELOG_APPEND_*.md`, `UPLOAD_README*.md`, and the Pubapp-era changelog.
 - Sprint 1.2 – Zod frontend runtime config validator (`src/lib/env.ts`), shared Edge Function env helper (`supabase/functions/shared/env.ts`) with `requireEnv`, `MissingEnvError`, and `redact`, and a secret-rotation runbook (`docs/SECRETS_ROTATION.md`).
+- Sprint 1.3 – characterization test foundation: Vitest suites for `passwordValidation`, `utils.cn`, and `eventParticipantStats` under `src/lib/__tests__/`, a Playwright smoke spec (`e2e/smoke.spec.ts`), and a testing guide (`docs/TESTING.md`).
 
 ### Changed
 - `package.json` name set to `hobbeast`, version bumped from `0.0.0` to `1.6.8` to match the shipped release.
