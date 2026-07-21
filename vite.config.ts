@@ -61,5 +61,31 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      // Sprint 1.4: hand-picked chunk groups so heavy vendor libs are cached
+      // separately from application code and admin/organizer routes don't
+      // bloat the landing page bundle.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            "react-vendor": ["react", "react-dom", "react-router-dom"],
+            "radix-ui": [
+              "@radix-ui/react-dialog",
+              "@radix-ui/react-dropdown-menu",
+              "@radix-ui/react-popover",
+              "@radix-ui/react-select",
+              "@radix-ui/react-tabs",
+              "@radix-ui/react-tooltip",
+            ],
+            "supabase": ["@supabase/supabase-js"],
+            "query": ["@tanstack/react-query"],
+            "leaflet": ["leaflet"],
+            "motion": ["framer-motion"],
+            "forms": ["react-hook-form", "@hookform/resolvers", "zod"],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 900,
+    },
   };
 });
