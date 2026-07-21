@@ -65,6 +65,7 @@ const App = () => (
                         <Route path="/explore" element={<Explore />} />
                         <Route path="/events" element={<Events />} />
                         <Route path="/events/:id" element={<EventDetail />} />
+                        <Route path="/events/:id/organize" element={<OrganizeEventRedirect />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/organizer" element={<OrganizerDashboard />} />
