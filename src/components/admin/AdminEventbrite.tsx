@@ -9,7 +9,6 @@ import { searchEventbriteEvents, fetchEventbriteOrganizations, fetchEventbriteEv
 import { previewTicketmasterEvents, syncTicketmasterEvents } from '@/lib/external-events/ticketmaster';
 import { previewSeatGeekEvents, syncSeatGeekEvents } from '@/lib/external-events/seatgeek';
 import type { ExternalEventNormalized, ExternalEventsSearchResult, TicketmasterSearchParams, SeatGeekSearchParams } from '@/lib/external-events';
-import { mapExternalEventToCardLike } from '@/lib/external-events/normalize';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -31,7 +30,24 @@ import {
   type GeodataTableName,
 } from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
-import { HOBBY_CATALOG } from '@/lib/hobbyCategories';
+import {
+  ExternalEventList,
+  BASE_PROVIDER_OPTIONS,
+  DB_TEST_COLUMN_OPTIONS,
+  DEFAULT_DB_TEST_COLUMNS,
+  enrichMapperRow,
+  matchesColumnFilters,
+  formatDbCell,
+  buildDisplayRowsFromPlaceSearchResult,
+  resolveTotalCountFromPlaceSearchResult,
+  titleCaseFromKey,
+  deriveCategoryAliasInfo,
+  rankDiscoveredCategoryMatches,
+  resolveMappedCategory,
+  DEFAULT_DB_FORM,
+  type DbConfigFormState,
+  type RankedCategorySuggestion,
+} from './adminEventbriteHelpers';
 
 function ExternalEventList({ events }: { events: ExternalEventNormalized[] }) {
   const mapped = useMemo(() => events.map(mapExternalEventToCardLike), [events]);
