@@ -32,6 +32,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// P0 (v1.7.4): back-compat redirect for any stale `/events/:id/organize`
+// link (bookmarks, external references). The canonical route is
+// `/organizer?event=:id`.
+const OrganizeEventRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/organizer?event=${id}` : '/organizer'} replace />;
+};
+
 const RouteFallback = () => (
   <div
     role="status"
