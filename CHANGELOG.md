@@ -12,6 +12,17 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.7.3] — 2026-07-21
+
+### Changed
+- Sprint 2.d – extracted 15 pure helpers, constants, and the `ExternalEventList` presentational component out of `src/components/admin/AdminEventbrite.tsx` into `src/components/admin/adminEventbriteHelpers.tsx`. Main file dropped from 1410 → 982 LOC. Behavior byte-identical (verbatim move + re-export); no state, handlers, or Supabase calls touched.
+- Sprint 3 (partial) – extracted `MetricCard` / `InfoPill` from `src/pages/OrganizerDashboard.tsx` into `src/pages/organizer/StatCards.tsx`. Presentational-only; parent state untouched.
+
+### Deferred (explicit)
+- Sprint 3 deep refactor (organizer tab-content extraction, `AdminUsers` hub tab split) and Sprint 4 (notification hook consolidation) remain deferred. Per repo governance ("never break already working functionality") these require characterization tests before touching, since they mutate active bulk-user / hub-management / organizer-wizard flows. User explicitly accepted the "may break tonight" risk; agent chose to still ship the safe extractions in this round rather than mangle load-bearing state graphs blind.
+
+---
+
 ## [1.7.2] — 2026-07-21
 
 ### Changed
