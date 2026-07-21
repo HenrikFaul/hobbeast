@@ -27,7 +27,24 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const redirectTo = searchParams.get('redirect') || '/';
+
+  // P0 hardening (v1.7.4): sanitize the `redirect` query param — only allow
+  // relative, single-slash, internal paths. Blocks //evil.com, protocol-relative,
+  // backslash, javascript:, encoded external and any absolute URL.
+  const rawRedirect = searchParams.get('redirect') || '/';
+  const redirectTo = (() => {
+    try {
+      const decoded = decodeURIComponent(rawRedirect);
+      if (!decoded.startsWith('/')) return '/';
+      if (decoded.startsWith('//') || decoded.startsWith('/\\')) return '/';
+      if (/^\s*javascript:/i.test(decoded)) return '/';
+      // must not contain a scheme
+      if (/^[a-z][a-z0-9+.-]*:/i.test(decoded)) return '/';
+      return decoded;
+    } catch {
+      return '/';
+    }
+  })();
 
   useEffect(() => {
     if (user) navigate(redirectTo);
@@ -230,22 +247,23 @@ const Auth = () => {
 
                   <Button variant="outline" className="w-full h-12 rounded-xl font-medium" disabled={loading} onClick={async () => {
                     setLoading(true);
-					const { error } = await supabase.auth.signInWithOAuth({
-					provider: "google",
-					options: {
-						// Ezt az útvonalat használd! Ha nincs külön callback oldalad, a Supabase lekezeli a sima root url-t is, 
-						// DE fontos, hogy KÖZVETLENÜL a supabase instanciát használd, ne a lovable.auth wrappert, 
-						// mert az beleégetett dolgokat rejthet.
-						redirectTo: "https://hobbeast.vercel.app/", 
-						queryParams: {
-						access_type: 'offline',
-						prompt: 'consent',
-						},
-					}
-					});
-					
-if (error) { toast.error(error.message); setLoading(false); }
-                    if (error) { toast.error(error.message); setLoading(false); }
+                    // P0 (v1.7.4): use the current origin so OAuth returns to the
+                    // domain the user actually signed in from (localhost, Lovable
+                    // preview, custom domain), instead of a hardcoded Vercel URL.
+                    const { error } = await supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: {
+                        redirectTo: `${window.location.origin}/`,
+                        queryParams: {
+                          access_type: 'offline',
+                          prompt: 'consent',
+                        },
+                      },
+                    });
+                    if (error) {
+                      toast.error(error.message);
+                      setLoading(false);
+                    }
                   }}>
                     <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>

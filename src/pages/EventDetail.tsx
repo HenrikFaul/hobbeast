@@ -81,12 +81,18 @@ const EventDetail = () => {
     if (id.startsWith('eb-') || id.startsWith('ext-')) {
       const stored = sessionStorage.getItem(`event-${id}`);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        setEvent(parsed);
-        setIsExternal(true);
-        setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
-        setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
-        setParticipantCount(parsed.participant_count || 0);
+        try {
+          const parsed = JSON.parse(stored);
+          setEvent(parsed);
+          setIsExternal(true);
+          setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
+          setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
+          setParticipantCount(parsed.participant_count || 0);
+        } catch (err) {
+          // P0 (v1.7.4): guard against corrupted sessionStorage payloads.
+          console.error('Failed to parse external event payload', err);
+          sessionStorage.removeItem(`event-${id}`);
+        }
       }
       setLoading(false);
       return;
@@ -233,7 +239,7 @@ const EventDetail = () => {
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/events/${id}/organize`)}>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/organizer?event=${id}`)}>
                     <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
                   </Button>
                   <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
