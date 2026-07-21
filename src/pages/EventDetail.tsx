@@ -239,7 +239,7 @@ const EventDetail = () => {
               <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
               {isOwner && !isSample && (
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/events/${id}/organize`)}>
+                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/organizer?event=${id}`)}>
                     <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
                   </Button>
                   <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
