@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "hobbeast",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.6.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release:validate": "node scripts/validate-release.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
