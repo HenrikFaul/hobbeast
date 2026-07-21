@@ -27,7 +27,24 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const redirectTo = searchParams.get('redirect') || '/';
+
+  // P0 hardening (v1.7.4): sanitize the `redirect` query param — only allow
+  // relative, single-slash, internal paths. Blocks //evil.com, protocol-relative,
+  // backslash, javascript:, encoded external and any absolute URL.
+  const rawRedirect = searchParams.get('redirect') || '/';
+  const redirectTo = (() => {
+    try {
+      const decoded = decodeURIComponent(rawRedirect);
+      if (!decoded.startsWith('/')) return '/';
+      if (decoded.startsWith('//') || decoded.startsWith('/\\')) return '/';
+      if (/^\s*javascript:/i.test(decoded)) return '/';
+      // must not contain a scheme
+      if (/^[a-z][a-z0-9+.-]*:/i.test(decoded)) return '/';
+      return decoded;
+    } catch {
+      return '/';
+    }
+  })();
 
   useEffect(() => {
     if (user) navigate(redirectTo);
