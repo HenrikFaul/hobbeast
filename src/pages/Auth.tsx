@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Mail, ArrowLeft, CheckCircle2, KeyRound, Heart, Users, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@/assets/hobbeast-logo.png';
+import { sanitizeRedirectPath } from '@/lib/redirect';
 
 type AuthView = 'login' | 'register' | 'verify' | 'forgot';
 
@@ -29,22 +30,10 @@ const Auth = () => {
   const navigate = useNavigate();
 
   // P0 hardening (v1.7.4): sanitize the `redirect` query param — only allow
-  // relative, single-slash, internal paths. Blocks //evil.com, protocol-relative,
-  // backslash, javascript:, encoded external and any absolute URL.
-  const rawRedirect = searchParams.get('redirect') || '/';
-  const redirectTo = (() => {
-    try {
-      const decoded = decodeURIComponent(rawRedirect);
-      if (!decoded.startsWith('/')) return '/';
-      if (decoded.startsWith('//') || decoded.startsWith('/\\')) return '/';
-      if (/^\s*javascript:/i.test(decoded)) return '/';
-      // must not contain a scheme
-      if (/^[a-z][a-z0-9+.-]*:/i.test(decoded)) return '/';
-      return decoded;
-    } catch {
-      return '/';
-    }
-  })();
+  // relative, single-slash, internal paths. See src/lib/redirect.ts + tests.
+  // v1.7.6: extracted to pure helper so the behavior is characterization-tested.
+  const rawRedirect = searchParams.get('redirect');
+  const redirectTo = sanitizeRedirectPath(rawRedirect);
 
   useEffect(() => {
     if (user) navigate(redirectTo);
