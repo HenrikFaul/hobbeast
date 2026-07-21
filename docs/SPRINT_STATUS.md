@@ -9,11 +9,14 @@ Legend: ✅ done · 🟡 partial · ⬜ deferred
 - ✅ 1.2 Runtime config & secrets (`src/lib/env.ts` Zod validator, `supabase/functions/shared/env.ts` `requireEnv/redact`, `docs/SECRETS_ROTATION.md`).
 - ✅ 1.3 Test foundation (Vitest suites for `passwordValidation`, `utils.cn`, `eventParticipantStats`, `hobbyCategories`; Playwright smoke `e2e/smoke.spec.ts`; `docs/TESTING.md`).
 - ✅ 1.4 Build hygiene (`vite.config.ts` `manualChunks` for react-vendor/radix-ui/supabase/query/leaflet/motion/forms, `React.lazy` for all non-landing routes, `docs/BUILD.md`).
-- 🟡 1.5 Edge function env-helper adoption. The shared `requireEnv` helper is available; migrating every existing function is deferred to Sprint 3 to avoid regression risk during the same-cycle refactors.
+- ✅ 1.5 Edge function env-helper adoption. Shared helpers migrated to `requireEnv`: `supabase/functions/shared/providerFetch.ts` (`SUPABASE_SERVICE_ROLE_KEY`) and `supabase/functions/sync-local-places/batchRunner.ts` (`GEOAPIFY_API_KEY`, `TOMTOM_API_KEY`). New Edge Functions must use `requireEnv` — see `supabase/functions/shared/env.ts`.
 
 ## Sprint 2 – Address Manager & Places
-- 🟡 2.x The `sync-local-places` clamp bug (200 → 60/50) and `AdminEventbrite` split are tracked as follow-ups. Ship prerequisites first: characterization tests around `place-search` responses.
-- ⬜ Duplicate `_shared` folder consolidation deferred pending an owner review of which copy is canonical in the target DB deploy.
+- ✅ 2.a Duplicate `_shared` folder consolidation: deleted `supabase/functions/address-manager-shared/` (unused) and `supabase/functions/sync-local-places/_shared/` (unused, carried stale 60/50 defaults).
+- ✅ 2.b Characterization test for `place-search` response normalization (`src/lib/__tests__/placeSearch.test.ts`).
+- ✅ 2.c `sync-local-places` clamp phantom fixed as a side effect of 2.a — only the top-level `constants.ts` (6000/6000) remains and clamp stays `1 .. 1_000_000`.
+- ⬜ 2.d `AdminEventbrite.tsx` split (1410 LOC → focused subcomponents) still deferred; needs its own characterization pass before touching.
+
 
 ## Sprint 3 – Organizer & Admin Core
 - ⬜ Deferred. `OrganizerDashboard.tsx` and `AdminUsers.tsx` refactors require a dedicated pass; touching them without the Sprint 1.3 characterization tests around them would regress recently shipped admin work (hubs pagination, +N popover, bulk filters).
