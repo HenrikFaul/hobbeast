@@ -13,9 +13,13 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 ### Added
 - Sprint 1.1 – canonical `README.md`, canonical `CHANGELOG.md`, `RELEASE_PROCESS.md`, `scripts/validate-release.mjs`, `npm run release:validate`.
 - `docs/releases/` archive for legacy `CHANGELOG_APPEND_*.md`, `UPLOAD_README*.md`, and the Pubapp-era changelog.
+- Sprint 1.2 – Zod frontend runtime config validator (`src/lib/env.ts`), shared Edge Function env helper (`supabase/functions/shared/env.ts`) with `requireEnv`, `MissingEnvError`, and `redact`, and a secret-rotation runbook (`docs/SECRETS_ROTATION.md`).
 
 ### Changed
 - `package.json` name set to `hobbeast`, version bumped from `0.0.0` to `1.6.8` to match the shipped release.
+
+### Security
+- `.env.example` documents variable names only; `.env` and `supabase/.temp/` remain gitignored; runbook forbids logging secret values and bundling server-only keys.
 
 ### Fixed
 - Restored buildability by patching a broken `FunctionInvokeResult` import in the Supabase client shim and two type mismatches surfaced by the target DB schema (`AdminUsers` hub-member cast, `CreateEventDialog` insert payload cast).
