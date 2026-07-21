@@ -292,7 +292,7 @@ const buildStartTimeIso = () => {
 
       const { data, error } = await supabase
         .from('events')
-        .insert(eventInsertPayload)
+        .insert(eventInsertPayload as any)
         .select('id')
         .single();
 

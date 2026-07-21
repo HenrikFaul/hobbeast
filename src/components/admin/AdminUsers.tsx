@@ -151,7 +151,7 @@ export function AdminUsers() {
         const hubById = new Map<string, VirtualHub>();
         hubsData.forEach((h) => hubById.set(h.id, h));
         const map = new Map<string, VirtualHub[]>();
-        (memberRes.data as { user_id: string; hub_id: string }[]).forEach(({ user_id, hub_id }) => {
+        (memberRes.data as unknown as { user_id: string; hub_id: string }[]).forEach(({ user_id, hub_id }) => {
           const hub = hubById.get(hub_id);
           if (!hub || !user_id) return;
           const arr = map.get(user_id) || [];
