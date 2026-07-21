@@ -29,12 +29,13 @@ function getErrorMessage(error: unknown) {
 }
 
 function getProviderKeys() {
-  const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
-  const tomtomKey = Deno.env.get('TOMTOM_API_KEY');
-  if (!geoapifyKey || !tomtomKey) {
-    throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
-  }
-  return { geoapifyKey, tomtomKey };
+  // Sprint 1.5: unified env access via shared/requireEnv — logs only the
+  // missing variable names, never their values.
+  const { GEOAPIFY_API_KEY, TOMTOM_API_KEY } = requireEnv([
+    'GEOAPIFY_API_KEY',
+    'TOMTOM_API_KEY',
+  ] as const);
+  return { geoapifyKey: GEOAPIFY_API_KEY, tomtomKey: TOMTOM_API_KEY };
 }
 
 async function getCurrentStateRecord(supabaseAdmin: any) {
