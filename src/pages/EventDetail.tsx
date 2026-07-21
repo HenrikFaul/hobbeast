@@ -81,12 +81,18 @@ const EventDetail = () => {
     if (id.startsWith('eb-') || id.startsWith('ext-')) {
       const stored = sessionStorage.getItem(`event-${id}`);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        setEvent(parsed);
-        setIsExternal(true);
-        setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
-        setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
-        setParticipantCount(parsed.participant_count || 0);
+        try {
+          const parsed = JSON.parse(stored);
+          setEvent(parsed);
+          setIsExternal(true);
+          setExternalUrl(parsed.eventbrite_url || parsed.external_url || null);
+          setExternalSource(parsed.source_label || parsed.external_source || 'Külső');
+          setParticipantCount(parsed.participant_count || 0);
+        } catch (err) {
+          // P0 (v1.7.4): guard against corrupted sessionStorage payloads.
+          console.error('Failed to parse external event payload', err);
+          sessionStorage.removeItem(`event-${id}`);
+        }
       }
       setLoading(false);
       return;
