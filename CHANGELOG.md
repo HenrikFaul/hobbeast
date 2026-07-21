@@ -12,6 +12,33 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.7.6] — 2026-07-21
+
+Additive follow-up to v1.7.5 covering every remaining v2 audit item that could be shipped without operator decisions (no key rotation, no SQL execution, no dep bumps). Focuses on characterization-test coverage that unblocks future risky refactors, plus the multi-Supabase runtime assertion promised in the contract doc.
+
+### Added
+- `src/lib/redirect.ts` — pure `sanitizeRedirectPath` helper extracted from the inline v1.7.4 sanitizer in `src/pages/Auth.tsx`. `Auth.tsx` now delegates to it. Behavior identical.
+- `src/lib/supabaseProjects.ts` — canonical `TARGET_SUPABASE_PROJECT_REF`, `extractProjectRef`, `classifyProjectRef`, `assertTargetProject`. Never returns the URL in the message; only the ref.
+- Boot-time multi-Supabase assertion in `src/main.tsx`: logs a name-only `console.warn` if the frontend is bound to a project other than `dsymdijzydaehntlmfzl` (Lovable Cloud, unknown, etc.). Non-blocking.
+- Characterization tests:
+  - `src/lib/__tests__/redirect.test.ts` (9 cases: empty, safe path, protocol-relative, javascript:, backslash, non-slash, malformed URI, percent-encoded internal and external).
+  - `src/lib/__tests__/supabaseProjects.test.ts` (8 cases including the "never leak URL in message" guard).
+  - `src/lib/__tests__/adminEventbriteHelpers.test.ts` (11 cases covering `formatDbCell`, `matchesColumnFilters`, `enrichMapperRow`). These lock the pure-helper contract so the deferred per-provider card split of `AdminEventbrite.tsx` can proceed safely.
+- `docs/sql/security_definer_round_b_DRAFT.sql` — draft (not applied) of the SECURITY DEFINER Round B remediation for `refresh_virtual_hubs` and the sketch for `admin_update_member_profile`. Ships as a reviewable file; execution stays behind the migration-approval flow.
+
+### Changed
+- `src/pages/Auth.tsx` — inline sanitizer removed; imports `sanitizeRedirectPath` from `@/lib/redirect`.
+- `package.json` version `1.7.5` → `1.7.6`. Test count 31 → 42.
+
+### Deferred (unchanged — still require operator decisions)
+- **Secret rotation** for Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster in the provider consoles. Nothing in the repo unblocks this.
+- **SECURITY DEFINER Round B execution**: draft SQL is ready in `docs/sql/`, but each function change ships as its own approved migration.
+- **Dep majors** (Zod 4 → date-fns 4 → Router 7 → Tailwind 4 → Vite 6 → React 19): sequenced in `docs/DEP_UPGRADE_PLAN.md`, one PR each.
+- **`supabase/functions/place-search/index.ts` (1455 LOC) refactor** and **notification/community domain rebuild**: still blocked on Edge Function characterization tests (out of scope for a frontend-only test suite; needs Deno-side harness).
+
+---
+
+
 ## [1.7.5] — 2026-07-21
 
 Documentation + CI-only pass covering the low-risk half of the remaining v2 audit backlog. No runtime code, no SQL, no dep bumps in this release — those still require per-item sign-off (key rotation, migration approval, breaking upgrades) and are staged in the new docs so a future round can execute each one atomically.
