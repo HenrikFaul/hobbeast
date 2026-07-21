@@ -12,6 +12,16 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.7.2] — 2026-07-21
+
+### Changed
+- Sprint 5.c – asset audit pass. Recompressed `src/assets/hero-community.jpg` (1600×900, quality 82, metadata stripped): 215 KB → 200 KB. Hero `<img>` now declares intrinsic `width={1600}` / `height={900}` and adds `decoding="async"` + `fetchPriority="high"` so the LCP element is prioritized and doesn't shift layout.
+
+### Removed
+- Sprint 5.c – deleted unused duplicate `public/hobbeast-logo.png` (all logo imports resolve `@/assets/hobbeast-logo.png`).
+
+---
+
 ## [1.7.1] — 2026-07-21
 
 ### Added
