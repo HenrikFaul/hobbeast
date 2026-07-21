@@ -1,82 +1,124 @@
-# Hobbeast v1.6.7 — Geodata db:* provider hotfix
+# Hobbeast – Minden ami élmény
 
-## Mi volt a hiba?
+Hobbeast is a community-first platform where people meet around **shared real-world experiences** — hiking, tennis, group dog walks, concerts, board games, meetups. Users discover events by hobby and city, join or organize them, and the platform automatically groups people into **virtual hubs** based on interests and location.
 
-A `place-search` Edge Function a konfigurációs actionöket (`get_db_table_config`, `save_db_table_config`, `save_provider_config`) nem kezelte elég korán / elég szigorúan, ezért egyes config hívások normál keresésként futottak tovább, és ezt adták vissza:
+- Preview: <https://id-preview--bc7f13b3-b1aa-49df-95d6-45b6a5bb7919.lovable.app>
+- Published: <https://hobbeast.lovable.app>
+- Custom domains: <https://www.expericentre.com>, <https://expericentre.com>
 
-```json
-{
-  "error": "query or coordinates are required"
-}
+---
+
+## Table of contents
+
+1. [Product overview](#product-overview)
+2. [Architecture](#architecture)
+3. [Local setup](#local-setup)
+4. [Environment variables](#environment-variables)
+5. [Testing](#testing)
+6. [Deployment](#deployment)
+7. [Versioning & release process](#versioning--release-process)
+8. [Troubleshooting](#troubleshooting)
+
+---
+
+## Product overview
+
+Core surfaces:
+
+- **Event discovery** — filterable feed of Hobbeast-native and imported external events (Eventbrite, Ticketmaster, SeatGeek).
+- **Event detail & participation** — RSVP, waitlist, auto-promotion, organizer messaging, notifications.
+- **Event creation** — organizers create events with rich location autocomplete, category taxonomy, templates, capacity, waitlist, hike planner (mapy.cz) for outdoor categories.
+- **Profile & preferences** — favorite categories drive personalized notifications and hub membership.
+- **Virtual hubs** — invisible communities auto-formed per hobby × city; members receive event alerts.
+- **Organizer dashboard** — analytics, participants, messaging, templates.
+- **Admin console** — user management with bulk actions and filters, hubs administration, external event sync configuration, local places (Geoapify / TomTom) address sync.
+
+Brand voice: Hungarian first, community-forward, energetic, supportive. Not a music app, not a generic event aggregator.
+
+## Architecture
+
+- **Frontend**: React 18 + Vite 5 + TypeScript 5 + Tailwind CSS 3 + shadcn/ui.
+- **State/data**: TanStack Query, React Router 6, Zod, react-hook-form.
+- **Maps**: Leaflet + mapy.cz embedded planner.
+- **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions on Deno).
+  - Canonical project ref: `dsymdijzydaehntlmfzl`.
+  - RLS enforced on every public-schema table; roles stored in `user_roles` and checked via the `has_role(_user_id, _role)` security-definer function.
+- **External providers**: Eventbrite, Ticketmaster, SeatGeek (event ingest); Geoapify, TomTom, Mapy.cz (places/geo).
+- **AI**: Lovable AI Gateway (`LOVABLE_API_KEY`).
+
+Client entrypoint:
+
+```ts
+import { supabase } from "@/integrations/supabase/client";
 ```
 
-Emellett a `save_provider_config` elfogadhatott hibás vagy fel nem oldott Postman változót, majd fallback providerként `aws` / régi érték maradt vissza.
+## Local setup
 
-## Mit javít ez a csomag?
-
-- A config actionök keresési validáció előtt futnak le.
-- A `save_db_table_config` ténylegesen ment, nem keresést indít.
-- A `get_db_table_config` ténylegesen configot ad vissza, query/city nélkül is.
-- A `save_provider_config` szigorúan validálja a providert. A `{{db_provider}}` típusú fel nem oldott változót hibaként jelzi.
-- A `test_db_table_query` működik közvetlen `table` paraméterrel is.
-- A Geodata REST query már nem kér le `raw_data` mezőt, így gyorsabb és kisebb választ ad.
-- A DB provider mapping továbbra is gazdag venue metaadatot ad vissza: cím, city, lat/lon, categories, brand, operator, cuisine, phone, email, website, opening hours, accessibility/seating metaadatok.
-
-## Felülírandó / új fájlok
-
-Másold be a repo gyökerébe ezeket:
-
-```text
-supabase/functions/place-search/index.ts
-supabase/migrations/20260426214500_fix_geodata_db_provider_runtime_config.sql
-postman/hobbeast-geodata-db-provider-debug-v3.postman_collection.json
-postman/hobbeast-geodata-db-provider-debug-v3.postman_environment.json
-```
-
-## Deploy sorrend
+Requirements: Node 20+, npm or bun.
 
 ```bash
-npm run build
-npx supabase link --project-ref dsymdijzydaehntlmfzl
-npx supabase db push
-npx supabase functions deploy place-search --project-ref dsymdijzydaehntlmfzl
+npm install
+cp .env.example .env   # fill in the variables listed below
+npm run dev
 ```
 
-Ha a migrationt nem akarod CLI-ből futtatni, akkor a `20260426214500_fix_geodata_db_provider_runtime_config.sql` tartalmát futtasd le a Hobbeast Supabase projekt SQL Editorában.
+The dev server listens on <http://localhost:8080>.
 
-## Secret ellenőrzés
+## Environment variables
 
-A Hobbeast projektben legyenek beállítva:
+Values are **not** stored in this repo. Copy `.env.example` and populate locally; production values live in Lovable Cloud and Supabase Edge Function secrets.
 
-```text
-GEODATA_SUPABASE_URL=https://buuoyyfzincmbxafvihc.supabase.co
-GEODATA_SUPABASE_SERVICE_ROLE_KEY=<a buuoyyfzincmbxafvihc Geodata projekt működő service_role/secret key-je>
-```
+Frontend (Vite, prefixed with `VITE_`):
 
-Ellenőrzés:
+- `VITE_SUPABASE_URL` — Hobbeast Supabase project URL.
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase publishable/anon key.
+- `VITE_SUPABASE_PROJECT_ID` — project ref.
+
+Edge Function secrets (server-only, never bundled to the client):
+
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`
+- `EXTERNAL_SUPABASE_URL`, `EXTERNAL_SUPABASE_SERVICE_ROLE_KEY`
+- `EVENTBRITE_API_KEY`, `TICKETMASTER_API_KEY`
+- `GEOAPIFY_API_KEY`, `TOMTOM_API_KEY`, `MAPY_CZ_API_KEY`
+- `LOVABLE_API_KEY`
+
+Never commit `.env` or `supabase/.temp`. Never log secret values.
+
+## Testing
 
 ```bash
-npx supabase secrets list --project-ref dsymdijzydaehntlmfzl
+npm test           # vitest unit + component tests
+npm run test:watch # watch mode
 ```
 
-## Kötelező Postman teszt sorrend
+Playwright E2E (added in Sprint 1.3):
 
-Importáld a `postman` mappában lévő collection + environment fájlt, majd állítsd be:
-
-```text
-geodata_key = működő Geodata key
-hobbeast_anon_key = Hobbeast anon/publishable key
+```bash
+npx playwright install --with-deps  # first time
+npx playwright test
 ```
 
-Futtatási sorrend:
+## Deployment
 
-1. `01 Direct Geodata REST / GET unified_pois basic`
-2. `02 Hobbeast Edge / POST get_db_table_config`
-3. `02 Hobbeast Edge / POST save_db_table_config literal unified`
-4. `02 Hobbeast Edge / POST get_db_table_config`
-5. `02 Hobbeast Edge / POST save_provider_config venue db literal`
-6. `02 Hobbeast Edge / POST get_all_provider_configs`
-7. `02 Hobbeast Edge / POST test_db_table_query literal unified Budapest`
-8. `02 Hobbeast Edge / POST autocomplete db provider Budapest`
+Push to `main` deploys via Lovable to the preview URL. Publish from the Lovable UI to promote to the published/custom-domain URLs. Edge Functions deploy automatically with the project.
 
-Elvárt eredmény: minden fenti hívás `200 OK`, a `venue` provider pedig `db:unified-poi`.
+## Versioning & release process
+
+- Semantic versioning (`MAJOR.MINOR.PATCH`). Current: **1.6.8**.
+- Single source of truth: `CHANGELOG.md` (Keep a Changelog format).
+- Historical append snippets and upload READMEs are archived under `docs/releases/`.
+- Full release protocol: [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md).
+- CI-safe check:
+
+  ```bash
+  npm run release:validate
+  ```
+
+  Fails when `package.json` version and the latest `CHANGELOG.md` version disagree.
+
+## Troubleshooting
+
+- **Google OAuth in Lovable preview fails** — iframe restrictions. Test auth on the published site.
+- **Admin queries fail on missing columns** — the target DB does not have `outcome_status`, `registrations_count`, `cancellations_count`, `attended_count`, `average_rating`, `user_origin`, `is_active` on `events`; admin queries must omit them.
+- **Edge Function config errors** — always use `resolveInternalSupabaseUrl` + `getSupabaseAdmin` helpers.
+- More: <https://docs.lovable.dev/tips-tricks/troubleshooting>.
