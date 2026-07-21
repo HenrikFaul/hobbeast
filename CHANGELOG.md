@@ -12,6 +12,24 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.7.1] — 2026-07-21
+
+### Added
+- Sprint 2 characterization test for `place-search` response normalization (`src/lib/__tests__/placeSearch.test.ts`) locking in the current `NormalizedPlace` contract (Geoapify + TomTom rows, sparse metadata fallback, rating→confidence clamp). `mapEdgePlace` is exported for testing.
+
+### Changed
+- Sprint 1.5 – migrated the shared Edge Function helpers to `requireEnv`: `supabase/functions/shared/providerFetch.ts` (service role key) and `supabase/functions/sync-local-places/batchRunner.ts` (Geoapify + TomTom keys) now log missing variable names only, never values.
+
+### Removed
+- Sprint 2 – deleted the duplicate `supabase/functions/address-manager-shared/` folder (address-manager pipeline consistently imports the `_address-manager-shared` copy).
+- Sprint 2 – deleted the duplicate `supabase/functions/sync-local-places/_shared/` tree that carried a stale `DEFAULT_SYNC_CONFIG` (`geo_limit: 60`, `tomtom_limit: 50`) and was not imported by any function. Only the top-level `constants.ts` (with the 6000/6000 defaults) remains.
+
+### Fixed
+- Sprint 2 – removes the last on-disk source of the phantom 60/50 clamp that produced the "A backend kisebb limitet mentett vissza" toast when saving `geo_limit` / `tomtom_limit = 200` in the admin UI. The active clamp remains `1 .. 1_000_000` in `sync-local-places/config.ts`.
+
+---
+
+
 ## [1.7.0] — 2026-07-21
 
 ### Added

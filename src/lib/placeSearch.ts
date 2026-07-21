@@ -135,7 +135,7 @@ function getSupabasePublishableKey(): string {
   return String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
 }
 
-function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
+export function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
   const provider = normalizeText(row.provider) || 'geoapify';
   const metadata = row.metadata || {};
   const externalId = normalizeText(row.external_id || row.id || metadata.external_id || metadata.id) || crypto.randomUUID();

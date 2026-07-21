@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { requireEnv } from './env.ts';
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,11 +38,10 @@ export function resolveInternalSupabaseUrl(req?: Request) {
 }
 
 function resolveServiceRoleKey() {
-  const serviceRoleKey = String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
-  if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in Edge Function environment.');
-  }
-  return serviceRoleKey;
+  // Uses the shared env helper so misconfigured deploys surface as a
+  // MissingEnvError with a redacted name-only log line (see shared/env.ts).
+  const { SUPABASE_SERVICE_ROLE_KEY } = requireEnv(['SUPABASE_SERVICE_ROLE_KEY'] as const);
+  return SUPABASE_SERVICE_ROLE_KEY;
 }
 
 export function getSupabaseAdmin(req?: Request) {

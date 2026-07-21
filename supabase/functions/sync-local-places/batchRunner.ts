@@ -7,6 +7,7 @@ import { fetchTomTomRows } from './providers/tomtom.ts';
 import { getStatus, resetCatalog, upsertSyncState, writeCatalogRows } from './repositories.ts';
 import { buildTasks } from './taskBuilder.ts';
 import type { BatchResult, LocalCatalogRow, SyncBody, SyncTask } from './types.ts';
+import { requireEnv } from '../shared/env.ts';
 
 /** Auto-reset a run that has been stuck in 'running' for longer than this. */
 const STALE_RUN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -29,12 +30,13 @@ function getErrorMessage(error: unknown) {
 }
 
 function getProviderKeys() {
-  const geoapifyKey = Deno.env.get('GEOAPIFY_API_KEY');
-  const tomtomKey = Deno.env.get('TOMTOM_API_KEY');
-  if (!geoapifyKey || !tomtomKey) {
-    throw new Error('Missing GEOAPIFY_API_KEY or TOMTOM_API_KEY in Edge Function environment.');
-  }
-  return { geoapifyKey, tomtomKey };
+  // Sprint 1.5: unified env access via shared/requireEnv — logs only the
+  // missing variable names, never their values.
+  const { GEOAPIFY_API_KEY, TOMTOM_API_KEY } = requireEnv([
+    'GEOAPIFY_API_KEY',
+    'TOMTOM_API_KEY',
+  ] as const);
+  return { geoapifyKey: GEOAPIFY_API_KEY, tomtomKey: TOMTOM_API_KEY };
 }
 
 async function getCurrentStateRecord(supabaseAdmin: any) {
