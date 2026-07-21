@@ -15,11 +15,11 @@ Legend: ✅ done · 🟡 partial · ⬜ deferred
 - ✅ 2.a Duplicate `_shared` folder consolidation: deleted `supabase/functions/address-manager-shared/` (unused) and `supabase/functions/sync-local-places/_shared/` (unused, carried stale 60/50 defaults).
 - ✅ 2.b Characterization test for `place-search` response normalization (`src/lib/__tests__/placeSearch.test.ts`).
 - ✅ 2.c `sync-local-places` clamp phantom fixed as a side effect of 2.a — only the top-level `constants.ts` (6000/6000) remains and clamp stays `1 .. 1_000_000`.
-- ⬜ 2.d `AdminEventbrite.tsx` split (1410 LOC → focused subcomponents) still deferred; needs its own characterization pass before touching.
+- 🟡 2.d `AdminEventbrite.tsx` split — v1.7.3: 15 pure helpers + `ExternalEventList` extracted into `src/components/admin/adminEventbriteHelpers.tsx`. Main file 1410 → 982 LOC. Behavior byte-identical. Per-provider card split (Eventbrite / Ticketmaster / SeatGeek / Places) still pending characterization tests.
 
 
 ## Sprint 3 – Organizer & Admin Core
-- ⬜ Deferred. `OrganizerDashboard.tsx` and `AdminUsers.tsx` refactors require a dedicated pass; touching them without the Sprint 1.3 characterization tests around them would regress recently shipped admin work (hubs pagination, +N popover, bulk filters).
+- 🟡 v1.7.3: `MetricCard` + `InfoPill` extracted from `OrganizerDashboard.tsx` into `src/pages/organizer/StatCards.tsx`. Deep refactor (wizard-step components, `AdminUsers` hub-tab split) still deferred — active bulk-user/hub flows must not regress without characterization tests.
 
 ## Sprint 4 – Community & Engagement
 - ⬜ Deferred. Notification/real-time hooks are stable; changes here should ride on a product ask, not a general refactor.
