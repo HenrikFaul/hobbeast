@@ -88,7 +88,11 @@ const Navbar = () => {
         </div>
 
         <button
-          className="rounded-xl p-2 text-foreground transition-colors hover:bg-primary/10 md:hidden"
+          type="button"
+          aria-label={mobileOpen ? "Menü bezárása" : "Menü megnyitása"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav"
+          className="rounded-xl p-2 text-foreground transition-colors hover:bg-primary/10 md:hidden min-h-11 min-w-11 flex items-center justify-center"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -96,7 +100,7 @@ const Navbar = () => {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-border/60 glass-strong pb-4">
+        <div id="mobile-nav" className="md:hidden border-t border-border/60 glass-strong pb-4">
           {navLinks.map((link) => (
             <Link
               key={link.to}
