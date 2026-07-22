@@ -88,7 +88,11 @@ const Navbar = () => {
         </div>
 
         <button
-          className="rounded-xl p-2 text-foreground transition-colors hover:bg-primary/10 md:hidden"
+          type="button"
+          aria-label={mobileOpen ? "Menü bezárása" : "Menü megnyitása"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav"
+          className="rounded-xl p-2 text-foreground transition-colors hover:bg-primary/10 md:hidden min-h-11 min-w-11 flex items-center justify-center"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
