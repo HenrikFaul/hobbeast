@@ -100,7 +100,7 @@ const Navbar = () => {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-border/60 glass-strong pb-4">
+        <div id="mobile-nav" className="md:hidden border-t border-border/60 glass-strong pb-4">
           {navLinks.map((link) => (
             <Link
               key={link.to}
