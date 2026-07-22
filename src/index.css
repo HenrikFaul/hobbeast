@@ -97,6 +97,50 @@
     @apply border-border;
   }
 
+  /* Global focus — visible, high-contrast ring on keyboard nav only.
+     Applies uniformly to buttons, links, inputs, tabs, table headers, etc. */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Consistent disabled state across the app */
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* Placeholders always use the token, never a low-contrast gray */
+  ::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: 1;
+  }
+
+  /* Wrap tables so they scroll on narrow viewports instead of breaking layout */
+  .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Respect reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   html {
     color-scheme: dark;
   }
