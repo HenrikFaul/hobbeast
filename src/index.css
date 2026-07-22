@@ -1,79 +1,94 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Hobbeast — Refined SaaS Enterprise theme (Linear / Vercel / Stripe inspired)
+ * Deep neutral slate, single restrained blue accent, minimal glow.
+ * All utility class names below are preserved from earlier versions so
+ * existing components keep rendering — only their visual language is toned
+ * down to look human-crafted, not AI-generated.
+ */
+
 @layer base {
   :root {
-    --background: 192 30% 11%;
-    --foreground: 180 24% 96%;
+    /* Core surfaces — deep neutral slate, no colour cast */
+    --background: 222 20% 8%;
+    --foreground: 210 20% 96%;
 
-    --card: 192 26% 14%;
-    --card-foreground: 180 24% 96%;
+    --card: 222 18% 11%;
+    --card-foreground: 210 20% 96%;
 
-    --popover: 192 26% 14%;
-    --popover-foreground: 180 24% 96%;
+    --popover: 222 18% 12%;
+    --popover-foreground: 210 20% 96%;
 
-    --primary: 168 78% 52%;
-    --primary-foreground: 192 30% 9%;
-    --primary-glow: 158 82% 62%;
+    /* Primary — one restrained enterprise blue, used sparingly */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
+    --primary-glow: 217 91% 68%;
 
-    --secondary: 192 22% 18%;
-    --secondary-foreground: 180 22% 90%;
+    --secondary: 222 14% 16%;
+    --secondary-foreground: 210 18% 92%;
 
-    --muted: 192 22% 16%;
-    --muted-foreground: 188 14% 70%;
+    --muted: 222 14% 14%;
+    --muted-foreground: 215 15% 68%;
 
-    --accent: 152 70% 58%;
-    --accent-foreground: 192 30% 9%;
+    /* Accent — same blue family, slightly lighter. No teal, no emerald. */
+    --accent: 213 90% 66%;
+    --accent-foreground: 222 47% 8%;
 
-    --destructive: 0 82% 60%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 78% 44%;
-    --success-foreground: 228 24% 6%;
+    --success: 152 55% 48%;
+    --success-foreground: 222 47% 8%;
 
-    --warning: 46 100% 58%;
-    --warning-foreground: 228 24% 6%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 8%;
 
-    --border: 188 18% 24%;
-    --input: 188 18% 22%;
-    --ring: 168 78% 52%;
+    --border: 222 14% 20%;
+    --input: 222 14% 18%;
+    --ring: 217 91% 60%;
 
-    --radius: 0.9rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 192 26% 13%;
-    --sidebar-foreground: 180 24% 96%;
-    --sidebar-primary: 168 78% 52%;
-    --sidebar-primary-foreground: 192 30% 9%;
-    --sidebar-accent: 192 22% 18%;
-    --sidebar-accent-foreground: 180 22% 90%;
-    --sidebar-border: 188 18% 24%;
-    --sidebar-ring: 168 78% 52%;
+    --sidebar-background: 222 18% 10%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 47% 8%;
+    --sidebar-accent: 222 14% 16%;
+    --sidebar-accent-foreground: 210 18% 92%;
+    --sidebar-border: 222 14% 20%;
+    --sidebar-ring: 217 91% 60%;
 
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'DM Sans', sans-serif;
+    --font-display: 'Urbanist', system-ui, sans-serif;
+    --font-body: 'Epilogue', system-ui, sans-serif;
 
-    --shadow-card: 0 14px 40px -20px hsl(192 40% 4% / 0.7);
-    --shadow-elevated: 0 22px 80px -28px hsl(168 78% 52% / 0.32), 0 20px 50px -30px hsl(152 70% 58% / 0.22);
-    --shadow-modal: 0 30px 100px -30px hsl(192 40% 4% / 0.85);
-    --shadow-glow: 0 0 28px hsl(168 78% 52% / 0.28);
-    --shadow-soft: 0 8px 26px -16px hsl(192 40% 4% / 0.7);
-    --shadow-card-hover: 0 26px 70px -32px hsl(168 78% 52% / 0.32), 0 20px 45px -34px hsl(152 70% 58% / 0.22);
+    /* Restrained shadows — soft, neutral, no coloured halo */
+    --shadow-card: 0 1px 2px hsl(222 40% 2% / 0.4), 0 8px 24px -12px hsl(222 40% 2% / 0.6);
+    --shadow-elevated: 0 1px 2px hsl(222 40% 2% / 0.4), 0 20px 48px -20px hsl(222 40% 2% / 0.7);
+    --shadow-modal: 0 24px 80px -24px hsl(222 40% 2% / 0.8);
+    --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.35);
+    --shadow-soft: 0 1px 2px hsl(222 40% 2% / 0.3), 0 4px 16px -8px hsl(222 40% 2% / 0.5);
+    --shadow-card-hover: 0 1px 2px hsl(222 40% 2% / 0.4), 0 16px 40px -18px hsl(222 40% 2% / 0.7);
 
-    --gradient-primary: linear-gradient(135deg, hsl(168 78% 52%), hsl(152 72% 62%));
-    --gradient-accent: linear-gradient(135deg, hsl(152 70% 58%), hsl(180 70% 60%));
-    --gradient-hero: radial-gradient(circle at top left, hsl(168 78% 52% / 0.22), transparent 32%), radial-gradient(circle at 80% 20%, hsl(152 70% 58% / 0.18), transparent 30%), linear-gradient(180deg, hsl(192 30% 13%), hsl(192 32% 9%));
-    --gradient-warm: linear-gradient(180deg, hsl(192 26% 13%), hsl(192 30% 11%));
-    --gradient-surface: linear-gradient(180deg, hsl(192 26% 16%), hsl(192 28% 12%));
-    --gradient-subtle: linear-gradient(135deg, hsl(168 78% 52% / 0.10), hsl(152 70% 58% / 0.06));
+    /* Gradients — subtle, neutral, no rainbow */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(213 90% 66%));
+    --gradient-accent: linear-gradient(135deg, hsl(213 90% 66%), hsl(217 91% 60%));
+    --gradient-hero:
+      radial-gradient(1200px 600px at 80% -10%, hsl(217 91% 60% / 0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(213 90% 66% / 0.08), transparent 60%),
+      linear-gradient(180deg, hsl(222 20% 10%), hsl(222 22% 7%));
+    --gradient-warm: linear-gradient(180deg, hsl(222 20% 10%), hsl(222 22% 8%));
+    --gradient-surface: linear-gradient(180deg, hsl(222 18% 13%), hsl(222 20% 10%));
+    --gradient-subtle: linear-gradient(135deg, hsl(217 91% 60% / 0.06), transparent 60%);
 
-    /* Extra: Daft Punk neon accents */
-    --neon-cyan: 185 100% 56%;
-    --neon-gold: 43 100% 52%;
-    --neon-magenta: 295 100% 60%;
+    /* Legacy neon vars kept but neutralised to the blue family */
+    --neon-cyan: 217 91% 60%;
+    --neon-gold: 213 90% 66%;
+    --neon-magenta: 217 91% 60%;
   }
 }
 
@@ -90,143 +105,131 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     background-image:
-      radial-gradient(circle at top, hsl(168 78% 52% / 0.10), transparent 30%),
-      radial-gradient(circle at 90% 110%, hsl(152 70% 58% / 0.08), transparent 32%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(192 32% 9%));
+      radial-gradient(1200px 700px at 80% -10%, hsl(217 91% 60% / 0.06), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, hsl(213 90% 66% / 0.05), transparent 60%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(222 22% 7%));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01", "cv11";
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.24);
+    background: hsl(var(--primary) / 0.28);
     color: hsl(var(--foreground));
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
 }
 
 @layer utilities {
   .glass {
-    background: linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--card) / 0.58));
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
     border: 1px solid hsl(var(--border) / 0.7);
   }
 
   .glass-strong {
-    background: linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.78));
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid hsl(var(--border) / 0.8);
+    background: hsl(var(--background) / 0.82);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-color: hsl(var(--border) / 0.8);
   }
 
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-accent { background: var(--gradient-accent); }
+  .gradient-hero { background: var(--gradient-hero); }
+  .gradient-warm { background: var(--gradient-warm); }
 
-  .gradient-accent {
-    background: var(--gradient-accent);
-  }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .shadow-soft { box-shadow: var(--shadow-soft); }
 
-  .gradient-hero {
-    background: var(--gradient-hero);
-  }
-
-  .gradient-warm {
-    background: var(--gradient-warm);
-  }
-
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
-
-  .shadow-soft {
-    box-shadow: var(--shadow-soft);
-  }
-
+  /* Text treatments — solid foreground by default, gradient only for one
+     accent word at a time. Kills the "AI shimmer everywhere" look. */
   .text-gradient {
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, hsl(217 91% 68%), hsl(213 90% 78%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-accent {
-    background: var(--gradient-accent);
+    background: linear-gradient(135deg, hsl(213 90% 74%), hsl(217 91% 66%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
+  /* text-chrome: previously a silver gradient. Now a plain, high-contrast
+     foreground — reads as intentional editorial, not chrome-y. */
   .text-chrome {
-    background: linear-gradient(180deg, hsl(180 30% 98%), hsl(180 18% 78%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: hsl(var(--foreground));
+    -webkit-text-fill-color: hsl(var(--foreground));
   }
 
   .hover-lift {
     @apply transition-all duration-300;
   }
   .hover-lift:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-card-hover);
+    border-color: hsl(var(--border));
   }
 
   .card-premium {
-    @apply rounded-2xl border transition-all duration-300;
-    background:
-      linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.78));
+    @apply rounded-xl border transition-all duration-200;
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
     box-shadow: var(--shadow-soft);
   }
   .card-premium:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--shadow-card-hover);
-    border-color: hsl(var(--primary) / 0.32);
+    border-color: hsl(var(--border));
   }
 
+  /* Chrome panel — flattened into a clean card surface, no metallic sheen. */
   .chrome-panel {
-    background:
-      linear-gradient(180deg, hsl(0 0% 100% / 0.07), transparent 28%),
-      linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--card) / 0.84));
-    border: 1px solid hsl(var(--border) / 0.9);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     box-shadow: var(--shadow-soft);
+    border-radius: 0.9rem;
   }
 
+  /* Divider — hairline neutral rule with a faint blue tint at centre. */
   .neon-divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.5), hsl(var(--accent) / 0.5), transparent);
+    background: linear-gradient(90deg,
+      transparent,
+      hsl(var(--border)) 20%,
+      hsl(var(--primary) / 0.35) 50%,
+      hsl(var(--border)) 80%,
+      transparent);
   }
 
+  /* Grid — much fainter, no animation. Reads as engineering texture, not sci-fi. */
   .tech-grid {
     background-image:
-      linear-gradient(hsl(var(--border) / 0.22) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.22) 1px, transparent 1px);
-    background-size: 32px 32px;
-    background-position: center;
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
   }
 
-  .scan-line {
-    position: relative;
-    overflow: hidden;
-  }
-  .scan-line::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.06), transparent);
-    transform: translateY(-100%);
-    animation: scan 8s linear infinite;
-    pointer-events: none;
-  }
+  /* Scan-line — no more moving sweep. Left as a no-op wrapper for compat. */
+  .scan-line { position: relative; }
 
   .section-padding {
     @apply py-16 sm:py-20 md:py-24;
   }
 
+  /* Gradient border — replaced with a crisp single-pixel hairline that
+     hints at a blue accent only on hover. */
   .gradient-border {
     position: relative;
   }
@@ -236,110 +239,58 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.22), transparent);
+    background: linear-gradient(180deg, hsl(var(--border)), hsl(var(--border) / 0.6));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+    transition: background 240ms ease;
+  }
+  .gradient-border:hover::before {
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.55), hsl(var(--border)));
   }
 
-  /* ── Neon utility extras (additive, don't change base theme) ── */
-
+  /* Legacy neon helpers — kept as names, muted to blue-family so no page
+     screams. If a component still uses these, they now read as accents. */
   .font-mono-tech {
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-    letter-spacing: 0.08em;
+    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    letter-spacing: 0.04em;
   }
 
-  .neon-cyan {
-    color: hsl(var(--neon-cyan));
-    text-shadow:
-      0 0 4px hsl(var(--neon-cyan) / 0.9),
-      0 0 14px hsl(var(--neon-cyan) / 0.6),
-      0 0 30px hsl(var(--neon-cyan) / 0.3);
-  }
-
-  .neon-gold {
-    color: hsl(var(--neon-gold));
-    text-shadow:
-      0 0 4px hsl(var(--neon-gold) / 0.9),
-      0 0 14px hsl(var(--neon-gold) / 0.6),
-      0 0 30px hsl(var(--neon-gold) / 0.3);
-  }
+  .neon-cyan { color: hsl(var(--primary)); }
+  .neon-gold { color: hsl(var(--accent)); }
 
   .neon-ring-cyan {
-    box-shadow:
-      0 0 0 1px hsl(var(--neon-cyan) / 0.5),
-      0 0 8px hsl(var(--neon-cyan) / 0.35),
-      0 0 24px hsl(var(--neon-cyan) / 0.18);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4);
   }
-
   .neon-ring-gold {
-    box-shadow:
-      0 0 0 1px hsl(var(--neon-gold) / 0.5),
-      0 0 8px hsl(var(--neon-gold) / 0.35),
-      0 0 24px hsl(var(--neon-gold) / 0.18);
+    box-shadow: 0 0 0 1px hsl(var(--accent) / 0.4);
   }
 
-  .grid-bg {
-    background-image:
-      linear-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--primary) / 0.05) 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: grid-march 20s linear infinite;
-  }
-
+  .grid-bg,
   .grid-bg-accent {
     background-image:
-      linear-gradient(hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--neon-cyan) / 0.07) 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: grid-march 20s linear infinite;
+      linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
-  .scanline-sweep {
-    position: relative;
-    overflow: hidden;
-  }
-  .scanline-sweep::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background: linear-gradient(
-      to bottom,
-      transparent,
-      hsl(var(--neon-cyan) / 0.06) 50%,
-      transparent
-    );
-    animation: scanline 8s linear infinite;
-    pointer-events: none;
-  }
+  .scanline-sweep { position: relative; }
 
-  .animate-beat {
-    animation: beat 0.8s ease-in-out infinite;
-  }
-
-  .animate-neon-pulse {
-    animation: neon-pulse 2s ease-in-out infinite;
-  }
-
-  .animate-glitch {
-    animation: glitch 6s linear infinite;
-  }
+  .animate-beat { animation: none; }
+  .animate-neon-pulse { animation: none; }
+  .animate-glitch { animation: none; }
 
   .circuit-border {
-    border: 1px solid hsl(var(--neon-gold) / 0.35);
-    box-shadow:
-      inset 0 0 12px hsl(var(--neon-gold) / 0.05),
-      0 0 8px hsl(var(--neon-gold) / 0.18);
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-soft);
   }
 
   .hud-label {
-    font-family: 'Share Tech Mono', 'Courier New', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.12em;
+    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: hsl(var(--neon-cyan) / 0.8);
+    color: hsl(var(--muted-foreground));
   }
 }
