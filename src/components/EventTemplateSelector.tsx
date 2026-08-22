@@ -58,6 +58,8 @@ export function EventTemplateSelector({ onSelect }: EventTemplateSelectorProps) 
         size="sm"
         className="rounded-xl h-9 text-xs gap-1.5"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="event-template-options"
       >
         <FileText className="h-3.5 w-3.5" />
         Sablon használata
@@ -65,7 +67,11 @@ export function EventTemplateSelector({ onSelect }: EventTemplateSelectorProps) 
       </Button>
 
       {open && (
-        <div className="rounded-xl border bg-popover max-h-[200px] overflow-y-auto divide-y">
+        <div
+          id="event-template-options"
+          className="rounded-xl border bg-popover max-h-[200px] overflow-y-auto divide-y"
+          aria-busy={loading}
+        >
           <div className="p-2" aria-label="Beépített eseménysablonok">
             <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Beépített formátumok</p>
             {CURATED_EVENT_TEMPLATES.map((template) => (
@@ -87,27 +93,29 @@ export function EventTemplateSelector({ onSelect }: EventTemplateSelectorProps) 
             </div>
           ) : (
             templates.map(t => (
-              <button
-                key={t.id}
-                type="button"
-                className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-center gap-3"
-                onClick={() => { onSelect(t); setOpen(false); }}
-              >
-                <span className="text-lg">{t.image_emoji || '📋'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{t.template_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{t.category}</p>
-                </div>
+              <div key={t.id} className="flex items-center gap-1 px-2 hover:bg-muted/50 transition-colors">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 px-2 py-3 text-left flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  onClick={() => { onSelect(t); setOpen(false); }}
+                >
+                  <span className="text-lg" aria-hidden="true">{t.image_emoji || '📋'}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium truncate">{t.template_name}</span>
+                    <span className="block text-xs text-muted-foreground truncate">{t.category}</span>
+                  </span>
+                </button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 flex-shrink-0 text-destructive/60 hover:text-destructive"
                   onClick={(e) => handleDelete(e, t.id)}
+                  aria-label={`${t.template_name} sablon törlése`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
-              </button>
+              </div>
             ))
           )}
         </div>

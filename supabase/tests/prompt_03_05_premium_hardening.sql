@@ -235,6 +235,49 @@ BEGIN
 END;
 $export_checks$;
 
+-- A ready bundle cannot be downloaded after its fixed seven-day window, and
+-- requesting again finalizes the stale row before creating one fresh request.
+RESET ROLE;
+UPDATE public.data_subject_requests
+SET export_expires_at = now() - interval '1 minute'
+WHERE id = current_setting('premium_fixture.export_request_id')::uuid;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config('request.jwt.claim.sub', 'c2000000-0000-4000-8000-000000000002', true);
+DO $expired_export_checks$
+BEGIN
+  BEGIN
+    PERFORM public.prepare_my_data_export(
+      current_setting('premium_fixture.export_request_id')::uuid
+    );
+    RAISE EXCEPTION 'Expired export remained downloadable';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END;
+$expired_export_checks$;
+SELECT set_config(
+  'premium_fixture.replacement_export_request_id',
+  public.request_my_data_subject_action_v2(
+    'export', ARRAY['profile'], 'premium-export-request-0002'
+  )->>'request_id',
+  true
+);
+DO $replacement_export_checks$
+BEGIN
+  IF current_setting('premium_fixture.replacement_export_request_id') =
+    current_setting('premium_fixture.export_request_id') THEN
+    RAISE EXCEPTION 'Expired export request was not replaced';
+  END IF;
+  IF (
+    SELECT count(*) FROM public.data_subject_requests
+    WHERE user_id = auth.uid() AND request_type = 'export'
+      AND status IN ('requested', 'identity_verified', 'processing', 'ready', 'retention_hold')
+  ) <> 1 THEN
+    RAISE EXCEPTION 'Expired export recovery violated one-open-request invariant';
+  END IF;
+END;
+$replacement_export_checks$;
+
 SELECT public.request_my_data_subject_action_v2(
   'deletion', '{}'::text[], 'premium-deletion-request-0001'
 );

@@ -460,7 +460,21 @@ BEGIN
   LIMIT 1
   FOR UPDATE;
 
-  IF FOUND THEN
+  -- A previously prepared bundle is intentionally short-lived. Finalize the
+  -- stale request here so the owner can start a fresh export without operator
+  -- intervention or weakening the one-open-request invariant.
+  IF request_row.id IS NOT NULL
+    AND _request_type = 'export'
+    AND request_row.status = 'ready'
+    AND request_row.export_expires_at IS NOT NULL
+    AND request_row.export_expires_at <= now() THEN
+    UPDATE public.data_subject_requests
+    SET status = 'completed', completed_at = now(), updated_at = now()
+    WHERE id = request_row.id;
+    request_row.id := NULL;
+  END IF;
+
+  IF request_row.id IS NOT NULL THEN
     IF request_row.request_key = _idempotency_key THEN
       RETURN jsonb_build_object(
         'request_id', request_row.id, 'status', request_row.status,
@@ -586,6 +600,11 @@ BEGIN
   FOR UPDATE;
   IF NOT FOUND OR request_row.status NOT IN ('requested', 'identity_verified', 'ready') THEN
     RAISE EXCEPTION 'Export request is unavailable' USING ERRCODE = '42501';
+  END IF;
+  IF request_row.status = 'ready'
+    AND request_row.export_expires_at IS NOT NULL
+    AND request_row.export_expires_at <= now() THEN
+    RAISE EXCEPTION 'Export request has expired' USING ERRCODE = '42501';
   END IF;
   scope := CASE WHEN cardinality(request_row.export_scope) = 0
     THEN ARRAY['profile', 'preferences', 'events', 'social', 'account_activity']
@@ -740,7 +759,7 @@ BEGIN
   UPDATE public.data_subject_requests
   SET status = 'ready',
       prepared_at = coalesce(prepared_at, now()),
-      export_expires_at = now() + interval '7 days',
+      export_expires_at = coalesce(export_expires_at, now() + interval '7 days'),
       updated_at = now()
   WHERE id = request_row.id;
 

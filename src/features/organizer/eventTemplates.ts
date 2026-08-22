@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ORGANIZER_EVENT_TEMPLATES } from '@/lib/organizerProduction';
+import { HOBBY_CATALOG } from '@/lib/hobbyCategories';
 
 export interface EventTemplateContract {
   id: string;
@@ -34,6 +35,72 @@ export interface SaveEventTemplateInput {
   locationFreeText: string | null;
   maxAttendees: number | null;
   eventTime: string | null;
+}
+
+export interface EventTemplateDraft {
+  selectedCategoryId: string;
+  selectedSubcategoryId: string;
+  selectedActivityId: string;
+  description: string;
+  imageEmoji: string;
+  tags: string;
+  locationType: string;
+  locationCity: string;
+  locationDistrict: string;
+  locationAddress: string;
+  locationFreeText: string;
+  hasManualLocation: boolean;
+  maxAttendees: string;
+  eventTime: string;
+  beginnerFriendly: 'unspecified' | 'yes' | 'no';
+  activityIntensity: string;
+  equipmentRequired: string;
+}
+
+export function resolveEventTemplateCategoryPath(categoryPath: string) {
+  const [categoryName, subcategoryName, activityName] = categoryPath.split(' › ');
+  const category = HOBBY_CATALOG.find((item) => item.name === categoryName);
+  const subcategory = category?.subcategories.find((item) => item.name === subcategoryName);
+  const activity = subcategory?.activities.find((item) => item.name === activityName);
+  if (!category || !subcategory) return null;
+  return {
+    categoryId: category.id,
+    subcategoryId: subcategory.id,
+    activityId: activity?.id ?? '',
+  };
+}
+
+export function applyEventTemplateToDraft(
+  current: EventTemplateDraft,
+  template: EventTemplateContract,
+): EventTemplateDraft {
+  const next = { ...current };
+  if (!current.selectedCategoryId && !current.selectedSubcategoryId && !current.selectedActivityId) {
+    const resolved = resolveEventTemplateCategoryPath(template.category);
+    if (resolved) {
+      next.selectedCategoryId = resolved.categoryId;
+      next.selectedSubcategoryId = resolved.subcategoryId;
+      next.selectedActivityId = resolved.activityId;
+    }
+  }
+  if (!current.description.trim() && template.description) next.description = template.description;
+  if ((!current.imageEmoji || current.imageEmoji === '🎉') && template.image_emoji) next.imageEmoji = template.image_emoji;
+  if (!current.tags.trim() && template.tags?.length) next.tags = template.tags.join(', ');
+  if (!current.hasManualLocation) {
+    next.locationType = template.location_type || current.locationType;
+    next.locationCity = template.location_city || current.locationCity;
+    next.locationDistrict = template.location_district || current.locationDistrict;
+    next.locationAddress = template.location_address || current.locationAddress;
+    next.locationFreeText = template.location_free_text || current.locationFreeText;
+  }
+  if (!current.maxAttendees && template.max_attendees) next.maxAttendees = String(template.max_attendees);
+  if (!current.eventTime && template.event_time) next.eventTime = template.event_time;
+  if (current.beginnerFriendly === 'unspecified' && template.beginner_friendly !== null && template.beginner_friendly !== undefined) {
+    next.beginnerFriendly = template.beginner_friendly ? 'yes' : 'no';
+  }
+  if (!current.activityIntensity && template.activity_intensity) next.activityIntensity = template.activity_intensity;
+  if (!current.equipmentRequired && template.equipment_required) next.equipmentRequired = template.equipment_required;
+  return next;
 }
 
 export const CURATED_EVENT_TEMPLATES: EventTemplateContract[] = ORGANIZER_EVENT_TEMPLATES.map((template) => ({

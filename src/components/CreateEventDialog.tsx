@@ -22,6 +22,7 @@ import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { upsertEventTripPlan } from '@/lib/tripPlans';
 import { linkEventToCircle } from '@/features/community/eventPlanning';
+import { applyEventTemplateToDraft } from '@/features/organizer/eventTemplates';
 import {
   buildEventInsertPayload,
   createEventRecord,
@@ -297,28 +298,41 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
           {/* Template selector + Save as template */}
           <div className="flex flex-wrap items-center gap-2">
             <EventTemplateSelector onSelect={(tpl) => {
-              // Pre-fill fields from template
-              const parts = tpl.category.split(' › ');
-              const cat = HOBBY_CATALOG.find(c => c.name === parts[0]);
-              if (cat) {
-                setSelectedCategoryId(cat.id);
-                const sub = cat.subcategories.find(s => s.name === parts[1]);
-                if (sub) {
-                  setSelectedSubcategoryId(sub.id);
-                  const act = sub.activities.find(a => a.name === parts[2]);
-                  if (act) setSelectedActivityId(act.id);
-                }
-              }
-              setDescription(tpl.description || '');
-              setImageEmoji(tpl.image_emoji || '🎉');
-              setTags((tpl.tags || []).join(', '));
-              setLocationType(tpl.location_type || 'city');
-              setLocationCity(tpl.location_city || '');
-              setLocationDistrict(tpl.location_district || '');
-              setLocationAddress(tpl.location_address || '');
-              setLocationFreeText(tpl.location_free_text || '');
-              setMaxAttendees(tpl.max_attendees ? String(tpl.max_attendees) : '');
-              setEventTime(tpl.event_time || '');
+              const next = applyEventTemplateToDraft({
+                selectedCategoryId,
+                selectedSubcategoryId,
+                selectedActivityId,
+                description,
+                imageEmoji,
+                tags,
+                locationType,
+                locationCity,
+                locationDistrict,
+                locationAddress,
+                locationFreeText,
+                hasManualLocation: Boolean(locationCity || locationDistrict || locationAddress || locationFreeText || placeData),
+                maxAttendees,
+                eventTime,
+                beginnerFriendly,
+                activityIntensity,
+                equipmentRequired,
+              }, tpl);
+              setSelectedCategoryId(next.selectedCategoryId);
+              setSelectedSubcategoryId(next.selectedSubcategoryId);
+              setSelectedActivityId(next.selectedActivityId);
+              setDescription(next.description);
+              setImageEmoji(next.imageEmoji);
+              setTags(next.tags);
+              setLocationType(next.locationType);
+              setLocationCity(next.locationCity);
+              setLocationDistrict(next.locationDistrict);
+              setLocationAddress(next.locationAddress);
+              setLocationFreeText(next.locationFreeText);
+              setMaxAttendees(next.maxAttendees);
+              setEventTime(next.eventTime);
+              setBeginnerFriendly(next.beginnerFriendly);
+              setActivityIntensity(next.activityIntensity);
+              setEquipmentRequired(next.equipmentRequired);
               toast.info(`Sablon betöltve: ${tpl.template_name}`);
             }} />
             <SaveAsTemplateButton

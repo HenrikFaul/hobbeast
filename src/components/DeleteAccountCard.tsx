@@ -106,6 +106,12 @@ export function DeleteAccountCard() {
 
   const deletion = requests.find((request) => request.request_type === 'deletion');
   const dataExport = requests.find((request) => request.request_type === 'export');
+  const exportExpired = dataExport?.status === 'ready'
+    && dataExport.export_expires_at !== null
+    && new Date(dataExport.export_expires_at).getTime() <= Date.now();
+  const exportDownloadable = Boolean(dataExport)
+    && !exportExpired
+    && ['requested', 'identity_verified', 'ready'].includes(dataExport?.status || '');
 
   return (
     <Card className="rounded-2xl border shadow-card">
@@ -127,11 +133,18 @@ export function DeleteAccountCard() {
             <legend className="px-1 text-sm font-semibold">Export adatkörök</legend>
             {DATA_EXPORT_SCOPES.map((scope) => <label key={scope.value} className="flex min-h-10 items-center gap-3 text-sm"><Checkbox checked={exportScopes.includes(scope.value)} onCheckedChange={(checked) => setExportScopes((current) => checked ? [...new Set([...current, scope.value])] : current.filter((item) => item !== scope.value))} /><span>{scope.label}</span></label>)}
           </fieldset>
-          {dataExport ? (
-            <div className="flex flex-col gap-2"><Badge className="w-fit" variant="secondary">Export: {dataExport.status}</Badge><Button type="button" className="w-full rounded-xl" variant="outline" disabled={working !== null} onClick={() => void downloadExistingExport(dataExport.id)}>{working === 'export' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}JSON export letöltése</Button></div>
+          {dataExport && !exportExpired ? (
+            <div className="flex flex-col gap-2">
+              <Badge className="w-fit" variant="secondary">Export: {dataExport.status}</Badge>
+              {exportDownloadable ? (
+                <Button type="button" className="w-full rounded-xl" variant="outline" disabled={working !== null} onClick={() => void downloadExistingExport(dataExport.id)}>{working === 'export' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}JSON export letöltése</Button>
+              ) : (
+                <p className="text-sm text-muted-foreground" role="status">Az export előkészítése vagy megőrzési ellenőrzése folyamatban van.</p>
+              )}
+            </div>
           ) : (
             <Button type="button" className="w-full rounded-xl" variant="outline" disabled={working !== null || exportScopes.length === 0} onClick={() => void requestAction('export')}>
-              {working === 'export' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Adataim exportálása
+              {working === 'export' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}{exportExpired ? 'Új export készítése' : 'Adataim exportálása'}
             </Button>
           )}
         </div>

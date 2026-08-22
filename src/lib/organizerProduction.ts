@@ -9,13 +9,13 @@ export interface OrganizerEventTemplate {
 }
 
 export const ORGANIZER_EVENT_TEMPLATES: OrganizerEventTemplate[] = [
-  { id: 'walk', label: 'Közösségi séta', values: { category: 'Sport & Mozgás › Séta', tags: ['séta', 'kezdőbarát'], beginnerFriendly: true, activityIntensity: 'könnyű' } as OrganizerEventTemplate['values'] },
-  { id: 'hike', label: 'Túra', values: { category: 'Természet › Túrázás', tags: ['túra', 'természet'], equipmentRequired: 'Időjárásnak megfelelő cipő és víz' } as OrganizerEventTemplate['values'] },
-  { id: 'board_games', label: 'Társasjáték-est', values: { category: 'Játék & Gaming › Társasjátékok', tags: ['társasjáték', 'kezdőbarát'], beginnerFriendly: true } as OrganizerEventTemplate['values'] },
-  { id: 'workshop', label: 'Workshop', values: { category: 'Tanulás › Workshop', tags: ['workshop'], equipmentRequired: 'A host által jelzett eszközök' } as OrganizerEventTemplate['values'] },
-  { id: 'sport', label: 'Közös sport', values: { category: 'Sport & Mozgás', tags: ['sport'], activityIntensity: 'közepes' } as OrganizerEventTemplate['values'] },
-  { id: 'tech_meetup', label: 'Tech meetup', values: { category: 'Technológia › Meetup', tags: ['tech', 'meetup'] } as OrganizerEventTemplate['values'] },
-  { id: 'gastronomy', label: 'Gasztro találkozó', values: { category: 'Gasztronómia', tags: ['gasztro', 'közösség'] } as OrganizerEventTemplate['values'] },
+  { id: 'walk', label: 'Közösségi séta', values: { category: 'Utazás & Felfedezés › Utazási stílusok › Városfelfedezés / Séta', tags: ['séta', 'kezdőbarát'], beginnerFriendly: true, activityIntensity: 'könnyű' } as OrganizerEventTemplate['values'] },
+  { id: 'hike', label: 'Túra', values: { category: 'Természet & Túra › Túrázás › Napi túra', tags: ['túra', 'természet'], equipmentRequired: 'Időjárásnak megfelelő cipő és víz' } as OrganizerEventTemplate['values'] },
+  { id: 'board_games', label: 'Társasjáték-est', values: { category: 'Társasjáték & Gondolkodás › Társasjátékok › Társasozás (általános)', tags: ['társasjáték', 'kezdőbarát'], beginnerFriendly: true } as OrganizerEventTemplate['values'] },
+  { id: 'workshop', label: 'Workshop', values: { category: 'Kreatív & Kézműves › Kézművesség › Kerámiázás', tags: ['workshop'], equipmentRequired: 'A host által jelzett eszközök' } as OrganizerEventTemplate['values'] },
+  { id: 'sport', label: 'Közös sport', values: { category: 'Sport & Mozgás › Futás & Atlétika › Futás', tags: ['sport'], activityIntensity: 'közepes' } as OrganizerEventTemplate['values'] },
+  { id: 'tech_meetup', label: 'Tech meetup', values: { category: 'Önkéntesség & Közösség › Közösségépítés › Meetup / Networking', tags: ['tech', 'meetup'] } as OrganizerEventTemplate['values'] },
+  { id: 'gastronomy', label: 'Gasztro találkozó', values: { category: 'Gasztronómia › Főzés & Sütés › Főzés', tags: ['gasztro', 'közösség'] } as OrganizerEventTemplate['values'] },
 ];
 
 export function applyOrganizerTemplate<T extends Record<string, unknown>>(current: T, template: OrganizerEventTemplate): T {
