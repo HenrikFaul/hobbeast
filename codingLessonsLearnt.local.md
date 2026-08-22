@@ -69,3 +69,49 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
 - **Planner bug**: Address providers can occasionally return incomplete hits without valid coordinates; silently coercing these to numeric zero creates random `0,0` route points.
 - **Fix**: Route-planning suggestion pipelines must validate coordinates and either enrich missing provider coordinates from a details endpoint or drop the invalid suggestion before selection.
 - **Prevention**: Any autocomplete that feeds a map or router must treat `0,0` as invalid unless it is explicitly intended, and nested admin detail dialogs should open additive overlays instead of replacing the parent modal.
+
+## v1.8.0 — Multi-Supabase project-mismatch log must never echo the full URL
+
+- **Symptom**: A wrong-project frontend boot log printed the full Supabase URL (`configuredUrl`) in `src/integrations/supabase/client.ts`, alongside the project ref. The URL is not a secret by itself, but it leaks deployment topology and violates the "never leak URL in the project-mismatch message" contract that `src/lib/supabaseProjects.ts` already enforces.
+- **Root cause**: The auto-generated `client.ts` had its own inline mismatch log that copied `SUPABASE_URL` verbatim instead of delegating to the shared ref-only helper contract.
+- **Fix (v1.8.0 production baseline)**: The mismatch `console.error` now logs only `configuredProjectRef` + `expectedProjectRef` — never the URL. Verified in the test run: the `placeSearch.test.ts` stderr line now shows only the refs, no URL.
+- **Prevention**: Any Supabase-client or Edge-Function log that fires on project/target mismatch must emit `project ref` only — never the URL, key, or token. Reuse `extractProjectRef`/`classifyProjectRef` semantics from `src/lib/supabaseProjects.ts` everywhere; do not re-implement URL logging inline.
+
+## v1.8.4 — Client body flags are never scheduler authentication
+
+- **Symptom**: A `verify_jwt=false` Edge Function accepted client-controlled `_cron=true` and
+  skipped `requireAdminUser`, then wrote events with a service-role client and charged AI quota.
+- **Root cause**: Execution mode (`cron`) was confused with caller identity; a JSON body value
+  was treated as a privileged trust boundary.
+- **Fix**: Remove the bypass and require verified admin authorization for every action. Keep
+  automation HOLD until a server-held signature, timestamp/replay guard and durable job lock exist.
+- **Prevention**: No request body/query/header chosen by an untrusted caller can establish admin,
+  scheduler or service identity on a gateway-unverified Edge Function.
+
+## v1.8.4 — `.gitignore` does not protect a file that Git already tracks
+
+- **Symptom**: Readiness documentation claimed `.env` was absent from the tracked tree while
+  `git ls-files --stage -- .env` returned a tracked blob.
+- **Root cause**: The audit checked the ignore rule/pattern scan but did not check the Git index.
+- **Fix**: Release validation now fails when `.env` is tracked; risk/readiness evidence is HOLD.
+  Rotation and tracking/history remediation remain operator-owned security actions.
+- **Prevention**: Secret hygiene gates must check both ignore rules and `git ls-files`; never infer
+  “untracked” from `.gitignore` alone.
+
+## v1.8.4 — A default-limited query is not complete reconciliation state
+
+- **Symptom**: A hub edit planned removals from an unpaginated `profiles` query. Above the
+  PostgREST row limit, legitimate members absent from the response could be classified as stale.
+- **Fix**: Keep the pure add/keep/remove planner as a tested migration contract, but do not apply
+  it to runtime membership until pagination, one transaction and a concurrency lock are proven.
+- **Prevention**: Destructive desired-state reconciliation requires a proven-complete snapshot or
+  a DB-native set operation; partial client/Edge result sets may never authorize deletes.
+
+## v1.8.4 — An authenticated Edge wrapper does not secure a direct RPC
+
+- **Symptom**: The Edge refresh action gained admin auth, while the underlying destructive
+  `SECURITY DEFINER` function retained legacy direct execution grants.
+- **Fix**: Block the unsafe Edge action and UI control immediately; keep production on HOLD until
+  an approved migration revokes broad grants and proves direct-call denial.
+- **Prevention**: Review database grants separately from every wrapper route. Wrapper auth is
+  defense in depth, not a replacement for least-privilege function privileges.

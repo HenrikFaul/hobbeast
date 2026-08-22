@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-22T20:50:56.000Z",
+  "scope": "prompt-13-15-source-candidate",
+  "overallStatus": "HOLD",
+  "decisionReason": "Local source gates pass, but SQL/Edge runtime, RLS personas, production-like E2E, visual regression and manual accessibility evidence are not complete.",
+  "checks": [
+    {
+      "id": "full-vitest",
+      "status": "PASS",
+      "command": "bunx vitest run",
+      "evidence": { "testFiles": 27, "tests": 193, "failed": 0 },
+      "notes": "Expected stderr includes a mocked event-operation failure and the pre-existing canonical Supabase project mismatch warning."
+    },
+    {
+      "id": "prompt-13-15-targeted-vitest",
+      "status": "PASS",
+      "command": "bunx vitest run src/lib/__tests__/trustSafetyQualityMonetization.test.ts src/components/safety/SafetyActions.test.tsx",
+      "evidence": { "testFiles": 2, "tests": 16, "failed": 0 }
+    },
+    {
+      "id": "typescript",
+      "status": "PASS",
+      "command": "bun run typecheck"
+    },
+    {
+      "id": "focused-eslint",
+      "status": "PASS",
+      "command": "bunx eslint <prompt-13-15 changed TS/TSX files>"
+    },
+    {
+      "id": "development-build",
+      "status": "PASS",
+      "command": "bun run build:dev"
+    },
+    {
+      "id": "performance-budget",
+      "status": "PASS",
+      "command": "bun scripts/check-performance-budget.mjs",
+      "evidence": {
+        "landingMainJs": { "rawBytes": 153117, "gzipBytes": 47432, "rawLimit": 163840, "gzipLimit": 51200 },
+        "globalCss": { "rawBytes": 86341, "gzipBytes": 15455, "rawLimit": 102400, "gzipLimit": 20480 },
+        "eventsRoute": { "rawBytes": 81813, "gzipBytes": 25476, "rawLimit": 122880, "gzipLimit": 40960 },
+        "eventDetailRoute": { "rawBytes": 42753, "gzipBytes": 12991, "rawLimit": 81920, "gzipLimit": 30720 },
+        "adminRoute": { "rawBytes": 169905, "gzipBytes": 43912, "rawLimit": 225280, "gzipLimit": 71680 },
+        "organizerRoute": { "rawBytes": 39617, "gzipBytes": 11266, "rawLimit": 122880, "gzipLimit": 40960 }
+      },
+      "notes": "Measured from the final local development build after the EventDetail and admin integrations."
+    },
+    {
+      "id": "sql-static-structure",
+      "status": "PASS",
+      "command": "PowerShell dollar-quote/function/transaction balance check",
+      "evidence": {
+        "20260822130000": { "functions": 23, "functionBodiesClosed": 23, "transactionBalanced": true },
+        "20260822150000": { "functions": 7, "functionBodiesClosed": 7, "transactionBalanced": true },
+        "20260822150100": { "functions": 7, "functionBodiesClosed": 7, "transactionBalanced": true }
+      }
+    },
+    {
+      "id": "sql-runtime-and-rls-personas",
+      "status": "NOT_RUN",
+      "blocker": "No approved disposable Supabase/Postgres target credentials in this agent scope; no live migration was authorized."
+    },
+    {
+      "id": "edge-deno-runtime",
+      "status": "NOT_RUN",
+      "blocker": "Deno and Supabase CLI are not installed in the local toolchain."
+    },
+    {
+      "id": "production-like-critical-e2e",
+      "status": "NOT_RUN",
+      "blocker": "Authenticated staging personas and a production-like target are not available."
+    },
+    {
+      "id": "visual-regression-baselines",
+      "status": "NOT_RUN",
+      "blocker": "Stable authenticated fixtures for Events, EventDetail, Profile, Organizer and Admin are not available."
+    },
+    {
+      "id": "manual-accessibility",
+      "status": "NOT_RUN",
+      "blocker": "Keyboard-only, screen-reader, 200% zoom, contrast and reduced-motion checks require an interactive browser/device pass."
+    }
+  ],
+  "accessibilityBlockers": {
+    "count": 5,
+    "items": [
+      "Manual screen-reader spot-check",
+      "Keyboard-only authenticated critical journeys",
+      "Automated browser axe audit",
+      "200% zoom and 360px responsive review",
+      "Map/list and live-update assistive-technology verification"
+    ]
+  },
+  "releaseClaims": {
+    "productionReady": false,
+    "stagingVerified": false,
+    "deployed": false,
+    "paymentActivated": false
+  }
+}

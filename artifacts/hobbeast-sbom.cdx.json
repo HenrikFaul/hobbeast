@@ -1,0 +1,1629 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:8fd18388-d2c4-5787-a3bf-61da6f752d6e",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-08-22T20:48:45.582Z",
+    "component": {
+      "type": "application",
+      "name": "hobbeast",
+      "version": "1.8.4",
+      "properties": [
+        {
+          "name": "hobbeast:commit-sha",
+          "value": "local-uncommitted"
+        },
+        {
+          "name": "hobbeast:bun-lock-sha256",
+          "value": "8588010c2a3f72684ae41eb70a4d623aba7d989115cafd95ae9ffeb894b8cd23"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "vendor": "Hobbeast",
+        "name": "dependency-manifest-sbom",
+        "version": "1"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40eslint/js@9.32.0",
+      "name": "@eslint/js",
+      "version": "9.32.0",
+      "purl": "pkg:npm/%40eslint/js@9.32.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "041a511592b7797eae30b2b3f16c4538120515c18527f83c5eec234c70aa1d139222ca2923e75d9ff77909f877ebeefe7b979d552f1d6d21e704d86b2c45f4ce"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40hookform/resolvers@3.10.0",
+      "name": "@hookform/resolvers",
+      "version": "3.10.0",
+      "purl": "pkg:npm/%40hookform/resolvers@3.10.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "efd0effb798317b8bed9a8e3ed2932a52287865d5c6e59f53866afaabb05ee9ea66d4bf5d71a6aa5a70fb060c24d1bc24a310421ecf679fd4dbde4952f76f402"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40lovable.dev/cloud-auth-js@1.1.1",
+      "name": "@lovable.dev/cloud-auth-js",
+      "version": "1.1.1",
+      "purl": "pkg:npm/%40lovable.dev/cloud-auth-js@1.1.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f347a553c752246e9b868d179df8f6a32e77c29f3cde7617ac6d56cbde3c2c2fd951a510d22f441974059b04cb38116b5aac5be9a35a3a5654bd0f0154686331"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40playwright/test@1.58.2",
+      "name": "@playwright/test",
+      "version": "1.58.2",
+      "purl": "pkg:npm/%40playwright/test@1.58.2",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6a479afba6c760105f03db90a926269495e7eb57136be8db3bcef154b0966d3a9b59a75156687195701368e8ce81c05a594e1e3e8d30078d4a305bf7a37e485c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-accordion@1.2.11",
+      "name": "@radix-ui/react-accordion",
+      "version": "1.2.11",
+      "purl": "pkg:npm/%40radix-ui/react-accordion@1.2.11",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9775b90f9e1e995dae7acee38de1b5c5cc8ded2de39cadf3136cc7aa09f40a632ccbd94d2709a072b99ac52fbb8a9c35e45022bf328dcc7ddde44706a052b0d0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-alert-dialog@1.1.14",
+      "name": "@radix-ui/react-alert-dialog",
+      "version": "1.1.14",
+      "purl": "pkg:npm/%40radix-ui/react-alert-dialog@1.1.14",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "20e65f6779cfbcdea55e9253042ba71503d14af2bc303812735141f39c6722950a3b0f5e9f47498fc266080c55ec189976d6255299ab423a13164558b5da16cd"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-aspect-ratio@1.1.7",
+      "name": "@radix-ui/react-aspect-ratio",
+      "version": "1.1.7",
+      "purl": "pkg:npm/%40radix-ui/react-aspect-ratio@1.1.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "62aea5bcef474323f07afd689cad5d687087a9754bccf8525639ac36309ad99731cb67fbb890f68ad0edc649efe85cc0282c03d6a4247950e65ff71ebf5de7fe"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-avatar@1.1.10",
+      "name": "@radix-ui/react-avatar",
+      "version": "1.1.10",
+      "purl": "pkg:npm/%40radix-ui/react-avatar@1.1.10",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "57ca6215f59aa4ce4e98d0974f355063e135ac36b9df363e310e18ef7e7abf87c5cfabea0b252d233dab503e3864477083bf3f8ca98c2478f4efe0bf67fadca2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-checkbox@1.3.2",
+      "name": "@radix-ui/react-checkbox",
+      "version": "1.3.2",
+      "purl": "pkg:npm/%40radix-ui/react-checkbox@1.3.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c9df9d239e8a66a6b0c4a66b277d5e10d530a9cd504aa838399d79af26c68c5d9937030efb00b21f30152d1a7daa86097fb918cb46296766f4242cc9e361d9a4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-collapsible@1.1.11",
+      "name": "@radix-ui/react-collapsible",
+      "version": "1.1.11",
+      "purl": "pkg:npm/%40radix-ui/react-collapsible@1.1.11",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "daaad1b151920986ac4b3d5114ea2b5f09741fb83b2757eb42d82942062bb7e30e89db4f0083479fd08fa2f4176fcdebf1a85aa5dc774eed1f6bfa5d14549d3e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-context-menu@2.2.15",
+      "name": "@radix-ui/react-context-menu",
+      "version": "2.2.15",
+      "purl": "pkg:npm/%40radix-ui/react-context-menu@2.2.15",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "52c4143237184ec0634d25f0d0fdc63b4c1eac442f518da9960450b8aa024ed90daf8e6ad4388be758f89bb83184007367405a7685cdb086e0ec5dcac225016f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-dialog@1.1.14",
+      "name": "@radix-ui/react-dialog",
+      "version": "1.1.14",
+      "purl": "pkg:npm/%40radix-ui/react-dialog@1.1.14",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f82a7078a8eaa734e6c11c1c60409070d61b23c57d55242dd1234529e1012e07ee71bb0bb2c53a3e9abbc1474d5c419be7bddb323161563295965f2b995eb333"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-dropdown-menu@2.1.15",
+      "name": "@radix-ui/react-dropdown-menu",
+      "version": "2.1.15",
+      "purl": "pkg:npm/%40radix-ui/react-dropdown-menu@2.1.15",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9880673a3830a3d007dc5c8a6925a84aefdd623e9576127b7eb10f8864de5c27541478e5f61de6161db0c2112d20d3a66175a17697f5ad8da68a716c99a36055"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-hover-card@1.1.14",
+      "name": "@radix-ui/react-hover-card",
+      "version": "1.1.14",
+      "purl": "pkg:npm/%40radix-ui/react-hover-card@1.1.14",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "08f619db83218ab9be83a0fc8c0ae62f38d8bb81328374d3507b30476e908335c11c17bae013bf4473892b3985fc3c5be32e1ff4f2b225dc26fcefc084d91bf9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-label@2.1.7",
+      "name": "@radix-ui/react-label",
+      "version": "2.1.7",
+      "purl": "pkg:npm/%40radix-ui/react-label@2.1.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "613d46a8f48bf24267db47637a5317eff713469fd8f70e48647bdfc504d51eb3aa6b6c8c97b8bf51f32a29153957b984c8a4eb5158095e13503d5086f0f04ba1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-menubar@1.1.15",
+      "name": "@radix-ui/react-menubar",
+      "version": "1.1.15",
+      "purl": "pkg:npm/%40radix-ui/react-menubar@1.1.15",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "67bd42ecb183f980d8a374d5f35a5a52cf1fdd96e692f83a54b450a4a61fce2a0e13a9fb7ce840dc0a4afd5ff639da25c63a1ce04364f006028e884235ac9de4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-navigation-menu@1.2.13",
+      "name": "@radix-ui/react-navigation-menu",
+      "version": "1.2.13",
+      "purl": "pkg:npm/%40radix-ui/react-navigation-menu@1.2.13",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "586f3059f0e2265485e6110b8f07e348639770147f64c8411421987bcbc44690b7f4241865eab53d0da46981ddc9edd5f79774e87f3d28632c542204e0b5a8de"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-popover@1.1.14",
+      "name": "@radix-ui/react-popover",
+      "version": "1.1.14",
+      "purl": "pkg:npm/%40radix-ui/react-popover@1.1.14",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "383cf5ebed6221b1947c511f2b1d874cf2a2ce0d8c377f6e20e57c3177879e675dde2fcdf56b7bbd4e3ac1b1eca80d31a1a4325d572cd0a22505d380d98f796f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-progress@1.1.7",
+      "name": "@radix-ui/react-progress",
+      "version": "1.1.7",
+      "purl": "pkg:npm/%40radix-ui/react-progress@1.1.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "bcf760fed17a602ff29ee0482659359a6ecb7b45605bab9be89d945a74d0eff0f6dca5dc3c8d6acbed2f06480a81ddfc4423096af057a41f371cf3453136f416"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-radio-group@1.3.7",
+      "name": "@radix-ui/react-radio-group",
+      "version": "1.3.7",
+      "purl": "pkg:npm/%40radix-ui/react-radio-group@1.3.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f70e57843d0a3ceae6f763934c4d12cac1f7b18cc7b124c736f660501a3f559f3455d6320794677836dcd1d2a95114b6e08c64a0546efe12348b85f27c5c18ea"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-scroll-area@1.2.9",
+      "name": "@radix-ui/react-scroll-area",
+      "version": "1.2.9",
+      "purl": "pkg:npm/%40radix-ui/react-scroll-area@1.2.9",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6128c47c15e785410bb0ed95ce376d6180f809f423bdaa3e96186b5f95ec1c3eff73250dce58c5d451c46e04cf37b2c7d8c0a57f044c22c625a936292934ded8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-select@2.2.5",
+      "name": "@radix-ui/react-select",
+      "version": "2.2.5",
+      "purl": "pkg:npm/%40radix-ui/react-select@2.2.5",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1e7313757115baecb3c7adcc134bade3eb043185baa28b8758d19465cedd76f51621c7c2bdafc0328a845bfdf09c4965ae231605ad111eca426277c258941898"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-separator@1.1.7",
+      "name": "@radix-ui/react-separator",
+      "version": "1.1.7",
+      "purl": "pkg:npm/%40radix-ui/react-separator@1.1.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d0711bf11f44f00fa3663be6142cbf278c616d7cb74d5fbd5d29c62772af4ed8e5214cbf610fe9e94619be2ed86dea1e5ddc94f7e637b1c8b32ba864637edb68"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-slider@1.3.5",
+      "name": "@radix-ui/react-slider",
+      "version": "1.3.5",
+      "purl": "pkg:npm/%40radix-ui/react-slider@1.3.5",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ae47deda95363410187c66b16b732aa2c8bb5591165f90b129a6a746fd2f65de19865f5fbd0ae0d1533ddddbf7c462c67eb1eea13445dc95c7f276fd83e0777f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-slot@1.2.3",
+      "name": "@radix-ui/react-slot",
+      "version": "1.2.3",
+      "purl": "pkg:npm/%40radix-ui/react-slot@1.2.3",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "69e3661e70716e2d92b746aee950550bb25716584b94e9ef20895e3cd9e2c943400a5ce6b4050463cfe90622b78878ee7ce97003e736d3ff239e0a3bc5cae0f0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-switch@1.2.5",
+      "name": "@radix-ui/react-switch",
+      "version": "1.2.5",
+      "purl": "pkg:npm/%40radix-ui/react-switch@1.2.5",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e628cb91a93a64cca55ec6889a967cbb84657f982b466a1cd29d10797f5526d96b3387f99b79c24d7f2d5a06bfcce03c3d960847fb74a76327bddec89eb27ac9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-tabs@1.1.12",
+      "name": "@radix-ui/react-tabs",
+      "version": "1.1.12",
+      "purl": "pkg:npm/%40radix-ui/react-tabs@1.1.12",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "19354095156b42b4b0ddc10044cd27031ef78b1ad60cf35902bb844e7de81c234fe926d9fe1371771a7ebbb564204bf7fec1682ead4f7dc1eb97b3e7a74083a7"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-toast@1.2.14",
+      "name": "@radix-ui/react-toast",
+      "version": "1.2.14",
+      "purl": "pkg:npm/%40radix-ui/react-toast@1.2.14",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9c03f9141c4124643f61f501fabf8ee944855645aade00089e4c721279af115e63b526df0e17dae21c17f02ada0a76e330bb04ed749ffcaef997dc5763b8e85a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-toggle@1.1.9",
+      "name": "@radix-ui/react-toggle",
+      "version": "1.1.9",
+      "purl": "pkg:npm/%40radix-ui/react-toggle@1.1.9",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "668164041cfdceff4659eafbc088ef751c66876c32736a0a5b0e82e82b1e59debfcaad432bf979949fb09ec985c0965b058aabd369ab7fc036abf0950ae33764"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-toggle-group@1.1.10",
+      "name": "@radix-ui/react-toggle-group",
+      "version": "1.1.10",
+      "purl": "pkg:npm/%40radix-ui/react-toggle-group@1.1.10",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "92253af782a6dd614b4c2ef90ddaa033fdc96ae7f7ac3f70c5e4bd5edc9614ab0151e640df7ee50beeae51acd3ec8d4385a9d9e60c83e52b5ff2e7f675b43139"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40radix-ui/react-tooltip@1.2.7",
+      "name": "@radix-ui/react-tooltip",
+      "version": "1.2.7",
+      "purl": "pkg:npm/%40radix-ui/react-tooltip@1.2.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "029f9f358c0a4d827da73a96f977b61ed3116d0fc4796923daaca467a4ae115e224bfa356d9239b2c25b9380f6afc5ee0ee381573fed231d8939bb6ea94fb967"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40supabase/supabase-js@2.99.0",
+      "name": "@supabase/supabase-js",
+      "version": "2.99.0",
+      "purl": "pkg:npm/%40supabase/supabase-js@2.99.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "48ff529fdb6c1c307b378bb6813d77add79925ec04e3189b0316ac1bbbcecfe7d88bddbe5e430c6d6371d2e18ae77cca4e7027bd3b35ea2b11a28c81cb8b27e7"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40tailwindcss/typography@0.5.16",
+      "name": "@tailwindcss/typography",
+      "version": "0.5.16",
+      "purl": "pkg:npm/%40tailwindcss/typography@0.5.16",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d300cbc02545e55df1ddbd521973c20dc76c6c31cc05efa5905cc145a1de2ef362fa7aeb9d9d65035f2ef8e4d63bc892594d86c54382be55ed0eea9fb5cd6888"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40tanstack/react-query@5.83.0",
+      "name": "@tanstack/react-query",
+      "version": "5.83.0",
+      "purl": "pkg:npm/%40tanstack/react-query@5.83.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fd7198859ddfa1ce47d153368cb483fcdc8144838ae2af647de9a5e3ed31d8394beb156e01c5445be8539536a90267a339b8348b778daa192bd9d4fe79c8b0a1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40testing-library/jest-dom@6.9.1",
+      "name": "@testing-library/jest-dom",
+      "version": "6.9.1",
+      "purl": "pkg:npm/%40testing-library/jest-dom@6.9.1",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "cc870e35afa156d55249ea7d513de3679ae2ce8d81b318320d853b5850f978808113b9e8dfcf351c679bfd09067ec26ce894e4635690853eeb20f0bb7bed279c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40testing-library/react@16.3.2",
+      "name": "@testing-library/react",
+      "version": "16.3.2",
+      "purl": "pkg:npm/%40testing-library/react@16.3.2",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5d4e7f4b2b5033eca4a8c9c09ef076ba66893483ac2c5dcf56ffffd44c38093729cf4fc1472cbf69fe34aaaaeded28caa43753d6c68131ce36094a24e606b0fa"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/leaflet@1.9.21",
+      "name": "@types/leaflet",
+      "version": "1.9.21",
+      "purl": "pkg:npm/%40types/leaflet@1.9.21",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4db01df4368f1929f3a7a42fb589e09ed31981c464fa280510bc11d8df7d5d99fb45751d2a0b17311fb6f1b50ed2b3ec5a9f0c22efdfe3b96e2c842e48b62fff"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/node@22.16.5",
+      "name": "@types/node",
+      "version": "22.16.5",
+      "purl": "pkg:npm/%40types/node@22.16.5",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6c91683004f02066b1c71f1524f78cf13a2723cb79efda11be002e4fccc5ba026c259833aafd05bbc321a7af2279c8f31bb72737798ed9d250e6e50cd8416b81"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/react@18.3.23",
+      "name": "@types/react",
+      "version": "18.3.23",
+      "purl": "pkg:npm/%40types/react@18.3.23",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fcb0d7310879e44cd9434b9501998a2a17c4362bc4bd6cfa13e118ce1fbf3028cc84db28b5df991e10462231434e2ebe7f3d0e8504102db4e0750231c42b02d3"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40types/react-dom@18.3.7",
+      "name": "@types/react-dom",
+      "version": "18.3.7",
+      "purl": "pkg:npm/%40types/react-dom@18.3.7",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3047b751ea043585455f3a17116b2f72983a66f96b14d94e43b10eb2f848dc27c05f0ccf7cef10c2ec5de349dea6c60aab2c954274dd11fbfaf2af75c8b70aad"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/%40vitejs/plugin-react-swc@3.11.0",
+      "name": "@vitejs/plugin-react-swc",
+      "version": "3.11.0",
+      "purl": "pkg:npm/%40vitejs/plugin-react-swc@3.11.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "61324218574d30708c7e338362dc51355018993590d4b6fc3ee94fff6fdffe8104b60970f282b12886669919325eb56b1dfb0a39a56401cdcd4fdfdd32eb4ee7"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/autoprefixer@10.4.21",
+      "name": "autoprefixer",
+      "version": "10.4.21",
+      "purl": "pkg:npm/autoprefixer@10.4.21",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3be03a2d65792c31d2243dcb8c7628362e152ec8ff5a18bb93acc6d76c5361a538710f28c5019c917357f1c4472b9c8e67fa695477b46415c6cd257d8d77556d"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/class-variance-authority@0.7.1",
+      "name": "class-variance-authority",
+      "version": "0.7.1",
+      "purl": "pkg:npm/class-variance-authority@0.7.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "29afbd4ebbadbfb1bc33a593e927a2456cfbf762b9a84a881841b35ca84013ac4e58063aa4f1fc53ef48637a0232fea4a9398bb2fed787fdb0d918a091e3ccb2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/clsx@2.1.1",
+      "name": "clsx",
+      "version": "2.1.1",
+      "purl": "pkg:npm/clsx@2.1.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7989b441606d52b0566561b4777f3a386030d7a67df793e2395a3607b6e35926c779d1a5e5ed1959aabae6438681448d7ac1080e407d2126d383f24af5d84264"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/cmdk@1.1.1",
+      "name": "cmdk",
+      "version": "1.1.1",
+      "purl": "pkg:npm/cmdk@1.1.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "56cbfb9056979bea6d1c3319ee2cda46c3fbd0682b5bd341346b30b7d39969504b944d123690eaf1ebbf5465f217dafb3346b32b75b2ece9585ecbb260b1731e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/date-fns@3.6.0",
+      "name": "date-fns",
+      "version": "3.6.0",
+      "purl": "pkg:npm/date-fns@3.6.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7d11d31bc83f1a27fe912879d2068611d4e87a681f8fbe1a457decc2d8a8b9ba22a792432c0c8313d175d671cc21cbce69778e0ba0fb4a93618bbb85c81ed4c3"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/embla-carousel-react@8.6.0",
+      "name": "embla-carousel-react",
+      "version": "8.6.0",
+      "purl": "pkg:npm/embla-carousel-react@8.6.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d3f3e3a94ee07959a8e85ef7e2998faa9c87aa233df6896fc9e718ef3770782c3eead2845e7ac4f74a418816cc314f2ce6d2027a6ce9437862e44a71cc65be24"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/eslint@9.32.0",
+      "name": "eslint",
+      "version": "9.32.0",
+      "purl": "pkg:npm/eslint@9.32.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2d27a17dda6031e59c4d991665520997eb646769ee4a4cb207d0b6ecc66a1565eea61ec3bdaa3081c4ef2aac6fa4b5b5259224f0f37b845637463f4b43b9bb96"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/eslint-plugin-react-hooks@5.2.0",
+      "name": "eslint-plugin-react-hooks",
+      "version": "5.2.0",
+      "purl": "pkg:npm/eslint-plugin-react-hooks@5.2.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f9fd7915f2bae1843065d24d10b113767e626d71144265b50d92fa29784d9dcda17a8cbfb20f55249793ee7f1394c5a8bb35aa4966af1642211f221b20011aa6"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/eslint-plugin-react-refresh@0.4.20",
+      "name": "eslint-plugin-react-refresh",
+      "version": "0.4.20",
+      "purl": "pkg:npm/eslint-plugin-react-refresh@0.4.20",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5e96c7436ab981417c046397e1d1defbbd6aa22ad832102910f67bb1f845fdd367385d545e708c1997fbf5215304eec1cf9604213e1332279294905684ff5604"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/framer-motion@12.35.2",
+      "name": "framer-motion",
+      "version": "12.35.2",
+      "purl": "pkg:npm/framer-motion@12.35.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "7617ee10c68da3485cf8012ac878887e225135bf54f5442eb44f45a0a9b9a637fb08c8ada7dc4f105d625998a1475abce8b066a3a109ed2f1c37c417132e3d00"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/globals@15.15.0",
+      "name": "globals",
+      "version": "15.15.0",
+      "purl": "pkg:npm/globals@15.15.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ec00b24f7c26ca9dc8eb54b87c6ebcd8bd150364460fda2d92a189230354305d52594a266c8224f9a7f5ba7b83620326d3cd9a1d8c03fa6cc9beff48bbc76c82"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/input-otp@1.4.2",
+      "name": "input-otp",
+      "version": "1.4.2",
+      "purl": "pkg:npm/input-otp@1.4.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9778d6c1836fac46ba3530adec11027c29b8f06bf0b99ce4a1e1b78012f6c3808778e5d6dde28599ff5435890d7d87379b132bb61327c63204d3b313d332c140"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/jsdom@20.0.3",
+      "name": "jsdom",
+      "version": "20.0.3",
+      "purl": "pkg:npm/jsdom@20.0.3",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "498841bd387cf6d4df083fc245d48e9b5de63816b8da24da4f27f211605d29c19d3f13ed2c5057b8747c5c76f7dd835868ffa52db992bc14ec9e87ac08d244b1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/leaflet@1.9.4",
+      "name": "leaflet",
+      "version": "1.9.4",
+      "purl": "pkg:npm/leaflet@1.9.4",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-2-Clause"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9f14b5ca7cc93a63a51e9fa22f71725aa2bcf46b4d2fc53caef94c3ac41d4d3b2cc59c025e1f0dd8d07718340e2fe611dd79d6c99031c108b15116fe140ef83c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lovable-tagger@1.1.13",
+      "name": "lovable-tagger",
+      "version": "1.1.13",
+      "purl": "pkg:npm/lovable-tagger@1.1.13",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4411180f16a8ed77fcc9adbd2f471dfa8704ec6b3cd313ce20ec30724eb91e889ef180ca562b978b7518575e03a0d588bda27b5953dfed21b771cf38e2716a18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lucide-react@0.462.0",
+      "name": "lucide-react",
+      "version": "0.462.0",
+      "purl": "pkg:npm/lucide-react@0.462.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "ISC"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3532fb11b01aa3d205b6e4a2bd2660ac08787d9774f4bafee8c4e4a88c6e1da1f69e7622608cd73e8d3a70ec4783dc0a2dd8fa2cbf130721b8aa978fab0831fe"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/next-themes@0.3.0",
+      "name": "next-themes",
+      "version": "0.3.0",
+      "purl": "pkg:npm/next-themes@0.3.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fd01c8aec62977a29f93bc5a90ae2cbe90c8e669973f481fbc2a09746a594364cead0666b16d10c636a22e7f306c82a3b66e014d2a8ba22c789716183a72c9ff"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/postcss@8.5.6",
+      "name": "postcss",
+      "version": "8.5.6",
+      "purl": "pkg:npm/postcss@8.5.6",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "dd86e2d6d02ec003fdb34af5510d89e27e58d06d396c99295083b4fdb23d321c260fbd12e5a4d66d7181c311eb7a54fe5ccd64e9d334a64f92c0d9294d137b3e"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react@18.3.1",
+      "name": "react",
+      "version": "18.3.1",
+      "purl": "pkg:npm/react@18.3.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c12fa1020252851d0a844bcf240adfb8f54dd7e1f3d6dd18ea7e632eb1906e46f8bab80f13fd11bdefb590c075bffa16807826e1621c57e8bb176a53563fb689"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-day-picker@8.10.1",
+      "name": "react-day-picker",
+      "version": "8.10.1",
+      "purl": "pkg:npm/react-day-picker@8.10.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4ccc7b7cd6e12e4d797aa70cb7eed9ed2d8a17b99f4c877f5c90e3284f1ff8851c167d25d3cfe42381626132ffd32b8e2e611c6d1e05c1edc625ffcd8a23273c"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-dom@18.3.1",
+      "name": "react-dom",
+      "version": "18.3.1",
+      "purl": "pkg:npm/react-dom@18.3.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e66e2740aa7ead945bd3d2cd1f9f463380714e1f76e75ff295b2886e97bb4e91b17c9fbd92fe812e42c15c88e3b296e06e720136a948db7b519d3593d2c9d423"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-hook-form@7.61.1",
+      "name": "react-hook-form",
+      "version": "7.61.1",
+      "purl": "pkg:npm/react-hook-form@7.61.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "daf6d75050d882a12033645c5dc013d8fc035bff34400462f8f2a61f2e6ad8a86e2af3a51bc8886207fb78894800d479b6b5bd7c96cfe2be5ab9bddae1e82c7b"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-resizable-panels@2.1.9",
+      "name": "react-resizable-panels",
+      "version": "2.1.9",
+      "purl": "pkg:npm/react-resizable-panels@2.1.9",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "cfbefe5f4f180c8ae001eb388e5f3186752ed4b348469e3e13b72fe311e62cec7150f3bf30becf4ab13cd776fdd2f8fbc6f43595c7fb836b80f4678c6689e385"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-router-dom@6.30.1",
+      "name": "react-router-dom",
+      "version": "6.30.1",
+      "purl": "pkg:npm/react-router-dom@6.30.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9652ac80e91975b3d4d44837ccaf250a7fac8c3f703116593eece6756597e5252cf0e1643791e71550b4bb928c78c682f5aa1a9dc148fcaa0bb8a3ea37e8711f"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/recharts@2.15.4",
+      "name": "recharts",
+      "version": "2.15.4",
+      "purl": "pkg:npm/recharts@2.15.4",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "513feae9fc12ddcd5d1db5efdae160609f413051eeddfc2777b01865a110857b98438860b312efb145f319d29e66b5b9c68a730c2bee036378d5627cf08ef323"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/sonner@1.7.4",
+      "name": "sonner",
+      "version": "1.7.4",
+      "purl": "pkg:npm/sonner@1.7.4",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0c84bccf83df2516c8c9f5450d59caf6b3b77980edb1ee0e99c9ba6edd2812be7f8ed2e0cac9a3b819757eb27d13f11066b1662b1d80f26fece6cf4245723387"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/tailwind-merge@2.6.0",
+      "name": "tailwind-merge",
+      "version": "2.6.0",
+      "purl": "pkg:npm/tailwind-merge@2.6.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3fe56ed6a5dfcde7628ab987382df1286018799b4f715f60efa5fec60d850f8b58811ef57b0300df9637b02cf7ce188dfddc1e7d1a495f4c81720c22d5f5cd40"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/tailwindcss@3.4.17",
+      "name": "tailwindcss",
+      "version": "3.4.17",
+      "purl": "pkg:npm/tailwindcss@3.4.17",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "c37dc4d9a0af4833f4b56f5166e35769d5e59075ea1734a441ec3f6886b68bf4a3f1f4e1c70a2fc255c748f5d36c01f010884115701e75484fdadb9e00a3fc3a"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/tailwindcss-animate@1.0.7",
+      "name": "tailwindcss-animate",
+      "version": "1.0.7",
+      "purl": "pkg:npm/tailwindcss-animate@1.0.7",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6e5ea6a47dd3ec8dd4171baf0c45cbc72fd5b85c419396dbce9961eed5c8ebc9b032890d61dd6df6a3c11e59f24f07dae09182e333f9d7a23585862d43fbeca4"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/typescript@5.8.3",
+      "name": "typescript",
+      "version": "5.8.3",
+      "purl": "pkg:npm/typescript@5.8.3",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a757625ba4ea2fd2f4ee7371bd130cee130cc387395cea3fd626cbe1a0081a6480b7db254c4d57830e4a5aea1fdae4cebc283d058ed9462f86685fbbb1f80f79"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/typescript-eslint@8.38.0",
+      "name": "typescript-eslint",
+      "version": "8.38.0",
+      "purl": "pkg:npm/typescript-eslint@8.38.0",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "16c665ad82ba6cf0c6a0b79946ebf1dafeaaaccd372345344a77c22cfb3f5c208f0850fcd3153d3e0d3d1ff2be5c56baf2e26e668ee5fd786cf9e0d183697786"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vaul@0.9.9",
+      "name": "vaul",
+      "version": "0.9.9",
+      "purl": "pkg:npm/vaul@0.9.9",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "eda7ca838f2cae5ba1670224694fa5806b45094b1805218e97cbdc73c37f337610959165ca71c3d79004fa9c2b61d73cdbaa3b9eb20d0f894bf58e9bf5659965"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vite@5.4.19",
+      "name": "vite",
+      "version": "5.4.19",
+      "purl": "pkg:npm/vite@5.4.19",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a8edda2afdc7a100bc40a88d493b9433597da3f5d7dfe73e55380b1db2561d919e4cf5408365f06b323d516ce8c63209086095db353ad2ea8cce378b66e50ba8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vitest@3.2.4",
+      "name": "vitest",
+      "version": "3.2.4",
+      "purl": "pkg:npm/vitest@3.2.4",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2d408fe5ebf7194443cac4d688fe3bc11454a4b28c39f3e1fb2293c779152048aee4a38c7aace99d836c2b23a856b50b8af47cb4b724b38fa581adf75a19fdd0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/zod@3.25.76",
+      "name": "zod",
+      "version": "3.25.76",
+      "purl": "pkg:npm/zod@3.25.76",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "83352dfeab7cd675ec14628815c0b76277c4031e4d92e9c27e70e5bee0524854b4d9b717bb82e679ad001485306cb5b158fc7777da7c4b94286ae8ca70d43171"
+        }
+      ]
+    }
+  ]
+}

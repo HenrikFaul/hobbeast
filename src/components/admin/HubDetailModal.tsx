@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Network, MapPin, Users, Calendar, Save, Eye } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,12 +19,26 @@ interface HubBasic {
   created_at: string;
 }
 
+interface HubDetail extends HubBasic {
+  updated_at?: string;
+  real_member_count?: number;
+  simulated_member_count?: number;
+  unknown_origin_member_count?: number;
+  purpose?: string | null;
+  welcome_message?: string | null;
+  community_rules?: string | null;
+  join_policy?: 'automatic' | 'open' | 'approval' | 'invite_only';
+  lifecycle_state?: 'latent' | 'recruiting' | 'active' | 'inactive' | 'archived';
+  is_discoverable?: boolean;
+}
+
 interface MemberProfile {
   user_id: string;
   display_name: string | null;
   city: string | null;
   hobbies: string[] | null;
   avatar_url: string | null;
+  user_origin: 'real' | 'generated' | null;
 }
 
 interface Props {
@@ -32,20 +49,25 @@ interface Props {
   onViewMember?: (userId: string) => void;
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<MemberProfile[]>([]);
-  const [detail, setDetail] = useState<any>(null);
+  const [detail, setDetail] = useState<HubDetail | null>(null);
   const [editCity, setEditCity] = useState('');
   const [editHobby, setEditHobby] = useState('');
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editWelcome, setEditWelcome] = useState('');
+  const [editRules, setEditRules] = useState('');
+  const [editJoinPolicy, setEditJoinPolicy] = useState<NonNullable<HubDetail['join_policy']>>('automatic');
+  const [editLifecycle, setEditLifecycle] = useState<NonNullable<HubDetail['lifecycle_state']>>('latent');
+  const [editDiscoverable, setEditDiscoverable] = useState(false);
 
-  useEffect(() => {
-    if (!open || !hub) return;
-    void loadDetail();
-  }, [open, hub?.id]);
-
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
     if (!hub) return;
     setLoading(true);
     try {
@@ -57,12 +79,23 @@ export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: 
       setProfiles((data?.profiles || []) as MemberProfile[]);
       setEditCity(data?.hub?.city || '');
       setEditHobby(data?.hub?.hobby_category || '');
-    } catch (err: any) {
-      toast.error(`Hub adatok betöltése sikertelen: ${err?.message || err}`);
+      setEditPurpose(data?.hub?.purpose || '');
+      setEditWelcome(data?.hub?.welcome_message || '');
+      setEditRules(data?.hub?.community_rules || '');
+      setEditJoinPolicy(data?.hub?.join_policy || 'automatic');
+      setEditLifecycle(data?.hub?.lifecycle_state || 'latent');
+      setEditDiscoverable(Boolean(data?.hub?.is_discoverable));
+    } catch (err) {
+      toast.error(`Hub adatok betöltése sikertelen: ${errorMessage(err)}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [hub]);
+
+  useEffect(() => {
+    if (!open || !hub) return;
+    void loadDetail();
+  }, [hub, loadDetail, open]);
 
   const handleSave = async () => {
     if (!hub) return;
@@ -74,14 +107,21 @@ export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: 
           hub_id: hub.id,
           hobby_category: editHobby.trim(),
           city: editCity.trim() || null,
+          purpose: editPurpose.trim() || null,
+          welcome_message: editWelcome.trim() || null,
+          community_rules: editRules.trim() || null,
+          join_policy: editJoinPolicy,
+          lifecycle_state: editLifecycle,
+          is_discoverable: editDiscoverable,
+          reason: 'Virtual Hubs 2 admin editor',
         },
       });
       if (error) throw error;
-      toast.success(`Hub frissítve. Új taglétszám: ${data?.member_count ?? 0}`);
+      toast.success(`Hub metaadatok mentve; a meglévő ${data?.member_count ?? 0} tagság nem változott.`);
       onUpdated();
       await loadDetail();
-    } catch (err: any) {
-      toast.error(`Hub mentés hiba: ${err?.message || err}`);
+    } catch (err) {
+      toast.error(`Hub mentés hiba: ${errorMessage(err)}`);
     } finally {
       setSaving(false);
     }
@@ -102,25 +142,81 @@ export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: 
         ) : (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-muted-foreground text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Lokáció</p><p className="font-medium">{detail?.city || 'Országos'}</p></div>
+              <div><p className="text-muted-foreground text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> Lokáció</p><p className="font-medium">{detail?.city || 'Nincs városadat'}</p></div>
               <div><p className="text-muted-foreground text-xs flex items-center gap-1"><Users className="h-3 w-3" /> Tagok</p><p className="font-medium">{detail?.member_count ?? 0} fő</p></div>
+              <div><p className="text-muted-foreground text-xs">Valódi / generált</p><p className="font-medium">{detail?.real_member_count ?? 0} / {detail?.simulated_member_count ?? 0}</p></div>
               <div><p className="text-muted-foreground text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Létrehozva</p><p className="font-medium">{detail?.created_at ? new Date(detail.created_at).toLocaleDateString('hu-HU') : '—'}</p></div>
               <div><p className="text-muted-foreground text-xs">Frissítve</p><p className="font-medium">{detail?.updated_at ? new Date(detail.updated_at).toLocaleDateString('hu-HU') : '—'}</p></div>
             </div>
 
             <div className="rounded-xl border p-3 space-y-3">
-              <p className="text-sm font-semibold">Szerkesztés</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Hub működési szerződés</p>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="hub-discoverable" className="text-xs">Felfedezhető</Label>
+                  <Switch
+                    id="hub-discoverable"
+                    checked={editDiscoverable}
+                    onCheckedChange={setEditDiscoverable}
+                    disabled={!['recruiting', 'active'].includes(editLifecycle)}
+                  />
+                </div>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Érdeklődési kör (hobbi)</Label>
                   <Input value={editHobby} onChange={(e) => setEditHobby(e.target.value)} className="h-9 rounded-lg" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Lokáció (üres = országos)</Label>
+                  <Label className="text-xs">Lokáció (üres = nincs városadat)</Label>
                   <Input value={editCity} onChange={(e) => setEditCity(e.target.value)} className="h-9 rounded-lg" />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Belépési szabály</Label>
+                  <Select value={editJoinPolicy} onValueChange={(value) => setEditJoinPolicy(value as NonNullable<HubDetail['join_policy']>)}>
+                    <SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="automatic">Érdeklődésből automatikus</SelectItem>
+                      <SelectItem value="open">Nyitott csatlakozás</SelectItem>
+                      <SelectItem value="approval">Jóváhagyásos</SelectItem>
+                      <SelectItem value="invite_only">Csak meghívással</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Életciklus</Label>
+                  <Select
+                    value={editLifecycle}
+                    onValueChange={(value) => {
+                      const next = value as NonNullable<HubDetail['lifecycle_state']>;
+                      setEditLifecycle(next);
+                      if (!['recruiting', 'active'].includes(next)) setEditDiscoverable(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latent">Látens</SelectItem>
+                      <SelectItem value="recruiting">Toborzó</SelectItem>
+                      <SelectItem value="active">Aktív</SelectItem>
+                      <SelectItem value="inactive">Inaktív</SelectItem>
+                      <SelectItem value="archived">Archivált</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Mentés után a tagok automatikusan újraszámolódnak a profilok hobbi és város adatai alapján.</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cél</Label>
+                <Textarea value={editPurpose} onChange={(e) => setEditPurpose(e.target.value)} maxLength={500} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Új tag üdvözlő útvonala</Label>
+                <Textarea value={editWelcome} onChange={(e) => setEditWelcome(e.target.value)} maxLength={1000} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Közösségi és biztonsági szabályok</Label>
+                <Textarea value={editRules} onChange={(e) => setEditRules(e.target.value)} maxLength={4000} />
+              </div>
+              <p className="text-xs text-muted-foreground">A metaadat-mentés auditált, a tagságot nem írja át. A tagsági egyeztetés külön, idempotens admin művelet.</p>
             </div>
 
             <div>
@@ -135,6 +231,9 @@ export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: 
                         <p className="font-medium truncate">{p.display_name || '(névtelen)'}</p>
                         <p className="text-xs text-muted-foreground">{p.city || 'ismeretlen város'}</p>
                       </div>
+                      <Badge variant={p.user_origin === 'generated' ? 'secondary' : 'outline'} className="text-[10px]">
+                        {p.user_origin === 'generated' ? 'generált' : p.user_origin === 'real' ? 'valódi' : 'ismeretlen'}
+                      </Badge>
                       <Badge variant="secondary" className="text-[10px]">{(p.hobbies || []).length} hobbi</Badge>
                       <Button
                         type="button"
@@ -157,8 +256,8 @@ export function HubDetailModal({ hub, open, onClose, onUpdated, onViewMember }: 
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Bezár</Button>
-          <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
-            <Save className="h-4 w-4" /> {saving ? 'Mentés...' : 'Mentés és újraszámolás'}
+          <Button onClick={handleSave} disabled={saving || loading || !editHobby.trim()} className="gap-2">
+            <Save className="h-4 w-4" /> {saving ? 'Mentés...' : 'Metaadat mentése'}
           </Button>
         </DialogFooter>
       </DialogContent>

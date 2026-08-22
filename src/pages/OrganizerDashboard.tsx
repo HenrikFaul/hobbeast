@@ -1,23 +1,53 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, CheckCircle2, ClipboardList, Download, Megaphone, Users, UserRoundCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Users, UserRoundCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizerMode } from '@/hooks/useOrganizerMode';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { MetricCard, InfoPill } from './organizer/StatCards';
+import {
+  completeEventAtomic,
+  createOrganizerIncidentHandoff,
+  saveOrganizerReadinessAssessment,
+} from '@/lib/eventOperations';
+import {
+  flushOrganizerCheckIns,
+  queueOrganizerCheckIn,
+  readQueuedCheckIns,
+} from '@/lib/organizerCheckInQueue';
+import {
+  calculateHostReliability,
+  validateBulkParticipantTransition,
+} from '@/lib/organizerProduction';
+import { buildOrganizerReadinessChecklist } from '@/lib/eventLifecycle';
+import { trackProductEvent } from '@/lib/productAnalyticsClient';
+import { OrganizerAiProposalInbox } from '@/components/organizer/OrganizerAiProposalInbox';
+import {
+  filterOrganizerCheckInCandidates,
+  getParticipationStatusLabel,
+  MetricCard,
+  ORGANIZER_DASHBOARD_TABS,
+  OrganizerAnalyticsTab,
+  OrganizerAttendeesTab,
+  OrganizerCheckInTab,
+  OrganizerEventsTab,
+  OrganizerMessagesTab,
+  OrganizerParticipantDetailSheet,
+  OrganizerSettingsTab,
+  selectOwnedOrganizerEventId,
+  type OrganizerIncidentSeverity,
+  type OrganizerIncidentType,
+} from '@/features/organizer/dashboard';
 import {
   type OrganizerEventSummary,
   type OrganizerParticipant,
+  type OrganizerMessage,
+  type OrganizerAnalytics,
+  type ParticipationAuditEntry,
   type ParticipationStatus,
   type MessageAudience,
   type MessageType,
@@ -32,50 +62,6 @@ import {
   transitionParticipation,
 } from '@/lib/organizer';
 
-const PARTICIPATION_FILTERS: Array<{ value: ParticipationStatus | 'all'; label: string }> = [
-  { value: 'all', label: 'Összes' },
-  { value: 'interested', label: 'Érdeklődik' },
-  { value: 'going', label: 'Megy' },
-  { value: 'waitlist', label: 'Várólista' },
-  { value: 'checked_in', label: 'Bejelentkezett' },
-  { value: 'cancelled', label: 'Lemondta' },
-  { value: 'no_show', label: 'No-show' },
-];
-
-const AUDIENCES: Array<{ value: MessageAudience; label: string }> = [
-  { value: 'all', label: 'Összes résztvevő' },
-  { value: 'going', label: 'Megerősítettek' },
-  { value: 'waitlist', label: 'Várólistások' },
-  { value: 'checked_in', label: 'Bejelentkezettek' },
-  { value: 'no_show', label: 'No-show' },
-];
-
-const MESSAGE_TYPES: Array<{ value: MessageType; label: string }> = [
-  { value: 'reminder', label: 'Emlékeztető' },
-  { value: 'logistics_update', label: 'Logisztikai frissítés' },
-  { value: 'event_update', label: 'Eseményfrissítés' },
-  { value: 'cancellation', label: 'Lemondás' },
-  { value: 'custom_message', label: 'Egyedi üzenet' },
-];
-
-const statusBadgeVariant = (status: ParticipationStatus) => {
-  switch (status) {
-    case 'going':
-      return 'default';
-    case 'checked_in':
-      return 'secondary';
-    case 'waitlist':
-      return 'outline';
-    case 'cancelled':
-    case 'no_show':
-      return 'destructive';
-    default:
-      return 'outline';
-  }
-};
-
-const statusLabel = (status: ParticipationStatus) => PARTICIPATION_FILTERS.find((item) => item.value === status)?.label ?? status;
-
 export default function OrganizerDashboard() {
   const { user, loading } = useAuth();
   const { canUseOrganizerMode, setMode } = useOrganizerMode();
@@ -87,9 +73,9 @@ export default function OrganizerDashboard() {
   const [participantFilter, setParticipantFilter] = useState<ParticipationStatus | 'all'>('all');
   const [participantSearch, setParticipantSearch] = useState('');
   const [selectedParticipant, setSelectedParticipant] = useState<OrganizerParticipant | null>(null);
-  const [participantAudit, setParticipantAudit] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<any | null>(null);
+  const [participantAudit, setParticipantAudit] = useState<ParticipationAuditEntry[]>([]);
+  const [messages, setMessages] = useState<OrganizerMessage[]>([]);
+  const [analytics, setAnalytics] = useState<OrganizerAnalytics | null>(null);
   const [messageType, setMessageType] = useState<MessageType>('reminder');
   const [audienceFilter, setAudienceFilter] = useState<MessageAudience>('going');
   const [messageSubject, setMessageSubject] = useState('');
@@ -98,6 +84,21 @@ export default function OrganizerDashboard() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'events');
   const [checkInSearch, setCheckInSearch] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [transitioningIds, setTransitioningIds] = useState<Set<string>>(new Set());
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<ParticipationStatus>('cancelled');
+  const [bulkPending, setBulkPending] = useState(false);
+  const [queuedCheckInIds, setQueuedCheckInIds] = useState<Set<string>>(
+    () => new Set(readQueuedCheckIns().map((item) => item.participationId)),
+  );
+  const [completionPending, setCompletionPending] = useState(false);
+  const [readinessPending, setReadinessPending] = useState(false);
+  const [incidentPending, setIncidentPending] = useState(false);
+  const [messagePending, setMessagePending] = useState(false);
+  const [legalTaxReady, setLegalTaxReady] = useState(false);
+  const [incidentType, setIncidentType] = useState<OrganizerIncidentType>('safety');
+  const [incidentSeverity, setIncidentSeverity] = useState<OrganizerIncidentSeverity>('medium');
+  const [incidentSummary, setIncidentSummary] = useState('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -126,13 +127,35 @@ export default function OrganizerDashboard() {
     });
   }, [selectedParticipant]);
 
+  useEffect(() => {
+    const flushPendingCheckIns = () => {
+      void flushOrganizerCheckIns()
+        .then(({ sent, sentParticipationIds }) => {
+          if (sent === 0) return;
+          setQueuedCheckInIds((current) => {
+            const next = new Set(current);
+            sentParticipationIds.forEach((id) => next.delete(id));
+            return next;
+          });
+          toast.success(`${sent} offline check-in szinkronizálva.`);
+        })
+        .catch((error) => {
+          console.error('Offline check-in queue flush failed', error);
+        });
+    };
+
+    window.addEventListener('online', flushPendingCheckIns);
+    if (navigator.onLine) flushPendingCheckIns();
+    return () => window.removeEventListener('online', flushPendingCheckIns);
+  }, []);
+
   const loadOwnedEvents = async () => {
     if (!user) return;
     try {
       const rows = await getOwnedEvents(user.id);
       setEvents(rows);
       const requested = searchParams.get('eventId');
-      const defaultId = requested && rows.some((event) => event.id === requested) ? requested : rows[0]?.id ?? '';
+      const defaultId = selectOwnedOrganizerEventId(rows, requested);
       setSelectedEventId(defaultId);
       if (defaultId) {
         searchParams.set('eventId', defaultId);
@@ -179,8 +202,35 @@ export default function OrganizerDashboard() {
     [events, selectedEventId],
   );
 
+  const readinessItems = useMemo(() => buildOrganizerReadinessChecklist({
+    title: selectedEvent?.title,
+    description: selectedEvent?.description,
+    locationCity: selectedEvent?.location_city,
+    meetingInstructions: selectedEvent?.meeting_instructions,
+    maxAttendees: selectedEvent?.max_attendees,
+    cancellationPolicy: selectedEvent?.cancellation_policy,
+    hostIdentityReady: Boolean(user?.email_confirmed_at),
+    checkInMethod: 'invite_code_or_manual',
+    safetyPolicy: selectedEvent?.host_responsibility_accepted_at ? 'host_responsibility_accepted' : null,
+    accessibilityInfo: selectedEvent?.accessibility_info,
+    participantCommunicationReady: messages.length > 0,
+    legalTaxReady,
+  }), [selectedEvent, user?.email_confirmed_at, messages.length, legalTaxReady]);
+
+  const reliability = useMemo(() => calculateHostReliability({
+    publishedEvents: events.filter((event) => event.outcome_status !== 'draft').length,
+    completedEvents: events.filter((event) => ['completed', 'held'].includes(event.outcome_status ?? '')).length,
+    cancelledEvents: events.filter((event) => event.outcome_status === 'cancelled').length,
+    expectedAttendees: (analytics?.going ?? 0) + (analytics?.checkedIn ?? 0) + (analytics?.completed ?? 0) + (analytics?.noShow ?? 0),
+    attendedParticipants: (analytics?.checkedIn ?? 0) + (analytics?.completed ?? 0),
+    noShowParticipants: analytics?.noShow ?? 0,
+    repeatParticipants: null,
+    reportCount: null,
+  }), [events, analytics]);
+
   const handleTransition = async (participant: OrganizerParticipant, nextStatus: ParticipationStatus) => {
     if (!user) return;
+    setTransitioningIds((current) => new Set(current).add(participant.id));
     try {
       await transitionParticipation({
         participantId: participant.id,
@@ -196,7 +246,140 @@ export default function OrganizerDashboard() {
       }
     } catch (error) {
       console.error(error);
-      toast.error('Az állapot frissítése nem sikerült.');
+      const errorCode = error instanceof Error ? error.message : 'EVENT_OPERATION_FAILED';
+      const canQueueOfflineCheckIn = nextStatus === 'checked_in'
+        && (!navigator.onLine || errorCode === 'EVENT_OPERATION_FAILED');
+      if (canQueueOfflineCheckIn) {
+        queueOrganizerCheckIn(participant.id);
+        setQueuedCheckInIds((current) => new Set(current).add(participant.id));
+        toast.info('A check-in offline sorba került, és kapcsolatkor automatikusan szinkronizálódik.');
+      } else {
+        toast.error('Az állapot frissítése nem sikerült.');
+      }
+    } finally {
+      setTransitioningIds((current) => {
+        const next = new Set(current);
+        next.delete(participant.id);
+        return next;
+      });
+      if (nextStatus === 'checked_in' || nextStatus === 'completed') {
+        void trackProductEvent(nextStatus, {
+          event_id: participant.event_id, source: 'organizer', surface: 'organizer_dashboard', status: nextStatus,
+        });
+        if (nextStatus === 'completed') {
+          void trackProductEvent('verified_or_confirmed_real_world_participation', {
+            event_id: participant.event_id, source: 'organizer', surface: 'organizer_dashboard', status: 'completed',
+          });
+        }
+      }
+    }
+  };
+
+  const handleCompleteEvent = async () => {
+    if (!selectedEvent || completionPending) return;
+    const confirmed = window.confirm(
+      'Biztosan lezárod az eseményt? A check-in résztvevők teljesített, a meg nem érkezett going résztvevők no-show állapotot kapnak.',
+    );
+    if (!confirmed) return;
+    setCompletionPending(true);
+    try {
+      const result = await completeEventAtomic(selectedEvent.id, 'organizer_dashboard_manual_completion');
+      void trackProductEvent('organizer_event_completed', {
+        event_id: selectedEvent.id, source: 'organizer', surface: 'organizer_dashboard', status: 'completed',
+        count_bucket: String(result.completion?.completed_participants ?? 0),
+      });
+      toast.success(`Esemény lezárva: ${result.completion?.completed_participants ?? 0} teljesített részvétel.`);
+      await loadOwnedEvents();
+    } catch (error) {
+      console.error(error);
+      toast.error('Az esemény lezárása nem sikerült. Ellenőrizd az időpontot és a jogosultságot.');
+    } finally {
+      setCompletionPending(false);
+    }
+  };
+
+  const handleBulkTransition = async () => {
+    if (!user || bulkPending) return;
+    const selected = participants.filter((participant) => selectedParticipantIds.has(participant.id));
+    if (selected.length === 0) {
+      toast.info('Előbb válassz legalább egy résztvevőt.');
+      return;
+    }
+    const decision = validateBulkParticipantTransition(selected.map((participant) => participant.status), bulkStatus);
+    if (!decision.allowed) {
+      toast.error(`Nem biztonságos tömeges átmenet innen: ${decision.invalidStatuses.join(', ')}.`);
+      return;
+    }
+    if (!window.confirm(`${selected.length} résztvevő állapotát módosítod erre: ${getParticipationStatusLabel(bulkStatus)}. Folytatod?`)) return;
+
+    setBulkPending(true);
+    selected.forEach((participant) => setTransitioningIds((current) => new Set(current).add(participant.id)));
+    const results = await Promise.allSettled(selected.map((participant) => transitionParticipation({
+      participantId: participant.id,
+      eventId: participant.event_id,
+      actorUserId: user.id,
+      nextStatus: bulkStatus,
+      metadata: { from_status: participant.status, bulk: true },
+    })));
+    const succeeded = results.filter((result) => result.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    if (succeeded > 0 && bulkStatus === 'completed' && selectedEventId) {
+      void trackProductEvent('completed', {
+        event_id: selectedEventId, source: 'organizer_bulk', surface: 'organizer_dashboard',
+        status: 'completed', count_bucket: String(succeeded),
+      });
+      void trackProductEvent('verified_or_confirmed_real_world_participation', {
+        event_id: selectedEventId, source: 'organizer_bulk', surface: 'organizer_dashboard',
+        status: 'completed', count_bucket: String(succeeded),
+      });
+    }
+    setTransitioningIds((current) => {
+      const next = new Set(current);
+      selected.forEach((participant) => next.delete(participant.id));
+      return next;
+    });
+    setBulkPending(false);
+    setSelectedParticipantIds(new Set());
+    if (failed > 0) toast.error(`Részleges eredmény: ${succeeded} sikeres, ${failed} sikertelen.`);
+    else toast.success(`${succeeded} résztvevő állapota frissítve.`);
+    await Promise.all([loadParticipants(), loadAnalytics()]);
+  };
+
+  const handleSaveReadiness = async () => {
+    if (!selectedEvent || readinessPending) return;
+    setReadinessPending(true);
+    try {
+      const checklist = readinessItems.reduce<Record<string, boolean>>((result, item) => {
+        result[item.key] = item.complete;
+        return result;
+      }, {});
+      await saveOrganizerReadinessAssessment(selectedEvent.id, checklist);
+      toast.success('A readiness pillanatkép elmentve. A checklist jelenleg tanácsadó jellegű.');
+    } catch (error) {
+      console.error(error);
+      toast.error('A readiness checklist mentése nem sikerült.');
+    } finally {
+      setReadinessPending(false);
+    }
+  };
+
+  const handleIncidentHandoff = async () => {
+    if (!selectedEvent || incidentPending || incidentSummary.trim().length < 3) return;
+    setIncidentPending(true);
+    try {
+      await createOrganizerIncidentHandoff({
+        eventId: selectedEvent.id,
+        incidentType,
+        severity: incidentSeverity,
+        summary: incidentSummary.trim(),
+      });
+      setIncidentSummary('');
+      toast.success('Az incident handoff rögzítve; az operátori nyomkövetés megkezdhető.');
+    } catch (error) {
+      console.error(error);
+      toast.error('Az incident handoff rögzítése nem sikerült.');
+    } finally {
+      setIncidentPending(false);
     }
   };
 
@@ -231,7 +414,12 @@ export default function OrganizerDashboard() {
   };
 
   const handleSendMessage = async () => {
-    if (!user || !selectedEventId || !messageBody.trim()) return;
+    if (!user || !selectedEventId || !messageBody.trim() || messagePending) return;
+    if (audienceFilter === 'selected' && selectedParticipantIds.size === 0) {
+      toast.error('A kijelölt célközönséghez válassz legalább egy résztvevőt az Attendees fülön.');
+      return;
+    }
+    setMessagePending(true);
     try {
       await createEventMessage({
         eventId: selectedEventId,
@@ -242,6 +430,7 @@ export default function OrganizerDashboard() {
         body: messageBody.trim(),
         deliveryState: scheduledFor ? 'scheduled' : 'sent',
         scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
+        selectedParticipationIds: audienceFilter === 'selected' ? [...selectedParticipantIds] : [],
       });
       toast.success(scheduledFor ? 'Üzenet ütemezve.' : 'Üzenet mentve a history-ba.');
       setMessageSubject('');
@@ -251,18 +440,12 @@ export default function OrganizerDashboard() {
     } catch (error) {
       console.error(error);
       toast.error('Az üzenet mentése nem sikerült.');
+    } finally {
+      setMessagePending(false);
     }
   };
 
-  const filteredCheckInCandidates = participants.filter((participant) => {
-    const search = checkInSearch.trim().toLowerCase();
-    const invite = inviteCode.trim().toLowerCase();
-    const displayName = participant.profiles?.display_name?.toLowerCase() ?? '';
-    const code = participant.invite_code?.toLowerCase() ?? '';
-    if (invite) return code.includes(invite);
-    if (!search) return ['going', 'checked_in', 'waitlist'].includes(participant.status);
-    return displayName.includes(search) || code.includes(search);
-  });
+  const filteredCheckInCandidates = filterOrganizerCheckInCandidates(participants, checkInSearch, inviteCode);
 
   if (!loading && !canUseOrganizerMode) {
     return (
@@ -302,6 +485,8 @@ export default function OrganizerDashboard() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kezelt esemény</Label>
               <Select value={selectedEventId} onValueChange={(value) => {
                 setSelectedEventId(value);
+                setSelectedParticipantIds(new Set());
+                setLegalTaxReady(false);
                 const nextParams = new URLSearchParams(searchParams);
                 nextParams.set('eventId', value);
                 setSearchParams(nextParams, { replace: true });
@@ -331,295 +516,101 @@ export default function OrganizerDashboard() {
           nextParams.set('tab', value);
           setSearchParams(nextParams, { replace: true });
         }}>
-          <TabsList className="grid w-full grid-cols-5 rounded-2xl h-auto">
-            <TabsTrigger value="events">My events</TabsTrigger>
-            <TabsTrigger value="attendees">Attendees</TabsTrigger>
-            <TabsTrigger value="checkin">Check-in</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:grid-cols-3 lg:grid-cols-6">
+            {ORGANIZER_DASHBOARD_TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
+            ))}
           </TabsList>
 
-          {/* My Events Tab */}
-          <TabsContent value="events" className="space-y-4 mt-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {events.map((event) => (
-                <Card key={event.id} className="rounded-2xl border shadow-card">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-3xl">{event.image_emoji ?? '🎉'}</p>
-                        <h3 className="font-semibold text-lg leading-tight">{event.title}</h3>
-                        <p className="text-sm text-muted-foreground">{event.location_city ?? 'Helyszín nélkül'} · {event.event_date ?? 'Dátum nélkül'}</p>
-                      </div>
-                      <Badge variant="outline">{event.category}</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <InfoPill label="Going" value={event.goingCount} />
-                      <InfoPill label="Várólista" value={event.waitlistCount} />
-                      <InfoPill label="Check-in" value={event.checkedInCount} />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button className="flex-1" variant="outline" onClick={() => navigate(`/events/${event.id}`)}>Megnyitás</Button>
-                      <Button className="flex-1" onClick={() => { setSelectedEventId(event.id); setActiveTab('attendees'); }}>Kezelés</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
+          <OrganizerEventsTab
+            events={events}
+            selectedEventId={selectedEventId}
+            completionPending={completionPending}
+            onOpenEvent={(eventId) => navigate(`/events/${eventId}`)}
+            onManageEvent={(eventId) => { setSelectedEventId(eventId); setActiveTab('attendees'); }}
+            onCompleteEvent={() => void handleCompleteEvent()}
+          />
 
-          {/* Attendees Tab */}
-          <TabsContent value="attendees" className="mt-4">
-            <Card className="rounded-2xl border shadow-card">
-              <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <CardTitle>Résztvevőkezelés</CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input value={participantSearch} onChange={(event) => setParticipantSearch(event.target.value)} placeholder="Keresés név / invite code alapján" className="rounded-xl sm:w-64" />
-                  <Select value={participantFilter} onValueChange={(value) => setParticipantFilter(value as ParticipationStatus | 'all')}>
-                    <SelectTrigger className="rounded-xl sm:w-48"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PARTICIPATION_FILTERS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" onClick={exportCsv}><Download className="h-4 w-4 mr-2" />CSV export</Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Név</TableHead>
-                      <TableHead>Állapot</TableHead>
-                      <TableHead>Csatlakozott</TableHead>
-                      <TableHead>Check-in</TableHead>
-                      <TableHead>Invite code</TableHead>
-                      <TableHead className="text-right">Műveletek</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {participants.map((participant) => (
-                      <TableRow key={participant.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{participant.profiles?.display_name ?? participant.user_id.slice(0, 8)}</div>
-                            <div className="text-xs text-muted-foreground">{participant.profiles?.city ?? '—'}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell><Badge variant={statusBadgeVariant(participant.status)}>{statusLabel(participant.status)}</Badge></TableCell>
-                        <TableCell>{new Date(participant.joined_at).toLocaleString('hu-HU')}</TableCell>
-                        <TableCell>{participant.checked_in_at ? new Date(participant.checked_in_at).toLocaleString('hu-HU') : '—'}</TableCell>
-                        <TableCell>{participant.invite_code ?? '—'}</TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2 flex-wrap">
-                            {participant.status === 'waitlist' && <Button size="sm" variant="outline" onClick={() => void handleTransition(participant, 'going')}>Promote</Button>}
-                            {participant.status === 'going' && <Button size="sm" variant="outline" onClick={() => void handleTransition(participant, 'checked_in')}>Check-in</Button>}
-                            {participant.status === 'checked_in' && <Button size="sm" variant="outline" onClick={() => void handleTransition(participant, 'going')}>Undo</Button>}
-                            {participant.status !== 'cancelled' && <Button size="sm" variant="outline" onClick={() => void handleTransition(participant, 'cancelled')}>Cancel</Button>}
-                            <Button size="sm" onClick={() => setSelectedParticipant(participant)}>Open</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {participants.length === 0 && (
-                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nincs találat a kiválasztott szűrőkre.</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <OrganizerAttendeesTab
+            participants={participants}
+            participantSearch={participantSearch}
+            participantFilter={participantFilter}
+            selectedParticipantIds={selectedParticipantIds}
+            bulkStatus={bulkStatus}
+            bulkPending={bulkPending}
+            queuedCheckInIds={queuedCheckInIds}
+            transitioningIds={transitioningIds}
+            onParticipantSearchChange={setParticipantSearch}
+            onParticipantFilterChange={setParticipantFilter}
+            onSelectedParticipantIdsChange={setSelectedParticipantIds}
+            onBulkStatusChange={setBulkStatus}
+            onExportCsv={exportCsv}
+            onBulkTransition={() => void handleBulkTransition()}
+            onTransition={(participant, nextStatus) => void handleTransition(participant, nextStatus)}
+            onOpenParticipant={setSelectedParticipant}
+          />
 
-          {/* Check-in Tab */}
-          <TabsContent value="checkin" className="mt-4">
-            <Card className="rounded-2xl border shadow-card">
-              <CardHeader>
-                <CardTitle>Check-in admin</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <Label>Keresés név szerint</Label>
-                    <Input value={checkInSearch} onChange={(event) => setCheckInSearch(event.target.value)} placeholder="John Doe" className="rounded-xl mt-2" />
-                  </div>
-                  <div>
-                    <Label>Invite code</Label>
-                    <Input value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} placeholder="ABC123" className="rounded-xl mt-2" />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {filteredCheckInCandidates.map((participant) => (
-                    <div key={participant.id} className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <div className="font-medium">{participant.profiles?.display_name ?? participant.user_id.slice(0, 8)}</div>
-                        <div className="text-sm text-muted-foreground">{statusLabel(participant.status)} · invite code: {participant.invite_code ?? 'nincs'}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        {participant.status === 'going' && <Button onClick={() => void handleTransition(participant, 'checked_in')}>Check in</Button>}
-                        {participant.status === 'checked_in' && <Button variant="outline" onClick={() => void handleTransition(participant, 'going')}>Undo</Button>}
-                        {participant.status === 'waitlist' && <Button variant="outline" onClick={() => void handleTransition(participant, 'going')}>Promote</Button>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <OrganizerCheckInTab
+            candidates={filteredCheckInCandidates}
+            checkInSearch={checkInSearch}
+            inviteCode={inviteCode}
+            queuedCheckInIds={queuedCheckInIds}
+            transitioningIds={transitioningIds}
+            onCheckInSearchChange={setCheckInSearch}
+            onInviteCodeChange={setInviteCode}
+            onTransition={(participant, nextStatus) => void handleTransition(participant, nextStatus)}
+          />
 
-          {/* Messages Tab */}
-          <TabsContent value="messages" className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <Card className="rounded-2xl border shadow-card">
-              <CardHeader>
-                <CardTitle>Event communications</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>Típus</Label>
-                    <Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
-                      <SelectTrigger className="rounded-xl mt-2"><SelectValue /></SelectTrigger>
-                      <SelectContent>{MESSAGE_TYPES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Célközönség</Label>
-                    <Select value={audienceFilter} onValueChange={(value) => setAudienceFilter(value as MessageAudience)}>
-                      <SelectTrigger className="rounded-xl mt-2"><SelectValue /></SelectTrigger>
-                      <SelectContent>{AUDIENCES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Tárgy</Label>
-                  <Input value={messageSubject} onChange={(event) => setMessageSubject(event.target.value)} className="rounded-xl mt-2" placeholder="Opcionális tárgy" />
-                </div>
-                <div>
-                  <Label>Üzenet</Label>
-                  <Textarea value={messageBody} onChange={(event) => setMessageBody(event.target.value)} className="rounded-xl mt-2 min-h-[160px]" placeholder="Írd ide az üzenet tartalmát" />
-                </div>
-                <div>
-                  <Label>Ütemezés (opcionális)</Label>
-                  <Input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} className="rounded-xl mt-2" />
-                </div>
-                <Button onClick={() => void handleSendMessage()}><Megaphone className="h-4 w-4 mr-2" />Küldés / mentés</Button>
-              </CardContent>
-            </Card>
-            <Card className="rounded-2xl border shadow-card">
-              <CardHeader>
-                <CardTitle>Message history</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {messages.map((message: any) => (
-                  <div key={message.id} className="rounded-2xl border p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium">{MESSAGE_TYPES.find((item) => item.value === message.message_type)?.label ?? message.message_type}</div>
-                      <Badge variant="outline">{message.delivery_state}</Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">{AUDIENCES.find((item) => item.value === message.audience_filter)?.label ?? message.audience_filter}</div>
-                    {message.subject && <div className="mt-2 font-medium">{message.subject}</div>}
-                    <p className="text-sm mt-2 whitespace-pre-wrap">{message.body}</p>
-                    <div className="text-xs text-muted-foreground mt-3">{new Date(message.created_at).toLocaleString('hu-HU')}</div>
-                  </div>
-                ))}
-                {messages.length === 0 && <p className="text-sm text-muted-foreground">Még nincs kiküldött vagy ütemezett üzenet ehhez az eseményhez.</p>}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <OrganizerMessagesTab
+            messageType={messageType}
+            audienceFilter={audienceFilter}
+            messageSubject={messageSubject}
+            messageBody={messageBody}
+            scheduledFor={scheduledFor}
+            selectedParticipantCount={selectedParticipantIds.size}
+            messagePending={messagePending}
+            messages={messages}
+            onMessageTypeChange={setMessageType}
+            onAudienceFilterChange={setAudienceFilter}
+            onMessageSubjectChange={setMessageSubject}
+            onMessageBodyChange={setMessageBody}
+            onScheduledForChange={setScheduledFor}
+            onSendMessage={() => void handleSendMessage()}
+          />
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="mt-4 space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard icon={<BarChart3 className="h-4 w-4" />} label="Join click / intent" value={analytics?.joinClicks ?? 0} />
-              <MetricCard icon={<Users className="h-4 w-4" />} label="Going" value={analytics?.going ?? 0} />
-              <MetricCard icon={<ClipboardList className="h-4 w-4" />} label="Waitlist" value={analytics?.waitlist ?? 0} />
-              <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="Attendance rate" value={`${Math.round((analytics?.attendanceRate ?? 0) * 100)}%`} />
-            </div>
-            <Card className="rounded-2xl border shadow-card">
-              <CardHeader>
-                <CardTitle>Source attribution</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(analytics?.sourceBreakdown ?? []).map((row: any) => (
-                  <div key={row.source} className="flex items-center justify-between rounded-2xl border p-4">
-                    <div>
-                      <div className="font-medium">{row.source}</div>
-                      <div className="text-sm text-muted-foreground">Views: {row.views}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">Joins: {row.joins}</div>
-                      <div className="text-sm text-muted-foreground">Check-in: {row.checkedIn}</div>
-                    </div>
-                  </div>
-                ))}
-                {!analytics && <p className="text-sm text-muted-foreground">Analytics még nem érhető el ehhez az eseményhez.</p>}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <OrganizerAnalyticsTab analytics={analytics} />
+
+          <OrganizerSettingsTab
+            selectedEventId={selectedEvent?.id ?? null}
+            readinessItems={readinessItems}
+            legalTaxReady={legalTaxReady}
+            readinessPending={readinessPending}
+            reliability={reliability}
+            incidentType={incidentType}
+            incidentSeverity={incidentSeverity}
+            incidentSummary={incidentSummary}
+            incidentPending={incidentPending}
+            onLegalTaxReadyChange={setLegalTaxReady}
+            onSaveReadiness={() => void handleSaveReadiness()}
+            onIncidentTypeChange={setIncidentType}
+            onIncidentSeverityChange={setIncidentSeverity}
+            onIncidentSummaryChange={setIncidentSummary}
+            onIncidentHandoff={() => void handleIncidentHandoff()}
+            onOperationsChanged={loadOwnedEvents}
+          />
         </Tabs>
+        <div className="mt-6"><OrganizerAiProposalInbox /></div>
       </div>
 
-      {/* Participant Detail Sheet */}
-      <Sheet open={!!selectedParticipant} onOpenChange={(open) => !open && setSelectedParticipant(null)}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          {selectedParticipant && (
-            <>
-              <SheetHeader>
-                <SheetTitle>{selectedParticipant.profiles?.display_name ?? selectedParticipant.user_id.slice(0, 8)} – attendee workspace</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-6 mt-6">
-                <Card className="rounded-2xl border">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">Állapot</div>
-                        <Badge variant={statusBadgeVariant(selectedParticipant.status)}>{statusLabel(selectedParticipant.status)}</Badge>
-                      </div>
-                      <div className="text-right text-sm text-muted-foreground">
-                        <div>Csatlakozott: {new Date(selectedParticipant.joined_at).toLocaleString('hu-HU')}</div>
-                        <div>Check-in: {selectedParticipant.checked_in_at ? new Date(selectedParticipant.checked_in_at).toLocaleString('hu-HU') : '—'}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border">
-                  <CardHeader><CardTitle>Quick actions</CardTitle></CardHeader>
-                  <CardContent className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => void handleTransition(selectedParticipant, 'going')}>Promote / going</Button>
-                    <Button variant="outline" onClick={() => void handleTransition(selectedParticipant, 'checked_in')}>Check-in</Button>
-                    <Button variant="outline" onClick={() => void handleTransition(selectedParticipant, 'cancelled')}>Cancel</Button>
-                    <Button variant="outline" onClick={() => void handleTransition(selectedParticipant, 'no_show')}>Mark no-show</Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border">
-                  <CardHeader><CardTitle>Szervezői megjegyzés</CardTitle></CardHeader>
-                  <CardContent className="space-y-3">
-                    <Textarea
-                      value={selectedParticipant.organizer_note ?? ''}
-                      onChange={(event) => setSelectedParticipant({ ...selectedParticipant, organizer_note: event.target.value })}
-                      className="rounded-xl min-h-[120px]"
-                    />
-                    <Button onClick={() => void handleSaveNote()}>Save note</Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border">
-                  <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
-                  <CardContent className="space-y-3">
-                    {participantAudit.map((item: any) => (
-                      <div key={item.id} className="rounded-xl border p-3">
-                        <div className="font-medium">{item.action}</div>
-                        <div className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString('hu-HU')}</div>
-                      </div>
-                    ))}
-                    {participantAudit.length === 0 && <p className="text-sm text-muted-foreground">Még nincs audit előzmény ehhez a résztvevőhöz.</p>}
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      <OrganizerParticipantDetailSheet
+        participant={selectedParticipant}
+        participantAudit={participantAudit}
+        transitioningIds={transitioningIds}
+        onClose={() => setSelectedParticipant(null)}
+        onParticipantChange={setSelectedParticipant}
+        onTransition={(participant, nextStatus) => void handleTransition(participant, nextStatus)}
+        onSaveNote={() => void handleSaveNote()}
+      />
     </main>
   );
 }

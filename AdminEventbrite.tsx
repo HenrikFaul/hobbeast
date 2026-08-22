@@ -21,6 +21,10 @@ import {
 } from '@/lib/searchProviderConfig';
 import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 interface LocalSyncLogEntry {
   id: number;
   created_at: string;
@@ -233,8 +237,8 @@ export function AdminEventbrite() {
         ...DEFAULT_LOCAL_SYNC_SETTINGS,
         ...(((data as { config?: Partial<LocalSyncSettings> } | null)?.config) || {}),
       });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült betölteni a lokális sync beállításokat');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült betölteni a lokális sync beállításokat'));
     } finally {
       setSyncSettingsLoading(false);
     }
@@ -256,8 +260,8 @@ export function AdminEventbrite() {
       }
 
       return typed;
-    } catch (err: any) {
-      if (!silent) toast.error(err.message || 'Nem sikerült lekérni a lokális címtábla állapotát');
+    } catch (err: unknown) {
+      if (!silent) toast.error(getErrorMessage(err, 'Nem sikerült lekérni a lokális címtábla állapotát'));
       return null;
     } finally {
       if (!silent) setCatalogLoading(false);
@@ -334,8 +338,8 @@ export function AdminEventbrite() {
       } else {
         setDebugInfo('Az Eventbrite API nem adott vissza eseményeket. Ez lehet a keresési kifejezés, az API kulcs jogosultsága, vagy az Eventbrite API korlátozása miatt.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Hiba az Eventbrite API hívásnál');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Hiba az Eventbrite API hívásnál'));
       toast.error('Eventbrite hiba');
     }
     setLoading(false);
@@ -356,8 +360,8 @@ export function AdminEventbrite() {
       } else {
         setError(`Eventbrite token hiba: ${data?.status || 'ismeretlen'} - ${JSON.stringify(data?.response)}`);
       }
-    } catch (err: any) {
-      setError(err.message || 'Token teszt hiba');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Token teszt hiba'));
     }
     setLoading(false);
   };
@@ -376,8 +380,8 @@ export function AdminEventbrite() {
       } else {
         setDebugInfo('Nincs szervezet társítva az Eventbrite API kulcshoz. Az Eventbrite v3 API csak szervezeti eseményeket tud listázni. Hozz létre egy szervezetet az Eventbrite dashboardon, vagy használj személyes OAuth tokent.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Hiba');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Hiba'));
     }
     setLoading(false);
   };
@@ -389,8 +393,8 @@ export function AdminEventbrite() {
       const result: ExternalEventsSearchResult = await previewTicketmasterEvents(ticketmasterParams);
       setTicketmasterPreview(result.events);
       setTicketmasterInfo(result.events.length > 0 ? `${result.events.length} Ticketmaster/Universe esemény találat.` : 'A Ticketmaster nem adott vissza találatot erre a kombinációra.');
-    } catch (err: any) {
-      setTicketmasterInfo(err.message || 'Ticketmaster előnézeti hiba.');
+    } catch (err: unknown) {
+      setTicketmasterInfo(getErrorMessage(err, 'Ticketmaster előnézeti hiba.'));
       setTicketmasterPreview([]);
     }
     setTicketmasterLoading(false);
@@ -402,8 +406,8 @@ export function AdminEventbrite() {
       const result = await syncTicketmasterEvents({ ...ticketmasterParams, maxPages: 2 });
       toast.success(`${result.synced} Ticketmaster esemény szinkronizálva`);
       await handleTicketmasterPreview();
-    } catch (err: any) {
-      toast.error(err.message || 'Ticketmaster szinkron hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Ticketmaster szinkron hiba'));
     }
     setTicketmasterLoading(false);
   };
@@ -415,8 +419,8 @@ export function AdminEventbrite() {
       const result: ExternalEventsSearchResult = await previewSeatGeekEvents(seatgeekParams);
       setSeatGeekPreview(result.events);
       setSeatGeekInfo(result.events.length > 0 ? `${result.events.length} SeatGeek esemény találat.` : 'A SeatGeek nem adott vissza találatot.');
-    } catch (err: any) {
-      setSeatGeekInfo(err.message || 'SeatGeek előnézeti hiba.');
+    } catch (err: unknown) {
+      setSeatGeekInfo(getErrorMessage(err, 'SeatGeek előnézeti hiba.'));
       setSeatGeekPreview([]);
     }
     setSeatGeekLoading(false);
@@ -428,8 +432,8 @@ export function AdminEventbrite() {
       const result = await syncSeatGeekEvents({ ...seatgeekParams, maxPages: 2 });
       toast.success(`${result.synced} SeatGeek esemény szinkronizálva`);
       await handleSeatGeekPreview();
-    } catch (err: any) {
-      toast.error(err.message || 'SeatGeek szinkron hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'SeatGeek szinkron hiba'));
     }
     setSeatGeekLoading(false);
   };
@@ -439,8 +443,8 @@ export function AdminEventbrite() {
     try {
       await setAddressSearchProvider(functionGroupProviders[group], group);
       toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve`);
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni a provider beállítást');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni a provider beállítást'));
     }
     setProviderSaving(false);
   };
@@ -453,8 +457,8 @@ export function AdminEventbrite() {
         await setAddressSearchProvider(functionGroupProviders[g], g);
       }
       toast.success('Minden provider beállítás elmentve');
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni'));
     }
     setProviderSaving(false);
   };
@@ -466,8 +470,8 @@ export function AdminEventbrite() {
       const results = await searchPlaces(testQuery, undefined, undefined, provider);
       setTestResults(results);
       toast.success(`${results.length} találat (${FUNCTION_GROUP_LABELS[testFunctionGroup]} — ${provider})`);
-    } catch (err: any) {
-      toast.error(err.message || 'Provider tesztelési hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Provider tesztelési hiba'));
       setTestResults([]);
     }
     setTestLoading(false);
@@ -505,8 +509,8 @@ export function AdminEventbrite() {
       toast.success('Lokális sync beállítások elmentve');
       await loadSyncSettings();
       await refreshCatalogStatus();
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni a lokális sync beállításokat');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni a lokális sync beállításokat'));
     } finally {
       setSyncSettingsSaving(false);
     }
@@ -539,10 +543,10 @@ export function AdminEventbrite() {
       setTimeout(() => {
         void refreshCatalogStatus({ silent: true });
       }, 800);
-    } catch (err: any) {
+    } catch (err: unknown) {
       continuousBatchingRef.current = false;
       setCatalogPolling(false);
-      toast.error(err.message || 'Nem sikerült elindítani a lokális batch szinkront');
+      toast.error(getErrorMessage(err, 'Nem sikerült elindítani a lokális batch szinkront'));
     } finally {
       setCatalogLoading(false);
     }
@@ -576,8 +580,8 @@ export function AdminEventbrite() {
       clearManualPipelineBuffers();
       toast.success('Lokális katalógus reset kész');
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült resetelni a lokális katalógust');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült resetelni a lokális katalógust'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -594,8 +598,8 @@ export function AdminEventbrite() {
 
       toast.success('A local places state futóra állítva');
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült futóra állítani a manuális pipeline-t');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült futóra állítani a manuális pipeline-t'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -625,8 +629,8 @@ export function AdminEventbrite() {
       }
 
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült előkészíteni a következő taskot');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült előkészíteni a következő taskot'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -669,8 +673,8 @@ export function AdminEventbrite() {
       appendManualFailures(typed.partialFailures);
       toast.success(`${provider === 'geoapify' ? 'Geoapify' : 'TomTom'} fetch kész: ${(typed.rows || []).length} sor`);
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || `${provider} fetch hiba`);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, `${provider} fetch hiba`));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -699,8 +703,8 @@ export function AdminEventbrite() {
       setDedupedPhaseRows([]);
       toast.success(`HU szűrés kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a HU szűrés');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült a HU szűrés'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -727,8 +731,8 @@ export function AdminEventbrite() {
       setDedupedPhaseRows(typed.rows || []);
       toast.success(`Deduplikálás kész: ${typed.afterCount ?? (typed.rows || []).length} sor maradt`);
       await refreshCatalogStatus({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a deduplikálás');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült a deduplikálás'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -768,8 +772,8 @@ export function AdminEventbrite() {
       if (typed.hasMore) {
         toast.message('Jöhet a következő task előkészítése');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült a katalógus írás');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült a katalógus írás'));
     } finally {
       setManualPhaseLoading(null);
     }
@@ -820,7 +824,7 @@ export function AdminEventbrite() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={providerTab} onValueChange={(v) => setProviderTab(v as any)} className="space-y-4">
+          <Tabs value={providerTab} onValueChange={(value) => setProviderTab(value as typeof providerTab)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
               <TabsTrigger value="eventbrite">Eventbrite</TabsTrigger>
               <TabsTrigger value="ticketmaster">Ticketmaster</TabsTrigger>

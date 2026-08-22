@@ -16,6 +16,7 @@ import {
   type MapyRouteType,
   type ElevationPoint,
 } from '@/lib/mapyCz';
+import { extractLineCoordinates } from '@/lib/mapy';
 
 const ROUTE_TYPES: { value: MapyRouteType; label: string }[] = [
   { value: 'foot_hiking', label: '🥾 Túra (hiking)' },
@@ -29,6 +30,18 @@ interface WaypointInput {
   label: string;
   lat: string;
   lon: string;
+}
+
+function extractRouteCoordinates(geometry: unknown): [number, number][] {
+  if (!geometry || typeof geometry !== 'object') return [];
+  const record = geometry as Record<string, unknown>;
+  if (record.type !== 'FeatureCollection' || !Array.isArray(record.features)) {
+    return extractLineCoordinates(geometry);
+  }
+  return record.features.flatMap((feature) => {
+    if (!feature || typeof feature !== 'object' || !('geometry' in feature)) return [];
+    return extractLineCoordinates(feature.geometry);
+  });
 }
 
 export interface HikeRouteData {
@@ -98,19 +111,7 @@ export function HikePlanner({ onRouteReady }: HikePlannerProps) {
       const route = await planRoute(start, end, intermediateWps, routeType);
 
       // Extract coordinates from geometry for elevation
-      let coords: [number, number][] = [];
-      const geom = route.geometry as any;
-      if (geom?.type === 'FeatureCollection' && geom.features?.length > 0) {
-        for (const feature of geom.features) {
-          if (feature.geometry?.coordinates) {
-            coords.push(...feature.geometry.coordinates);
-          }
-        }
-      } else if (geom?.type === 'Feature' && geom.geometry?.coordinates) {
-        coords = geom.geometry.coordinates;
-      } else if (geom?.coordinates) {
-        coords = geom.coordinates;
-      }
+      const coords = extractRouteCoordinates(route.geometry);
 
       let elevations: ElevationPoint[] = [];
       let totalAscent = 0;

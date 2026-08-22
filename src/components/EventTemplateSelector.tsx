@@ -1,58 +1,50 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { FileText, ChevronDown, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface EventTemplate {
-  id: string;
-  template_name: string;
-  category: string;
-  description: string | null;
-  image_emoji: string | null;
-  tags: string[] | null;
-  location_type: string | null;
-  location_city: string | null;
-  location_district: string | null;
-  location_address: string | null;
-  location_free_text: string | null;
-  max_attendees: number | null;
-  event_time: string | null;
-}
+import {
+  CURATED_EVENT_TEMPLATES,
+  deleteOwnedEventTemplate,
+  loadOwnedEventTemplates,
+  saveOwnedEventTemplate,
+  type EventTemplateContract,
+} from '@/features/organizer/eventTemplates';
 
 interface EventTemplateSelectorProps {
-  onSelect: (template: EventTemplate) => void;
+  onSelect: (template: EventTemplateContract) => void;
 }
 
 export function EventTemplateSelector({ onSelect }: EventTemplateSelectorProps) {
   const { user } = useAuth();
-  const [templates, setTemplates] = useState<EventTemplate[]>([]);
+  const [templates, setTemplates] = useState<EventTemplateContract[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user || !open) return;
+    let active = true;
     setLoading(true);
-    supabase
-      .from('event_templates')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setTemplates((data as unknown as EventTemplate[]) || []);
-        setLoading(false);
-      });
+    void loadOwnedEventTemplates(user.id)
+      .then((data) => { if (active) setTemplates(data); })
+      .catch(() => {
+        if (!active) return;
+        setTemplates([]);
+        toast.error('A mentett sablonokat most nem sikerült betölteni.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [user, open]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const { error } = await supabase.from('event_templates').delete().eq('id', id);
-    if (error) {
-      toast.error('Hiba a sablon törlésekor.');
-    } else {
+    if (!user) return;
+    try {
+      await deleteOwnedEventTemplate(user.id, id);
       setTemplates(prev => prev.filter(t => t.id !== id));
       toast.success('Sablon törölve.');
+    } catch {
+      toast.error('Hiba a sablon törlésekor.');
     }
   };
 
@@ -74,11 +66,24 @@ export function EventTemplateSelector({ onSelect }: EventTemplateSelectorProps) 
 
       {open && (
         <div className="rounded-xl border bg-popover max-h-[200px] overflow-y-auto divide-y">
+          <div className="p-2" aria-label="Beépített eseménysablonok">
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Beépített formátumok</p>
+            {CURATED_EVENT_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                onClick={() => { onSelect(template); setOpen(false); }}
+              >
+                {template.template_name}
+              </button>
+            ))}
+          </div>
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">Betöltés...</div>
           ) : templates.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Nincs mentett sablonod. Hozz létre egy eseményt, majd mentsd el sablonként!
+              Nincs saját mentett sablonod. Hozz létre egy eseményt, majd mentsd el sablonként!
             </div>
           ) : (
             templates.map(t => (
@@ -136,27 +141,27 @@ export function SaveAsTemplateButton(props: SaveAsTemplateButtonProps) {
   const handleSave = async () => {
     if (!name.trim() || !props.category) return;
     setSaving(true);
-    const { error } = await supabase.from('event_templates').insert({
-      user_id: user.id,
-      template_name: name.trim(),
-      category: props.category,
-      description: props.description || null,
-      image_emoji: props.imageEmoji || '🎉',
-      tags: props.tags.split(',').map(t => t.trim()).filter(Boolean),
-      location_type: props.locationType,
-      location_city: props.locationCity || null,
-      location_district: props.locationDistrict || null,
-      location_address: props.locationAddress || null,
-      location_free_text: props.locationFreeText || null,
-      max_attendees: props.maxAttendees ? parseInt(props.maxAttendees) : null,
-      event_time: props.eventTime || null,
-    });
-    if (error) {
-      toast.error('Hiba a sablon mentésekor.');
-    } else {
+    try {
+      await saveOwnedEventTemplate({
+        userId: user.id,
+        templateName: name.trim(),
+        category: props.category,
+        description: props.description || null,
+        imageEmoji: props.imageEmoji || '🎉',
+        tags: props.tags.split(',').map(t => t.trim()).filter(Boolean),
+        locationType: props.locationType,
+        locationCity: props.locationCity || null,
+        locationDistrict: props.locationDistrict || null,
+        locationAddress: props.locationAddress || null,
+        locationFreeText: props.locationFreeText || null,
+        maxAttendees: props.maxAttendees ? Number.parseInt(props.maxAttendees, 10) : null,
+        eventTime: props.eventTime || null,
+      });
       toast.success('Sablon elmentve!');
       setShowInput(false);
       setName('');
+    } catch {
+      toast.error('Hiba a sablon mentésekor.');
     }
     setSaving(false);
   };

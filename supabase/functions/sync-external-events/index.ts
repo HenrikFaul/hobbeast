@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
 import { getSupabaseAdmin } from '../shared/providerFetch.ts';
+import { requireAdminUser } from '../shared/adminAuth.ts';
+import { assertExternalProviderAvailable, failExternalProviderRun, finishExternalProviderRun, startExternalProviderRun } from '../shared/externalProviderRuns.ts';
+import { getExternalProjectAdmin } from '../shared/targetProject.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,26 +11,24 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
+type ExternalSourceRow = Record<string, unknown>;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const localClient = getSupabaseAdmin(req);
+  let runId: string | null = null;
   try {
+    const adminUser = await requireAdminUser(req, localClient);
+    await assertExternalProviderAvailable(localClient, 'external_supabase');
+    runId = await startExternalProviderRun(localClient, 'external_supabase', 'sync', adminUser.id);
     // Source: external Supabase project
-    const extUrl = Deno.env.get('EXTERNAL_SUPABASE_URL');
-    const extKey = Deno.env.get('EXTERNAL_SUPABASE_SERVICE_ROLE_KEY');
-    if (!extUrl || !extKey) {
-      throw new Error('Missing EXTERNAL_SUPABASE_URL or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY');
-    }
-
-    const extClient = createClient(extUrl, extKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const localClient = getSupabaseAdmin(req);
+    const extClient = getExternalProjectAdmin();
 
     // Fetch all active external events from the source project
-    let allRows: any[] = [];
+    let allRows: ExternalSourceRow[] = [];
     let from = 0;
     const pageSize = 500;
     while (true) {
@@ -40,19 +40,21 @@ serve(async (req) => {
 
       if (error) throw new Error(`Source fetch error: ${error.message}`);
       if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
+      allRows = allRows.concat(data as ExternalSourceRow[]);
       if (data.length < pageSize) break;
       from += pageSize;
     }
 
     if (allRows.length === 0) {
+      await finishExternalProviderRun(localClient, runId, 'external_supabase', { itemCount: 0, pageCount: 0, costUnits: 1 });
       return new Response(JSON.stringify({ synced: 0, message: 'No events found in source' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Map rows - remove id so the local project generates its own
-    const rows = allRows.map((r: any) => ({
+    const verifiedAt = new Date().toISOString();
+    const rows = allRows.map((r) => ({
       external_source: r.external_source,
       external_id: r.external_id,
       external_url: r.external_url,
@@ -78,7 +80,13 @@ serve(async (req) => {
       organizer_name: r.organizer_name,
       source_payload: r.source_payload || {},
       source_last_synced_at: r.source_last_synced_at || new Date().toISOString(),
-      is_active: true,
+      last_verified_at: verifiedAt,
+      freshness_state: 'fresh',
+      normalization_version: r.normalization_version || 'external-event-v1',
+      dedupe_confidence: typeof r.dedupe_confidence === 'number' ? Math.max(0, Math.min(r.dedupe_confidence, 1)) : 0,
+      canonical_fingerprint: r.canonical_fingerprint || `${String(r.title || '').trim().toLowerCase()}|${r.event_date || ''}|${String(r.location_city || '').trim().toLowerCase()}`,
+      import_state: r.import_state === 'cancelled' ? 'cancelled' : 'active',
+      is_active: r.import_state !== 'cancelled' && r.is_active !== false,
     }));
 
     // Upsert in batches of 100
@@ -92,13 +100,26 @@ serve(async (req) => {
       upserted += batch.length;
     }
 
+    await finishExternalProviderRun(localClient, runId, 'external_supabase', {
+      itemCount: upserted,
+      pageCount: Math.ceil(allRows.length / pageSize),
+      costUnits: Math.max(1, Math.ceil(allRows.length / pageSize)),
+      checkpoint: { source_rows: allRows.length },
+    });
+
     return new Response(JSON.stringify({ synced: upserted, total_source: allRows.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('sync-external-events error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
-      status: 500,
+    const message = error instanceof Error ? error.message : '';
+    if (!message.includes('PROVIDER_DISABLED') && !message.includes('PROVIDER_CIRCUIT_OPEN')) {
+      await failExternalProviderRun(localClient, runId, 'external_supabase', error).catch(() => undefined);
+    }
+    const status = message.includes('authorization') || message.includes('Unauthorized') ? 401 : message.includes('Admin access') ? 403 : message.includes('PROVIDER_') ? 503 : 500;
+    const publicCode = status === 503 ? 'PROVIDER_UNAVAILABLE' : status === 500 ? 'PROVIDER_OPERATION_FAILED' : 'AUTHORIZATION_FAILED';
+    console.error(JSON.stringify({ scope: 'external-supabase-sync', code: publicCode }));
+    return new Response(JSON.stringify({ error: publicCode }), {
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

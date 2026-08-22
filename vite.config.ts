@@ -1,7 +1,11 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { readFileSync } from "node:fs";
 import { componentTagger } from "lovable-tagger";
+
+const TARGET_SUPABASE_PROJECT_REF = "dsymdijzydaehntlmfzl";
+const PACKAGE_VERSION = String(JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version || "local-unknown");
 
 function normalizeUrl(value?: string) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -12,7 +16,11 @@ function extractProjectRef(url?: string) {
   if (!normalized) return "";
 
   try {
-    return new URL(normalized).hostname.split(".")[0] || "";
+    const hostname = new URL(normalized).hostname.toLowerCase();
+    const suffix = ".supabase.co";
+    if (!hostname.endsWith(suffix)) return "";
+    const projectRef = hostname.slice(0, -suffix.length);
+    return projectRef && !projectRef.includes(".") ? projectRef : "";
   } catch {
     return "";
   }
@@ -39,9 +47,32 @@ function createSupabaseClientTransformPlugin(supabaseUrl: string, supabaseKey: s
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const resolvedSupabaseUrl = normalizeUrl(env.SUPABASE_URL || env.VITE_SUPABASE_URL);
-  const resolvedSupabaseKey = String(env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
-  const resolvedProjectId = extractProjectRef(resolvedSupabaseUrl) || String(env.SUPABASE_PROJECT_ID || env.VITE_SUPABASE_PROJECT_ID || "").trim();
+  const releaseVersion = String(env.VITE_RELEASE_VERSION || PACKAGE_VERSION).trim();
+  const buildCommitSha = String(env.VITE_BUILD_COMMIT_SHA || "local").trim();
+  const buildTimestamp = String(env.VITE_BUILD_TIMESTAMP || new Date().toISOString()).trim();
+  // The browser contract is VITE_* only. Falling back to server-scoped SUPABASE_*
+  // can hide a misconfigured frontend pair and makes the built target differ from
+  // the environment the rest of the frontend tooling validates.
+  const resolvedSupabaseUrl = normalizeUrl(env.VITE_SUPABASE_URL);
+  const resolvedSupabaseKey = String(env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
+  const configuredProjectId = String(env.VITE_SUPABASE_PROJECT_ID || "").trim();
+  const urlProjectId = extractProjectRef(resolvedSupabaseUrl);
+
+  if (
+    mode === "production" &&
+    (
+      urlProjectId !== TARGET_SUPABASE_PROJECT_REF ||
+      configuredProjectId !== TARGET_SUPABASE_PROJECT_REF ||
+      !resolvedSupabaseUrl ||
+      !resolvedSupabaseKey
+    )
+  ) {
+    throw new Error(
+      `[SupabaseConfig] Production build blocked: VITE_* must consistently target ${TARGET_SUPABASE_PROJECT_REF}; received URL ref ${urlProjectId || "missing-or-invalid-host"} and project id ${configuredProjectId || "missing"}.`,
+    );
+  }
+
+  const resolvedProjectId = urlProjectId || configuredProjectId;
 
   if (resolvedSupabaseUrl) process.env.VITE_SUPABASE_URL = resolvedSupabaseUrl;
   if (resolvedSupabaseKey) process.env.VITE_SUPABASE_PUBLISHABLE_KEY = resolvedSupabaseKey;
@@ -56,6 +87,13 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [createSupabaseClientTransformPlugin(resolvedSupabaseUrl, resolvedSupabaseKey), react(), mode === "development" && componentTagger()].filter(Boolean),
+    define: {
+      __HOBBEAST_BUILD__: JSON.stringify({
+        version: releaseVersion,
+        commitSha: buildCommitSha,
+        timestamp: buildTimestamp,
+      }),
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

@@ -14,21 +14,15 @@ import { ChangePasswordCard } from '@/components/ChangePasswordCard';
 import { DeleteAccountCard } from '@/components/DeleteAccountCard';
 import { NotificationPreferencesCard } from '@/components/NotificationPreferencesCard';
 import { FavoriteEventCategoriesCard } from '@/components/FavoriteEventCategoriesCard';
+import { PrivacyConsentCard } from '@/components/PrivacyConsentCard';
 import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { AddressAutocomplete, type AddressSelection } from '@/components/AddressAutocomplete';
 import { UpcomingEventsReminder } from '@/components/UpcomingEventsReminder';
-
-const HOBBY_OPTIONS = [
-  'Futás', 'Kerékpár', 'Túrázás', 'Jóga', 'Crossfit', 'Úszás', 'Tenisz', 'Kosárlabda', 'Foci',
-  'Társasjátékok', 'Videójátékok', 'Sakk',
-  'Festés', 'Rajzolás', 'Fotózás', 'Kézművesség', 'Kötés/Horgolás',
-  'Gitár', 'Zongora', 'Éneklés', 'DJ',
-  'Főzés', 'Sütés', 'Borkóstolás',
-  'Programozás', 'AI/ML', '3D nyomtatás', 'Robotika',
-  'Kutyasétáltatás', 'Önkéntesség', 'Nyelvtanulás', 'Olvasás', 'Írás', 'Tánc', 'Meditáció',
-];
+import { HOBBY_OPTIONS } from '@/features/identity/hobbyOptions';
+import { SessionSecurityCard } from '@/components/SessionSecurityCard';
+import { FirstEventConfidenceCard } from '@/components/FirstEventConfidenceCard';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -42,7 +36,9 @@ const Profile = () => {
   const [genderPublic, setGenderPublic] = useState(false);
   const [agePublic, setAgePublic] = useState(false);
   const [address, setAddress] = useState('');
-  const [addressPublic, setAddressPublic] = useState(false);
+  const [profileVisibility, setProfileVisibility] = useState('members');
+  const [interestsVisibility, setInterestsVisibility] = useState('members');
+  const [locationPrecision, setLocationPrecision] = useState('city');
   const [city, setCity] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLon, setLocationLon] = useState<number | null>(null);
@@ -55,6 +51,7 @@ const Profile = () => {
     const fetchProfile = async () => {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
       if (data) {
+        const profile = data as typeof data & { location_lat?: number | null; location_lon?: number | null };
         setDisplayName(data.display_name || '');
         setAvatarUrl(data.avatar_url);
         setDateOfBirth(data.date_of_birth || '');
@@ -62,10 +59,12 @@ const Profile = () => {
         setGenderPublic(data.gender_public);
         setAgePublic(data.age_public);
         setAddress(data.address || '');
-        setAddressPublic(data.address_public);
+        setProfileVisibility(data.profile_visibility || 'members');
+        setInterestsVisibility(data.interests_visibility || 'members');
+        setLocationPrecision(data.location_precision || 'city');
         setCity(data.city || '');
-        setLocationLat((data as any).location_lat ?? null);
-        setLocationLon((data as any).location_lon ?? null);
+        setLocationLat(profile.location_lat ?? null);
+        setLocationLon(profile.location_lon ?? null);
         setHobbies(data.hobbies || []);
       }
     };
@@ -125,16 +124,26 @@ const Profile = () => {
       gender_public: genderPublic,
       age_public: agePublic,
       address: address || null,
-      address_public: addressPublic,
+      address_public: false,
       city: city || null,
       district: null,
       location_lat: locationLat,
       location_lon: locationLon,
       hobbies,
+      profile_visibility: profileVisibility,
+      interests_visibility: interestsVisibility,
+      location_precision: locationPrecision,
     }).eq('user_id', user.id);
 
     if (error) toast.error('Hiba a mentés során.');
-    else toast.success('Profil frissítve!');
+    else {
+      const { error: reconcileError } = await supabase.rpc('reconcile_virtual_hub_member', {
+        _target_user_id: user.id,
+        _idempotency_key: `profile:${user.id}:${new Date().toISOString()}`,
+      });
+      toast.success('Profil frissítve!');
+      if (reconcileError) toast.warning('A közösségi tagságok háttérfrissítése később újrapróbálható.');
+    }
     setSaving(false);
   };
 
@@ -190,6 +199,19 @@ const Profile = () => {
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">E-mail</Label>
                       <Input value={user?.email || ''} disabled className="rounded-xl h-11" />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profil láthatósága</Label>
+                    <Select value={profileVisibility} onValueChange={setProfileVisibility}>
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="private">Privát</SelectItem>
+                        <SelectItem value="members">Csak bejelentkezett tagok</SelectItem>
+                        <SelectItem value="public">Nyilvános allowlist profil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">E-mail, pontos cím, koordináta, születési dátum és belső státusz soha nem része a publikus profilnak.</p>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -261,11 +283,17 @@ const Profile = () => {
                     <Input value={city} readOnly placeholder="A kiválasztott lokációból automatikusan kitöltjük" className="rounded-xl h-11 bg-muted/30" />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Switch checked={addressPublic} onCheckedChange={setAddressPublic} />
-                    <span className="text-xs text-muted-foreground">
-                      {addressPublic ? 'Pontos cím nyilvános' : 'Csak a város látható mások számára'}
-                    </span>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Helyadat láthatósága</Label>
+                    <Select value={locationPrecision} onValueChange={setLocationPrecision}>
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hidden">Rejtett</SelectItem>
+                        <SelectItem value="city">Csak város</SelectItem>
+                        <SelectItem value="event_only">Pontosítás csak jogosult eseménynél</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">A pontos cím nem kerül nyilvános profilba.</p>
                   </div>
 
                   <Button onClick={handleSave} className="w-full rounded-xl h-11 gradient-primary text-primary-foreground shadow-glow hover:opacity-90 transition-opacity font-semibold" disabled={saving}>
@@ -288,6 +316,14 @@ const Profile = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">Válaszd ki a hobbikat, amelyek érdekelnek. Ez alapján ajánlunk neked eseményeket és embereket.</p>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Érdeklődések láthatósága</Label>
+                    <Select value={interestsVisibility} onValueChange={setInterestsVisibility}>
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="private">Privát</SelectItem><SelectItem value="members">Csak tagok</SelectItem><SelectItem value="public">Nyilvános</SelectItem></SelectContent>
+                    </Select>
+                  </div>
 
                   {hobbies.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -323,6 +359,9 @@ const Profile = () => {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
             <UpcomingEventsReminder />
             <NotificationPreferencesCard />
+            <FirstEventConfidenceCard />
+            <SessionSecurityCard />
+            <PrivacyConsentCard />
             <ChangePasswordCard />
             <DeleteAccountCard />
           </motion.div>

@@ -5,6 +5,7 @@
 // at module-load time, which would otherwise turn into a Supabase 503.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { resolveVerifiedInternalProjectUrl } from '../shared/projectContract.ts';
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,26 +21,11 @@ export function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function normalizeUrl(value?: string | null) {
-  return String(value || '').trim().replace(/\/+$/, '');
-}
-
 export function resolveInternalSupabaseUrl(req?: Request) {
-  // Prefer SUPABASE_URL env (auto-injected). Fall back to request origin if it
-  // is *.supabase.co. Never throw at module load.
-  const envUrl = normalizeUrl(Deno.env.get('SUPABASE_URL'));
-  if (envUrl) return envUrl;
-  if (req) {
-    try {
-      const requestOrigin = normalizeUrl(new URL(req.url).origin);
-      if (/\.supabase\.co$/i.test(new URL(requestOrigin).hostname)) {
-        return requestOrigin;
-      }
-    } catch {
-      // ignore — fall through
-    }
-  }
-  throw new Error('Missing internal Supabase project URL (SUPABASE_URL env not set).');
+  return resolveVerifiedInternalProjectUrl({
+    envUrl: Deno.env.get('SUPABASE_URL'),
+    requestUrl: req?.url,
+  });
 }
 
 export function getSupabaseAdmin(req?: Request) {
@@ -52,6 +38,8 @@ export function getSupabaseAdmin(req?: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+export type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
 // Wrap a Deno serve handler so any unexpected throw turns into a JSON 500
 // rather than a runtime 503. Also handles CORS preflight uniformly.

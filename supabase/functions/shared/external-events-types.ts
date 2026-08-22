@@ -26,4 +26,11 @@ export interface ExternalEventNormalized {
   organizer_name: string | null;
   source_payload: Record<string, unknown>;
   source_last_synced_at: string;
+  first_seen_at?: string;
+  last_verified_at?: string;
+  freshness_state?: 'fresh' | 'aging' | 'stale' | 'unknown';
+  normalization_version?: string;
+  dedupe_confidence?: number;
+  canonical_fingerprint?: string;
+  import_state?: 'discovered' | 'review' | 'active' | 'stale' | 'cancelled' | 'rejected';
 }

@@ -46,7 +46,6 @@ function validate(): PublicEnv | null {
     // Log names only, never values. This keeps secrets out of logs even when
     // the misconfiguration happens in a debugging session.
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
-    // eslint-disable-next-line no-console
     console.error("[env] Frontend runtime configuration is invalid:", issues);
     return null;
   }

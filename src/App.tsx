@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { OrganizerModeProvider } from "@/hooks/useOrganizerMode";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import Index from "./pages/Index";
 
 // Route-level code splitting (Sprint 1.4). Heavy admin/organizer bundles and
@@ -23,6 +24,9 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Admin = lazy(() => import("./pages/Admin"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const OrganizerDashboard = lazy(() => import("./pages/OrganizerDashboard"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const PublicMemberProfile = lazy(() => import("./pages/PublicMemberProfile"));
+const Community = lazy(() => import("./pages/Community"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +55,7 @@ const RouteFallback = () => (
 );
 
 const App = () => (
+  <AppErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <OrganizerModeProvider>
@@ -76,6 +81,9 @@ const App = () => (
                         <Route path="/events/:id/organize" element={<OrganizeEventRedirect />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/profile" element={<Profile />} />
+                        <Route path="/onboarding" element={<Onboarding />} />
+                        <Route path="/members/:userId" element={<PublicMemberProfile />} />
+                        <Route path="/community" element={<Community />} />
                         <Route path="/organizer" element={<OrganizerDashboard />} />
                         <Route path="/admin" element={<Admin />} />
                         <Route path="*" element={<NotFound />} />
@@ -91,6 +99,7 @@ const App = () => (
       </OrganizerModeProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </AppErrorBoundary>
 );
 
 export default App;

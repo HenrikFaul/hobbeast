@@ -19,8 +19,11 @@ the single source of truth for which project each layer must point to.
 - `VITE_SUPABASE_PROJECT_ID` → `dsymdijzydaehntlmfzl`
 
 `src/integrations/supabase/client.ts` is auto-generated; never hand-edit.
-The Vite plugin in `vite.config.ts` overrides the values at build time to
-guarantee dsym, even if the auto-generated file drifts.
+The Vite plugin in `vite.config.ts` reads the browser-facing `VITE_*` pair only
+and, from the v1.8.4 candidate onward, **fails a production build closed** unless
+both the URL ref and `VITE_SUPABASE_PROJECT_ID` are `dsymdijzydaehntlmfzl` and
+the URL/key are present. It does not silently replace a wrong frontend pair with
+server-scoped `SUPABASE_*` values.
 
 ## Edge Functions contract
 

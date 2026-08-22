@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,14 @@ import {
   type DbConfigFormState,
   type RankedCategorySuggestion,
 } from './adminEventbriteHelpers';
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
 
 export function AdminEventbrite() {
   const [providerTab, setProviderTab] = useState<'eventbrite' | 'ticketmaster' | 'seatgeek' | 'places'>('eventbrite');
@@ -144,19 +152,19 @@ export function AdminEventbrite() {
   const filteredDbTestRows = useMemo(() => dbTestRows.filter((row) => matchesColumnFilters(row, dbColumnFilters)), [dbTestRows, dbColumnFilters]);
   const filteredMapperRows = useMemo(() => mapperRows.filter((row) => matchesColumnFilters(row, dbMapperColumnFilters)), [mapperRows, dbMapperColumnFilters]);
 
-  const loadDbDiscovery = async (table = dbForm.table, label = dbForm.label) => {
+  const loadDbDiscovery = useCallback(async (table = dbForm.table, label = dbForm.label) => {
     setDbDiscoveryLoading(true);
     setDbDiscoveryError(null);
     try {
       const discovery = await discoverDbSearchTableFacets({ table, label, limit: 5000 });
       setDbDiscovery(discovery);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setDbDiscovery(null);
-      setDbDiscoveryError(err.message || 'Nem sikerült betölteni az élő kategória-felderítést.');
+      setDbDiscoveryError(getErrorMessage(err, 'Nem sikerült betölteni az élő kategória-felderítést.'));
     } finally {
       setDbDiscoveryLoading(false);
     }
-  };
+  }, [dbForm.label, dbForm.table]);
 
   const loadProviderState = async () => {
     setProviderLoading(true);
@@ -180,7 +188,7 @@ export function AdminEventbrite() {
 
   useEffect(() => {
     if (providerTab === 'places') void loadDbDiscovery(dbForm.table, dbForm.label);
-  }, [providerTab, dbForm.table]);
+  }, [providerTab, dbForm.table, dbForm.label, loadDbDiscovery]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -194,8 +202,8 @@ export function AdminEventbrite() {
       } else {
         setDebugInfo('Az Eventbrite API nem adott vissza eseményeket. Ez lehet a keresési kifejezés, az API kulcs jogosultsága, vagy az Eventbrite API korlátozása miatt.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Hiba az Eventbrite API hívásnál');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Hiba az Eventbrite API hívásnál'));
       toast.error('Eventbrite hiba');
     }
     setLoading(false);
@@ -216,8 +224,8 @@ export function AdminEventbrite() {
       } else {
         setError(`Eventbrite token hiba: ${data?.status || 'ismeretlen'} - ${JSON.stringify(data?.response)}`);
       }
-    } catch (err: any) {
-      setError(err.message || 'Token teszt hiba');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Token teszt hiba'));
     }
     setLoading(false);
   };
@@ -236,8 +244,8 @@ export function AdminEventbrite() {
       } else {
         setDebugInfo('Nincs szervezet társítva az Eventbrite API kulcshoz. Az Eventbrite v3 API csak szervezeti eseményeket tud listázni. Hozz létre egy szervezetet az Eventbrite dashboardon, vagy használj személyes OAuth tokent.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Hiba');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Hiba'));
     }
     setLoading(false);
   };
@@ -249,8 +257,8 @@ export function AdminEventbrite() {
       const result: ExternalEventsSearchResult = await previewTicketmasterEvents(ticketmasterParams);
       setTicketmasterPreview(result.events);
       setTicketmasterInfo(result.events.length > 0 ? `${result.events.length} Ticketmaster/Universe esemény találat.` : 'A Ticketmaster nem adott vissza találatot erre a kombinációra.');
-    } catch (err: any) {
-      setTicketmasterInfo(err.message || 'Ticketmaster előnézeti hiba.');
+    } catch (err: unknown) {
+      setTicketmasterInfo(getErrorMessage(err, 'Ticketmaster előnézeti hiba.'));
       setTicketmasterPreview([]);
     }
     setTicketmasterLoading(false);
@@ -262,8 +270,8 @@ export function AdminEventbrite() {
       const result = await syncTicketmasterEvents({ ...ticketmasterParams, maxPages: 2 });
       toast.success(`${result.synced} Ticketmaster esemény szinkronizálva`);
       await handleTicketmasterPreview();
-    } catch (err: any) {
-      toast.error(err.message || 'Ticketmaster szinkron hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Ticketmaster szinkron hiba'));
     }
     setTicketmasterLoading(false);
   };
@@ -275,8 +283,8 @@ export function AdminEventbrite() {
       const result: ExternalEventsSearchResult = await previewSeatGeekEvents(seatgeekParams);
       setSeatGeekPreview(result.events);
       setSeatGeekInfo(result.events.length > 0 ? `${result.events.length} SeatGeek esemény találat.` : 'A SeatGeek nem adott vissza találatot.');
-    } catch (err: any) {
-      setSeatGeekInfo(err.message || 'SeatGeek előnézeti hiba.');
+    } catch (err: unknown) {
+      setSeatGeekInfo(getErrorMessage(err, 'SeatGeek előnézeti hiba.'));
       setSeatGeekPreview([]);
     }
     setSeatGeekLoading(false);
@@ -288,8 +296,8 @@ export function AdminEventbrite() {
       const result = await syncSeatGeekEvents({ ...seatgeekParams, maxPages: 2 });
       toast.success(`${result.synced} SeatGeek esemény szinkronizálva`);
       await handleSeatGeekPreview();
-    } catch (err: any) {
-      toast.error(err.message || 'SeatGeek szinkron hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'SeatGeek szinkron hiba'));
     }
     setSeatGeekLoading(false);
   };
@@ -300,8 +308,8 @@ export function AdminEventbrite() {
       await setAddressSearchProvider(functionGroupProviders[group], group);
       await loadProviderState();
       toast.success(`${FUNCTION_GROUP_LABELS[group]} provider elmentve és visszaellenőrizve`);
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni a provider beállítást');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni a provider beállítást'));
     }
     setProviderSaving(false);
   };
@@ -315,8 +323,8 @@ export function AdminEventbrite() {
       }
       await loadProviderState();
       toast.success('Minden provider beállítás elmentve és visszaellenőrizve');
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni'));
     }
     setProviderSaving(false);
   };
@@ -328,8 +336,8 @@ export function AdminEventbrite() {
       const results = await searchPlaces(testQuery, undefined, undefined, provider);
       setTestResults(results);
       toast.success(`${results.length} találat (${FUNCTION_GROUP_LABELS[testFunctionGroup]} — ${getProviderDisplayLabel(provider, dbConfigs)})`);
-    } catch (err: any) {
-      toast.error(err.message || 'Provider tesztelési hiba');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Provider tesztelési hiba'));
       setTestResults([]);
     }
     setTestLoading(false);
@@ -342,8 +350,8 @@ export function AdminEventbrite() {
       setDbConfigs(saved.tables);
       await loadProviderState();
       toast.success('Adatbázistábla provider konfiguráció elmentve és visszaellenőrizve');
-    } catch (err: any) {
-      toast.error(err.message || 'Nem sikerült menteni az adatbázistábla konfigurációt');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Nem sikerült menteni az adatbázistábla konfigurációt'));
     } finally {
       setDbConfigSaving(false);
     }
@@ -411,21 +419,34 @@ export function AdminEventbrite() {
         columns: dbForm.columns,
         limit: dbForm.limit,
       });
-      const normalized = ((result.results || []) as any[]).map((row) => ({
-        id: `${row.provider}-${row.external_id}`,
-        name: row.name,
-        address: row.address || row.name,
-        city: row.city || '',
-        district: row.district || '',
-        country: typeof row.metadata?.country === 'string' ? row.metadata.country : 'Hungary',
-        postcode: row.postal_code || '',
-        lat: typeof row.latitude === 'number' ? row.latitude : 0,
-        lon: typeof row.longitude === 'number' ? row.longitude : 0,
-        categories: Array.isArray(row.categories) ? row.categories : row.category ? [row.category] : [],
-        source: row.provider,
-        sourceId: row.external_id,
-        confidence: 0.75,
-      }));
+      const normalized = (result.results || []).flatMap((value): NormalizedPlace[] => {
+        if (!isRecord(value)) return [];
+        const row = value;
+        const metadata = isRecord(row.metadata) ? row.metadata : {};
+        const provider = typeof row.provider === 'string' ? row.provider : 'db';
+        const sourceId = typeof row.external_id === 'string' ? row.external_id : '';
+        const name = typeof row.name === 'string' ? row.name : '';
+        const categories = Array.isArray(row.categories)
+          ? row.categories.filter((category): category is string => typeof category === 'string')
+          : typeof row.category === 'string'
+            ? [row.category]
+            : [];
+        return [{
+          id: `${provider}-${sourceId}`,
+          name,
+          address: typeof row.address === 'string' ? row.address : name,
+          city: typeof row.city === 'string' ? row.city : '',
+          district: typeof row.district === 'string' ? row.district : '',
+          country: typeof metadata.country === 'string' ? metadata.country : 'Hungary',
+          postcode: typeof row.postal_code === 'string' ? row.postal_code : '',
+          lat: typeof row.latitude === 'number' ? row.latitude : 0,
+          lon: typeof row.longitude === 'number' ? row.longitude : 0,
+          categories,
+          source: provider,
+          sourceId,
+          confidence: 0.75,
+        }];
+      });
       const selectedColumns = result.columns && result.columns.length > 0 ? result.columns : dbForm.columns;
       const returnedRows = buildDisplayRowsFromPlaceSearchResult(result, selectedColumns);
       const totalCount = resolveTotalCountFromPlaceSearchResult(result, returnedRows);
@@ -440,8 +461,8 @@ export function AdminEventbrite() {
       setDbDebug({ ...(result.debug || {}), requested_category: dbForm.category, mapped_category: mappedCategory, frontend_response_ms: responseMs });
       const countLabel = typeof totalCount === 'number' ? ` / ${totalCount} találat az adatbázisban` : '';
       toast.success(`${returnedRows.length} sor lekérve: ${dbForm.table}${countLabel}`);
-    } catch (err: any) {
-      const message = err.message || 'Adatbázistábla lekérdezési hiba';
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Adatbázistábla lekérdezési hiba');
       setDbQueryError(message);
       toast.error(message);
     } finally {
@@ -460,7 +481,7 @@ export function AdminEventbrite() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={providerTab} onValueChange={(v) => setProviderTab(v as any)} className="space-y-4">
+          <Tabs value={providerTab} onValueChange={(value) => setProviderTab(value as typeof providerTab)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
               <TabsTrigger value="eventbrite">Eventbrite</TabsTrigger>
               <TabsTrigger value="ticketmaster">Ticketmaster</TabsTrigger>

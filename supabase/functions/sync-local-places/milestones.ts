@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { appendLog } from './repositories.ts';
 import type { SyncLevel } from './types.ts';
+import type { SupabaseAdminClient } from '../shared/providerFetch.ts';
 
 export const MILESTONES = {
   RUN_STARTED: 'run_started',
@@ -26,7 +27,7 @@ export const MILESTONES = {
 } as const;
 
 export async function milestone(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   level: SyncLevel,
   event: string,
   message: string,

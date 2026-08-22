@@ -149,9 +149,9 @@ export function AdminMassUsers({ onUsersCreated }: Props) {
       if (!authErrors.length && !profileErrors.length) {
         setGenerated([]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(`Hiba: ${err.message || 'Ismeretlen hiba'}`);
+      toast.error(`Hiba: ${err instanceof Error ? err.message : 'Ismeretlen hiba'}`);
     } finally {
       setCreating(false);
     }

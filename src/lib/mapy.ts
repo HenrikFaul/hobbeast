@@ -364,8 +364,9 @@ export function extractLineCoordinates(geometry: unknown): [number, number][] {
   if (!geometry) return [];
   const maybe = geometry as Record<string, unknown>;
   if (maybe.type === 'FeatureCollection' && Array.isArray(maybe.features)) {
-    for (const feature of maybe.features as any[]) {
-      const coords = extractLineCoordinates(feature?.geometry);
+    for (const feature of maybe.features) {
+      if (!feature || typeof feature !== 'object' || !('geometry' in feature)) continue;
+      const coords = extractLineCoordinates(feature.geometry);
       if (coords.length) return coords;
     }
   }
@@ -375,7 +376,7 @@ export function extractLineCoordinates(geometry: unknown): [number, number][] {
   if (maybe.type === 'LineString' && Array.isArray(maybe.coordinates)) {
     return maybe.coordinates as [number, number][];
   }
-  if (maybe.type === 'MultiLineString' && Array.isArray(maybe.coordinates) && Array.isArray((maybe.coordinates as any[])[0])) {
+  if (maybe.type === 'MultiLineString' && Array.isArray(maybe.coordinates) && Array.isArray(maybe.coordinates[0])) {
     return (maybe.coordinates as [number, number][][]).flat();
   }
   return [];

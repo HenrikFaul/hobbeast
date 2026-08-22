@@ -1,5 +1,6 @@
 import type { ExternalEventNormalized } from './external-events-types.ts';
 import { supabaseAdmin } from './providerFetch.ts';
+import { externalEventProvenance } from './externalEventPipeline.ts';
 
 export async function upsertExternalEvents(events: ExternalEventNormalized[]) {
   if (!events.length) return { upserted: 0 };
@@ -30,6 +31,7 @@ export async function upsertExternalEvents(events: ExternalEventNormalized[]) {
     organizer_name: e.organizer_name,
     source_payload: e.source_payload,
     source_last_synced_at: e.source_last_synced_at,
+    ...externalEventProvenance(e),
     is_active: true,
   }));
 
@@ -38,5 +40,7 @@ export async function upsertExternalEvents(events: ExternalEventNormalized[]) {
     .upsert(rows, { onConflict: 'external_source,external_id' });
 
   if (error) throw error;
+  const { error: dedupeError } = await supabaseAdmin.rpc('queue_external_event_dedupe_reviews');
+  if (dedupeError) throw new Error(`PROVIDER_DEDUPE_QUEUE_FAILED:${dedupeError.code || 'unknown'}`);
   return { upserted: rows.length };
 }

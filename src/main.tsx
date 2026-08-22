@@ -9,7 +9,6 @@ import { assertTargetProject } from "@/lib/supabaseProjects";
 // startup and never logs keys or full URLs beyond the project ref.
 const projectCheck = assertTargetProject(env?.VITE_SUPABASE_URL);
 if (!projectCheck.ok) {
-  // eslint-disable-next-line no-console
   console.warn("[supabase-projects]", projectCheck.message, { ref: projectCheck.ref, role: projectCheck.role });
 }
 

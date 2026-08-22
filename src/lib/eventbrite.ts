@@ -35,7 +35,7 @@ export interface EventbritePagination {
 }
 
 export interface EventbriteListResponse {
-  events: EventbriteEvent[];
+  events: Array<EventbriteEvent | MappedEventbriteEvent>;
   pagination: EventbritePagination;
 }
 
@@ -57,7 +57,11 @@ export interface MappedEventbriteEvent {
   created_by: string;
   participant_count: number;
   source: 'eventbrite';
-  eventbrite_url: string;
+  source_label?: 'Eventbrite';
+  external_source?: 'eventbrite';
+  external_id?: string;
+  canonical_identity?: string;
+  eventbrite_url: string | null;
   eventbrite_logo_url: string | null;
 }
 
@@ -83,7 +87,34 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   'Other': '📅',
 };
 
-function mapEventbriteToInternal(event: EventbriteEvent): MappedEventbriteEvent {
+function mapEventbriteToInternal(event: EventbriteEvent | MappedEventbriteEvent): MappedEventbriteEvent {
+  if ('title' in event) {
+    return {
+      id: String(event.id),
+      title: String(event.title).slice(0, 300),
+      category: String(event.category || 'Egyéb').slice(0, 100),
+      event_date: event.event_date || null,
+      event_time: event.event_time || null,
+      location_city: event.location_city || null,
+      location_district: event.location_district || null,
+      location_address: event.location_address || null,
+      location_free_text: event.location_free_text || null,
+      location_type: event.location_type || null,
+      max_attendees: Number.isFinite(event.max_attendees) ? event.max_attendees : null,
+      image_emoji: event.image_emoji || '📅',
+      tags: Array.isArray(event.tags) ? event.tags.slice(0, 20) : [],
+      description: event.description?.slice(0, 300) || null,
+      created_by: '',
+      participant_count: 0,
+      source: 'eventbrite',
+      source_label: 'Eventbrite',
+      external_source: 'eventbrite',
+      external_id: event.external_id,
+      canonical_identity: event.canonical_identity,
+      eventbrite_url: event.eventbrite_url || null,
+      eventbrite_logo_url: event.eventbrite_logo_url || null,
+    };
+  }
   const startLocal = event.start?.local;
   const datePart = startLocal ? startLocal.split('T')[0] : null;
   const timePart = startLocal ? startLocal.split('T')[1]?.substring(0, 5) : null;
@@ -113,7 +144,7 @@ function mapEventbriteToInternal(event: EventbriteEvent): MappedEventbriteEvent 
     created_by: '',
     participant_count: 0,
     source: 'eventbrite',
-    eventbrite_url: event.url,
+    eventbrite_url: event.url || null,
     eventbrite_logo_url: event.logo?.original?.url || event.logo?.url || null,
   };
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Database, RefreshCw, ScrollText, Settings, CheckCircle, XCircle, Loader2, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { COMMON_ADMIN_HOSTS, COMMON_ADMIN_INTEGRATIONS, COMMON_ADMIN_RELEASE } from "@/lib/commonAdminMetadata";
-import { searchPlaces } from "@/lib/placeSearch";
+import { searchPlaces } from "@/features/places";
 import { isAwsLocationConfigured, suggestPlaces } from "@/lib/awsLocation";
 import { getDbSearchTableConfigs, testDbSearchTableQuery } from "@/lib/searchProviderConfig";
 
@@ -15,6 +15,11 @@ interface TestResult {
   message?: string;
   details?: string;
   durationMs?: number;
+}
+
+function eventTitle(value: unknown): string {
+  if (!value || typeof value !== 'object' || !('title' in value)) return '';
+  return typeof value.title === 'string' ? value.title : '';
 }
 
 const INTEGRATION_TESTS: { key: string; name: string; group: string }[] = [
@@ -47,7 +52,7 @@ async function runIntegrationTest(key: string): Promise<{ ok: boolean; message: 
         });
         if (error) throw new Error(error.message);
         const count = Array.isArray(data?.events) ? data.events.length : 0;
-        if (count > 0) return { ok: true, message: `${count} esemény elérhető`, details: data.events.map((e: any) => e.title).join(', ') };
+        if (count > 0) return { ok: true, message: `${count} esemény elérhető`, details: data.events.map(eventTitle).join(', ') };
         return { ok: false, message: 'Nem érkezett találat', details: JSON.stringify(data, null, 2) };
       }
 
@@ -57,14 +62,14 @@ async function runIntegrationTest(key: string): Promise<{ ok: boolean; message: 
         });
         if (error) throw new Error(error.message);
         const count = Array.isArray(data?.events) ? data.events.length : 0;
-        if (count > 0) return { ok: true, message: `${count} esemény elérhető`, details: data.events.map((e: any) => e.title).join(', ') };
+        if (count > 0) return { ok: true, message: `${count} esemény elérhető`, details: data.events.map(eventTitle).join(', ') };
         return { ok: false, message: 'Nem érkezett találat', details: JSON.stringify(data, null, 2) };
       }
 
       case 'aws_places': {
         if (!isAwsLocationConfigured()) return { ok: false, message: 'AWS Location API kulcs nincs konfigurálva', details: 'VITE_AWS_LOCATION_API_KEY és VITE_AWS_LOCATION_REGION szükséges.' };
         const results = await suggestPlaces('Budapest');
-        if (results.length > 0) return { ok: true, message: `${results.length} találat`, details: results.slice(0, 3).map((r: any) => r.text || r.place?.label).join(', ') };
+        if (results.length > 0) return { ok: true, message: `${results.length} találat`, details: results.slice(0, 3).map((result) => result.text || result.place?.label).join(', ') };
         return { ok: false, message: 'Nem érkezett találat az AWS-ről' };
       }
 
@@ -116,8 +121,12 @@ async function runIntegrationTest(key: string): Promise<{ ok: boolean; message: 
       default:
         return { ok: false, message: `Ismeretlen teszt: ${key}` };
     }
-  } catch (err: any) {
-    return { ok: false, message: err.message || 'Ismeretlen hiba', details: err.stack?.slice(0, 300) };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Ismeretlen hiba',
+      details: err instanceof Error ? err.stack?.slice(0, 300) : undefined,
+    };
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, Settings } from "lucide-react";
@@ -14,6 +14,15 @@ import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan } from '@/lib/tripPlans';
 import { getParticipantStats } from '@/lib/eventParticipantStats';
+import { SafetyActions } from '@/components/safety/SafetyActions';
+import { trackProductEvent } from '@/lib/productAnalyticsClient';
+import { EventSafetyPanel, type EventSafetySummary } from '@/components/safety/EventSafetyPanel';
+import { cancelEventParticipation, getSafeEventDetail, joinEventAtomic } from '@/lib/eventOperations';
+import { EventExpectationPanel } from '@/components/events/EventExpectationPanel';
+import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard';
+import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
+import { resolveLocationPrecision, type ParticipantLifecycleStatus } from '@/lib/eventLifecycle';
+import { ExternalEventSocialIntentCard } from '@/components/events/ExternalEventSocialIntentCard';
 
 interface EventData {
   id: string;
@@ -36,6 +45,57 @@ interface EventData {
   waitlist_enabled?: boolean | null;
   location_lat?: number | null;
   location_lon?: number | null;
+  place_name?: string | null;
+  place_address?: string | null;
+  place_city?: string | null;
+  place_postcode?: string | null;
+  place_country?: string | null;
+  place_source?: string | null;
+  meeting_instructions?: string | null;
+  expected_end_at?: string | null;
+  beginner_friendly?: boolean | null;
+  activity_intensity?: string | null;
+  equipment_required?: string | null;
+  accessibility_info?: string | null;
+  cost_details?: string | null;
+  cancellation_policy?: string | null;
+  outcome_status?: string | null;
+  completed_at?: string | null;
+  visibility_type?: string | null;
+  private_location_reveal_hours?: number | null;
+  _location_precision?: 'coarse' | 'rsvp_detail' | 'full';
+  _exact_location_visible?: boolean;
+  external_event_id?: string;
+}
+
+const ACTIVE_PARTICIPATION_STATUSES = new Set<ParticipantLifecycleStatus>([
+  'going',
+  'waitlist',
+  'checked_in',
+  'completed',
+]);
+
+const PARTICIPATION_STATUSES = new Set<ParticipantLifecycleStatus>([
+  'invited',
+  'interested',
+  'going',
+  'waitlist',
+  'checked_in',
+  'completed',
+  'cancelled',
+  'no_show',
+]);
+
+function asParticipantLifecycleStatus(value: string | null | undefined): ParticipantLifecycleStatus | null {
+  return value && PARTICIPATION_STATUSES.has(value as ParticipantLifecycleStatus)
+    ? value as ParticipantLifecycleStatus
+    : null;
+}
+
+interface ParticipationLookup {
+  status: string;
+  arriving_alone: boolean | null;
+  first_hobbeast_event: boolean | null;
 }
 
 const SAMPLE_EVENTS = [
@@ -55,6 +115,12 @@ const EventDetail = () => {
   const [event, setEvent] = useState<EventData | null>(null);
   const [participantCount, setParticipantCount] = useState(0);
   const [hasJoined, setHasJoined] = useState(false);
+  const [participationStatus, setParticipationStatus] = useState<ParticipantLifecycleStatus | null>(null);
+  const [arrivalConfidence, setArrivalConfidenceState] = useState({
+    arrivingAlone: null as boolean | null,
+    firstHobbeastEvent: null as boolean | null,
+  });
+  const [hostDisplayName, setHostDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLeave, setShowLeave] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -62,6 +128,25 @@ const EventDetail = () => {
   const [externalUrl, setExternalUrl] = useState<string | null>(null);
   const [externalSource, setExternalSource] = useState<string>('');
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
+  const [eventSafety, setEventSafety] = useState<EventSafetySummary | null>(null);
+  const [eventSafetyLoaded, setEventSafetyLoaded] = useState(false);
+  const trackedDetailId = useRef<string | null>(null);
+
+  const handleSafetySummary = useCallback((summary: EventSafetySummary | null) => {
+    setEventSafety(summary);
+    setEventSafetyLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!user || !event || !id || isExternal || id.startsWith('sample-') || trackedDetailId.current === id) return;
+    trackedDetailId.current = id;
+    void trackProductEvent('event_detail', {
+      event_id: id,
+      category: event.category,
+      source: 'native',
+      surface: 'event_detail',
+    });
+  }, [event, id, isExternal, user]);
 
   useEffect(() => {
     if (!id) return;
@@ -100,18 +185,27 @@ const EventDetail = () => {
 
     // Fetch from DB
     const fetchEvent = async () => {
-      const { data } = await supabase
-        .from('events')
-.select('*')
-        .eq('id', id)
-        .single();
+      const data = await getSafeEventDetail(id).catch((error) => {
+        console.error('Failed to load safe event detail', error);
+        return null;
+      }) as EventData | null;
       if (data) {
         setEvent(data);
+        const { data: hostProfile } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', data.created_by)
+          .maybeSingle();
+        setHostDisplayName(hostProfile?.display_name?.trim() || null);
         const stats = await getParticipantStats(id);
         setParticipantCount(stats.total);
         try {
-          const loadedTripPlan = await getEventTripPlan(id);
-          setTripPlan(loadedTripPlan);
+          if (data._exact_location_visible !== true) {
+            setTripPlan(null);
+          } else {
+            const loadedTripPlan = await getEventTripPlan(id);
+            setTripPlan(loadedTripPlan);
+          }
         } catch (tripPlanError) {
           console.error('Failed to load trip plan', tripPlanError);
         }
@@ -121,11 +215,18 @@ const EventDetail = () => {
       if (user) {
         const { data: participation } = await supabase
           .from('event_participants')
-          .select('id')
+          .select('id,status,arriving_alone,first_hobbeast_event')
           .eq('event_id', id)
           .eq('user_id', user.id)
           .maybeSingle();
-        setHasJoined(!!participation);
+        const participationRow = participation as unknown as ParticipationLookup | null;
+        const status = asParticipantLifecycleStatus(participationRow?.status);
+        setParticipationStatus(status);
+        setHasJoined(Boolean(status && ACTIVE_PARTICIPATION_STATUSES.has(status)));
+        setArrivalConfidenceState({
+          arrivingAlone: participationRow?.arriving_alone ?? null,
+          firstHobbeastEvent: participationRow?.first_hobbeast_event ?? null,
+        });
       }
 
       setLoading(false);
@@ -137,51 +238,91 @@ const EventDetail = () => {
     if (!user) { navigate('/auth?redirect=/events/' + id); return; }
     if (!id || id.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
 
-    // Check capacity - is event full?
-    const isFull = event?.max_attendees && participantCount >= event.max_attendees;
-    const joinStatus = isFull && event?.waitlist_enabled ? 'waitlist' : 'going';
+    try {
+      const participation = await joinEventAtomic(id);
+      if (!participation) throw new Error('EVENT_OPERATION_FAILED');
+      if (participation.replayed) toast.info('Már csatlakoztál ehhez az eseményhez.');
+      else if (participation.participation_status === 'waitlist') toast.info('Az esemény betelt, felkerültél a várólistára!');
+      else toast.success('Sikeresen csatlakoztál!');
 
-    if (isFull && !event?.waitlist_enabled) {
-      toast.error('Az esemény betelt és nincs várólista.');
-      return;
-    }
-
-    const { error } = await supabase.from('event_participants').insert({
-      event_id: id,
-      user_id: user.id,
-      status: joinStatus,
-    });
-    if (error) {
-      if (error.code === '23505') toast.info('Már csatlakoztál!');
-      else toast.error('Hiba a csatlakozáskor.');
-    } else {
-      if (joinStatus === 'waitlist') {
-        toast.info('Az esemény betelt, felkerültél a várólistára!');
-      } else {
-        toast.success('Sikeresen csatlakoztál!');
-      }
       setHasJoined(true);
-      setParticipantCount(p => p + 1);
+      setParticipationStatus(participation.participation_status);
+      setArrivalConfidenceState({ arrivingAlone: null, firstHobbeastEvent: null });
+      const refreshedEvent = await getSafeEventDetail(id).catch(() => null) as EventData | null;
+      if (refreshedEvent) {
+        setEvent(refreshedEvent);
+        if (refreshedEvent._exact_location_visible) {
+          getEventTripPlan(id).then(setTripPlan).catch((error) => console.error('Failed to refresh trip plan after join', error));
+        }
+      }
+      const stats = await getParticipantStats(id);
+      setParticipantCount(stats.total);
+      if (!participation.replayed) {
+        void trackProductEvent(participation.participation_status === 'waitlist' ? 'waitlist_joined' : 'event_join', {
+          event_id: id,
+          category: event?.category || 'unknown',
+          source: 'native',
+          status: participation.participation_status,
+        });
+      }
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'EVENT_OPERATION_FAILED';
+      if (code === 'EVENT_FULL_NO_WAITLIST') toast.error('Az esemény betelt és nincs várólista.');
+      else if (code === 'EVENT_NOT_JOINABLE' || code === 'EVENT_ALREADY_STARTED') toast.error('Ehhez az eseményhez már nem lehet csatlakozni.');
+      else if (code === 'USER_SUSPENDED') toast.error('A fiókodra vonatkozó korlátozás miatt most nem csatlakozhatsz.');
+      else if (code === 'EVENT_ORGANIZER_BLOCKED') toast.error('A tiltási beállítások miatt ehhez az eseményhez nem csatlakozhatsz.');
+      else toast.error('A csatlakozás nem sikerült. Próbáld újra.');
     }
   };
 
   const handleLeave = async () => {
     if (!user || !id) return;
-    const { error } = await supabase.from('event_participants').delete().eq('event_id', id).eq('user_id', user.id);
-    if (error) {
-      toast.error('Hiba a kilépéskor.');
-    } else {
+    try {
+      await cancelEventParticipation(id);
       toast.success('Sikeresen kiléptél az eseményből.');
       setHasJoined(false);
-      setParticipantCount(p => Math.max(0, p - 1));
+      setParticipationStatus('cancelled');
+      setArrivalConfidenceState({ arrivingAlone: null, firstHobbeastEvent: null });
+      const refreshedEvent = await getSafeEventDetail(id).catch(() => null) as EventData | null;
+      if (refreshedEvent) setEvent(refreshedEvent);
+      setTripPlan(null);
+      const stats = await getParticipantStats(id);
+      setParticipantCount(stats.total);
+    } catch {
+      toast.error('Hiba a kilépéskor.');
     }
     setShowLeave(false);
   };
 
+  const getLocationPrecision = (ev: EventData) => {
+    if (ev._location_precision) return ev._location_precision;
+    const eventStart = ev.event_date
+      ? new Date(`${ev.event_date}T${ev.event_time || '00:00:00'}`)
+      : null;
+    const validEventStart = eventStart && !Number.isNaN(eventStart.getTime()) ? eventStart : null;
+    const safetyRestricted = !eventSafetyLoaded
+      || Boolean(eventSafety && ['participant_only', 'private_exact_after_join'].includes(eventSafety.venue_visibility));
+    const isPrivate = (ev.visibility_type !== null && ev.visibility_type !== undefined && ev.visibility_type !== 'public')
+      || safetyRestricted;
+
+    return resolveLocationPrecision({
+      isPrivate,
+      isOrganizer: ev.created_by === user?.id,
+      hasActiveRsvp: hasJoined,
+      eventStart: validEventStart,
+      revealWindowHours: ev.private_location_reveal_hours ?? 24,
+    });
+  };
+
   const getLocationString = (ev: EventData) => {
-    const parts = [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text].filter(Boolean);
+    const precision = getLocationPrecision(ev);
+    const parts = precision === 'coarse'
+      ? [ev.location_city, ev.location_district, 'Pontos helyszín csatlakozás után']
+      : precision === 'rsvp_detail'
+        ? [ev.location_city, ev.location_district, ev.place_name, 'Részletes instrukció az esemény közeledtével']
+        : [ev.location_city, ev.location_district, ev.location_address, ev.location_free_text];
     if (ev.location_type === 'online') return '🌐 Online esemény';
-    return parts.join(', ') || 'Helyszín nem megadva';
+    return parts.filter(Boolean).join(', ') || 'Helyszín nem megadva';
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -213,6 +354,8 @@ const EventDetail = () => {
       </main>
     );
   }
+
+  const locationPrecision = getLocationPrecision(event);
 
   return (
     <main className="pt-24 pb-16 min-h-screen">
@@ -306,7 +449,7 @@ const EventDetail = () => {
           </div>
 
           {/* Venue / Place block */}
-          {(event as any).place_name && (
+          {event.place_name && locationPrecision !== 'coarse' && (
             <Card className="rounded-xl mb-6">
               <CardContent className="p-4 flex items-start gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 flex-shrink-0">
@@ -314,13 +457,13 @@ const EventDetail = () => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Helyszín részletei</p>
-                  <p className="font-medium">{(event as any).place_name}</p>
-                  {(event as any).place_address && <p className="text-sm text-muted-foreground">{(event as any).place_address}</p>}
+                  <p className="font-medium">{event.place_name}</p>
+                  {event.place_address && locationPrecision === 'full' && <p className="text-sm text-muted-foreground">{event.place_address}</p>}
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {[(event as any).place_city, (event as any).place_postcode, (event as any).place_country].filter(Boolean).join(', ')}
+                    {[event.place_city, event.place_postcode, event.place_country].filter(Boolean).join(', ')}
                   </p>
-                  {(event as any).place_source && (
-                    <Badge variant="outline" className="text-[10px] mt-1">{(event as any).place_source}</Badge>
+                  {event.place_source && (
+                    <Badge variant="outline" className="text-[10px] mt-1">{event.place_source}</Badge>
                   )}
                 </div>
               </CardContent>
@@ -337,7 +480,27 @@ const EventDetail = () => {
             </Card>
           )}
 
-          {tripPlan && (
+          {!isSample && !isExternal && (
+            <div className="mb-6">
+              <EventExpectationPanel
+                isOrganizer={Boolean(isOwner)}
+                data={{
+                  meetingInstructions: locationPrecision === 'full' ? event.meeting_instructions : null,
+                  maxAttendees: event.max_attendees,
+                  beginnerFriendly: event.beginner_friendly,
+                  activityIntensity: event.activity_intensity,
+                  equipmentRequired: event.equipment_required,
+                  accessibilityInfo: event.accessibility_info,
+                  costDetails: event.cost_details,
+                  expectedEndAt: event.expected_end_at,
+                  hostName: hostDisplayName,
+                  cancellationPolicy: event.cancellation_policy,
+                }}
+              />
+            </div>
+          )}
+
+          {tripPlan && locationPrecision === 'full' && (
             <div className="mb-6">
               <MapyTripPlanner value={tripPlan} readOnly />
             </div>
@@ -354,6 +517,10 @@ const EventDetail = () => {
             ) : isSample ? (
               <Button className="flex-1 h-12 rounded-xl gradient-primary text-primary-foreground border-0 shadow-glow font-semibold" onClick={() => toast.info('Ez egy bemutató esemény.')}>
                 Csatlakozom
+              </Button>
+            ) : participationStatus === 'completed' ? (
+              <Button disabled variant="secondary" className="flex-1 h-12 rounded-xl font-semibold">
+                Esemény teljesítve
               </Button>
             ) : hasJoined ? (
               <Button variant="outline" className="flex-1 h-12 rounded-xl border-destructive text-destructive hover:bg-destructive/10 font-semibold"
@@ -372,6 +539,45 @@ const EventDetail = () => {
               <Share2 className="h-4 w-4" />
             </Button>
           </div>
+
+          {isExternal && event.external_event_id && (
+            <ExternalEventSocialIntentCard
+              externalEventId={event.external_event_id}
+              authenticated={Boolean(user)}
+              onRequestSignIn={() => navigate(`/auth?redirect=/events/${id}`)}
+            />
+          )}
+
+          {!isOwner && !isSample && !isExternal && hasJoined && participationStatus !== 'completed' && id && (
+            <div className="mt-6">
+              <ArrivalConfidenceCard
+                key={`${id}-${participationStatus}`}
+                eventId={id}
+                initialArrivingAlone={arrivalConfidence.arrivingAlone}
+                initialFirstHobbeastEvent={arrivalConfidence.firstHobbeastEvent}
+              />
+            </div>
+          )}
+
+          {!isOwner && !isSample && id && (
+            <SafetyActions
+              className="mt-3"
+              targetType="event"
+              targetRef={id}
+              targetUserId={event.created_by || null}
+              sourceSurface="event_detail"
+            />
+          )}
+
+          {!isSample && !isExternal && id && (
+            <EventSafetyPanel eventId={id} isOwner={Boolean(isOwner)} onSummary={handleSafetySummary} />
+          )}
+
+          {!isOwner && !isSample && !isExternal && participationStatus === 'completed' && id && (
+            <div className="mt-6">
+              <PostEventFeedbackCard eventId={id} />
+            </div>
+          )}
         </motion.div>
       </div>
 
@@ -396,17 +602,23 @@ const EventDetail = () => {
             setShowEdit(false);
             // Re-fetch
             if (id) {
-              supabase.from('events').select('*').eq('id', id).single()
-                .then(async ({ data }) => {
+              getSafeEventDetail(id)
+                .then(async (rawData) => {
+                  const data = rawData as EventData | null;
                   if (data) {
                     setEvent(data);
                     const stats = await getParticipantStats(id);
                     setParticipantCount(stats.total);
-                    getEventTripPlan(id)
-                      .then((plan) => setTripPlan(plan))
-                      .catch((error) => console.error('Failed to refresh trip plan', error));
+                    if (data._exact_location_visible) {
+                      getEventTripPlan(id)
+                        .then((plan) => setTripPlan(plan))
+                        .catch((error) => console.error('Failed to refresh trip plan', error));
+                    } else {
+                      setTripPlan(null);
+                    }
                   }
-                });
+                })
+                .catch((error) => console.error('Failed to refresh safe event detail', error));
             }
           }}
         />

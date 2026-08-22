@@ -25,6 +25,7 @@ export function ExternalEventList({ events }: { events: ExternalEventNormalized[
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{ev.title}</p>
               <p className="text-xs text-muted-foreground">{ev.event_date || '—'} · {ev.location_city || 'Online'} · {ev.source_label}</p>
+              <p className="text-xs text-muted-foreground">{ev.freshness_state === 'unknown' ? 'Frissesség nem igazolt' : `Frissesség: ${ev.freshness_state}`} · {ev.normalization_version}</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">{ev.category}</Badge>
@@ -243,43 +244,52 @@ export function matchesColumnFilters(row: Record<string, unknown>, filters: Reco
   });
 }
 
-function getNestedValue(source: any, path: string): unknown {
-  return path.split('.').reduce((current, key) => (current && typeof current === 'object' ? current[key] : undefined), source);
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
-function valueFromMappedProviderResult(row: any, column: string): unknown {
-  const metadata = row?.metadata || {};
+function getNestedValue(source: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, key) => asRecord(current)[key], source);
+}
+
+function valueFromMappedProviderResult(value: unknown, column: string): unknown {
+  const row = asRecord(value);
+  const metadata = asRecord(row.metadata);
   const aliases: Record<string, unknown> = {
-    id: row?.id ?? row?.external_id,
-    external_id: row?.external_id,
-    name: row?.name,
-    city: row?.city,
-    district: row?.district,
-    formatted_address: row?.formatted_address ?? row?.address,
-    address: row?.address,
-    lat: row?.lat ?? row?.latitude,
-    lon: row?.lon ?? row?.longitude,
-    latitude: row?.latitude,
-    longitude: row?.longitude,
-    categories: row?.categories,
-    source_provider: metadata?.source_provider ?? row?.source_provider ?? row?.provider,
-    datasource_name: metadata?.datasource_name ?? metadata?.source_provider ?? row?.datasource_name,
-    brand: metadata?.brand ?? row?.brand,
-    operator: metadata?.operator ?? row?.operator,
-    cuisine: metadata?.cuisine ?? row?.cuisine,
-    phone: row?.phone,
-    website: row?.website,
-    email: row?.email,
-    postal_code: row?.postal_code,
-    provider: row?.provider,
+    id: row.id ?? row.external_id,
+    external_id: row.external_id,
+    name: row.name,
+    city: row.city,
+    district: row.district,
+    formatted_address: row.formatted_address ?? row.address,
+    address: row.address,
+    lat: row.lat ?? row.latitude,
+    lon: row.lon ?? row.longitude,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    categories: row.categories,
+    source_provider: metadata.source_provider ?? row.source_provider ?? row.provider,
+    datasource_name: metadata.datasource_name ?? metadata.source_provider ?? row.datasource_name,
+    brand: metadata.brand ?? row.brand,
+    operator: metadata.operator ?? row.operator,
+    cuisine: metadata.cuisine ?? row.cuisine,
+    phone: row.phone,
+    website: row.website,
+    email: row.email,
+    postal_code: row.postal_code,
+    provider: row.provider,
   };
   if (column in aliases) return aliases[column];
-  return row?.[column] ?? metadata?.[column] ?? getNestedValue(row, column) ?? getNestedValue(metadata, column);
+  return row[column] ?? metadata[column] ?? getNestedValue(row, column) ?? getNestedValue(metadata, column);
 }
 
-export function buildDisplayRowsFromPlaceSearchResult(result: any, selectedColumns: string[]): Record<string, unknown>[] {
-  if (Array.isArray(result?.rows) && result.rows.length > 0) {
-    return result.rows.map((row: Record<string, unknown>) => {
+export function buildDisplayRowsFromPlaceSearchResult(result: unknown, selectedColumns: string[]): Record<string, unknown>[] {
+  const resultRecord = asRecord(result);
+  if (Array.isArray(resultRecord.rows) && resultRecord.rows.length > 0) {
+    return resultRecord.rows.map((value) => {
+      const row = asRecord(value);
       const projected: Record<string, unknown> = {};
       selectedColumns.forEach((column) => {
         projected[column] = row[column];
@@ -288,8 +298,8 @@ export function buildDisplayRowsFromPlaceSearchResult(result: any, selectedColum
     });
   }
 
-  const mappedResults = Array.isArray(result?.results) ? result.results : [];
-  return mappedResults.map((row: any) => {
+  const mappedResults = Array.isArray(resultRecord.results) ? resultRecord.results : [];
+  return mappedResults.map((row) => {
     const projected: Record<string, unknown> = {};
     selectedColumns.forEach((column) => {
       projected[column] = valueFromMappedProviderResult(row, column);
@@ -298,12 +308,14 @@ export function buildDisplayRowsFromPlaceSearchResult(result: any, selectedColum
   });
 }
 
-export function resolveTotalCountFromPlaceSearchResult(result: any, displayRows: Record<string, unknown>[]): number | null {
-  if (typeof result?.totalCount === 'number') return result.totalCount;
-  if (typeof result?.total_count === 'number') return result.total_count;
-  if (typeof result?.debug?.total_count === 'number') return result.debug.total_count;
-  if (typeof result?.debug?.filtered_candidate_count === 'number') return result.debug.filtered_candidate_count;
-  if (typeof result?.debug?.raw_candidate_count === 'number') return result.debug.raw_candidate_count;
+export function resolveTotalCountFromPlaceSearchResult(result: unknown, displayRows: Record<string, unknown>[]): number | null {
+  const resultRecord = asRecord(result);
+  const debug = asRecord(resultRecord.debug);
+  if (typeof resultRecord.totalCount === 'number') return resultRecord.totalCount;
+  if (typeof resultRecord.total_count === 'number') return resultRecord.total_count;
+  if (typeof debug.total_count === 'number') return debug.total_count;
+  if (typeof debug.filtered_candidate_count === 'number') return debug.filtered_candidate_count;
+  if (typeof debug.raw_candidate_count === 'number') return debug.raw_candidate_count;
   return displayRows.length > 0 ? displayRows.length : null;
 }
 

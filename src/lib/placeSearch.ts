@@ -78,11 +78,11 @@ interface PlaceSearchEdgePayload {
 const PLACE_SEARCH_CACHE_MS = 45_000;
 const placeSearchCache = new Map<string, { expiresAt: number; value: NormalizedPlace[] }>();
 
-function normalizeText(value: unknown): string {
+export function normalizeText(value: unknown): string {
   return String(value ?? '').trim();
 }
 
-function safeNumber(...values: unknown[]): number {
+export function safeNumber(...values: unknown[]): number {
   for (const value of values) {
     const next = Number(value);
     if (Number.isFinite(next)) return next;
@@ -90,14 +90,14 @@ function safeNumber(...values: unknown[]): number {
   return 0;
 }
 
-function isValidCoordinate(lat: number, lon: number): boolean {
+export function isValidCoordinate(lat: number, lon: number): boolean {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
   if (Math.abs(lat) < 0.000001 && Math.abs(lon) < 0.000001) return false;
   return true;
 }
 
-function coerceStringArray(value: unknown): string[] {
+export function coerceStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => normalizeText(item)).filter(Boolean);
   if (typeof value === 'string' && value.trim()) return [value.trim()];
   if (value && typeof value === 'object') {
@@ -106,6 +106,17 @@ function coerceStringArray(value: unknown): string[] {
       .map(([k, v]) => (v === true ? k : `${k}:${normalizeText(v)}`));
   }
   return [];
+}
+
+/** Stable non-reversible identifier for provider rows that omit their ID. */
+export function derivePlaceSourceId(parts: unknown[]): string {
+  const input = parts.map((part) => normalizeText(part).toLocaleLowerCase('en-US')).join('|');
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `derived-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
 function cacheKey(body: Record<string, unknown>): string {
@@ -138,9 +149,12 @@ function getSupabasePublishableKey(): string {
 export function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
   const provider = normalizeText(row.provider) || 'geoapify';
   const metadata = row.metadata || {};
-  const externalId = normalizeText(row.external_id || row.id || metadata.external_id || metadata.id) || crypto.randomUUID();
   const name = normalizeText(row.name || row.formatted_address || row.address || metadata.name) || 'Helyszín';
   const address = normalizeText(row.address || row.formatted_address || metadata.formatted_address || metadata.address || name);
+  const lat = safeNumber(row.latitude, row.lat, metadata.latitude, metadata.lat);
+  const lon = safeNumber(row.longitude, row.lon, metadata.longitude, metadata.lon);
+  const externalId = normalizeText(row.external_id || row.id || metadata.external_id || metadata.id)
+    || derivePlaceSourceId([provider, name, address, row.city || metadata.city, lat, lon]);
   const district = normalizeText(
     row.district ||
       metadata.district ||
@@ -157,8 +171,8 @@ export function mapEdgePlace(row: EdgePlaceRow): NormalizedPlace {
     district,
     country: normalizeText(metadata.country) || 'Hungary',
     postcode: normalizeText(row.postal_code || row.postcode || metadata.postal_code || metadata.postcode),
-    lat: safeNumber(row.latitude, row.lat, metadata.latitude, metadata.lat),
-    lon: safeNumber(row.longitude, row.lon, metadata.longitude, metadata.lon),
+    lat,
+    lon,
     categories: coerceStringArray(row.categories || row.category || metadata.categories),
     source: provider,
     sourceId: externalId,

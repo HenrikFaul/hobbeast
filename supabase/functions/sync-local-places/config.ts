@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { DEFAULT_SYNC_CONFIG } from './constants.ts';
 import type { SyncConfig } from './types.ts';
+import type { SupabaseAdminClient } from '../shared/providerFetch.ts';
 
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -19,7 +20,7 @@ export function sanitizeSyncConfig(input?: Partial<SyncConfig>): SyncConfig {
   };
 }
 
-export async function loadSyncConfig(supabaseAdmin: any): Promise<SyncConfig> {
+export async function loadSyncConfig(supabaseAdmin: SupabaseAdminClient): Promise<SyncConfig> {
   const { data } = await supabaseAdmin
     .from('app_runtime_config')
     .select('options')
@@ -28,7 +29,7 @@ export async function loadSyncConfig(supabaseAdmin: any): Promise<SyncConfig> {
   return sanitizeSyncConfig((data?.options || {}) as Partial<SyncConfig>);
 }
 
-export async function saveSyncConfig(supabaseAdmin: any, config: Partial<SyncConfig>) {
+export async function saveSyncConfig(supabaseAdmin: SupabaseAdminClient, config: Partial<SyncConfig>) {
   const safe = sanitizeSyncConfig(config);
   const { error } = await supabaseAdmin
     .from('app_runtime_config')

@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { EUROPEAN_COUNTRIES, PROVIDERS, PROVIDER_CATEGORIES } from './constants.ts';
 import type { AddressManagerLimits, DiscoveryCell, MatrixSelectionUpdate, ProviderKey } from './types.ts';
+import type { SupabaseAdminClient } from './edgeRuntime.ts';
 
 export const DEFAULT_LIMITS: AddressManagerLimits = {
   geoapify_limit: 1000,
@@ -21,7 +22,7 @@ export function sanitizePositiveInt(value: unknown, fallback: number, max = 10_0
   return Math.min(Math.floor(parsed), max);
 }
 
-export async function ensureMatrixSeeds(supabaseAdmin: any) {
+export async function ensureMatrixSeeds(supabaseAdmin: SupabaseAdminClient) {
   const rows: Record<string, unknown>[] = [];
   for (const provider of PROVIDERS) {
     for (const country of EUROPEAN_COUNTRIES) {
@@ -45,7 +46,7 @@ export async function ensureMatrixSeeds(supabaseAdmin: any) {
   if (error) throw error;
 }
 
-export async function getMatrix(supabaseAdmin: any, provider?: ProviderKey): Promise<DiscoveryCell[]> {
+export async function getMatrix(supabaseAdmin: SupabaseAdminClient, provider?: ProviderKey): Promise<DiscoveryCell[]> {
   let query = supabaseAdmin
     .from('sync_discovery_matrix')
     .select('id,provider,country_code,category_key,category_label,selected,status,cursor,stats,last_error,last_run_started_at,last_run_completed_at,updated_at')
@@ -59,7 +60,7 @@ export async function getMatrix(supabaseAdmin: any, provider?: ProviderKey): Pro
   return (data || []) as DiscoveryCell[];
 }
 
-export async function setSelections(supabaseAdmin: any, updates: MatrixSelectionUpdate[]) {
+export async function setSelections(supabaseAdmin: SupabaseAdminClient, updates: MatrixSelectionUpdate[]) {
   if (!updates.length) return;
   for (const row of updates) {
     const payload: Record<string, unknown> = {
@@ -83,7 +84,7 @@ export async function setSelections(supabaseAdmin: any, updates: MatrixSelection
 
 // Allow admin to reset cells (e.g. for re-running already completed cells).
 export async function resetCellsByFilter(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   filter: { provider?: ProviderKey; country_codes?: string[]; category_keys?: string[]; onlyCompleted?: boolean },
 ) {
   let query = supabaseAdmin.from('sync_discovery_matrix').update({
@@ -105,7 +106,7 @@ export async function resetCellsByFilter(
 }
 
 // Release stale "running" locks (worker died / timed out without status update).
-export async function releaseStaleLocks(supabaseAdmin: any, olderThanMinutes = 10) {
+export async function releaseStaleLocks(supabaseAdmin: SupabaseAdminClient, olderThanMinutes = 10) {
   const threshold = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
   const { error } = await supabaseAdmin
     .from('sync_discovery_matrix')
@@ -115,7 +116,7 @@ export async function releaseStaleLocks(supabaseAdmin: any, olderThanMinutes = 1
   if (error) throw error;
 }
 
-export async function loadLimits(supabaseAdmin: any): Promise<AddressManagerLimits> {
+export async function loadLimits(supabaseAdmin: SupabaseAdminClient): Promise<AddressManagerLimits> {
   const { data, error } = await supabaseAdmin
     .from('app_runtime_config')
     .select('options')
@@ -134,7 +135,7 @@ export async function loadLimits(supabaseAdmin: any): Promise<AddressManagerLimi
   };
 }
 
-export async function saveLimits(supabaseAdmin: any, limits: Partial<AddressManagerLimits>) {
+export async function saveLimits(supabaseAdmin: SupabaseAdminClient, limits: Partial<AddressManagerLimits>) {
   const current = await loadLimits(supabaseAdmin);
   const merged: AddressManagerLimits = {
     geoapify_limit: sanitizePositiveInt(limits.geoapify_limit, current.geoapify_limit),
@@ -154,7 +155,7 @@ export async function saveLimits(supabaseAdmin: any, limits: Partial<AddressMana
 }
 
 export async function listVenues(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   params: {
     provider?: ProviderKey | 'all';
     countries?: string[];
@@ -191,7 +192,7 @@ export async function listVenues(
   };
 }
 
-export async function buildSummary(supabaseAdmin: any) {
+export async function buildSummary(supabaseAdmin: SupabaseAdminClient) {
   const [{ count: totalRaw }, { count: totalSelected }, { count: totalCompleted }, { count: totalRunning }, { count: totalErrored }] = await Promise.all([
     supabaseAdmin.from('raw_venues').select('id', { head: true, count: 'exact' }),
     supabaseAdmin.from('sync_discovery_matrix').select('id', { head: true, count: 'exact' }).eq('selected', true),

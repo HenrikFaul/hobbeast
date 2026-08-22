@@ -5,17 +5,31 @@ const FETCH_TIMEOUT_MS = 15_000;
 
 type FetchProviderOptions = { applyHuFilter?: boolean };
 
-function normalizeTomTomRow(result: any, groupKey: string, centerCity: string): LocalCatalogRow {
+interface TomTomResult {
+  id?: unknown;
+  poi?: { name?: unknown; categories?: unknown; phone?: unknown; url?: unknown };
+  address?: {
+    freeformAddress?: unknown;
+    municipality?: unknown;
+    municipalitySubdivision?: unknown;
+    countrySecondarySubdivision?: unknown;
+    postalCode?: unknown;
+    countryCode?: unknown;
+  };
+  position?: { lat?: unknown; lon?: unknown };
+}
+
+function normalizeTomTomRow(result: TomTomResult, groupKey: string, centerCity: string): LocalCatalogRow {
   return {
     provider: 'tomtom',
     external_id: String(result?.id || ''),
     name: String(result?.poi?.name || 'Helyszín'),
     category_group: groupKey,
     categories: Array.isArray(result?.poi?.categories) ? result.poi.categories : [],
-    address: result?.address?.freeformAddress || null,
-    city: result?.address?.municipality || centerCity,
-    district: result?.address?.municipalitySubdivision || result?.address?.countrySecondarySubdivision || null,
-    postal_code: result?.address?.postalCode || null,
+    address: typeof result.address?.freeformAddress === 'string' ? result.address.freeformAddress : null,
+    city: typeof result.address?.municipality === 'string' ? result.address.municipality : centerCity,
+    district: typeof result.address?.municipalitySubdivision === 'string' ? result.address.municipalitySubdivision : typeof result.address?.countrySecondarySubdivision === 'string' ? result.address.countrySecondarySubdivision : null,
+    postal_code: typeof result.address?.postalCode === 'string' ? result.address.postalCode : null,
     country_code: String(result?.address?.countryCode || 'HU').toUpperCase(),
     latitude: typeof result?.position?.lat === 'number' ? result.position.lat : null,
     longitude: typeof result?.position?.lon === 'number' ? result.position.lon : null,
@@ -23,10 +37,10 @@ function normalizeTomTomRow(result: any, groupKey: string, centerCity: string): 
     rating: null,
     review_count: null,
     image_url: null,
-    phone: result?.poi?.phone || null,
-    website: result?.poi?.url || null,
+    phone: typeof result.poi?.phone === 'string' ? result.poi.phone : null,
+    website: typeof result.poi?.url === 'string' ? result.poi.url : null,
     opening_hours_text: [],
-    metadata: result || {},
+    metadata: { ...result },
     synced_at: new Date().toISOString(),
   };
 }
@@ -69,9 +83,9 @@ export async function fetchTomTomRows(
     throw new Error(`TomTom ${center.city}/${group.key}: ${res.status} ${text}`);
   }
 
-  const data = await res.json();
+  const data = await res.json() as { results?: TomTomResult[] };
   const rows = (data.results || [])
-    .map((result: any) => normalizeTomTomRow(result, group.key, center.city))
+    .map((result) => normalizeTomTomRow(result, group.key, center.city))
     .filter((row: LocalCatalogRow) => Boolean(row.external_id));
 
   return options.applyHuFilter === false

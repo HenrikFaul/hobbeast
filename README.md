@@ -104,7 +104,7 @@ Push to `main` deploys via Lovable to the preview URL. Publish from the Lovable 
 
 ## Versioning & release process
 
-- Semantic versioning (`MAJOR.MINOR.PATCH`). Current: **1.7.6**.
+- Semantic versioning (`MAJOR.MINOR.PATCH`). Current local candidate: **1.8.4** (release HOLD; see `docs/PRODUCTION_RISK_REGISTER.md`).
 - Single source of truth: `CHANGELOG.md` (Keep a Changelog format).
 - Historical append snippets and upload READMEs are archived under `docs/releases/`.
 - Full release protocol: [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md).

@@ -1,170 +1,231 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { requireAdminUser } from '../shared/adminAuth.ts';
+import {
+  corsHeaders,
+  fetchJson,
+  getSupabaseAdmin,
+  jsonResponse,
+  ProviderFetchError,
+} from '../shared/providerFetch.ts';
+import {
+  assertExternalProviderAvailable,
+  failExternalProviderRun,
+  finishExternalProviderRun,
+  startExternalProviderRun,
+} from '../shared/externalProviderRuns.ts';
+import {
+  normalizeEventbriteOrganizations,
+  normalizeEventbritePage,
+} from '../shared/eventbrite.ts';
+import { consumeEdgeRateLimit, rateLimitSubjectHash } from '../shared/rateLimit.ts';
+import { correlationIdFromRequest, logEdgeEvent } from '../shared/edgeObservability.ts';
 
 const EVENTBRITE_BASE = 'https://www.eventbriteapi.com/v3';
+const MAX_BODY_BYTES = 16 * 1024;
+const ACTIONS = new Set(['validate_token', 'list_organizations', 'list_events', 'search_events']);
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+interface EventbriteRequest {
+  action: 'validate_token' | 'list_organizations' | 'list_events' | 'search_events';
+  organization_id?: string;
+  keyword?: string;
+  page: number;
+  location?: string;
 }
 
 function getEventbriteToken() {
-  return Deno.env.get('EVENTBRITE_PRIVATE_TOKEN')
-    || Deno.env.get('EVENTBRITE_TOKEN')
-    || Deno.env.get('EVENTBRITE_API_KEY');
+  return String(
+    Deno.env.get('EVENTBRITE_PRIVATE_TOKEN')
+      || Deno.env.get('EVENTBRITE_TOKEN')
+      || Deno.env.get('EVENTBRITE_API_KEY')
+      || '',
+  ).trim();
 }
 
 function getEventbriteConfig() {
   return {
-    apiKey: Deno.env.get('EVENTBRITE_API_KEY') || null,
-    clientSecret: Deno.env.get('EVENTBRITE_CLIENT_SECRET') || null,
-    publicToken: Deno.env.get('EVENTBRITE_PUBLIC_TOKEN') || null,
-    webhookId: Deno.env.get('EVENTBRITE_WEBHOOK_ID') || null,
+    has_api_key: Boolean(Deno.env.get('EVENTBRITE_API_KEY')),
+    has_client_secret: Boolean(Deno.env.get('EVENTBRITE_CLIENT_SECRET')),
+    has_private_token: Boolean(getEventbriteToken()),
+    has_public_token: Boolean(Deno.env.get('EVENTBRITE_PUBLIC_TOKEN')),
+    has_webhook_id: Boolean(Deno.env.get('EVENTBRITE_WEBHOOK_ID')),
   };
 }
 
-async function fetchEventbrite(path: string, headers: Record<string, string>) {
-  const res = await fetch(`${EVENTBRITE_BASE}${path}`, { headers });
-  return res;
+async function parseRequest(req: Request): Promise<EventbriteRequest> {
+  const declared = Number(req.headers.get('content-length') || 0);
+  if (declared > MAX_BODY_BYTES) throw new Error('REQUEST_TOO_LARGE');
+  const raw = await req.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) throw new Error('REQUEST_TOO_LARGE');
+  let body: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    body = parsed as Record<string, unknown>;
+  } catch {
+    throw new Error('INVALID_JSON');
+  }
+  const allowed = new Set(['action', 'organization_id', 'keyword', 'page', 'location']);
+  if (Object.keys(body).some((key) => !allowed.has(key))) throw new Error('INVALID_REQUEST_FIELD');
+  const action = typeof body.action === 'string' ? body.action : '';
+  if (!ACTIONS.has(action)) throw new Error('UNKNOWN_ACTION');
+  return {
+    action: action as EventbriteRequest['action'],
+    organization_id: typeof body.organization_id === 'string' ? body.organization_id.trim().slice(0, 200) : undefined,
+    keyword: typeof body.keyword === 'string' ? body.keyword.trim().slice(0, 100) : undefined,
+    location: typeof body.location === 'string' ? body.location.trim().slice(0, 100) : undefined,
+    page: Math.max(1, Math.min(Number(body.page) || 1, 50)),
+  };
+}
+
+async function optionalUserId(req: Request, admin: ReturnType<typeof getSupabaseAdmin>) {
+  const authHeader = req.headers.get('authorization') || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return null;
+  const { data, error } = await admin.auth.getUser(token);
+  return error ? null : data.user?.id || null;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const correlationId = correlationIdFromRequest(req);
+  const startedAt = performance.now();
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method !== 'POST') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);
 
-  const token = getEventbriteToken();
-  if (!token) {
-    return jsonResponse({ error: 'Eventbrite token is not configured. Set EVENTBRITE_API_KEY, EVENTBRITE_TOKEN or EVENTBRITE_PRIVATE_TOKEN.' }, 500);
-  }
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
-
+  const admin = getSupabaseAdmin(req);
+  let runId: string | null = null;
+  let action = 'unknown';
+  let providerCalls = 0;
   try {
-    const { action, organization_id, keyword, page, location } = await req.json();
-    const config = getEventbriteConfig();
+    const body = await parseRequest(req);
+    action = body.action;
+    if (body.action === 'list_events' && !body.organization_id) throw new Error('ORGANIZATION_ID_REQUIRED');
+    const isAdminAction = body.action !== 'search_events';
+    const actor = isAdminAction ? await requireAdminUser(req, admin) : null;
+    const userId = actor?.id || await optionalUserId(req, admin);
 
-
-    if (action === 'validate_token') {
-      const res = await fetchEventbrite('/users/me/organizations/', headers);
-      const bodyText = await res.text();
-      let parsed: unknown = null;
-      try { parsed = JSON.parse(bodyText); } catch (_) {}
-      return jsonResponse({
-        ok: res.ok,
-        status: res.status,
-        config: {
-          has_api_key: Boolean(config.apiKey),
-          has_client_secret: Boolean(config.clientSecret),
-          has_private_token: Boolean(token),
-          has_public_token: Boolean(config.publicToken),
-          webhook_id: config.webhookId,
-        },
-        response: parsed ?? bodyText,
-      }, res.ok ? 200 : res.status);
+    if (body.action === 'search_events') {
+      const pepper = String(Deno.env.get('RATE_LIMIT_HASH_SECRET') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+      const subjectHash = await rateLimitSubjectHash({ request: req, userId, pepper });
+      const rate = await consumeEdgeRateLimit({
+        admin,
+        endpoint: 'eventbrite.search_events',
+        subjectHash,
+        windowSeconds: 60,
+        requestLimit: userId ? 20 : 10,
+      });
+      if (!rate.allowed) {
+        const response = jsonResponse({ error: 'RATE_LIMITED', retry_after_seconds: rate.retryAfterSeconds }, 429);
+        response.headers.set('Retry-After', String(rate.retryAfterSeconds));
+        return response;
+      }
     }
 
-    if (action === 'list_organizations') {
-      const res = await fetchEventbrite('/users/me/organizations/', headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
-      return jsonResponse(await res.json());
+    const token = getEventbriteToken();
+    if (!token) return jsonResponse({ error: 'PROVIDER_NOT_CONFIGURED' }, 503);
+    const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const providerGet = async <T>(path: string) => {
+      providerCalls += 1;
+      return fetchJson<T>(`${EVENTBRITE_BASE}${path}`, { headers }, 'eventbrite', {
+        timeoutMs: 12_000,
+        retries: 2,
+        retryBaseMs: 500,
+      });
+    };
+
+    await assertExternalProviderAvailable(admin, 'eventbrite');
+    runId = await startExternalProviderRun(admin, 'eventbrite', body.action, userId);
+
+    if (body.action === 'validate_token') {
+      await providerGet('/users/me/organizations/');
+      await finishExternalProviderRun(admin, runId, 'eventbrite', { itemCount: 0, pageCount: 1, costUnits: providerCalls });
+      return jsonResponse({ ok: true, status: 200, config: getEventbriteConfig() });
     }
 
-    if (action === 'list_events') {
-      if (!organization_id) {
-        return jsonResponse({ error: 'organization_id is required' }, 400);
-      }
-
-      const params = new URLSearchParams({
-        status: 'live',
-        order_by: 'start_asc',
-        expand: 'venue,category',
+    if (body.action === 'list_organizations') {
+      const normalized = normalizeEventbriteOrganizations(await providerGet<unknown>('/users/me/organizations/'));
+      await finishExternalProviderRun(admin, runId, 'eventbrite', {
+        itemCount: normalized.organizations.length, pageCount: 1, costUnits: providerCalls,
       });
-      if (page) params.set('page', String(page));
-
-      const res = await fetchEventbrite(`/organizations/${organization_id}/events/?${params.toString()}`, headers);
-      if (!res.ok) throw new Error(`Eventbrite API error [${res.status}]: ${await res.text()}`);
-      return jsonResponse(await res.json());
+      return jsonResponse(normalized);
     }
 
-    if (action === 'search_events') {
-      const locationValue = location || 'Budapest';
-      const searchParams = new URLSearchParams({
-        expand: 'venue,category',
-        sort_by: 'date',
-        'location.address': locationValue,
-        'location.within': '50km',
+    if (body.action === 'list_events') {
+      const params = new URLSearchParams({ status: 'live', order_by: 'start_asc', expand: 'venue,category', page: String(body.page) });
+      const normalized = normalizeEventbritePage(await providerGet<unknown>(
+        `/organizations/${encodeURIComponent(body.organization_id)}/events/?${params}`,
+      ));
+      await finishExternalProviderRun(admin, runId, 'eventbrite', {
+        itemCount: normalized.events.length,
+        pageCount: 1,
+        costUnits: providerCalls,
+        checkpoint: { page: normalized.pagination.page_number },
       });
-      if (keyword) searchParams.set('q', keyword);
-      if (page) searchParams.set('page', String(page));
-
-      const searchRes = await fetchEventbrite(`/events/search/?${searchParams.toString()}`, headers);
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        if ((searchData.events || []).length > 0) {
-          return jsonResponse(searchData);
-        }
-      }
-
-      try {
-        const orgRes = await fetchEventbrite('/users/me/organizations/', headers);
-        if (orgRes.ok) {
-          const orgData = await orgRes.json();
-          const organizations = orgData.organizations || [];
-          for (const org of organizations) {
-            const orgParams = new URLSearchParams({
-              status: 'live',
-              order_by: 'start_asc',
-              expand: 'venue,category',
-            });
-            if (page) orgParams.set('page', String(page));
-            const orgEventsRes = await fetchEventbrite(`/organizations/${org.id}/events/?${orgParams.toString()}`, headers);
-            if (orgEventsRes.ok) {
-              const orgEventsData = await orgEventsRes.json();
-              if ((orgEventsData.events || []).length > 0) {
-                return jsonResponse(orgEventsData);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Organization fallback failed', error);
-      }
-
-      const destinationParams = new URLSearchParams({
-        expand: 'venue,category',
-      });
-      if (keyword) destinationParams.set('q', keyword);
-      if (page) destinationParams.set('page', String(page));
-      const destinationRes = await fetchEventbrite(`/destination/events/?${destinationParams.toString()}`, headers);
-      if (destinationRes.ok) {
-        const destinationData = await destinationRes.json();
-        if ((destinationData.events || []).length > 0) {
-          return jsonResponse(destinationData);
-        }
-      }
-
-      return jsonResponse({
-        events: [],
-        pagination: { object_count: 0, page_number: Number(page || 1), page_size: 50, page_count: 0, has_more_items: false },
-      });
+      return jsonResponse(normalized);
     }
 
-    return jsonResponse({ error: 'Unknown action. Use: validate_token, list_organizations, list_events, search_events' }, 400);
-  } catch (error: unknown) {
-    console.error('Eventbrite import error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return jsonResponse({ error: message }, 500);
+    const searchParams = new URLSearchParams({
+      expand: 'venue,category',
+      sort_by: 'date',
+      'location.address': body.location || 'Budapest',
+      'location.within': '50km',
+      page: String(body.page),
+    });
+    if (body.keyword) searchParams.set('q', body.keyword);
+
+    let normalized = normalizeEventbritePage(await providerGet<unknown>(`/events/search/?${searchParams}`));
+    if (normalized.events.length === 0) {
+      const organizations = normalizeEventbriteOrganizations(await providerGet<unknown>('/users/me/organizations/'));
+      for (const organization of organizations.organizations.slice(0, 10)) {
+        const params = new URLSearchParams({ status: 'live', order_by: 'start_asc', expand: 'venue,category', page: String(body.page) });
+        normalized = normalizeEventbritePage(await providerGet<unknown>(
+          `/organizations/${encodeURIComponent(organization.id)}/events/?${params}`,
+        ));
+        if (normalized.events.length > 0) break;
+      }
+    }
+    if (normalized.events.length === 0) {
+      const params = new URLSearchParams({ expand: 'venue,category', page: String(body.page) });
+      if (body.keyword) params.set('q', body.keyword);
+      normalized = normalizeEventbritePage(await providerGet<unknown>(`/destination/events/?${params}`));
+    }
+
+    await finishExternalProviderRun(admin, runId, 'eventbrite', {
+      itemCount: normalized.events.length,
+      pageCount: 1,
+      costUnits: providerCalls,
+      checkpoint: { page: normalized.pagination.page_number },
+    });
+    logEdgeEvent('info', 'eventbrite_request', correlationId, {
+      action,
+      outcome: 'success',
+      item_count: normalized.events.length,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return jsonResponse(normalized);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!message.includes('PROVIDER_DISABLED') && !message.includes('PROVIDER_CIRCUIT_OPEN')) {
+      await failExternalProviderRun(admin, runId, 'eventbrite', error, {
+        action,
+        safeContext: { correlation_id: correlationId },
+      }).catch(() => undefined);
+    }
+    const status = message === 'REQUEST_TOO_LARGE' ? 413
+      : ['INVALID_JSON', 'INVALID_REQUEST_FIELD', 'UNKNOWN_ACTION', 'ORGANIZATION_ID_REQUIRED'].includes(message) ? 400
+        : message.includes('authorization') || message.includes('Unauthorized') ? 401
+          : message.includes('Admin access') ? 403
+            : message.includes('PROVIDER_') || error instanceof ProviderFetchError ? 503
+              : 500;
+    const publicCode = status === 413 ? 'REQUEST_TOO_LARGE'
+      : status === 400 ? 'INVALID_REQUEST'
+        : status === 401 || status === 403 ? 'AUTHORIZATION_FAILED'
+          : 'PROVIDER_UNAVAILABLE';
+    logEdgeEvent('error', 'eventbrite_request', correlationId, {
+      action,
+      outcome: 'failed',
+      error_code: publicCode,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return jsonResponse({ error: publicCode }, status);
   }
 });

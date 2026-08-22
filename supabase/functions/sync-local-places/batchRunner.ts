@@ -7,6 +7,7 @@ import { fetchTomTomRows } from './providers/tomtom.ts';
 import { getStatus, resetCatalog, upsertSyncState, writeCatalogRows } from './repositories.ts';
 import { buildTasks } from './taskBuilder.ts';
 import type { BatchResult, LocalCatalogRow, SyncBody, SyncTask } from './types.ts';
+import type { SupabaseAdminClient } from '../shared/providerFetch.ts';
 import { requireEnv } from '../shared/env.ts';
 
 /** Auto-reset a run that has been stuck in 'running' for longer than this. */
@@ -39,7 +40,7 @@ function getProviderKeys() {
   return { geoapifyKey: GEOAPIFY_API_KEY, tomtomKey: TOMTOM_API_KEY };
 }
 
-async function getCurrentStateRecord(supabaseAdmin: any) {
+async function getCurrentStateRecord(supabaseAdmin: SupabaseAdminClient) {
   const result = await supabaseAdmin
     .from('place_sync_state')
     .select('*')
@@ -52,7 +53,7 @@ function filterHuRows(rows: LocalCatalogRow[]) {
   return rows.filter((row) => Boolean(row?.external_id) && String(row?.country_code || '').toUpperCase() === 'HU');
 }
 
-async function resolveTaskContext(supabaseAdmin: any, body: Partial<SyncBody> = {}) {
+async function resolveTaskContext(supabaseAdmin: SupabaseAdminClient, body: Partial<SyncBody> = {}) {
   const allTasks = buildTasks();
   const totalTasks = allTasks.length;
   const currentState = await getCurrentStateRecord(supabaseAdmin);
@@ -62,7 +63,7 @@ async function resolveTaskContext(supabaseAdmin: any, body: Partial<SyncBody> = 
 }
 
 async function fetchRowsForTask(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   task: SyncTask,
   syncConfig: Awaited<ReturnType<typeof loadSyncConfig>>,
   runId: string,
@@ -129,7 +130,7 @@ async function runWithConcurrency(tasks: Array<() => Promise<void>>, concurrency
 // Phase-based handlers (for step-by-step UI orchestration)
 // ---------------------------------------------------------------------------
 
-export async function resetCatalogOnly(supabaseAdmin: any, runId: string) {
+export async function resetCatalogOnly(supabaseAdmin: SupabaseAdminClient, runId: string) {
   const totalTasks = buildTasks().length;
   await milestone(supabaseAdmin, 'warn', MILESTONES.CATALOG_RESET_STARTED, 'Lokális katalógus ürítése indul', { manual_mode: true }, runId);
   await resetCatalog(supabaseAdmin);
@@ -142,7 +143,7 @@ export async function resetCatalogOnly(supabaseAdmin: any, runId: string) {
   return { ok: true, totalTasks, status: await getStatus(supabaseAdmin), _stateWriteError: stateWriteError };
 }
 
-export async function startManualRun(supabaseAdmin: any, body: SyncBody, runId: string) {
+export async function startManualRun(supabaseAdmin: SupabaseAdminClient, body: SyncBody, runId: string) {
   const allTasks = buildTasks();
   const totalTasks = allTasks.length;
   const currentState = await getCurrentStateRecord(supabaseAdmin);
@@ -169,7 +170,7 @@ export async function startManualRun(supabaseAdmin: any, body: SyncBody, runId: 
   };
 }
 
-export async function fetchNextTaskRows(supabaseAdmin: any, runId: string) {
+export async function fetchNextTaskRows(supabaseAdmin: SupabaseAdminClient, runId: string) {
   const syncConfig = await loadSyncConfig(supabaseAdmin);
   const allTasks = buildTasks();
   const totalTasks = allTasks.length;
@@ -207,7 +208,7 @@ export async function fetchNextTaskRows(supabaseAdmin: any, runId: string) {
   };
 }
 
-export async function prepareNextTaskPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+export async function prepareNextTaskPhase(supabaseAdmin: SupabaseAdminClient, body: Partial<SyncBody>, runId: string) {
   const { totalTasks, currentState, taskIndex, task } = await resolveTaskContext(supabaseAdmin, body);
 
   if (!task) {
@@ -233,7 +234,7 @@ export async function prepareNextTaskPhase(supabaseAdmin: any, body: Partial<Syn
   };
 }
 
-async function fetchProviderRowsPhase(supabaseAdmin: any, body: Partial<SyncBody>, provider: 'geoapify' | 'tomtom', runId: string) {
+async function fetchProviderRowsPhase(supabaseAdmin: SupabaseAdminClient, body: Partial<SyncBody>, provider: 'geoapify' | 'tomtom', runId: string) {
   const syncConfig = await loadSyncConfig(supabaseAdmin);
   const { taskIndex, totalTasks, task } = await resolveTaskContext(supabaseAdmin, body);
 
@@ -278,15 +279,15 @@ async function fetchProviderRowsPhase(supabaseAdmin: any, body: Partial<SyncBody
   }
 }
 
-export async function fetchGeoapifyRowsPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+export async function fetchGeoapifyRowsPhase(supabaseAdmin: SupabaseAdminClient, body: Partial<SyncBody>, runId: string) {
   return fetchProviderRowsPhase(supabaseAdmin, body, 'geoapify', runId);
 }
 
-export async function fetchTomTomRowsPhase(supabaseAdmin: any, body: Partial<SyncBody>, runId: string) {
+export async function fetchTomTomRowsPhase(supabaseAdmin: SupabaseAdminClient, body: Partial<SyncBody>, runId: string) {
   return fetchProviderRowsPhase(supabaseAdmin, body, 'tomtom', runId);
 }
 
-export async function filterHuRowsPhase(supabaseAdmin: any, rows: LocalCatalogRow[], runId: string) {
+export async function filterHuRowsPhase(supabaseAdmin: SupabaseAdminClient, rows: LocalCatalogRow[], runId: string) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const filteredRows = filterHuRows(safeRows);
   await milestone(supabaseAdmin, 'info', MILESTONES.PROVIDER_AFTER_HU_FILTER, 'Manuális HU-szűrés kész', {
@@ -295,7 +296,7 @@ export async function filterHuRowsPhase(supabaseAdmin: any, rows: LocalCatalogRo
   return { ok: true, beforeCount: safeRows.length, afterCount: filteredRows.length, rows: filteredRows, status: await getStatus(supabaseAdmin) };
 }
 
-export async function dedupeRowsPhase(supabaseAdmin: any, rows: LocalCatalogRow[], runId: string) {
+export async function dedupeRowsPhase(supabaseAdmin: SupabaseAdminClient, rows: LocalCatalogRow[], runId: string) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const dedupedRows = dedupe(safeRows);
   await milestone(supabaseAdmin, 'info', MILESTONES.BATCH_AFTER_DEDUPE, 'Manuális deduplikálás kész', {
@@ -305,7 +306,7 @@ export async function dedupeRowsPhase(supabaseAdmin: any, rows: LocalCatalogRow[
 }
 
 export async function writeRowsPhase(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   rows: LocalCatalogRow[],
   advanceCursorBy: number,
   partialFailures: string[],
@@ -374,7 +375,7 @@ export async function writeRowsPhase(
 // ---------------------------------------------------------------------------
 
 export async function executeSyncBatch(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   body: SyncBody,
   runId: string,
 ): Promise<BatchResult> {

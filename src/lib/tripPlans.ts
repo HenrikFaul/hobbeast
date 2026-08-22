@@ -1,34 +1,35 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { TripPlanDraft } from '@/lib/mapy';
+import type { Json, TablesInsert } from '@/integrations/supabase/types';
 
 export async function upsertEventTripPlan(eventId: string, plan: TripPlanDraft | null) {
   if (!plan) {
-    await (supabase as any).from('event_trip_plans').delete().eq('event_id', eventId);
+    await supabase.from('event_trip_plans').delete().eq('event_id', eventId);
     return;
   }
 
-  const payload = {
+  const payload: TablesInsert<'event_trip_plans'> = {
     event_id: eventId,
     provider: plan.provider,
     route_type: plan.routeType,
-    start_point: plan.start,
-    end_point: plan.end,
-    waypoints: plan.waypoints,
+    start_point: plan.start as unknown as Json,
+    end_point: plan.end as unknown as Json,
+    waypoints: plan.waypoints as unknown as Json,
     length_m: plan.lengthM ? Math.round(plan.lengthM) : null,
     duration_s: plan.durationS ? Math.round(plan.durationS) : null,
-    geometry: plan.geometry as any,
-    warnings: plan.warnings as any,
+    geometry: plan.geometry as Json,
+    warnings: plan.warnings as Json,
     external_url: plan.externalUrl ?? null,
-    elevation_profile: plan.elevationProfile as any,
-    elevation_summary: plan.elevationSummary as any,
+    elevation_profile: plan.elevationProfile as unknown as Json,
+    elevation_summary: plan.elevationSummary as unknown as Json,
   };
 
-  const { error } = await (supabase as any).from('event_trip_plans').upsert(payload, { onConflict: 'event_id' });
+  const { error } = await supabase.from('event_trip_plans').upsert(payload, { onConflict: 'event_id' });
   if (error) throw error;
 }
 
 export async function getEventTripPlan(eventId: string): Promise<TripPlanDraft | null> {
-  const { data, error } = await (supabase as any).from('event_trip_plans').select('*').eq('event_id', eventId).maybeSingle();
+  const { data, error } = await supabase.from('event_trip_plans').select('*').eq('event_id', eventId).maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return {

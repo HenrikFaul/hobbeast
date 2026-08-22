@@ -12,6 +12,209 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.8.4] — 2026-08-22
+
+Virtual Hubs 2.0 foundation (Prompt 05, partial). Closes two anonymous service-role paths in
+the local source candidate, separates real demand from simulated membership, and adds a tested
+scoped reconciliation-plan contract. Destructive hub refresh and AI event writes are now
+fail-closed in the source candidate. This is **not** a production release: no Edge Function was
+deployed and no DB migration was applied. P0 `.env`/rotation, live auth, schema, RLS and
+transactional reconciliation gates keep the release on HOLD.
+
+### Security
+- `virtual-hubs-admin` now calls the shared `requireAdminUser` boundary before every
+  service-role action even though gateway `verify_jwt=false` remains for compatibility;
+  unauthenticated/non-admin requests normalize to 401/403.
+- `generate-hub-events` no longer trusts client-controlled `_cron=true`. Every action requires
+  a verified admin. Automated scheduling is disabled/HOLD until a server-held signature,
+  replay protection and durable job lock exist.
+- Gemini calls now have a 20-second timeout and normalize timeout failures.
+- Production Vite builds fail closed unless the browser `VITE_*` URL, project ID and publishable
+  key are present and consistently target the canonical Supabase host. `release:validate` also
+  fails while `.env` is tracked by Git or its Git-index state cannot be proven.
+
+### Added
+- `supabase/functions/shared/virtualHubEngine.ts` — deterministic hub identity normalization,
+  real/generated/unknown demand counts, explainable qualification and idempotent scoped
+  membership-diff planning.
+- `src/lib/__tests__/virtualHubEngine.test.ts` — 11 contract cases covering identity, Unicode,
+  deduplication, origin separation, qualification and add/keep/remove idempotency.
+- `docs/VIRTUAL_HUBS_2_FOUNDATION.md` — impact map, two-option decision, Requirement Coverage
+  Matrix, security boundary, blockers and rollback.
+
+### Changed
+- Hub admin reads use the authenticated `virtual-hubs-admin` Edge contract. The legacy global
+  refresh action and UI control are blocked with `HUB_REFRESH_MIGRATION_REQUIRED`; the underlying
+  direct RPC remains a DB-release blocker until its grants are remediated.
+- Hub edit preserves its metadata-only legacy behavior and never applies a partial snapshot as
+  full desired membership. The tested add/keep/remove planner remains inert until a transactional,
+  paginated DB reconciliation exists.
+- Admin list/detail show real, generated, unknown and total membership separately.
+- Auto-event config and preview use one allowlisted, authenticated server contract and qualify
+  only on explicit real members with a named city. If `profiles.user_origin` is missing, the
+  path fails closed with `HUB_USER_ORIGIN_SCHEMA_REQUIRED`. Event writes return
+  `HUB_AUTO_EVENT_IDEMPOTENCY_REQUIRED` until durable idempotency and job locking exist.
+
+### Corrected evidence
+- Current-disk Git evidence proves `.env` is tracked despite `.gitignore`; readiness, exposure
+  and risk docs now invalidate the earlier env-hygiene PASS without reproducing any value.
+- v1.8.2 added 6 tests, so the correct transition was 55 → 61 (not 61 → 61).
+
+### Deferred / release blockers
+- Canonical DB identity key, duplicate-safe backfill, transactional profile reconciliation,
+  job lock/scheduler, durable hub audit, RLS personas and live schema verification require an
+  approved append-only migration and local/staging DB evidence.
+- The existing `refresh_virtual_hubs()` RPC remains destructive, directly callable under legacy
+  grants, and duplicate-prone with nullable unique columns; its Edge/UI routes are disabled, but
+  SECURITY DEFINER Round B remediation is not applied.
+- Deno/Edge runtime, Playwright and production deployment remain NOT VERIFIED.
+
+### Verification
+- `bun run test` — PASS, 12 files / 89 tests.
+- `bun run typecheck` — PASS.
+- Focused Prompt 05 ESLint — PASS, 0 errors / 0 warnings.
+- `bun run build:dev` — PASS, 3097 modules transformed.
+- `bun run build` — expected fail-closed HOLD because current `VITE_*` points to the non-canonical
+  project. A non-secret canonical-env contract canary compiled 3097 modules, proving the gate has
+  both deny and allow paths; this is not a deployable artifact. `bun run release:validate` —
+  expected fail-closed HOLD because `.env` is tracked.
+- Full `bun run lint` — FAIL, 248 errors / 31 warnings in the wider existing debt set.
+
+---
+
+## [1.8.3] — 2026-08-21
+
+Social graph & relationship lifecycle (Prompt 04). Introduces pure social-graph invariants
+(encounter derivation, mutual reconnection, symmetric blocking, circle consent) with a lock-in
+test suite. No runtime UI or DB change in this increment; the helper is additive and
+side-effect free.
+
+### Added
+- `src/lib/socialGraph.ts` — pure functions `deriveEncounterPairs`, `resolveConnection`,
+  `isBlockedBetween`, `filterBlocked`, `canAddCircleMember`, `connectionStrength`. Encodes:
+  encounters derive only from checked-in participation; a connection forms only on a mutual
+  yes (one-sided signals stay `pending` and never surface to the other party); a block removes
+  a user from every social surface in BOTH directions; circle membership requires owner consent
+  or self-join.
+- `src/lib/__tests__/socialGraph.test.ts` — 17 characterization cases. Test count 61 → 78
+  (net +17 new, suite passes at 78).
+
+### Changed
+- `package.json` version `1.8.2` → `1.8.3`.
+
+### Deferred (unchanged — still require operator decisions)
+- The full social-graph DB schema (friend/block/circle/encounter tables, RLS, and a completion
+  trigger) is intentionally NOT created yet: the live `events` table exposes only
+  `event_date`/`event_time` and has no completion/`outcome_status` column, so an
+  "encounters derive from completed events" trigger cannot be verified regression-free today.
+  That schema remains a deferred operator decision (Prompts 04/07/12) and lands only after the
+  completion signal is added to the events model.
+
+---
+
+## [1.8.2] — 2026-08-21
+
+Identity / onboarding / profile privacy pass (Prompt 03). Introduces a pure public-profile DTO
+helper so private profile fields are never exposed through a full `profiles` select. No runtime
+UI behavior change in this increment; the helper is additive and side-effect free.
+
+### Added
+- `src/lib/profilePrivacy.ts` — pure `buildPublicProfileDto` + `PUBLIC_PROFILE_FORBIDDEN_KEYS`.
+  Whitelists only coarse, public-safe fields (`display_name`, `avatar_url`, `city`, `hobbies`,
+  `gender_public`, `age_public`) and hard-excludes `email`, `phone`, `address`,
+  `location_lat`, `location_lon`, `date_of_birth`, `raw_user_meta_data`.
+- `src/lib/__tests__/profilePrivacy.test.ts` — 6 characterization cases: forbidden-key
+  exclusion, whitelisted key shape, correct mapping, no input mutation (side-effect free),
+  sparse-row defaults, and null/trim hobby normalization. Test count 61 → 61 (net +6 new,
+  suite passes at 61).
+
+### Changed
+- `package.json` version `1.8.1` → `1.8.2`.
+
+### Deferred (unchanged — still require operator decisions)
+- The `Profile.tsx` `select('*')` full-record load and its `(data as any).location_lat` cast
+  remain flagged for a follow-up that adopts `buildPublicProfileDto` at the call site; the pure
+  helper and its lock-in test land first so the refactor is provably regression-free.
+- Block/report trust primitives, progressive onboarding flow, and account-deletion policy remain
+  on the roadmap (Prompts 03/05/13) and require the same characterization-first approach.
+
+---
+
+## [1.8.1] — 2026-08-20
+
+Domain architecture & safe refactor (Prompt 02). Incremental characterization foundations on
+the largest load-bearing module (`placeSearch.ts`); no file restructuring of the deferred
+admin/organizer/events yet — those stay behind characterization per the prompt's own rule.
+
+### Added
+- `docs/DOMAIN_ARCHITECTURE.md` — current domain-boundary map, planned `src/features/*` layer,
+  actual measured LOC table (prompt's older snapshot values corrected: `place-search` 1455 → 1306,
+  `src/lib/placeSearch.ts` 408 → 358), Mermaid dependency diagram, and safety invariants.
+- `src/lib/placeSearch.ts` — pure helpers `normalizeText`, `safeNumber`, `isValidCoordinate`,
+  `coerceStringArray` now exported (behavior byte-identical; only `export` keyword added).
+- `src/lib/__tests__/placeSearch.test.ts` — characterization coverage for the exported pure
+  helpers: 13 new cases (trim, null/undefined coercion, non-string primitives, first-finite
+  number, out-of-range coords, null-island (0,0), non-finite coords, array/string/empty/
+  object category coercion). Test count 42 → 55.
+
+### Changed
+- `package.json` version `1.8.0` → `1.8.1`.
+
+### Deferred (unchanged — still require characterization before touching)
+- `supabase/functions/place-search/index.ts` (1306 LOC) — needs Deno harness (R-03).
+- `src/pages/Events.tsx` (921), `src/components/admin/AdminUsers.tsx` (811),
+  `src/components/CreateEventDialog.tsx` (628), per-provider split of `AdminEventbrite.tsx` (982)
+  — deferred until characterization tests exist (per prompt rule: do not refactor load-bearing
+  modules blind).
+
+---
+
+## [1.8.0] — 2026-08-20
+
+Production baseline pass (Prompt 01 of the 15-step production prompt pack). Additive docs,
+a secret-leak fix, and a `typecheck` script/CI wiring change. No DB migration, no runtime
+behavior change, no dependency bump.
+
+### Security
+- `src/integrations/supabase/client.ts` — the wrong-project `console.error` no longer logs the
+  full `configuredUrl` (Supabase URL). It logs only the project ref (public, safe) and the
+  expected ref, matching the `supabaseProjects.ts` "never leak URL in message" contract.
+
+### Added
+- `docs/PRODUCTION_READINESS_BASELINE.md` — machine-readable readiness audit with explicit
+  PASS / PARTIAL / BLOCKED status per surface and cited evidence (install, typecheck, tests,
+  build, release validate).
+- `docs/PRODUCTION_RISK_REGISTER.md` — severity-ordered risk register (P0–P3) with owner,
+  mitigation, gate, and rollback strategy.
+- `docs/HISTORICAL_SECRET_EXPOSURE.md` — provider-name-only register of known historical
+  exposures and rotation status (no key values, no fingerprints). Scan evidence: 0 credential
+  hits in tracked source + BASEREQUIREMENTS text files, with a positive control check.
+- `docs/TESTING.md` §3 — Edge Function characterization harness foundation (Deno): required
+  fixture cases (provider success/failure/timeout/malformed/empty, auth, target-ref, env),
+  the extract-pure-logic pattern, and the explicit note that this gate stays BLOCKED until a
+  Deno runner is wired.
+- `package.json` — `typecheck` script (`tsc --noEmit`); CI now runs `bun run typecheck`
+  instead of `bunx tsc --noEmit` so the documented command and CI stay consistent.
+
+### Changed
+- `package.json` version `1.7.6` → `1.8.0`.
+
+### Deferred (unchanged — still require operator decisions)
+- **Secret rotation** for Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster / SeatGeek /
+  Lovable in the provider consoles (see `docs/HISTORICAL_SECRET_EXPOSURE.md`).
+- **SECURITY DEFINER Round B execution**: draft SQL ready; each function change ships as its
+  own approved migration.
+- **Dep majors** (Zod 4 → date-fns 4 → Router 7 → Tailwind 4 → Vite 6 → React 19): sequenced
+  in `docs/DEP_UPGRADE_PLAN.md`, one PR each.
+- **`place-search/index.ts` (1455 LOC) refactor** and **notification/community domain rebuild**:
+  still blocked on the Edge Function characterization harness (foundation documented in
+  `docs/TESTING.md` §3).
+- **Lint**: `eslint .` reports 268 pre-existing `no-explicit-any` errors in Edge Function
+  (Deno) files and `tailwind.config.ts`; not caused by this pass, tracked as R-06 in
+  `docs/PRODUCTION_RISK_REGISTER.md`.
+
+---
+
 ## [1.7.6] — 2026-07-21
 
 Additive follow-up to v1.7.5 covering every remaining v2 audit item that could be shipped without operator decisions (no key rotation, no SQL execution, no dep bumps). Focuses on characterization-test coverage that unblocks future risky refactors, plus the multi-Supabase runtime assertion promised in the contract doc.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { GeoJsonObject } from 'geojson';
 import type { GeoJSON as LeafletGeoJSON, LayerGroup, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Loader2, MapPin, Route, Trash2, ExternalLink, Mountain, Copy } from 'lucide-react';
@@ -26,7 +27,7 @@ import {
   type TripPlanDraft,
   type TripPlanPoint,
 } from '@/lib/mapy';
-import { searchPlaces } from '@/lib/placeSearch';
+import { searchPlaces } from '@/features/places';
 import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
 import { cn } from '@/lib/utils';
 
@@ -372,7 +373,7 @@ export function MapyTripPlanner({ value, onChange, readOnly = false, className }
     if (!routePlan?.geometry) return;
 
     try {
-      routeLayerRef.current = L.geoJSON(routePlan.geometry as any, {
+      routeLayerRef.current = L.geoJSON(routePlan.geometry as GeoJsonObject, {
         style: { color: '#2563eb', weight: 4, opacity: 0.85 },
       }).addTo(map);
       const bounds = routeLayerRef.current.getBounds();

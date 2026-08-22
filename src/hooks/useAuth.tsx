@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionDeviceDescriptor } from '@/features/identity/sessionDevice';
 
 interface AuthContextType {
   user: User | null;
@@ -19,16 +20,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const registerDevice = () => {
+      const descriptor = getSessionDeviceDescriptor(window.localStorage, window.navigator.userAgent);
+      window.setTimeout(() => {
+        void supabase.rpc('register_my_session_device', {
+          _session_fingerprint: descriptor.fingerprint,
+          _device_label: descriptor.deviceLabel,
+          _user_agent_family: descriptor.userAgentFamily,
+        });
+      }, 0);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (event === 'SIGNED_IN' && session) registerDevice();
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session) registerDevice();
     });
 
     return () => subscription.unsubscribe();

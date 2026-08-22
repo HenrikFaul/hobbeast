@@ -235,7 +235,7 @@ const Explore = () => {
                             {act.profile.isTeamBased && <Badge variant="outline" className="text-[10px]">👥 Csapat</Badge>}
                             {act.profile.groupSize && (
                               <Badge variant="outline" className="text-[10px]">
-                                <Users size={8} className="mr-0.5" />{(mergedProfile as any).groupSize?.typical} fő
+                                <Users size={8} className="mr-0.5" />{mergedProfile.groupSize?.typical} fő
                               </Badge>
                             )}
                           </div>

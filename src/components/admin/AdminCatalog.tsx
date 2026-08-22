@@ -45,6 +45,7 @@ interface DbActivity {
 }
 
 type EditMode = 'category' | 'subcategory' | 'activity';
+type CatalogEditItem = DbCategory | DbSubcategory | DbActivity;
 
 
 async function saveCategoryBySlug(slug: string, payload: TablesInsert<'hobby_categories'>) {
@@ -97,7 +98,7 @@ export function AdminCatalog() {
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
   const [editMode, setEditMode] = useState<EditMode>('category');
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<CatalogEditItem | null>(null);
   const [editForm, setEditForm] = useState({ name: '', emoji: '', slug: '', description: '', parentId: '' });
 
   const fetchAll = useCallback(async () => {
@@ -182,20 +183,30 @@ export function AdminCatalog() {
   };
 
   const toggleCat = (id: string) => {
-    setExpandedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
   const toggleSub = (id: string) => {
-    setExpandedSubs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedSubs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const openEdit = (mode: EditMode, item?: any, parentId?: string) => {
+  const openEdit = (mode: EditMode, item?: CatalogEditItem, parentId?: string) => {
     setEditMode(mode);
     setEditItem(item || null);
     setEditForm({
       name: item?.name || '',
       emoji: item?.emoji || '',
       slug: item?.slug || '',
-      description: item?.description || '',
+      description: item && 'description' in item ? item.description || '' : '',
       parentId: parentId || '',
     });
     setEditOpen(true);

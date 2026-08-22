@@ -22,18 +22,54 @@ interface TicketmasterResponse {
     totalPages?: number;
   };
   _embedded?: {
-    events?: any[];
+    events?: TicketmasterEvent[];
   };
 }
 
+interface TicketmasterName {
+  name?: string;
+}
+
+interface TicketmasterVenue extends TicketmasterName {
+  city?: TicketmasterName;
+  address?: { line1?: string };
+  location?: { latitude?: string; longitude?: string };
+}
+
+interface TicketmasterClassification {
+  segment?: TicketmasterName;
+  genre?: TicketmasterName;
+  subGenre?: TicketmasterName;
+  type?: TicketmasterName;
+  subType?: TicketmasterName;
+}
+
+export interface TicketmasterEvent extends Record<string, unknown> {
+  id?: string | number;
+  name?: string;
+  url?: string;
+  info?: string;
+  pleaseNote?: string;
+  dates?: {
+    start?: { localDate?: string; localTime?: string; dateTime?: string };
+  };
+  promoter?: TicketmasterName;
+  classifications?: TicketmasterClassification[];
+  images?: Array<{ url?: string }>;
+  priceRanges?: Array<{ min?: number; max?: number; currency?: string }>;
+  _embedded?: { venues?: TicketmasterVenue[] };
+}
+
 function envApiKey() {
+  if (String(Deno.env.get('EXTERNAL_PROVIDER_TICKETMASTER_ENABLED') || 'true').toLowerCase() === 'false') {
+    throw new Error('Ticketmaster provider is disabled by kill switch.');
+  }
   const apiKey = Deno.env.get('TICKETMASTER_API_KEY');
   if (!apiKey) throw new Error('Missing TICKETMASTER_API_KEY in Edge Function environment.');
   return apiKey;
 }
 
-// deno-lint-ignore no-explicit-any
-function first(value: any[] | null | undefined): any | null {
+function first<T>(value: T[] | null | undefined): T | null {
   return Array.isArray(value) && value.length ? value[0] : null;
 }
 
@@ -46,12 +82,18 @@ function mapDateTime(value: string | null | undefined) {
   };
 }
 
-// deno-lint-ignore no-explicit-any
-function normalizeTicketmasterEvent(event: any): ExternalEventNormalized {
-  const venue: any = first(event?._embedded?.venues) ?? null;
-  const classification: any = first(event?.classifications) ?? null;
-  const image: any = first(event?.images) ?? null;
-  const priceRange: any = first(event?.priceRanges) ?? null;
+export function normalizeTicketmasterEvent(event: TicketmasterEvent): ExternalEventNormalized {
+  if ((typeof event.id !== 'string' && typeof event.id !== 'number') || !String(event.id).trim()) {
+    throw new Error('Ticketmaster event payload is missing an id.');
+  }
+  if (typeof event.name !== 'string' || !event.name.trim()) {
+    throw new Error('Ticketmaster event payload is missing a title.');
+  }
+
+  const venue = first(event._embedded?.venues) ?? null;
+  const classification = first(event.classifications) ?? null;
+  const image = first(event.images) ?? null;
+  const priceRange = first(event.priceRanges) ?? null;
   const localStart = event?.dates?.start?.localDate && event?.dates?.start?.localTime
     ? `${event.dates.start.localDate}T${event.dates.start.localTime}`
     : event?.dates?.start?.dateTime ?? null;
@@ -71,7 +113,7 @@ function normalizeTicketmasterEvent(event: any): ExternalEventNormalized {
     external_source: 'ticketmaster',
     external_id: String(event.id),
     external_url: event.url ?? null,
-    title: event.name ?? 'Untitled event',
+    title: event.name.trim(),
     category,
     subcategory,
     tags,
@@ -100,8 +142,8 @@ export async function fetchTicketmasterEvents(params: TicketmasterSearchParams) 
   const url = new URL(BASE_URL);
   const apiKey = envApiKey();
   url.searchParams.set('apikey', apiKey);
-  url.searchParams.set('size', String(params.size ?? 50));
-  url.searchParams.set('page', String(params.page ?? 0));
+  url.searchParams.set('size', String(Math.max(1, Math.min(params.size ?? 50, 100))));
+  url.searchParams.set('page', String(Math.max(0, Math.min(params.page ?? 0, 50))));
   if (params.countryCode) url.searchParams.set('countryCode', params.countryCode);
   if (params.city) url.searchParams.set('city', params.city);
   if (params.localStartDateTime) url.searchParams.set('localStartDateTime', params.localStartDateTime);
@@ -109,7 +151,7 @@ export async function fetchTicketmasterEvents(params: TicketmasterSearchParams) 
   if (params.keyword) url.searchParams.set('keyword', params.keyword);
   if (params.source) url.searchParams.set('source', params.source);
 
-  const data = await fetchJson<TicketmasterResponse>(url.toString(), { method: 'GET' }, 'Ticketmaster fetch failed');
+  const data = await fetchJson<TicketmasterResponse>(url.toString(), { method: 'GET' }, 'Ticketmaster fetch failed', { timeoutMs: 12_000, retries: 2 });
   const rawEvents = data._embedded?.events ?? [];
   return {
     events: rawEvents.map(normalizeTicketmasterEvent),

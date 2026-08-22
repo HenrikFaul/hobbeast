@@ -23,10 +23,10 @@ function projectRefFromSupabaseUrl(url: string): string {
 
 const configuredProjectRef = projectRefFromSupabaseUrl(SUPABASE_URL);
 if (configuredProjectRef && configuredProjectRef !== CANONICAL_HOBBEAST_PROJECT_REF) {
+  // Log only the project ref (public, safe) — never the full URL or any key.
   console.error('[SupabaseConfig] Hobbeast frontend is pointing to the wrong Supabase project.', {
     configuredProjectRef,
     expectedProjectRef: CANONICAL_HOBBEAST_PROJECT_REF,
-    configuredUrl: SUPABASE_URL,
   });
 }
 
@@ -86,9 +86,7 @@ export async function invokeFunctionWithDebug<T = unknown>(
   if (result.error) {
     console.error('[EdgeInvoke] failed', {
       functionName,
-      requestUrl,
-      error: result.error,
-      body: options?.body,
+      errorMessage: result.error instanceof Error ? result.error.message : 'Edge invocation failed',
     });
   }
 

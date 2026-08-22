@@ -18,6 +18,47 @@ verify_jwt = false
 [functions.admin-user-profile-update]
 verify_jwt = false
 
+[functions.trust-safety]
+# JWT parsing plus user/reviewer authorization is enforced in the handler so
+# every response can carry the same normalized correlation/error contract.
+verify_jwt = false
+
+[functions.analytics-ingest]
+# The handler verifies the user, consent, server-side flag and pseudonymization
+# salt before accepting an allowlisted event.
+verify_jwt = false
+
+[functions.notification-preferences]
+# Auth is verified in the handler so normalized JSON errors and request IDs are
+# preserved across both legacy and asymmetric Supabase JWT configurations.
+verify_jwt = false
+
+[functions.notification-delivery-worker]
+# Only an exact service-role bearer token can drain provider delivery queues.
+verify_jwt = false
+
+[functions.event-operations]
+# Every action authenticates the caller, and the atomic RPC layer repeats the
+# authorization/ownership check.
+verify_jwt = false
+
+[functions.discovery-feedback]
+# The handler authenticates the user and the RPC enforces ownership + feature
+# flag state.
+verify_jwt = false
+
+[functions.ai-event-proposals]
+# Admin identity and the ai_proposals flag are verified server-side.
+verify_jwt = false
+
+[functions.organizer-ai-proposals]
+# Organizer identity and proposal assignment are checked in handler/RPC.
+verify_jwt = false
+
+[functions.admin-control-plane]
+# Authentication is followed by a stored capability check for every action.
+verify_jwt = false
+
 # --- Address Manager (parallel pipeline) ---
 # JWT verify is OFF so the discovery function can fan out internal
 # subcalls (task-generator, worker) without re-issuing the user JWT.

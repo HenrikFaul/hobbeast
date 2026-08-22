@@ -13,6 +13,7 @@ import { Mail, ArrowLeft, CheckCircle2, KeyRound, Heart, Users, Sparkles } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '@/assets/hobbeast-logo.png';
 import { sanitizeRedirectPath } from '@/lib/redirect';
+import { mapAuthError } from '@/features/identity/authErrors';
 
 type AuthView = 'login' | 'register' | 'verify' | 'forgot';
 
@@ -24,6 +25,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [registrationPending, setRegistrationPending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const { signIn, signUp, user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -36,8 +38,8 @@ const Auth = () => {
   const redirectTo = sanitizeRedirectPath(rawRedirect);
 
   useEffect(() => {
-    if (user) navigate(redirectTo);
-  }, [user, navigate, redirectTo]);
+    if (user) navigate(registrationPending && !rawRedirect ? '/onboarding' : redirectTo);
+  }, [user, navigate, rawRedirect, redirectTo, registrationPending]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -51,18 +53,16 @@ const Auth = () => {
     if (view === 'login') {
       const { error } = await signIn(email, password);
       if (error) {
-        if (error.message.includes('Email not confirmed')) {
-          toast.error('Az e-mail címed még nincs megerősítve. Kérjük, ellenőrizd a postaládádat.');
-        } else {
-          toast.error(error.message);
-        }
+        toast.error(mapAuthError(error).message);
       } else {
         navigate(redirectTo);
       }
     } else if (view === 'register') {
+      setRegistrationPending(true);
       const { error } = await signUp(email, password, displayName);
       if (error) {
-        toast.error(error.message);
+        setRegistrationPending(false);
+        toast.error(mapAuthError(error).message);
       } else {
         setView('verify');
         setResendCooldown(60);
@@ -76,8 +76,8 @@ const Auth = () => {
     if (otpCode.length < 6) { toast.error('Kérjük, add meg a 6 jegyű kódot.'); return; }
     setVerifying(true);
     const { error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'signup' });
-    if (error) { toast.error('Érvénytelen vagy lejárt kód.'); }
-    else { toast.success('E-mail sikeresen megerősítve!'); navigate(redirectTo); }
+    if (error) { toast.error(mapAuthError(error).message); }
+    else { toast.success('E-mail sikeresen megerősítve!'); navigate(rawRedirect ? redirectTo : '/onboarding'); }
     setVerifying(false);
   };
 

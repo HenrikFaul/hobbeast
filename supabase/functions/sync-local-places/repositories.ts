@@ -1,9 +1,10 @@
 // deno-lint-ignore-file no-explicit-any
 import { CATALOG_UPSERT_CHUNK_SIZE, LOCAL_PLACES_STATE_KEY } from './constants.ts';
 import type { LocalCatalogRow, SyncLevel } from './types.ts';
+import type { SupabaseAdminClient } from '../shared/providerFetch.ts';
 
 export async function appendLog(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseAdminClient,
   level: SyncLevel,
   event: string,
   message: string,
@@ -25,7 +26,7 @@ export async function appendLog(
   return null;
 }
 
-export async function upsertSyncState(supabaseAdmin: any, payload: Record<string, unknown>): Promise<string | null> {
+export async function upsertSyncState(supabaseAdmin: SupabaseAdminClient, payload: Record<string, unknown>): Promise<string | null> {
   const { error } = await supabaseAdmin
     .from('place_sync_state')
     .upsert(payload, { onConflict: 'key' });
@@ -37,7 +38,7 @@ export async function upsertSyncState(supabaseAdmin: any, payload: Record<string
   return null;
 }
 
-export async function resetCatalog(supabaseAdmin: any) {
+export async function resetCatalog(supabaseAdmin: SupabaseAdminClient) {
   const { error } = await supabaseAdmin
     .from('places_local_catalog')
     .delete()
@@ -45,7 +46,7 @@ export async function resetCatalog(supabaseAdmin: any) {
   if (error) throw error;
 }
 
-export async function writeCatalogRows(supabaseAdmin: any, rows: LocalCatalogRow[]) {
+export async function writeCatalogRows(supabaseAdmin: SupabaseAdminClient, rows: LocalCatalogRow[]) {
   if (rows.length === 0) return 0;
 
   let actuallyWritten = 0;
@@ -53,7 +54,7 @@ export async function writeCatalogRows(supabaseAdmin: any, rows: LocalCatalogRow
     const chunk = rows.slice(index, index + CATALOG_UPSERT_CHUNK_SIZE);
     const { data, error } = await supabaseAdmin
       .from('places_local_catalog')
-      .upsert(chunk, { onConflict: 'provider,external_id' as any, ignoreDuplicates: false })
+      .upsert(chunk, { onConflict: 'provider,external_id', ignoreDuplicates: false })
       .select('provider, external_id');
     if (error) throw error;
     const returnedCount = Array.isArray(data) ? data.length : 0;
@@ -68,7 +69,7 @@ export async function writeCatalogRows(supabaseAdmin: any, rows: LocalCatalogRow
   return actuallyWritten;
 }
 
-export async function getRecentLogs(supabaseAdmin: any) {
+export async function getRecentLogs(supabaseAdmin: SupabaseAdminClient) {
   const { data } = await supabaseAdmin
     .from('place_sync_logs')
     .select('id, created_at, level, event, message, details')
@@ -77,7 +78,7 @@ export async function getRecentLogs(supabaseAdmin: any) {
   return data || [];
 }
 
-export async function getStatus(supabaseAdmin: any) {
+export async function getStatus(supabaseAdmin: SupabaseAdminClient) {
   const [{ count }, stateResult, providerCountResult, preview, logs] = await Promise.all([
     supabaseAdmin.from('places_local_catalog').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('place_sync_state').select('*').eq('key', LOCAL_PLACES_STATE_KEY).maybeSingle(),
@@ -90,8 +91,9 @@ export async function getStatus(supabaseAdmin: any) {
   ]);
 
   const providerCounts = Array.isArray(providerCountResult.data)
-    ? providerCountResult.data.reduce((acc: Record<string, number>, row: any) => {
-        acc[row.provider] = (acc[row.provider] || 0) + 1;
+    ? providerCountResult.data.reduce((acc: Record<string, number>, row: Record<string, unknown>) => {
+        const provider = typeof row.provider === 'string' ? row.provider : 'unknown';
+        acc[provider] = (acc[provider] || 0) + 1;
         return acc;
       }, {} as Record<string, number>)
     : {};

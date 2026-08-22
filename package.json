@@ -1,7 +1,7 @@
 {
   "name": "hobbeast",
   "private": true,
-  "version": "1.7.6",
+  "version": "1.8.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,15 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release:validate": "node scripts/validate-release.mjs"
+    "release:validate": "node scripts/validate-release.mjs",
+    "release:sbom": "node scripts/generate-sbom.mjs",
+    "security:audit": "node scripts/audit-security-definer.mjs",
+    "security:secrets": "node scripts/scan-secrets.mjs",
+    "quality:performance": "node scripts/check-performance-budget.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

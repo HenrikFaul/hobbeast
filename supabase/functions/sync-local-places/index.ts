@@ -15,7 +15,7 @@ import {
   startManualRun,
   writeRowsPhase,
 } from './batchRunner.ts';
-import type { SyncBody } from './types.ts';
+import type { SyncAction, SyncBody } from './types.ts';
 
 const DEFAULT_INTERVAL_MINUTES = 15;
 
@@ -38,9 +38,9 @@ serve(async (req) => {
     const queryAction = url.searchParams.get('action');
     const queryReset = url.searchParams.get('reset');
     const body = await req.json().catch(() => ({})) as SyncBody;
-    const action = (queryAction || body.action || 'status') as string;
+    const action = String(queryAction || body.action || 'status');
     const reset = queryReset === 'true' || body.reset === true;
-    const effectiveBody: SyncBody = { ...body, action: action as any, reset };
+    const effectiveBody: SyncBody = { ...body, action: action as SyncAction, reset };
 
     // ── Read-only ────────────────────────────────────────────────────────────
     if (action === 'status') {
@@ -54,7 +54,7 @@ serve(async (req) => {
     // ── Config write ─────────────────────────────────────────────────────────
     if (action === 'save_config') {
       const config = await saveSyncConfig(supabaseAdmin, body.config || {});
-      await appendLog(supabaseAdmin, 'info', 'config_saved', 'Lokális sync konfiguráció elmentve', config as any, runId);
+      await appendLog(supabaseAdmin, 'info', 'config_saved', 'Lokális sync konfiguráció elmentve', { ...config }, runId);
       return jsonResponse({ ok: true, config });
     }
 
@@ -100,19 +100,19 @@ serve(async (req) => {
     }
 
     if (action === 'filter_hu_rows') {
-      return jsonResponse(await filterHuRowsPhase(supabaseAdmin, (effectiveBody as any).rows || [], runId));
+      return jsonResponse(await filterHuRowsPhase(supabaseAdmin, effectiveBody.rows || [], runId));
     }
 
     if (action === 'dedupe_rows') {
-      return jsonResponse(await dedupeRowsPhase(supabaseAdmin, (effectiveBody as any).rows || [], runId));
+      return jsonResponse(await dedupeRowsPhase(supabaseAdmin, effectiveBody.rows || [], runId));
     }
 
     if (action === 'write_rows') {
       return jsonResponse(await writeRowsPhase(
         supabaseAdmin,
-        (effectiveBody as any).rows || [],
-        Number((effectiveBody as any).advance_cursor_by ?? 1),
-        (effectiveBody as any).partial_failures || [],
+        effectiveBody.rows || [],
+        Number(effectiveBody.advance_cursor_by ?? 1),
+        effectiveBody.partial_failures || [],
         runId,
       ));
     }

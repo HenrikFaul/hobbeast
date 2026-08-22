@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
@@ -6,7 +6,6 @@ import { VenueSuggestionsPanel, type VenueSelection } from '@/components/VenueSu
 import { EventTemplateSelector, SaveAsTemplateButton } from '@/components/EventTemplateSelector';
 import { hu } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +21,13 @@ import { HOBBY_CATALOG, type HobbyCategory, type HobbySubcategory, type HobbyAct
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { upsertEventTripPlan } from '@/lib/tripPlans';
+import { linkEventToCircle } from '@/features/community/eventPlanning';
+import {
+  buildEventInsertPayload,
+  createEventRecord,
+} from '@/features/events/createEvent';
+import { CreateEventErrorBoundary } from '@/features/events/CreateEventErrorBoundary';
+import { CreateEventExpectationsFields } from '@/features/events/CreateEventExpectationsFields';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -33,72 +39,10 @@ const LOCATION_TYPES = [
 interface CreateEventDialogProps {
   onClose: () => void;
   onCreated: () => void;
+  circleId?: string;
 }
 
-interface EventDialogErrorBoundaryProps {
-  children: ReactNode;
-  onClose: () => void;
-}
-
-interface EventDialogErrorBoundaryState {
-  hasError: boolean;
-  message: string;
-}
-
-class EventDialogErrorBoundary extends Component<EventDialogErrorBoundaryProps, EventDialogErrorBoundaryState> {
-  state: EventDialogErrorBoundaryState = { hasError: false, message: '' };
-
-  static getDerivedStateFromError(error: Error): EventDialogErrorBoundaryState {
-    return {
-      hasError: true,
-      message: error.message || 'Ismeretlen megjelenítési hiba történt.',
-    };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[CreateEventDialog] render boundary caught error', {
-      error,
-      componentStack: info.componentStack,
-    });
-    toast.error('Az eseménylétrehozó ablak egyik része hibázott, de az ablak nyitva maradt.');
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4">
-        <div className="w-full max-w-xl rounded-2xl border bg-card p-6 shadow-modal">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="font-display text-lg font-bold">Az eseménylétrehozó stabilitási védelemre váltott</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                A modal nem záródott be automatikusan. Frissítsd újra az ablakot, vagy zárd be kézzel, ha már mentetted az adatokat.
-              </p>
-            </div>
-            <Button type="button" variant="ghost" size="icon" className="rounded-xl" onClick={this.props.onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <pre className="max-h-40 overflow-auto rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
-            {this.state.message}
-          </pre>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={() => this.setState({ hasError: false, message: '' })}>
-              Újrapróbálás
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={this.props.onClose}>
-              Bezárás
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-}
-
-
-export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps) {
+export function CreateEventDialog({ onClose, onCreated, circleId }: CreateEventDialogProps) {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -128,6 +72,17 @@ export function CreateEventDialog({ onClose, onCreated }: CreateEventDialogProps
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
   const [venueSearchHint, setVenueSearchHint] = useState('');
+  const [meetingInstructions, setMeetingInstructions] = useState('');
+  const [expectedEndTime, setExpectedEndTime] = useState('');
+  const [beginnerFriendly, setBeginnerFriendly] = useState<'unspecified' | 'yes' | 'no'>('unspecified');
+  const [activityIntensity, setActivityIntensity] = useState('');
+  const [equipmentRequired, setEquipmentRequired] = useState('');
+  const [accessibilityInfo, setAccessibilityInfo] = useState('');
+  const [costDetails, setCostDetails] = useState('');
+  const [cancellationPolicy, setCancellationPolicy] = useState('');
+  const [waitlistEnabled, setWaitlistEnabled] = useState(false);
+  const [visibilityType, setVisibilityType] = useState('public');
+  const [privateLocationRevealHours, setPrivateLocationRevealHours] = useState('24');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -228,8 +183,13 @@ const isDirty = useMemo(() => Boolean(
   locationCity.trim() ||
   locationAddress.trim() ||
   locationFreeText.trim() ||
-  tags.trim()
-), [title, description, selectedCategoryId, selectedSubcategoryId, selectedActivityId, locationCity, locationAddress, locationFreeText, tags]);
+  tags.trim() ||
+  meetingInstructions.trim() ||
+  equipmentRequired.trim() ||
+  accessibilityInfo.trim() ||
+  costDetails.trim() ||
+  cancellationPolicy.trim()
+), [title, description, selectedCategoryId, selectedSubcategoryId, selectedActivityId, locationCity, locationAddress, locationFreeText, tags, meetingInstructions, equipmentRequired, accessibilityInfo, costDetails, cancellationPolicy]);
 
 const handleRequestClose = useCallback(() => {
   if (isDirty && !loading) {
@@ -247,72 +207,71 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
   onClose();
 }, [isDirty, onClose]);
 
-const buildStartTimeIso = () => {
-  if (!eventDate || !eventTime) return null;
-  const [hours, minutes] = eventTime.split(':').map((value) => Number(value));
-  const next = new Date(eventDate);
-  next.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
-  return next.toISOString();
-};
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasRequiredFields || !user) return;
 
     setLoading(true);
     try {
-      const startTimeIso = buildStartTimeIso();
-      const eventInsertPayload: Record<string, unknown> = {
-        title: title.trim(),
-        description: description.trim() || null,
+      const eventInsertPayload = buildEventInsertPayload({
+        userId: user.id,
+        title,
+        description,
         category: categoryString,
-        event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
-        event_time: eventTime || null,
-        start_time: startTimeIso,
-        created_by: user.id,
-        location_type: locationType,
-        location_city: locationCity || null,
-        location_district: locationDistrict || null,
-        location_address: locationAddress || null,
-        location_free_text: locationFreeText || null,
-        location_lat: locationLat,
-        location_lon: locationLon,
-        max_attendees: maxAttendees ? parseInt(maxAttendees) : null,
-        image_emoji: imageEmoji,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-        organizer_id: user.id,
-        place_name: placeData?.displayName || null,
-        place_address: placeData?.address || null,
-        place_city: placeData?.city || null,
-        place_lat: placeData?.lat || null,
-        place_lon: placeData?.lon || null,
-        place_source: placeData?.source || null,
-        place_categories: placeData?.categories || [],
-      };
-
-      const { data, error } = await supabase
-        .from('events')
-        .insert(eventInsertPayload as any)
-        .select('id')
-        .single();
-
-      if (error || !data) {
-        console.error('[CreateEventDialog] event insert failed', { error, eventInsertPayload });
-        toast.error(error?.message || 'Hiba az esemény létrehozásakor. Ellenőrizd a kötelező mezőket és próbáld újra.');
+        eventDate,
+        eventTime,
+        expectedEndTime,
+        locationType,
+        locationCity,
+        locationDistrict,
+        locationAddress,
+        locationFreeText,
+        locationLat,
+        locationLon,
+        maxAttendees,
+        imageEmoji,
+        tags,
+        placeData,
+        meetingInstructions,
+        beginnerFriendly,
+        activityIntensity,
+        equipmentRequired,
+        accessibilityInfo,
+        costDetails,
+        cancellationPolicy,
+        waitlistEnabled,
+        visibilityType,
+        privateLocationRevealHours,
+      });
+      let eventId: string;
+      try {
+        eventId = await createEventRecord(eventInsertPayload);
+      } catch {
+        console.warn('[create_event] insert_failed', { errorCode: 'CREATE_EVENT_FAILED' });
+        toast.error('Hiba az esemény létrehozásakor. Ellenőrizd a kötelező mezőket és próbáld újra.');
         return;
       }
 
-      try {
-        await upsertEventTripPlan(data.id, tripPlan);
-        toast.success('Esemény sikeresen létrehozva!');
-        onCreated();
-      } catch (tripPlanError) {
-        console.error('[CreateEventDialog] trip plan save failed', tripPlanError);
-        toast.error('Az esemény létrejött, de az útvonalterv mentése nem sikerült.');
-        onCreated();
+      let circleLinked = !circleId;
+      if (circleId) {
+        try {
+          await linkEventToCircle(circleId, eventId);
+          circleLinked = true;
+        } catch {
+          console.warn('[create_event] circle_link_failed', { errorCode: 'CIRCLE_EVENT_LINK_FAILED' });
+          toast.warning('Az esemény létrejött, de nem sikerült a Circle-höz kapcsolni. A Circle részleteinél újra próbálhatod.');
+        }
       }
-    } catch (error) {
-      console.error('[CreateEventDialog] create flow failed', error);
+      try {
+        await upsertEventTripPlan(eventId, tripPlan);
+      } catch {
+        console.warn('[create_event] trip_plan_save_failed', { errorCode: 'TRIP_PLAN_SAVE_FAILED' });
+        toast.error('Az esemény létrejött, de az útvonalterv mentése nem sikerült.');
+      }
+      toast.success(circleId && circleLinked ? 'A Circle eseménye sikeresen létrejött!' : 'Esemény sikeresen létrehozva!');
+      onCreated();
+    } catch {
+      console.warn('[create_event] flow_failed', { errorCode: 'CREATE_EVENT_FLOW_FAILED' });
       toast.error('Váratlan hiba történt létrehozás közben. A modal nyitva maradt, az adatok nem vesztek el.');
     } finally {
       setLoading(false);
@@ -320,7 +279,7 @@ const buildStartTimeIso = () => {
   };
 
   return (
-    <EventDialogErrorBoundary onClose={onClose}>
+    <CreateEventErrorBoundary onClose={onClose}>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={handleBackdropClick}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.2 }}
         className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
@@ -443,6 +402,7 @@ const buildStartTimeIso = () => {
           {venueSearchHint && (
             <VenueSuggestionsPanel
               activityHint={venueSearchHint}
+              circleId={circleId}
               bias={locationLat && locationLon ? { lat: locationLat, lon: locationLon } : undefined}
               cityName={locationCity || undefined}
               onSelectVenue={(venue: VenueSelection) => {
@@ -494,6 +454,31 @@ const buildStartTimeIso = () => {
               <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
             </div>
           </div>
+
+          <CreateEventExpectationsFields
+            meetingInstructions={meetingInstructions}
+            expectedEndTime={expectedEndTime}
+            beginnerFriendly={beginnerFriendly}
+            activityIntensity={activityIntensity}
+            equipmentRequired={equipmentRequired}
+            accessibilityInfo={accessibilityInfo}
+            costDetails={costDetails}
+            cancellationPolicy={cancellationPolicy}
+            waitlistEnabled={waitlistEnabled}
+            visibilityType={visibilityType}
+            privateLocationRevealHours={privateLocationRevealHours}
+            onMeetingInstructionsChange={setMeetingInstructions}
+            onExpectedEndTimeChange={setExpectedEndTime}
+            onBeginnerFriendlyChange={setBeginnerFriendly}
+            onActivityIntensityChange={setActivityIntensity}
+            onEquipmentRequiredChange={setEquipmentRequired}
+            onAccessibilityInfoChange={setAccessibilityInfo}
+            onCostDetailsChange={setCostDetails}
+            onCancellationPolicyChange={setCancellationPolicy}
+            onWaitlistEnabledChange={setWaitlistEnabled}
+            onVisibilityTypeChange={setVisibilityType}
+            onPrivateLocationRevealHoursChange={setPrivateLocationRevealHours}
+          />
 
           {/* Dynamic fields based on profile */}
           {profile && (
@@ -623,6 +608,6 @@ const buildStartTimeIso = () => {
         </form>
       </motion.div>
     </div>
-    </EventDialogErrorBoundary>
+    </CreateEventErrorBoundary>
   );
 }

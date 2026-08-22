@@ -17,6 +17,20 @@ import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutoco
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
 import type { TripPlanDraft } from '@/lib/mapy';
 import { getEventTripPlan, upsertEventTripPlan } from '@/lib/tripPlans';
+import type { TablesUpdate } from '@/integrations/supabase/types';
+
+type EventUpdatePayload = TablesUpdate<'events'> & {
+  start_time?: string | null;
+  meeting_instructions?: string | null;
+  expected_end_at?: string | null;
+  beginner_friendly?: boolean | null;
+  activity_intensity?: string | null;
+  equipment_required?: string | null;
+  accessibility_info?: string | null;
+  cost_details?: string | null;
+  cancellation_policy?: string | null;
+  private_location_reveal_hours?: number;
+};
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -43,6 +57,17 @@ interface EditEventDialogProps {
     max_attendees: number | null;
     image_emoji: string | null;
     tags: string[] | null;
+    meeting_instructions?: string | null;
+    expected_end_at?: string | null;
+    beginner_friendly?: boolean | null;
+    activity_intensity?: string | null;
+    equipment_required?: string | null;
+    accessibility_info?: string | null;
+    cost_details?: string | null;
+    cancellation_policy?: string | null;
+    waitlist_enabled?: boolean | null;
+    visibility_type?: string | null;
+    private_location_reveal_hours?: number | null;
   };
   onClose: () => void;
   onUpdated: () => void;
@@ -67,6 +92,21 @@ export function EditEventDialog({ event, onClose, onUpdated }: EditEventDialogPr
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
   const [placeSel, setPlaceSel] = useState<PlaceSelection | null>(null);
+  const [meetingInstructions, setMeetingInstructions] = useState(event.meeting_instructions || '');
+  const [expectedEndTime, setExpectedEndTime] = useState(
+    event.expected_end_at ? new Date(event.expected_end_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) : '',
+  );
+  const [beginnerFriendly, setBeginnerFriendly] = useState<'unspecified' | 'yes' | 'no'>(
+    event.beginner_friendly === null || event.beginner_friendly === undefined ? 'unspecified' : event.beginner_friendly ? 'yes' : 'no',
+  );
+  const [activityIntensity, setActivityIntensity] = useState(event.activity_intensity || '');
+  const [equipmentRequired, setEquipmentRequired] = useState(event.equipment_required || '');
+  const [accessibilityInfo, setAccessibilityInfo] = useState(event.accessibility_info || '');
+  const [costDetails, setCostDetails] = useState(event.cost_details || '');
+  const [cancellationPolicy, setCancellationPolicy] = useState(event.cancellation_policy || '');
+  const [waitlistEnabled, setWaitlistEnabled] = useState(event.waitlist_enabled === true);
+  const [visibilityType, setVisibilityType] = useState(event.visibility_type || 'public');
+  const [privateLocationRevealHours, setPrivateLocationRevealHours] = useState(String(event.private_location_reveal_hours ?? 24));
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -100,13 +140,29 @@ const buildStartTimeIso = () => {
   return next.toISOString();
 };
 
+const buildExpectedEndIso = () => {
+  if (!eventDate || !expectedEndTime) return null;
+  const [hours, minutes] = expectedEndTime.split(':').map((value) => Number(value));
+  const next = new Date(eventDate);
+  next.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+  const startTimeIso = buildStartTimeIso();
+  if (startTimeIso && next <= new Date(startTimeIso)) next.setDate(next.getDate() + 1);
+  return next.toISOString();
+};
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasRequiredFields) return;
 
     setLoading(true);
     const startTimeIso = buildStartTimeIso();
-    const updatePayload: any = {
+    const expectedEndAt = buildExpectedEndIso();
+    if (startTimeIso && expectedEndAt && new Date(expectedEndAt) <= new Date(startTimeIso)) {
+      toast.error('A várható befejezésnek a kezdés után kell lennie.');
+      setLoading(false);
+      return;
+    }
+    const updatePayload: EventUpdatePayload = {
       title: title.trim(),
       description: description.trim() || null,
       event_date: eventDate ? format(eventDate, 'yyyy-MM-dd') : null,
@@ -123,6 +179,17 @@ const buildStartTimeIso = () => {
       image_emoji: imageEmoji,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       place_categories: [],
+      meeting_instructions: meetingInstructions.trim() || null,
+      expected_end_at: expectedEndAt,
+      beginner_friendly: beginnerFriendly === 'unspecified' ? null : beginnerFriendly === 'yes',
+      activity_intensity: activityIntensity || null,
+      equipment_required: equipmentRequired.trim() || null,
+      accessibility_info: accessibilityInfo.trim() || null,
+      cost_details: costDetails.trim() || null,
+      cancellation_policy: cancellationPolicy.trim() || null,
+      waitlist_enabled: waitlistEnabled,
+      visibility_type: visibilityType,
+      private_location_reveal_hours: Math.max(0, Math.min(168, Number(privateLocationRevealHours) || 24)),
     };
 
     if (placeSel) {
@@ -205,6 +272,45 @@ const buildStartTimeIso = () => {
               <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} className="rounded-xl h-11" />
             </div>
           </div>
+
+          <section className="space-y-4 rounded-xl border p-4" aria-labelledby="edit-event-expectations-title">
+            <div>
+              <h4 id="edit-event-expectations-title" className="font-semibold">Mire számíthatnak a résztvevők?</h4>
+              <p className="text-xs text-muted-foreground">Csak ellenőrzött információt adj meg; a hiányzó mezők host feladatként maradnak láthatók.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-meeting-instructions">Találkozási instrukció</Label>
+              <Textarea id="edit-meeting-instructions" value={meetingInstructions} onChange={(e) => setMeetingInstructions(e.target.value.slice(0, 1000))} maxLength={1000} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2"><Label htmlFor="edit-expected-end">Várható befejezés</Label><Input id="edit-expected-end" type="time" value={expectedEndTime} onChange={(e) => setExpectedEndTime(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-beginner-friendly">Kezdőbarát</Label>
+                <Select value={beginnerFriendly} onValueChange={(value) => setBeginnerFriendly(value as typeof beginnerFriendly)}><SelectTrigger id="edit-beginner-friendly"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unspecified">Nincs megadva</SelectItem><SelectItem value="yes">Igen</SelectItem><SelectItem value="no">Nem</SelectItem></SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-activity-intensity">Aktivitási intenzitás</Label>
+                <Select value={activityIntensity || 'unspecified'} onValueChange={(value) => setActivityIntensity(value === 'unspecified' ? '' : value)}><SelectTrigger id="edit-activity-intensity"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="unspecified">Nincs megadva</SelectItem><SelectItem value="könnyű">Könnyű</SelectItem><SelectItem value="közepes">Közepes</SelectItem><SelectItem value="intenzív">Intenzív</SelectItem></SelectContent></Select>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="edit-equipment">Szükséges felszerelés</Label><Input id="edit-equipment" value={equipmentRequired} onChange={(e) => setEquipmentRequired(e.target.value.slice(0, 500))} maxLength={500} /></div>
+              <div className="space-y-2"><Label htmlFor="edit-accessibility">Hozzáférhetőség</Label><Input id="edit-accessibility" value={accessibilityInfo} onChange={(e) => setAccessibilityInfo(e.target.value.slice(0, 500))} maxLength={500} /></div>
+              <div className="space-y-2"><Label htmlFor="edit-cost">Költség / mi tartozik bele</Label><Input id="edit-cost" value={costDetails} onChange={(e) => setCostDetails(e.target.value.slice(0, 500))} maxLength={500} /></div>
+              <div className="space-y-2"><Label htmlFor="edit-cancellation">Lemondási szabály</Label><Input id="edit-cancellation" value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value.slice(0, 500))} maxLength={500} /></div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-waitlist">Várólista</Label>
+                <Select value={waitlistEnabled ? 'enabled' : 'disabled'} onValueChange={(value) => setWaitlistEnabled(value === 'enabled')}><SelectTrigger id="edit-waitlist"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="disabled">Kikapcsolva</SelectItem><SelectItem value="enabled">Automatikus várólista</SelectItem></SelectContent></Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-visibility">Láthatóság</Label>
+                <Select value={visibilityType} onValueChange={setVisibilityType}><SelectTrigger id="edit-visibility"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">Nyilvános</SelectItem><SelectItem value="members">Csak tagok</SelectItem><SelectItem value="private">Privát</SelectItem></SelectContent></Select>
+              </div>
+            </div>
+            {visibilityType !== 'public' && <div className="space-y-2"><Label htmlFor="edit-location-reveal">Pontos helyszín teljes felfedése (kezdés előtt, óra)</Label><Input id="edit-location-reveal" type="number" min={0} max={168} value={privateLocationRevealHours} onChange={(e) => setPrivateLocationRevealHours(e.target.value)} /></div>}
+          </section>
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Max. létszám</Label>

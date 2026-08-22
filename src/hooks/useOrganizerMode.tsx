@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -51,13 +51,13 @@ export function OrganizerModeProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, [user, mode]);
 
-  const setMode = (nextMode: 'community' | 'organizer') => {
+  const setMode = useCallback((nextMode: 'community' | 'organizer') => {
     if (nextMode === 'organizer' && ownedEventCount === 0) return;
     setModeState(nextMode);
     window.localStorage.setItem(STORAGE_KEY, nextMode);
-  };
+  }, [ownedEventCount]);
 
-  const value = useMemo(() => ({ mode, setMode, canUseOrganizerMode: ownedEventCount > 0, ownedEventCount }), [mode, ownedEventCount]);
+  const value = useMemo(() => ({ mode, setMode, canUseOrganizerMode: ownedEventCount > 0, ownedEventCount }), [mode, ownedEventCount, setMode]);
   return <OrganizerModeContext.Provider value={value}>{children}</OrganizerModeContext.Provider>;
 }
 

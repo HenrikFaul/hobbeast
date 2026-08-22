@@ -16,7 +16,7 @@ export interface SeatGeekSearchParams {
 }
 
 interface SeatGeekResponse {
-  events?: any[];
+  events?: SeatGeekEvent[];
   meta?: {
     page?: number;
     per_page?: number;
@@ -24,7 +24,32 @@ interface SeatGeekResponse {
   };
 }
 
+interface SeatGeekPerformer {
+  name?: string;
+  image?: string;
+}
+
+export interface SeatGeekEvent extends Record<string, unknown> {
+  id?: string | number;
+  title?: string;
+  short_title?: string;
+  url?: string;
+  datetime_local?: string;
+  venue?: {
+    name?: string;
+    city?: string;
+    address?: string;
+    location?: { lat?: number; lon?: number };
+  };
+  taxonomies?: Array<{ name?: string }>;
+  stats?: { lowest_price?: number; highest_price?: number };
+  performers?: SeatGeekPerformer[];
+}
+
 function authParams() {
+  if (String(Deno.env.get('EXTERNAL_PROVIDER_SEATGEEK_ENABLED') || 'true').toLowerCase() === 'false') {
+    throw new Error('SeatGeek provider is disabled by kill switch.');
+  }
   const clientId = Deno.env.get('SEATGEEK_CLIENT_ID');
   const clientSecret = Deno.env.get('SEATGEEK_CLIENT_SECRET');
   if (!clientId) throw new Error('Missing SEATGEEK_CLIENT_ID in Edge Function environment.');
@@ -37,7 +62,14 @@ function mapDateTime(datetimeLocal: string | null | undefined) {
   return { event_date: datePart || null, event_time: timePart ? timePart.slice(0, 8) : null };
 }
 
-function normalizeSeatGeekEvent(event: any): ExternalEventNormalized {
+export function normalizeSeatGeekEvent(event: SeatGeekEvent): ExternalEventNormalized {
+  if ((typeof event.id !== 'string' && typeof event.id !== 'number') || !String(event.id).trim()) {
+    throw new Error('SeatGeek event payload is missing an id.');
+  }
+  if (typeof event.title !== 'string' || !event.title.trim()) {
+    throw new Error('SeatGeek event payload is missing a title.');
+  }
+
   const venue = event?.venue ?? null;
   const taxonomy = Array.isArray(event?.taxonomies) && event.taxonomies.length ? event.taxonomies[0] : null;
   const { event_date, event_time } = mapDateTime(event?.datetime_local ?? null);
@@ -48,10 +80,13 @@ function normalizeSeatGeekEvent(event: any): ExternalEventNormalized {
     external_source: 'seatgeek',
     external_id: String(event.id),
     external_url: event.url ?? null,
-    title: event.title ?? 'Untitled event',
+    title: event.title.trim(),
     category: taxonomy?.name ?? null,
     subcategory: event.short_title ?? null,
-    tags: [taxonomy?.name, ...(Array.isArray(event?.performers) ? event.performers.map((p: any) => p?.name).filter(Boolean).slice(0, 5) : [])],
+    tags: [
+      taxonomy?.name,
+      ...(Array.isArray(event.performers) ? event.performers.map((performer) => performer.name).slice(0, 5) : []),
+    ].filter((value): value is string => Boolean(value)),
     description: event.short_title ?? null,
     event_date,
     event_time,
@@ -78,8 +113,8 @@ export async function fetchSeatGeekEvents(params: SeatGeekSearchParams) {
   const { clientId, clientSecret } = authParams();
   url.searchParams.set('client_id', clientId);
   if (clientSecret) url.searchParams.set('client_secret', clientSecret);
-  url.searchParams.set('per_page', String(params.perPage ?? 50));
-  url.searchParams.set('page', String(params.page ?? 1));
+  url.searchParams.set('per_page', String(Math.max(1, Math.min(params.perPage ?? 50, 100))));
+  url.searchParams.set('page', String(Math.max(1, Math.min(params.page ?? 1, 50))));
   if (params.q) url.searchParams.set('q', params.q);
   if (params.venueCity) url.searchParams.set('venue.city', params.venueCity);
   if (params.datetimeUtcGte) url.searchParams.set('datetime_utc.gte', params.datetimeUtcGte);
@@ -90,7 +125,7 @@ export async function fetchSeatGeekEvents(params: SeatGeekSearchParams) {
     if (params.range) url.searchParams.set('range', params.range);
   }
 
-  const data = await fetchJson<SeatGeekResponse>(url.toString(), { method: 'GET' }, 'SeatGeek fetch failed');
+  const data = await fetchJson<SeatGeekResponse>(url.toString(), { method: 'GET' }, 'SeatGeek fetch failed', { timeoutMs: 12_000, retries: 2 });
   const events = data.events ?? [];
   return {
     events: events.map(normalizeSeatGeekEvent),

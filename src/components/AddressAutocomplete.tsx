@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
 import { getPlace, searchTextPlaces, suggestPlaces, type AwsSuggestResult } from '@/lib/awsLocation';
 import { getAddressSearchProvider } from '@/lib/searchProviderConfig';
-import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
+import { searchPlaces, type NormalizedPlace } from '@/features/places';
 
 export interface AddressSelection {
   displayName: string;

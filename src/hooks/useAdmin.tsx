@@ -1,10 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  canAccessAdminControlPlane,
+  isAdminCapability,
+  type AdminCapability,
+} from '@/lib/adminControlPlane';
+import { buildReleaseLabel } from '@/lib/buildInfo';
+import { buildTelemetryEvent, createCorrelationId } from '@/lib/observability';
 import { useAuth } from './useAuth';
+
+function recordCapabilityLoadFailure(reason: 'invalid_response' | 'unavailable') {
+  console.error('[admin-capability-load]', buildTelemetryEvent('error', 'admin_capability_load_failed', {
+    correlationId: createCorrelationId(),
+    release: buildReleaseLabel(),
+  }, { reason }));
+}
 
 export function useAdmin() {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [capabilities, setCapabilities] = useState<AdminCapability[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,20 +33,35 @@ export function useAdmin() {
     let active = true;
     if (!user) {
       setIsAdmin(false);
+      setCapabilities([]);
+      setRoles([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' } as any)
-      .then(({ data, error }: any) => {
+    supabase.functions.invoke('admin-control-plane', { body: { action: 'capabilities' } })
+      .then(({ data, error }) => {
         if (!active) return;
-        if (error) {
-          console.error('has_role failed', error);
+        if (error || !Array.isArray(data?.capabilities) || !Array.isArray(data?.roles)) {
+          recordCapabilityLoadFailure('invalid_response');
           setIsAdmin(false);
+          setCapabilities([]);
+          setRoles([]);
         } else {
-          setIsAdmin(Boolean(data));
+          const allowedCapabilities = data.capabilities.filter(isAdminCapability);
+          setCapabilities(allowedCapabilities);
+          setRoles(data.roles.filter((role: unknown): role is string => typeof role === 'string'));
+          setIsAdmin(canAccessAdminControlPlane(allowedCapabilities));
         }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        recordCapabilityLoadFailure('unavailable');
+        setIsAdmin(false);
+        setCapabilities([]);
+        setRoles([]);
         setLoading(false);
       });
 
@@ -39,5 +70,10 @@ export function useAdmin() {
     };
   }, [user, authLoading]);
 
-  return { isAdmin, loading: loading || authLoading };
+  const hasCapability = useCallback(
+    (capability: AdminCapability) => capabilities.includes(capability),
+    [capabilities],
+  );
+
+  return { isAdmin, capabilities, roles, hasCapability, loading: loading || authLoading };
 }

@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Shield, BriefcaseBusiness, Compass } from 'lucide-react';
+import { User, LogOut, Shield, BriefcaseBusiness, Compass, UsersRound } from 'lucide-react';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
@@ -36,6 +36,9 @@ export function ProfileMenu() {
         </DropdownMenuLabel>
         <DropdownMenuItem onClick={() => navigate('/profile')} className="rounded-lg cursor-pointer">
           <User className="mr-2 h-4 w-4" /> Profilom
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate('/community')} className="rounded-lg cursor-pointer">
+          <UsersRound className="mr-2 h-4 w-4" /> Kapcsolatok és Circle-ök
         </DropdownMenuItem>
         {canUseOrganizerMode && (
           <>

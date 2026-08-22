@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { MapPin, Loader2, SearchX } from 'lucide-react';
 import { toast } from 'sonner';
-import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
+import { searchPlaces, type NormalizedPlace } from '@/features/places';
 
 export interface PlaceSelection {
   displayName: string;

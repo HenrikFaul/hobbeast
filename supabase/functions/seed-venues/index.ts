@@ -104,13 +104,49 @@ interface VenueRow {
   details: Record<string, unknown>
 }
 
+interface TomTomVenueResult extends Record<string, unknown> {
+  id?: string
+  poi?: {
+    name?: string
+    classifications?: Array<{ code?: string }>
+    phone?: string
+    url?: string
+  }
+  address?: {
+    freeformAddress?: string
+    municipality?: string
+    postalCode?: string
+  }
+  position?: { lat?: number; lon?: number }
+}
+
+interface GeoapifyVenueProperties extends Record<string, unknown> {
+  place_id?: string
+  name?: string
+  address_line1?: string
+  categories?: string[]
+  formatted?: string
+  city?: string
+  postcode?: string
+  lat?: number
+  lon?: number
+  contact?: { phone?: string }
+  website?: string
+  datasource?: { raw?: { rating?: number; image?: string } }
+  opening_hours?: { text?: string[] }
+}
+
+interface GeoapifyVenueFeature {
+  properties?: GeoapifyVenueProperties
+}
+
 async function fetchTomTom(query: string, city: { lat: number; lon: number }, tags: string[], apiKey: string): Promise<VenueRow[]> {
   const url = `https://api.tomtom.com/search/2/poiSearch/${encodeURIComponent(query)}.json?lat=${city.lat}&lon=${city.lon}&radius=30000&limit=50&countrySet=HU&key=${apiKey}`
   try {
     const res = await fetch(url)
     if (!res.ok) return []
-    const data = await res.json()
-    return (data.results || []).map((r: any) => ({
+    const data = await res.json() as { results?: TomTomVenueResult[] }
+    return (data.results || []).map((r) => ({
       provider: 'tomtom',
       external_id: r.id || '',
       name: r.poi?.name || r.address?.freeformAddress || 'Ismeretlen',
@@ -120,8 +156,8 @@ async function fetchTomTom(query: string, city: { lat: number; lon: number }, ta
       city: r.address?.municipality || null,
       postal_code: r.address?.postalCode || null,
       country: 'HU',
-      lat: r.position?.lat,
-      lon: r.position?.lon,
+      lat: r.position?.lat ?? Number.NaN,
+      lon: r.position?.lon ?? Number.NaN,
       phone: r.poi?.phone || null,
       website: r.poi?.url || null,
       rating: null,
@@ -139,8 +175,8 @@ async function fetchGeoapify(categories: string, city: { lat: number; lon: numbe
   try {
     const res = await fetch(url)
     if (!res.ok) return []
-    const data = await res.json()
-    return (data.features || []).map((f: any) => {
+    const data = await res.json() as { features?: GeoapifyVenueFeature[] }
+    return (data.features || []).map((f) => {
       const p = f.properties || {}
       return {
         provider: 'geoapify',
@@ -152,8 +188,8 @@ async function fetchGeoapify(categories: string, city: { lat: number; lon: numbe
         city: p.city || null,
         postal_code: p.postcode || null,
         country: 'HU',
-        lat: p.lat,
-        lon: p.lon,
+        lat: p.lat ?? Number.NaN,
+        lon: p.lon ?? Number.NaN,
         phone: p.contact?.phone || null,
         website: p.website || null,
         rating: p.datasource?.raw?.rating || null,

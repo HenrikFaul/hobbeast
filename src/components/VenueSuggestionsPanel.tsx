@@ -8,8 +8,12 @@ import { Label } from '@/components/ui/label';
 import { VenueDetailModal } from '@/components/venue/VenueDetailModal';
 import { VenueMapView } from '@/components/venue/VenueMapView';
 import { haversineKm, isLikelyOpenNow } from '@/components/venue/venueUtils';
-import { searchPlaces, type NormalizedPlace } from '@/lib/placeSearch';
+import { searchPlaces, type NormalizedPlace } from '@/features/places';
 import type { CachedVenue, VenueSelection } from '@/components/venue/types';
+import {
+  getCircleVenueSearchContext,
+  type CircleVenueSearchContext,
+} from '@/features/community/eventPlanning';
 
 export type { VenueSelection };
 
@@ -17,6 +21,7 @@ interface VenueSuggestionsPanelProps {
   activityHint: string;
   bias?: { lat: number; lon: number };
   cityName?: string;
+  circleId?: string;
   onSelectVenue: (venue: VenueSelection) => void;
 }
 
@@ -54,7 +59,7 @@ function buildVenueQuery(activityHint: string, cityName?: string) {
   return cityName?.trim() || 'venue';
 }
 
-export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVenue }: VenueSuggestionsPanelProps) {
+export function VenueSuggestionsPanel({ activityHint, bias, cityName, circleId, onSelectVenue }: VenueSuggestionsPanelProps) {
   const [rawVenues, setRawVenues] = useState<CachedVenue[]>([]);
   const [effectiveBias, setEffectiveBias] = useState(bias);
   const [loading, setLoading] = useState(false);
@@ -72,6 +77,8 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [showFilters, setShowFilters] = useState(false);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
+  const [groupContext, setGroupContext] = useState<CircleVenueSearchContext | null>(null);
+  const [groupContextStatus, setGroupContextStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
 
   useEffect(() => () => {
     abortRef.current?.abort();
@@ -98,6 +105,28 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
 
     try {
       let useBias = bias;
+      let useCityName = cityName;
+      if (!useBias && circleId) {
+        setGroupContextStatus('loading');
+        try {
+          const context = await getCircleVenueSearchContext(circleId);
+          if (controller.signal.aborted) return;
+          setGroupContext(context);
+          if (context.available && context.center) {
+            useBias = context.center;
+            useCityName = useCityName || context.city || undefined;
+            setEffectiveBias(context.center);
+            setMaxDistanceKm(context.maxTravelDistanceKm);
+            setGroupContextStatus('ready');
+          } else {
+            setGroupContextStatus('unavailable');
+          }
+        } catch {
+          if (controller.signal.aborted) return;
+          setGroupContext(null);
+          setGroupContextStatus('unavailable');
+        }
+      }
       if (!useBias && navigator.geolocation) {
         setGeoStatus('requesting');
         try {
@@ -113,7 +142,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
         }
       }
 
-      const query = buildVenueQuery(activityHint, cityName);
+      const query = buildVenueQuery(activityHint, useCityName);
       const places = await searchPlaces(query, useBias, activityHint, undefined, 'venue', {
         signal: controller.signal,
         limit: 24,
@@ -157,7 +186,7 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
         slowTimerRef.current = null;
       }
     }
-  }, [activityHint, bias, cityName, effectiveBias]);
+  }, [activityHint, bias, cityName, circleId, effectiveBias]);
 
   // Filter + sort
   const filteredVenues = useMemo(() => {
@@ -213,12 +242,26 @@ export function VenueSuggestionsPanel({ activityHint, bias, cityName, onSelectVe
         {optimizing && (
           <p className="text-xs text-primary">Optimizing query... A helyszínadatbázis lassabban válaszol.</p>
         )}
+        {groupContextStatus === 'loading' && <p role="status" className="text-xs text-muted-foreground">A Circle adatvédelmi helyszín-kontextusának ellenőrzése…</p>}
+        {groupContextStatus === 'ready' && groupContext?.available && (
+          <p role="status" className="text-xs text-muted-foreground">
+            Circle-optimalizálás: {groupContext.contributorCount} önkéntesen hozzájáruló tag csak közelítő, k-anonim csoportközéppontja alapján.
+          </p>
+        )}
+        {groupContextStatus === 'unavailable' && circleId && (
+          <p role="status" className="text-xs text-muted-foreground">A csoportos optimalizálás csak legalább három, helymegosztáshoz külön hozzájáruló Circle-tagnál használható.</p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      {groupContextStatus === 'ready' && groupContext?.available && (
+        <p role="status" className="rounded-lg border bg-muted/40 p-2 text-xs text-muted-foreground">
+          A sorrend {groupContext.contributorCount} hozzájáruló tag 0,1°-ra kerekített csoportközéppontját és kiegyensúlyozott utazási sugarát használja; pontos otthoni koordinátát nem jelenít meg.
+        </p>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -60,12 +60,21 @@ export async function getElevation(
   if (error) throw new Error(error.message || 'Elevation query failed');
   
   // The API returns items with altitude
-  const items = (data as any)?.items || data?.coordinates || [];
-  return items.map((item: any) => ({
-    lon: item.lon,
-    lat: item.lat,
-    altitude: item.altitude ?? item.elevation ?? 0,
-  }));
+  const response = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+  const items = Array.isArray(response.items)
+    ? response.items
+    : Array.isArray(response.coordinates)
+      ? response.coordinates
+      : [];
+  return items.flatMap((value): ElevationPoint[] => {
+    if (!value || typeof value !== 'object') return [];
+    const item = value as Record<string, unknown>;
+    const lon = Number(item.lon);
+    const lat = Number(item.lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [];
+    const altitude = Number(item.altitude ?? item.elevation ?? 0);
+    return [{ lon, lat, altitude: Number.isFinite(altitude) ? altitude : 0 }];
+  });
 }
 
 function sampleCoordinates(coords: [number, number][], maxPoints: number): [number, number][] {

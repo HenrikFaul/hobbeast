@@ -26,6 +26,9 @@ export interface ExternalEventCardLike {
   price_max: number | null;
   currency: string | null;
   is_free: boolean | null;
+  freshness_state: 'fresh' | 'aging' | 'stale' | 'unknown';
+  import_state: 'discovered' | 'review' | 'active' | 'stale' | 'cancelled' | 'rejected';
+  normalization_version: string;
 }
 
 const CATEGORY_EMOJI_MAP: Record<string, string> = {
@@ -90,5 +93,8 @@ export function mapExternalEventToCardLike(event: ExternalEventNormalized): Exte
     price_max: event.price_max,
     currency: event.currency,
     is_free: event.is_free,
+    freshness_state: event.freshness_state || 'unknown',
+    import_state: event.import_state || 'active',
+    normalization_version: event.normalization_version || 'external-event-v1',
   };
 }

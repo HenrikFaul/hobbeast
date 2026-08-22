@@ -9,6 +9,53 @@ import {
 
 const FETCH_TIMEOUT_MS = 20_000;
 
+interface GeoapifyRow {
+  properties?: Record<string, unknown> & {
+    lat?: unknown;
+    lon?: unknown;
+    place_id?: unknown;
+    name?: unknown;
+    address_line1?: unknown;
+    country_code?: unknown;
+    formatted?: unknown;
+    city?: unknown;
+    county?: unknown;
+    district?: unknown;
+    postcode?: unknown;
+    contact?: { phone?: unknown };
+    website?: unknown;
+    opening_hours?: { open_now?: unknown };
+    datasource?: { raw?: { rating?: unknown; reviews?: unknown } };
+    categories?: unknown;
+  };
+}
+
+interface TomTomRow {
+  id?: unknown;
+  position?: { lat?: unknown; lon?: unknown };
+  poi?: { name?: unknown; phone?: unknown; url?: unknown; classifications?: unknown };
+  address?: {
+    countryCode?: unknown;
+    freeformAddress?: unknown;
+    municipality?: unknown;
+    municipalitySubdivision?: unknown;
+    postalCode?: unknown;
+  };
+}
+
+type ProviderRow = GeoapifyRow | TomTomRow;
+
+interface WorkerRequestBody {
+  task?: {
+    matrix_id?: unknown;
+    provider?: unknown;
+    country_code?: unknown;
+    category_key?: unknown;
+    limits?: Record<string, unknown>;
+    cursor?: { tile_index?: unknown };
+  };
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -52,69 +99,71 @@ function fallbackVenueId(prefix: string, lat: number, lon: number, name: string)
 
 function normalize(
   provider: 'geoapify' | 'tomtom',
-  row: any,
+  row: ProviderRow,
   country: string,
   categoryKey: string,
   tileIndex: number,
 ) {
   if (provider === 'geoapify') {
-    const lat = typeof row?.properties?.lat === 'number' ? row.properties.lat : null;
-    const lon = typeof row?.properties?.lon === 'number' ? row.properties.lon : null;
-    const placeId = row?.properties?.place_id ? String(row.properties.place_id) : '';
-    const name = row?.properties?.name || row?.properties?.address_line1 || 'Unknown';
+    const feature = row as GeoapifyRow;
+    const lat = typeof feature.properties?.lat === 'number' ? feature.properties.lat : null;
+    const lon = typeof feature.properties?.lon === 'number' ? feature.properties.lon : null;
+    const placeId = feature.properties?.place_id ? String(feature.properties.place_id) : '';
+    const name = String(feature.properties?.name || feature.properties?.address_line1 || 'Unknown');
     return {
       provider,
       provider_venue_id: placeId || fallbackVenueId('geoapify', lat ?? 0, lon ?? 0, name),
-      country_code: (row?.properties?.country_code ? String(row.properties.country_code).toUpperCase() : country) || country,
+      country_code: (feature.properties?.country_code ? String(feature.properties.country_code).toUpperCase() : country) || country,
       category_key: categoryKey,
       name,
-      address: row?.properties?.formatted || null,
-      city: row?.properties?.city || row?.properties?.county || null,
-      district: row?.properties?.district || null,
-      postal_code: row?.properties?.postcode || null,
+      address: typeof feature.properties?.formatted === 'string' ? feature.properties.formatted : null,
+      city: typeof feature.properties?.city === 'string' ? feature.properties.city : typeof feature.properties?.county === 'string' ? feature.properties.county : null,
+      district: typeof feature.properties?.district === 'string' ? feature.properties.district : null,
+      postal_code: typeof feature.properties?.postcode === 'string' ? feature.properties.postcode : null,
       latitude: lat,
       longitude: lon,
-      phone: row?.properties?.contact?.phone || null,
-      website: row?.properties?.website || null,
-      open_now: row?.properties?.opening_hours?.open_now ?? null,
-      rating: row?.properties?.datasource?.raw?.rating ?? null,
-      review_count: row?.properties?.datasource?.raw?.reviews ?? null,
+      phone: typeof feature.properties?.contact?.phone === 'string' ? feature.properties.contact.phone : null,
+      website: typeof feature.properties?.website === 'string' ? feature.properties.website : null,
+      open_now: typeof feature.properties?.opening_hours?.open_now === 'boolean' ? feature.properties.opening_hours.open_now : null,
+      rating: typeof feature.properties?.datasource?.raw?.rating === 'number' ? feature.properties.datasource.raw.rating : null,
+      review_count: typeof feature.properties?.datasource?.raw?.reviews === 'number' ? feature.properties.datasource.raw.reviews : null,
       metadata: {
         source: 'geoapify',
-        categories: row?.properties?.categories || [],
+        categories: Array.isArray(feature.properties?.categories) ? feature.properties.categories : [],
         tile_index: tileIndex,
-        raw: row?.properties || {},
+        raw: feature.properties || {},
       },
       updated_at: new Date().toISOString(),
     };
   }
 
-  const lat = typeof row?.position?.lat === 'number' ? row.position.lat : null;
-  const lon = typeof row?.position?.lon === 'number' ? row.position.lon : null;
-  const id = row?.id ? String(row.id) : '';
-  const name = row?.poi?.name || 'Unknown';
+  const result = row as TomTomRow;
+  const lat = typeof result.position?.lat === 'number' ? result.position.lat : null;
+  const lon = typeof result.position?.lon === 'number' ? result.position.lon : null;
+  const id = result.id ? String(result.id) : '';
+  const name = String(result.poi?.name || 'Unknown');
   return {
     provider,
     provider_venue_id: id || fallbackVenueId('tomtom', lat ?? 0, lon ?? 0, name),
-    country_code: (row?.address?.countryCode ? String(row.address.countryCode).toUpperCase() : country) || country,
+    country_code: (result.address?.countryCode ? String(result.address.countryCode).toUpperCase() : country) || country,
     category_key: categoryKey,
     name,
-    address: row?.address?.freeformAddress || null,
-    city: row?.address?.municipality || null,
-    district: row?.address?.municipalitySubdivision || null,
-    postal_code: row?.address?.postalCode || null,
+    address: typeof result.address?.freeformAddress === 'string' ? result.address.freeformAddress : null,
+    city: typeof result.address?.municipality === 'string' ? result.address.municipality : null,
+    district: typeof result.address?.municipalitySubdivision === 'string' ? result.address.municipalitySubdivision : null,
+    postal_code: typeof result.address?.postalCode === 'string' ? result.address.postalCode : null,
     latitude: lat,
     longitude: lon,
-    phone: row?.poi?.phone || null,
-    website: row?.poi?.url || null,
+    phone: typeof result.poi?.phone === 'string' ? result.poi.phone : null,
+    website: typeof result.poi?.url === 'string' ? result.poi.url : null,
     open_now: null,
     rating: null,
     review_count: null,
     metadata: {
       source: 'tomtom',
-      classifications: row?.poi?.classifications || [],
+      classifications: Array.isArray(result.poi?.classifications) ? result.poi.classifications : [],
       tile_index: tileIndex,
-      raw: row || {},
+      raw: result,
     },
     updated_at: new Date().toISOString(),
   };
@@ -154,8 +203,8 @@ async function fetchGeoapifyPage(opts: {
     const body = await res.text().catch(() => '');
     throw new Error(`Geoapify ${res.status}: ${body.slice(0, 400)}`);
   }
-  const payload = await res.json();
-  return (payload?.features || []) as any[];
+  const payload = await res.json() as { features?: GeoapifyRow[] };
+  return payload.features || [];
 }
 
 async function fetchTomTomPage(opts: {
@@ -184,14 +233,14 @@ async function fetchTomTomPage(opts: {
     const body = await res.text().catch(() => '');
     throw new Error(`TomTom ${res.status}: ${body.slice(0, 400)}`);
   }
-  const payload = await res.json();
-  return (payload?.results || []) as any[];
+  const payload = await res.json() as { results?: TomTomRow[] };
+  return payload.results || [];
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   const supabaseAdmin = getSupabaseAdmin(req);
-  const body = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({})) as WorkerRequestBody;
 
   const matrixId = String(body?.task?.matrix_id || '');
 
@@ -261,7 +310,7 @@ serve(async (req) => {
 
       let offsetForTile = 0;
       let pagesForTile = 0;
-      const collected: any[] = [];
+      const collected: ProviderRow[] = [];
 
       while (
         collected.length < requestedPerTile &&
@@ -271,7 +320,7 @@ serve(async (req) => {
         const remaining = requestedPerTile - collected.length;
         const pageSize = Math.min(pageCap, remaining);
 
-        let pageRows: any[] = [];
+        let pageRows: ProviderRow[] = [];
         if (provider === 'geoapify') {
           pageRows = await fetchGeoapifyPage({
             categoryName: String(category.geoapify || 'catering.restaurant'),

@@ -1,5 +1,8 @@
 # Sprint program status
 
+Current ordered production-pack resume point: **Prompt 05 — PARTIAL / RELEASE HOLD**.
+Prompts 01–04 below are foundations, not proof that their full runtime/DB acceptance gates closed.
+
 Live status of the 5-sprint improvement program (`Hobbeast_5_sprint_javito_fejleszto_brandterv.md`). Update this doc whenever a sprint task lands.
 
 Legend: ✅ done · 🟡 partial · ⬜ deferred
@@ -35,10 +38,85 @@ Legend: ✅ done · 🟡 partial · ⬜ deferred
 - ✅ v1.7.5 CI + docs pass: `.github/workflows/ci.yml`, `docs/SECURITY_DEFINER_AUDIT.md`, `docs/MULTI_SUPABASE_CONTRACT.md`, `docs/DEP_UPGRADE_PLAN.md`.
 - ⬜ Secret rotation (Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster) — operator action in provider consoles.
 - ⬜ SECURITY DEFINER Round B — one migration per High-risk function; template in the audit doc.
-- ⬜ Multi-Supabase runtime assertion module — contract written, code deferred.
+- ✅ Multi-Supabase runtime assertion module — source landed in v1.7.6; v1.8.4 adds a
+  production-build fail-closed target-ref check. Current tracked env mismatch still blocks release.
 - ⬜ Dep majors (Zod 4 → date-fns 4 → Router 7 → Tailwind 4 → Vite 6 → React 19) — one PR each, plan in `docs/DEP_UPGRADE_PLAN.md`.
 - ⬜ `supabase/functions/place-search/index.ts` (1455 LOC) refactor — blocked on characterization tests.
 - ⬜ Notification / community domain rebuild — blocked on characterization tests.
+
+## Production baseline pass — v1.8.0 (2026-08-20)
+
+First step of the 15-step production prompt pack. Deliberately additive; no DB migration,
+no runtime behavior change, no dependency bump.
+
+- ✅ Secret-leak fix: `src/integrations/supabase/client.ts` no longer logs the full Supabase
+  URL on project mismatch — only the project ref (public).
+- ✅ `docs/PRODUCTION_READINESS_BASELINE.md` — explicit PASS / PARTIAL / BLOCKED per surface,
+  with cited evidence.
+- ✅ `docs/PRODUCTION_RISK_REGISTER.md` — severity-ordered P0–P3 register.
+- ✅ `docs/HISTORICAL_SECRET_EXPOSURE.md` — provider-name-only exposure register; credential
+  scan (tracked source + BASEREQUIREMENTS text) = 0 hits with positive control.
+- ✅ `docs/TESTING.md` §3 — Edge Function characterization harness foundation (Deno);
+  explicitly BLOCKED until a Deno runner is wired.
+- ✅ `typecheck` script added; CI now runs `bun run typecheck`.
+- ⬜ Lint (current-disk: 248 errors / 31 warnings across the wider repository)
+  — tracked as R-06; requires characterization-safe per-file cleanup.
+- ⬜ SECURITY DEFINER Round B execution — one approved migration per high-risk function.
+- ⬜ Secret rotations (Mapy / Geoapify / TomTom / Eventbrite / Ticketmaster / SeatGeek / Lovable)
+  — operator action in provider consoles.
+- ⬜ Local Supabase migration dry-run / RLS persona tests — operator.
+- ⬜ Playwright smoke execution — needs browser install + dev server.
+
+## Ordered production prompt pack
+
+### Prompt 02 — Domain architecture & safe refactor — v1.8.1 PARTIAL
+
+- ✅ Current domain/LOC map and dependency boundaries documented.
+- ✅ Four `placeSearch` pure helpers exported without behavior change; 13 characterization cases.
+- ⬜ Load-bearing Edge/Admin/Organizer refactors remain behind Deno/component characterization.
+
+### Prompt 03 — Identity/profile privacy — v1.8.2 PARTIAL / PRIVACY HOLD
+
+- ✅ Public-profile DTO whitelist helper + 6 unit cases.
+- ⬜ Runtime call-site adoption, public DB view/RPC, column-safe RLS personas, onboarding,
+  deletion and block/report boundaries remain unproven. A client DTO alone is not a DB boundary.
+
+### Prompt 04 — Social graph — v1.8.3 PARTIAL
+
+- ✅ Pure encounter/reconnection/block/circle invariants + 17 unit cases.
+- ⬜ DB/RLS/UI lifecycle remains deferred until Prompt 06 provides a verified completion signal.
+
+### Prompt 05 — Virtual Hubs 2.0 — v1.8.4 foundation PARTIAL / RELEASE HOLD
+
+- ✅ In-source admin auth boundary for `virtual-hubs-admin`; client-controlled cron bypass removed
+  from `generate-hub-events`.
+- ✅ Deterministic identity/demand/scoped-diff helper + 11 unit cases.
+- ✅ Admin real/generated/unknown counts; AI qualification uses explicit real demand only and
+  fails closed when `user_origin` cannot be proven.
+- ✅ Destructive refresh and AI event writes fail closed in Edge/UI; hub edit does not apply a
+  potentially truncated snapshot to membership state. Preview/config remain admin-only.
+- ✅ Requirement Coverage Matrix and rollback: `docs/VIRTUAL_HUBS_2_FOUNDATION.md`.
+- ⬜ No DB migration: canonical unique identity, duplicate reconciliation, transactional
+  per-profile sync, job lock/scheduler, durable audit and RLS personas remain blocked.
+- ⛔ Global P0: `.env` is tracked; credential rotation/tracking remediation is operator-owned.
+- ⛔ Live Edge deployment/auth smoke and target schema evidence are NOT VERIFIED.
+
+### Remaining ordered steps — NOT_STARTED
+
+| Prompt | Scope | Current execution status | Entry condition |
+|---|---|---|---|
+| 06 | Event lifecycle and participant experience | NOT_STARTED | Prompt 05 rollback boundary closed; completion-state contract characterized |
+| 07 | Organizer suite production | NOT_STARTED | Event lifecycle and organizer authorization evidence |
+| 08 | Discovery, recommendation and matching | NOT_STARTED | Stable event/profile contracts and privacy-safe signals |
+| 09 | External events, places and geo pipeline | NOT_STARTED | Deno/provider harness and rate-limit evidence |
+| 10 | Notifications, communications and engagement | NOT_STARTED | Event lifecycle + consent/preferences contract |
+| 11 | AI demand aggregation and auto-events | NOT_STARTED | Prompt 05 idempotency/job-lock migration and trust gates |
+| 12 | Admin control plane and operations | NOT_STARTED | Admin audit/least-privilege foundations proven |
+| 13 | Trust, safety, moderation and data protection | NOT_STARTED | Policy-owner decisions and RLS/persona harness |
+| 14 | Observability, performance, accessibility and quality | NOT_STARTED | Earlier runtime surfaces available for measurable verification |
+| 15 | Monetization, analytics, launch and cutover | NOT_STARTED | All P0/P1 gates closed or owner-approved with expiry |
+
+Per the pack order, this round stops at Prompt 05. No Prompt 06 implementation was started.
 
 ## Why some sprints are deferred
 

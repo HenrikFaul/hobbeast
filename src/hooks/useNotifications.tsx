@@ -1,47 +1,47 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { mergeRealtimeNotification, type NotificationRecord } from '@/lib/notificationPlatform';
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  body: string | null;
-  data: Record<string, unknown>;
-  is_read: boolean;
-  created_at: string;
+export type Notification = NotificationRecord;
+
+function normalizeNotification(row: Omit<Notification, 'data'> & { data: unknown }): Notification {
+  const data = typeof row.data === 'object' && row.data !== null && !Array.isArray(row.data)
+    ? row.data as Record<string, unknown>
+    : {};
+  return { ...row, data };
 }
 
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
-      setUnreadCount(0);
+      setError(null);
       setLoading(false);
       return;
     }
 
+    setLoading(true);
     const { data, error } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id,user_id,type,title,body,data,is_read,created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
 
     if (error) {
       console.error('notifications fetch failed', error);
-      setNotifications([]);
-      setUnreadCount(0);
+      setError('Az értesítéseket most nem sikerült frissíteni. A korábban betöltött lista megmaradt.');
     } else {
-      const items = (data || []) as unknown as Notification[];
+      const items = ((data || []) as unknown as Array<Omit<Notification, 'data'> & { data: unknown }>)
+        .map(normalizeNotification);
       setNotifications(items);
-      setUnreadCount(items.filter((n) => !n.is_read).length);
+      setError(null);
     }
     setLoading(false);
   }, [user]);
@@ -60,9 +60,10 @@ export function useNotifications() {
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        const newNotif = payload.new as unknown as Notification;
-        setNotifications((prev) => [newNotif, ...prev]);
-        setUnreadCount((prev) => prev + 1);
+        const newNotif = normalizeNotification(
+          payload.new as unknown as Omit<Notification, 'data'> & { data: unknown },
+        );
+        setNotifications((prev) => mergeRealtimeNotification(prev, newNotif));
       })
       .subscribe();
 
@@ -70,12 +71,21 @@ export function useNotifications() {
   }, [user]);
 
   const markAsRead = useCallback(async (id: string) => {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    if (!user) return false;
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('user_id', user.id);
     if (!error) {
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      setError(null);
+      return true;
     }
-  }, []);
+    console.error('notification mark-as-read failed', error);
+    setError('Az értesítés állapotát nem sikerült menteni.');
+    return false;
+  }, [user]);
 
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
@@ -84,9 +94,14 @@ export function useNotifications() {
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
     if (!error) {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      setError(null);
+      return true;
     }
+    console.error('notification mark-all-as-read failed', error);
+    setError('Az értesítéseket nem sikerült olvasottnak jelölni.');
+    return false;
   }, [user, notifications]);
 
-  return { notifications, unreadCount, loading, markAsRead, markAllAsRead, refetch: fetchNotifications };
+  const unreadCount = notifications.reduce((count, item) => count + (item.is_read ? 0 : 1), 0);
+  return { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, refetch: fetchNotifications };
 }

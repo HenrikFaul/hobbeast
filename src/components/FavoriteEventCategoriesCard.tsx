@@ -35,8 +35,8 @@ export function FavoriteEventCategoriesCard() {
     supabase.from('profiles').select('favorite_event_categories,hobbies').eq('user_id', user.id).single()
       .then(({ data }) => {
         if (data) {
-          setFavorites((data as any).favorite_event_categories || []);
-          setHobbies((data as any).hobbies || []);
+          setFavorites(data.favorite_event_categories || []);
+          setHobbies(data.hobbies || []);
         }
       });
   }, [user]);
@@ -49,7 +49,7 @@ export function FavoriteEventCategoriesCard() {
     if (!user) return;
     setSaving(true);
     const { error } = await supabase.from('profiles')
-      .update({ favorite_event_categories: favorites } as any)
+      .update({ favorite_event_categories: favorites })
       .eq('user_id', user.id);
     if (error) toast.error('Hiba a mentés során.');
     else toast.success('Kedvenc kategóriák mentve!');

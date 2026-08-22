@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getPublicParticipantCounts } from '@/lib/eventOperations';
 
 export interface ParticipantStats {
   total: number;
@@ -21,24 +21,22 @@ export async function getParticipantStatsMap(eventIds: string[]): Promise<Map<st
   uniqueIds.forEach((id) => statsMap.set(id, { ...EMPTY_STATS }));
   if (uniqueIds.length === 0) return statsMap;
 
-  const { data, error } = await supabase
-    .from('event_participants')
-    .select('event_id,status')
-    .in('event_id', uniqueIds);
-
-  if (error) {
-    console.error('participant stats failed', error);
+  let rows;
+  try {
+    rows = await getPublicParticipantCounts(uniqueIds);
+  } catch (error) {
+    console.error('participant aggregate stats failed', error);
     return statsMap;
   }
 
-  (data ?? []).forEach((row: any) => {
-    const current = { ...(statsMap.get(row.event_id) ?? EMPTY_STATS) };
-    current.total += 1;
-    if (row.status === 'going') current.going += 1;
-    if (row.status === 'waitlist') current.waitlist += 1;
-    if (row.status === 'checked_in') current.checkedIn += 1;
-    if (row.status === 'cancelled' || row.status === 'no_show') current.cancelled += 1;
-    statsMap.set(row.event_id, current);
+  rows.forEach((row) => {
+    statsMap.set(row.event_id, {
+      total: row.total,
+      going: row.going,
+      waitlist: row.waitlist,
+      checkedIn: row.checked_in + row.completed,
+      cancelled: row.cancelled,
+    });
   });
 
   return statsMap;

@@ -1,227 +1,161 @@
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, Filter, Plus, ExternalLink, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Filter, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
-import { geocodePlace } from "@/lib/placeSearch";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
 import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
+import {
+  cancelEventParticipation,
+  joinEventAtomic,
+  listSafeDiscoverableEventsPage,
+  listSafeExternalEventsPage,
+} from '@/lib/eventOperations';
+import {
+  rankRecommendations,
+  type RecommendationReasonCode,
+  type RecommendationSource,
+} from '@/lib/recommendationEngine';
+import { getDiscoveryBootstrap, setDiscoveryPreference } from '@/lib/discoveryFeedback';
+import { trackProductEvent } from '@/lib/productAnalyticsClient';
+import {
+  getNativeRecommendationSignals,
+  type NativeRecommendationSignal,
+} from '@/lib/recommendationSignals';
+import { interleavePromotedContent } from '@/lib/promotedContent';
+import {
+  loadPromotedExperienceRows,
+  type PromotedExperienceRow,
+} from '@/features/events/promotedDiscovery';
 
-type SourceFilter = 'all' | 'hobbeast' | 'external';
-type LatLng = { lat: number; lon: number };
-type EventRelation = 'own' | 'joined' | 'interest' | 'default';
-
-interface EventData {
-  id: string;
-  title: string;
-  category: string;
-  event_date: string | null;
-  event_time: string | null;
-  location_city: string | null;
-  location_district: string | null;
-  location_address: string | null;
-  location_free_text: string | null;
-  location_lat?: number | null;
-  location_lon?: number | null;
-  location_type: string | null;
-  max_attendees: number | null;
-  image_emoji: string | null;
-  tags: string[] | null;
-  description: string | null;
-  created_by: string;
-  participant_count?: number;
-  source?: 'hobbeast' | 'eventbrite';
-  source_label?: string;
-  eventbrite_url?: string;
-  eventbrite_logo_url?: string | null;
-  place_name?: string | null;
-  place_city?: string | null;
-  place_address?: string | null;
-}
-
-interface ProfileLocation {
-  city: string | null;
-  address: string | null;
-  location_lat: number | null;
-  location_lon: number | null;
-  hobbies: string[] | null;
-}
-
-const SOURCE_FILTERS = [
-  { value: 'all' as const, label: 'Minden forrás' },
-  { value: 'hobbeast' as const, label: 'Hobbeast' },
-  { value: 'external' as const, label: 'Külső programok' },
-];
-
-const geocodeCache = new Map<string, LatLng | null>();
-
-function isExternal(ev: EventData) {
-  return ev.source !== undefined && ev.source !== 'hobbeast';
-}
-
-function buildLocationQuery(ev: EventData) {
-  if (ev.location_type === 'online') return null;
-  return [ev.location_address, ev.location_city, ev.location_free_text].filter(Boolean).join(', ');
-}
-
-function normalizeText(value: string | null | undefined) {
-  return (value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
-}
-
-function getTodayDateString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function isUpcomingEventDate(eventDate: string | null | undefined) {
-  return Boolean(eventDate && eventDate >= getTodayDateString());
-}
-
-function haversineDistanceKm(from: LatLng, to: LatLng) {
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(to.lat - from.lat);
-  const dLon = toRad(to.lon - from.lon);
-  const lat1 = toRad(from.lat);
-  const lat2 = toRad(to.lat);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-async function geocodeLocation(query: string): Promise<LatLng | null> {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return null;
-  if (geocodeCache.has(normalized)) return geocodeCache.get(normalized) ?? null;
-  try {
-    const place = await geocodePlace(query);
-    const coords = place ? { lat: place.lat, lon: place.lon } : null;
-    geocodeCache.set(normalized, coords);
-    return coords;
-  } catch {
-    geocodeCache.set(normalized, null);
-    return null;
-  }
-}
-
-const SAMPLE_EVENTS: EventData[] = [
-  { id: 'sample-1', title: 'Vasárnapi futóklub a Városligetben', category: 'Sport', event_date: '2026-03-15', event_time: '08:00', location_city: 'Budapest', location_district: null, location_address: 'Városliget', location_free_text: null, location_type: 'address', max_attendees: 40, image_emoji: '🏃', tags: ['Futás', 'Reggeli', 'Kezdő-barát'], description: null, created_by: '', participant_count: 23, source: 'hobbeast', source_label: 'Hobbeast' },
-  { id: 'sample-2', title: 'Board Game Night – Társasest', category: 'Társasjátékok', event_date: '2026-03-16', event_time: '18:00', location_city: 'Budapest', location_district: null, location_address: 'Szimpla Kert', location_free_text: null, location_type: 'address', max_attendees: 20, image_emoji: '🎲', tags: ['Társasozás', 'Esti program'], description: null, created_by: '', participant_count: 12, source: 'hobbeast', source_label: 'Hobbeast' },
-  { id: 'sample-3', title: 'Akrilfestés workshop kezdőknek', category: 'Kreatív', event_date: '2026-03-18', event_time: '16:00', location_city: 'Budapest', location_district: null, location_address: 'Művész Stúdió', location_free_text: null, location_type: 'address', max_attendees: 12, image_emoji: '🎨', tags: ['Festés', 'Workshop', 'Kezdő'], description: null, created_by: '', participant_count: 8, source: 'hobbeast', source_label: 'Hobbeast' },
-  { id: 'sample-4', title: 'Buda Hills túra – tavaszi kirándulás', category: 'Túra', event_date: '2026-03-20', event_time: '09:00', location_city: 'Budapest', location_district: null, location_address: 'Normafa', location_free_text: null, location_type: 'address', max_attendees: 50, image_emoji: '🏔️', tags: ['Kirándulás', 'Természet'], description: null, created_by: '', participant_count: 31, source: 'hobbeast', source_label: 'Hobbeast' },
-  { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: null, created_by: '', participant_count: 6, source: 'hobbeast', source_label: 'Hobbeast' },
-  { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: null, created_by: '', participant_count: 18, source: 'hobbeast', source_label: 'Hobbeast' },
-];
-
-const CATEGORY_NAME_MAP = HOBBY_CATALOG.map((category) => ({
-  categoryId: category.id,
-  categoryName: category.name,
-  categoryNameNormalized: normalizeText(category.name),
-  subcategories: category.subcategories.map((subcategory) => ({
-    subcategoryId: subcategory.id,
-    subcategoryName: subcategory.name,
-    subcategoryNameNormalized: normalizeText(subcategory.name),
-    activities: subcategory.activities.map((activity) => ({
-      activityId: activity.id,
-      activityName: activity.name,
-      activityNameNormalized: normalizeText(activity.name),
-    })),
-  })),
-}));
-
-function splitCategoryParts(category: string) {
-  return category
-    .split(/[›>]/g)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function matchesNormalizedPart(eventPart: string, catalogPart: string) {
-  return eventPart === catalogPart || eventPart.includes(catalogPart) || catalogPart.includes(eventPart);
-}
-
-function getEventCategoryKeys(category: string) {
-  const [first, second, third] = splitCategoryParts(category).map(normalizeText);
-  let categoryId: string | null = null;
-  let subcategoryId: string | null = null;
-  let activityId: string | null = null;
-
-  const categoryMatch = CATEGORY_NAME_MAP.find((item) => matchesNormalizedPart(first, item.categoryNameNormalized));
-  if (categoryMatch) {
-    categoryId = categoryMatch.categoryId;
-    if (second) {
-      const subcategoryMatch = categoryMatch.subcategories.find((item) => matchesNormalizedPart(second, item.subcategoryNameNormalized));
-      if (subcategoryMatch) {
-        subcategoryId = subcategoryMatch.subcategoryId;
-        if (third) {
-          const activityMatch = subcategoryMatch.activities.find((item) => matchesNormalizedPart(third, item.activityNameNormalized));
-          if (activityMatch) activityId = activityMatch.activityId;
-        }
-      }
-    }
-  }
-
-  return { categoryId, subcategoryId, activityId };
-}
-
-function eventMatchesFavorites(event: EventData, favorites: string[]) {
-  if (!favorites.length) return false;
-  const haystack = normalizeText([event.title, event.category, ...(event.tags || [])].join(' '));
-  return favorites.some((favorite) => haystack.includes(normalizeText(favorite)));
-}
-
-const OWN_BADGE_CLASS = "border-purple-200 bg-purple-50 text-purple-700";
-const JOINED_BADGE_CLASS = "border-emerald-200 bg-emerald-50 text-emerald-700";
-const INTEREST_BADGE_CLASS = "border-sky-200 bg-sky-50 text-sky-700";
-
-const OWN_BUTTON_CLASS = "w-full border-purple-200 bg-purple-100 text-purple-700 hover:bg-purple-100 cursor-default";
-const JOINED_BUTTON_CLASS = "w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50";
-const INTEREST_BUTTON_CLASS = "w-full border-0 bg-sky-600 text-white hover:bg-sky-700";
-const DEFAULT_BUTTON_CLASS = "w-full gradient-primary text-primary-foreground border-0";
+import {
+  EVENT_PAGE_SIZE,
+  SAMPLE_EVENTS,
+  SOURCE_FILTERS,
+  buildLocationQuery,
+  eventCanonicalIdentity,
+  eventMatchesFavorites,
+  geocodeLocation,
+  getEventCategoryKeys,
+  getTodayDateString,
+  haversineDistanceKm,
+  isExternal,
+  isUpcomingEventDate,
+  normalizeText,
+  type CapacityFilter,
+  type DateFilter,
+  type EventData,
+  type EventRelation,
+  type ExternalSupplyRow,
+  type LatLng,
+  type ProfileLocation,
+  type SourceFilter,
+} from '@/features/events/discoveryModel';
+import { EventDiscoveryCard } from '@/features/events/EventDiscoveryCard';
+import { CategoryFilterDialog } from '@/features/events/CategoryFilterDialog';
+import {
+  loadDiscoveryProfileLocation,
+  loadJoinedEventIds,
+} from '@/features/events/eventsRepository';
 
 const Events = () => {
-  const [search, setSearch] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
-  const [showCreate, setShowCreate] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSource = searchParams.get('source');
+  const requestedMode = searchParams.get('mode');
+  const requestedDate = searchParams.get('date');
+  const requestedCapacity = searchParams.get('capacity');
+  const [search, setSearch] = useState(searchParams.get('q') || '');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(
+    requestedSource === 'hobbeast' || requestedSource === 'external' ? requestedSource : 'all',
+  );
+  const [dateFilter, setDateFilter] = useState<DateFilter>(
+    requestedDate === 'today' || requestedDate === 'week' || requestedDate === 'month' ? requestedDate : 'all',
+  );
+  const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>(
+    requestedCapacity === 'available' || requestedCapacity === 'waitlist' ? requestedCapacity : 'all',
+  );
+  const [planningCircleId] = useState(() => searchParams.get('circle'));
+  const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
   const [eventbriteEvents, setEventbriteEvents] = useState<EventData[]>([]);
   const [externalDbEvents, setExternalDbEvents] = useState<EventData[]>([]);
   const [eventbriteLoading, setEventbriteLoading] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [externalSupplyNotice, setExternalSupplyNotice] = useState<string | null>(null);
+  const [nativeOffset, setNativeOffset] = useState(0);
+  const [externalOffset, setExternalOffset] = useState(0);
+  const [nativeHasMore, setNativeHasMore] = useState(false);
+  const [externalHasMore, setExternalHasMore] = useState(false);
+  const [eventbritePage, setEventbritePage] = useState(1);
+  const [eventbriteHasMore, setEventbriteHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
   const [leaveTarget, setLeaveTarget] = useState<EventData | null>(null);
   const [profileLocation, setProfileLocation] = useState<ProfileLocation | null>(null);
-  const [distanceFilterEnabled, setDistanceFilterEnabled] = useState(false);
-  const [distanceKm, setDistanceKm] = useState(50);
+  const [distanceFilterEnabled, setDistanceFilterEnabled] = useState(searchParams.get('distance') === '1');
+  const [distanceKm, setDistanceKm] = useState(() => {
+    const parsed = Number(searchParams.get('km'));
+    return Number.isFinite(parsed) ? Math.max(1, Math.min(parsed, 200)) : 50;
+  });
   const [distanceFilteredIds, setDistanceFilteredIds] = useState<Set<string> | null>(null);
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
 
-  const [primaryFilter, setPrimaryFilter] = useState<'all' | 'search' | 'personal' | 'categories'>('all');
+  const [primaryFilter, setPrimaryFilter] = useState<'all' | 'search' | 'personal' | 'categories'>(
+    requestedMode === 'search' || requestedMode === 'personal' || requestedMode === 'categories' ? requestedMode : 'all',
+  );
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
-  const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(new Set());
-  const [selectedActivityKeys, setSelectedActivityKeys] = useState<Set<string>>(new Set());
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(() => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)));
+  const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(() => new Set((searchParams.get('sub') || '').split(',').filter(Boolean)));
+  const [selectedActivityKeys, setSelectedActivityKeys] = useState<Set<string>>(() => new Set((searchParams.get('activity') || '').split(',').filter(Boolean)));
+  const [visibleCount, setVisibleCount] = useState(24);
+  const [pendingJoinIds, setPendingJoinIds] = useState<Set<string>>(new Set());
+  const [suppressedIdentities, setSuppressedIdentities] = useState<Set<string>>(new Set());
+  const [newRecommenderEnabled, setNewRecommenderEnabled] = useState(false);
+  const [discoveryBootstrapError, setDiscoveryBootstrapError] = useState<string | null>(null);
+  const [nativeRecommendationSignals, setNativeRecommendationSignals] = useState<Map<string, NativeRecommendationSignal>>(new Map());
+  const [recommendationSignalsError, setRecommendationSignalsError] = useState<string | null>(null);
+  const [promotedExperienceRows, setPromotedExperienceRows] = useState<PromotedExperienceRow[]>([]);
+  const [promotedContentError, setPromotedContentError] = useState<string | null>(null);
+  const impressedEventIds = useRef<Set<string>>(new Set());
 
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (search.trim()) next.set('q', search.trim());
+    if (sourceFilter !== 'all') next.set('source', sourceFilter);
+    if (primaryFilter !== 'all') next.set('mode', primaryFilter);
+    if (dateFilter !== 'all') next.set('date', dateFilter);
+    if (capacityFilter !== 'all') next.set('capacity', capacityFilter);
+    if (distanceFilterEnabled) {
+      next.set('distance', '1');
+      next.set('km', String(distanceKm));
+    }
+    if (selectedCategoryIds.size) next.set('cat', [...selectedCategoryIds].sort().join(','));
+    if (selectedSubcategoryKeys.size) next.set('sub', [...selectedSubcategoryKeys].sort().join(','));
+    if (selectedActivityKeys.size) next.set('activity', [...selectedActivityKeys].sort().join(','));
+    if (showCreate && planningCircleId) {
+      next.set('circle', planningCircleId);
+      next.set('create', '1');
+    }
+    setSearchParams(next, { replace: true });
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showCreate, planningCircleId, setSearchParams]);
+
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys]);
 
   const toggleSetValue = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
     setter((prev) => {
@@ -238,34 +172,49 @@ const Events = () => {
     setSelectedActivityKeys(new Set());
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (append = false) => {
+    setEventsLoading(true);
+    setEventsError(null);
     const today = getTodayDateString();
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('is_active', true)
-      .gte('event_date', today);
-
-    if (error) {
+    try {
+      const page = await listSafeDiscoverableEventsPage({
+        fromDate: today,
+        limit: EVENT_PAGE_SIZE,
+        offset: append ? nativeOffset : 0,
+      });
+      const nativeEvents = page.items as unknown as EventData[];
+      const statsMap = await getParticipantStatsMap(nativeEvents.map((event) => event.id));
+      const mapped = nativeEvents.map((event) => ({
+        ...event,
+        participant_count: statsMap.get(event.id)?.total || 0,
+        source: 'hobbeast' as const,
+        source_label: 'Hobbeast',
+      }));
+      setDbEvents((current) => append
+        ? [...new Map([...current, ...mapped].map((event) => [event.id, event])).values()]
+        : mapped);
+      setNativeOffset(page.nextOffset ?? (append ? nativeOffset : 0));
+      setNativeHasMore(page.hasMore);
+    } catch (error) {
       console.error('events fetch failed', error);
-      return;
+      setEventsError('A Hobbeast eseményeket most nem sikerült betölteni. Próbáld újra.');
+    } finally {
+      setEventsLoading(false);
     }
-
-    const statsMap = await getParticipantStatsMap((data ?? []).map((event: any) => event.id));
-    setDbEvents((data ?? []).map((e: any) => ({
-      ...e,
-      participant_count: statsMap.get(e.id)?.total || 0,
-      source: 'hobbeast' as const,
-      source_label: 'Hobbeast',
-    })));
   };
 
-  const fetchExternalDbEvents = async () => {
+  const fetchExternalDbEvents = async (append = false) => {
     const today = getTodayDateString();
-    const { data } = await supabase.from('external_events').select('*').eq('is_active', true).gte('event_date', today);
-
-    if (data) {
-      setExternalDbEvents(data.map((e: any) => ({
+    try {
+      const page = await listSafeExternalEventsPage({
+        fromDate: today,
+        limit: EVENT_PAGE_SIZE,
+        offset: append ? externalOffset : 0,
+      });
+      const data = page.items as unknown as ExternalSupplyRow[];
+      setExternalSupplyNotice(null);
+      const mapped = data.map((e) => ({
+        external_event_id: e.id,
         id: `ext-${e.external_source}-${e.external_id}`,
         title: e.title,
         category: e.subcategory || e.category || 'Külső esemény',
@@ -286,48 +235,193 @@ const Events = () => {
         participant_count: 0,
         source: 'eventbrite' as const,
         source_label: e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source,
-        eventbrite_url: e.external_url,
+        eventbrite_url: e.external_url || undefined,
         eventbrite_logo_url: e.image_url,
-      })));
+        source_last_synced_at: e.source_last_synced_at,
+        freshness_state: e.freshness_state || 'unknown',
+        import_state: e.import_state || 'active',
+        canonical_identity: e.canonical_fingerprint || undefined,
+      }));
+      setExternalDbEvents((current) => append
+        ? [...new Map([...current, ...mapped].map((event) => [event.id, event])).values()]
+        : mapped);
+      setExternalOffset(page.nextOffset ?? (append ? externalOffset : 0));
+      setExternalHasMore(page.hasMore);
+    } catch (error) {
+      console.error('external supply fetch failed', error);
+      setExternalSupplyNotice('A külső programforrás átmenetileg nem érhető el; a Hobbeast események továbbra is használhatók.');
     }
   };
 
-  const fetchEbEvents = async () => {
+  const fetchEbEvents = async (append = false) => {
     setEventbriteLoading(true);
     try {
-      const result = await searchEventbriteEvents('Budapest', 1);
-      setEventbriteEvents((result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' })));
-    } catch (err) {
-      console.log('Eventbrite import not available:', err);
+      const requestedPage = append ? eventbritePage + 1 : 1;
+      const result = await searchEventbriteEvents('Budapest', requestedPage);
+      const mapped = (result.events as unknown as EventData[]).map(ev => ({ ...ev, source: 'eventbrite' as const, source_label: 'Eventbrite' }));
+      setEventbriteEvents((current) => append
+        ? [...new Map([...current, ...mapped].map((event) => [event.id, event])).values()]
+        : mapped);
+      setEventbritePage(requestedPage);
+      setEventbriteHasMore(result.pagination.has_more_items);
+    } catch {
+      console.warn('Eventbrite live preview not available. Falling back to stored/native supply.');
+      setExternalSupplyNotice('Az élő Eventbrite-forrás átmenetileg nem érhető el; tárolt és Hobbeast eseményeket mutatunk.');
     }
     setEventbriteLoading(false);
   };
 
   const fetchJoined = async () => {
     if (!user) { setJoinedEventIds(new Set()); return; }
-    const { data } = await supabase.from('event_participants').select('event_id').eq('user_id', user.id);
-    if (data) setJoinedEventIds(new Set(data.map(d => d.event_id)));
+    const result = await loadJoinedEventIds(user.id);
+    setJoinedEventIds(result.data);
   };
 
   const fetchProfileLocation = async () => {
     if (!user) { setProfileLocation(null); return; }
-    const { data } = await supabase.from('profiles').select('city,address,location_lat,location_lon,hobbies').eq('user_id', user.id).maybeSingle();
-    setProfileLocation(data ?? null);
+    const result = await loadDiscoveryProfileLocation(user.id);
+    setProfileLocation(result.data);
   };
 
   useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalDbEvents(); }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setSuppressedIdentities(new Set());
+      setNewRecommenderEnabled(false);
+      setDiscoveryBootstrapError(null);
+      return () => { active = false; };
+    }
+    void getDiscoveryBootstrap()
+      .then((bootstrap) => {
+        if (!active) return;
+        setSuppressedIdentities(new Set(
+          bootstrap.preferences
+            .filter((preference) => preference.preference === 'less_like_this')
+            .map((preference) => preference.canonical_identity),
+        ));
+        setNewRecommenderEnabled(bootstrap.newRecommenderEnabled);
+        setDiscoveryBootstrapError(null);
+      })
+      .catch((error) => {
+        console.error('Discovery bootstrap failed', error);
+        if (active) {
+          setNewRecommenderEnabled(false);
+          setDiscoveryBootstrapError('A személyes discovery-beállításokat most nem sikerült betölteni; az alap eseménylista használható.');
+        }
+      });
+    return () => { active = false; };
+  }, [user]);
 
   const allEvents = useMemo(
-    () => [...dbEvents, ...SAMPLE_EVENTS.filter(s => !dbEvents.some(d => d.title === s.title)), ...eventbriteEvents, ...externalDbEvents]
-      .filter((event) => isUpcomingEventDate(event.event_date)),
+    () => {
+      const deduped = new Map<string, EventData>();
+      const candidates = [
+        ...dbEvents,
+        ...externalDbEvents,
+        ...eventbriteEvents,
+        ...SAMPLE_EVENTS.filter((sample) => !dbEvents.some((event) => event.title === sample.title)),
+      ].filter((event) => isUpcomingEventDate(event.event_date));
+      candidates.forEach((event) => {
+        const identity = eventCanonicalIdentity(event);
+        if (!deduped.has(identity)) deduped.set(identity, { ...event, canonical_identity: identity });
+      });
+      return [...deduped.values()];
+    },
     [dbEvents, eventbriteEvents, externalDbEvents]
   );
+
+  const nativeRecommendationIds = useMemo(
+    () => allEvents.filter((event) => !isExternal(event)).map((event) => event.id),
+    [allEvents],
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (!user || !newRecommenderEnabled || nativeRecommendationIds.length === 0) {
+      setNativeRecommendationSignals(new Map());
+      setRecommendationSignalsError(null);
+      return () => { active = false; };
+    }
+    void getNativeRecommendationSignals(nativeRecommendationIds)
+      .then((signals) => {
+        if (!active) return;
+        setNativeRecommendationSignals(signals);
+        setRecommendationSignalsError(null);
+      })
+      .catch((error) => {
+        console.error('Server-side recommendation signals failed', error);
+        if (!active) return;
+        setNativeRecommendationSignals(new Map());
+        setRecommendationSignalsError('A szerveroldali személyre szabás most nem érhető el; az alap, biztonságos sorrendet mutatjuk.');
+      });
+    return () => { active = false; };
+  }, [user, newRecommenderEnabled, nativeRecommendationIds]);
+
+  useEffect(() => {
+    let active = true;
+    if (!user || nativeRecommendationIds.length === 0) {
+      setPromotedExperienceRows([]);
+      setPromotedContentError(null);
+      return () => { active = false; };
+    }
+    void loadPromotedExperienceRows(nativeRecommendationIds)
+      .then((rows) => {
+        if (!active) return;
+        setPromotedExperienceRows(rows);
+        setPromotedContentError(null);
+      })
+      .catch(() => {
+        console.warn('[discovery] promoted_content_policy_unavailable', {
+          errorCode: 'PROMOTED_CONTENT_POLICY_QUERY_FAILED',
+        });
+        if (!active) return;
+        setPromotedExperienceRows([]);
+        setPromotedContentError('A kiemelt tartalom ellenőrzése most nem érhető el; az organikus eseménysorrend változatlan maradt.');
+      });
+    return () => { active = false; };
+  }, [user, nativeRecommendationIds]);
 
   const favorites = useMemo(() => profileLocation?.hobbies || [], [profileLocation]);
   const selectedCategoryCount = selectedCategoryIds.size + selectedSubcategoryKeys.size + selectedActivityKeys.size;
   const activePrimaryFilter = primaryFilter;
+
+  const recommendationRanking = useMemo(() => newRecommenderEnabled ? rankRecommendations(
+    allEvents.map((event) => {
+      const serverSignal = isExternal(event) ? null : nativeRecommendationSignals.get(event.id);
+      return {
+      id: event.id,
+      canonicalIdentity: eventCanonicalIdentity(event),
+      source: (isExternal(event) ? 'external' : 'native') as RecommendationSource,
+      title: event.title,
+      category: event.category,
+      city: event.location_city,
+      startsAt: event.event_date ? `${event.event_date}T${event.event_time || '00:00:00'}` : null,
+      beginnerFriendly: (event.tags || []).some((tag) => normalizeText(tag).includes('kezdo')),
+      distanceKm: serverSignal?.distanceKm ?? null,
+      hostReliability: serverSignal?.hostReliability ?? null,
+      freshness: event.freshness_state === 'fresh' ? 1 : event.freshness_state === 'aging' ? 0.55 : event.freshness_state === 'stale' ? 0.1 : 0.5,
+      marketplaceExposure: serverSignal?.exposureShare ?? null,
+      attendedSimilar: serverSignal?.attendedSimilar ?? false,
+      availabilityMatch: serverSignal?.availabilityMatch ?? false,
+      serverRankingScore: serverSignal?.rankingScore ?? null,
+      serverReasonCodes: serverSignal?.reasonCodes ?? [],
+    };
+    }),
+    {
+      explicitInterests: favorites,
+      preferredCity: profileLocation?.city,
+      maxDistanceKm: distanceFilterEnabled ? distanceKm : null,
+      coldStart: favorites.length === 0,
+    },
+  ) : [], [allEvents, favorites, profileLocation?.city, distanceFilterEnabled, distanceKm, newRecommenderEnabled, nativeRecommendationSignals]);
+
+  const recommendationByIdentity = useMemo(
+    () => new Map(recommendationRanking.map((item, index) => [item.candidate.canonicalIdentity, { ...item, index }])),
+    [recommendationRanking],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -393,7 +487,12 @@ const Events = () => {
   }, [allEvents, profileLocation, distanceFilterEnabled, distanceKm]);
 
   const filtered = useMemo(() => {
-    return allEvents.filter((ev) => {
+    const today = getTodayDateString();
+    const todayDate = new Date(`${today}T00:00:00`);
+    const dateLimit = new Date(todayDate);
+    dateLimit.setDate(dateLimit.getDate() + (dateFilter === 'week' ? 7 : dateFilter === 'month' ? 30 : 0));
+
+    const rows = allEvents.filter((ev) => {
       const relation: EventRelation =
         user && ev.created_by === user.id ? 'own' :
         joinedEventIds.has(ev.id) ? 'joined' :
@@ -403,6 +502,14 @@ const Events = () => {
       const textMatches = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
       const matchSource = sourceFilter === 'all' || (sourceFilter === 'hobbeast' && !isExternal(ev)) || (sourceFilter === 'external' && isExternal(ev));
       const matchDistance = !distanceFilterEnabled || distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
+      const eventDate = ev.event_date ? new Date(`${ev.event_date}T00:00:00`) : null;
+      const matchDate = dateFilter === 'all'
+        || (dateFilter === 'today' && ev.event_date === today)
+        || (eventDate !== null && eventDate >= todayDate && eventDate <= dateLimit);
+      const isFull = Boolean(ev.max_attendees && (ev.participant_count || 0) >= ev.max_attendees);
+      const matchCapacity = capacityFilter === 'all'
+        || (capacityFilter === 'available' && !isFull)
+        || (capacityFilter === 'waitlist' && isFull);
 
       const hasCategorySelections = selectedCategoryIds.size > 0 || selectedSubcategoryKeys.size > 0 || selectedActivityKeys.size > 0;
       let matchCategory = true;
@@ -420,13 +527,59 @@ const Events = () => {
       const matchMine = relation === 'own' || relation === 'joined' || relation === 'interest';
       const matchPrimary =
         activePrimaryFilter === 'search' ? textMatches :
-        activePrimaryFilter === 'personal' ? matchMine :
+        activePrimaryFilter === 'personal' ? (newRecommenderEnabled || matchMine) :
         activePrimaryFilter === 'categories' ? matchCategory :
         true;
 
-      return matchPrimary && matchSource && matchDistance;
+      return matchPrimary && matchSource && matchDistance && matchDate && matchCapacity && !suppressedIdentities.has(eventCanonicalIdentity(ev));
     });
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, primaryFilter, joinedEventIds, favorites, user]);
+    if (activePrimaryFilter === 'personal') {
+      rows.sort((a, b) =>
+        (recommendationByIdentity.get(eventCanonicalIdentity(a))?.index ?? Number.MAX_SAFE_INTEGER)
+        - (recommendationByIdentity.get(eventCanonicalIdentity(b))?.index ?? Number.MAX_SAFE_INTEGER),
+      );
+    }
+    return rows;
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
+
+  const discoveryEntries = useMemo(() => {
+    const organic = filtered.map((event) => ({ ...event, eventId: event.id }));
+    const eventsById = new Map(organic.map((event) => [event.eventId, event]));
+    const candidates = promotedExperienceRows.flatMap((row) => {
+      const item = eventsById.get(row.eventId);
+      if (!item) return [];
+      return [{
+        item,
+        disclosureLabel: row.disclosureLabel,
+        policyStatus: 'approved' as const,
+        qualityScore: row.qualityScore,
+        relevanceScore: row.relevanceScore,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+      }];
+    });
+    return interleavePromotedContent(organic, candidates, {
+      maxPromoted: 1,
+      organicBeforeFirst: 3,
+      minimumOrganicBetween: 4,
+    });
+  }, [filtered, promotedExperienceRows]);
+
+  const visibleEntries = discoveryEntries.slice(0, visibleCount);
+  const visibleEvents = visibleEntries.map((entry) => entry.item);
+
+  useEffect(() => {
+    visibleEvents.forEach((event) => {
+      if (impressedEventIds.current.has(event.id)) return;
+      impressedEventIds.current.add(event.id);
+      void trackProductEvent('event_impression', {
+        event_id: event.id,
+        category: event.category,
+        source: isExternal(event) ? 'external' : 'native',
+        surface: activePrimaryFilter === 'personal' ? 'events_personal' : 'events_catalog',
+      });
+    });
+  }, [visibleEvents, activePrimaryFilter]);
 
   const getLocationString = (ev: EventData) => resolveEventLocationLabel(ev);
 
@@ -436,42 +589,104 @@ const Events = () => {
   const handleJoin = async (eventId: string) => {
     if (!user) { navigate('/auth?redirect=/events'); return; }
     if (eventId.startsWith('sample-')) { toast.info('Ez egy bemutató esemény.'); return; }
-
-    // Find event to check capacity
-    const ev = allEvents.find(e => e.id === eventId);
-    const isFull = ev?.max_attendees && (ev.participant_count || 0) >= ev.max_attendees;
-    const joinStatus = isFull ? 'waitlist' : 'going';
-
-    if (isFull) {
-      // Check if waitlist is enabled (we default to true for capacity-aware join)
-      toast.info('Az esemény betelt, felkerülsz a várólistára!');
-    }
-
-    const { error } = await supabase.from('event_participants').insert({ event_id: eventId, user_id: user.id, status: joinStatus });
-    if (error) {
-      if ((error as any).code === '23505') toast.info('Már csatlakoztál ehhez az eseményhez!');
-      else toast.error('Hiba a csatlakozáskor.');
-    } else {
-      if (joinStatus === 'waitlist') {
-        toast.info('Felkerültél a várólistára!');
-      } else {
-        toast.success('Sikeresen csatlakoztál!');
-      }
-      fetchEvents();
-      fetchJoined();
+    if (pendingJoinIds.has(eventId)) return;
+    setPendingJoinIds((current) => new Set(current).add(eventId));
+    try {
+      const result = await joinEventAtomic(eventId);
+      if (result?.replayed) toast.info('Már csatlakoztál ehhez az eseményhez.');
+      else if (result?.participation_status === 'waitlist') toast.info('Az esemény betelt; felkerültél a várólistára.');
+      else toast.success('Sikeresen csatlakoztál!');
+      const joinedEvent = allEvents.find((event) => event.id === eventId);
+      void trackProductEvent(result?.participation_status === 'waitlist' ? 'waitlist_joined' : 'event_join', {
+        event_id: eventId,
+        category: joinedEvent?.category ?? 'unknown',
+        source: joinedEvent && isExternal(joinedEvent) ? 'external' : 'native',
+        surface: 'events_catalog',
+      });
+      await Promise.all([fetchEvents(), fetchJoined()]);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'EVENT_OPERATION_FAILED';
+      if (code === 'EVENT_FULL_NO_WAITLIST') toast.error('Az esemény betelt és nincs várólista.');
+      else if (code === 'USER_SUSPENDED') toast.error('A fiók jelenlegi korlátozása mellett nem lehet eseményhez csatlakozni.');
+      else if (code === 'EVENT_ORGANIZER_BLOCKED') toast.error('A tiltási beállítások miatt ehhez az eseményhez nem lehet csatlakozni.');
+      else if (code === 'EVENT_NOT_JOINABLE' || code === 'EVENT_ALREADY_STARTED') toast.error('Ehhez az eseményhez már nem lehet csatlakozni.');
+      else toast.error('A csatlakozás nem sikerült. Próbáld újra.');
+    } finally {
+      setPendingJoinIds((current) => {
+        const next = new Set(current);
+        next.delete(eventId);
+        return next;
+      });
     }
   };
 
   const handleLeave = async () => {
     if (!user || !leaveTarget) return;
-    const { error } = await supabase.from('event_participants').delete().eq('event_id', leaveTarget.id).eq('user_id', user.id);
-    if (error) toast.error('Hiba a leiratkozáskor.');
-    else {
-      toast.success('Sikeresen leiratkoztál az eseményről.');
-      fetchEvents();
-      fetchJoined();
+    try {
+      await cancelEventParticipation(leaveTarget.id);
+      toast.success('A részvételedet lemondtad. Ha volt várólista, a következő ember automatikusan egyetlen alkalommal előrelép.');
+      await Promise.all([fetchEvents(), fetchJoined()]);
+    } catch {
+      toast.error('A lemondás nem sikerült. Próbáld újra.');
     }
     setLeaveTarget(null);
+  };
+
+  const handleLessLikeThis = async (event: EventData) => {
+    const identity = eventCanonicalIdentity(event);
+    if (!user) {
+      navigate('/auth?redirect=/events');
+      return;
+    }
+    setSuppressedIdentities((current) => new Set(current).add(identity));
+    try {
+      await setDiscoveryPreference({
+        canonicalIdentity: identity,
+        source: isExternal(event) ? 'external' : 'native',
+        preference: 'less_like_this',
+      });
+      toast.success('Rendben, kevesebb hasonló programot ajánlunk.', {
+        action: {
+          label: 'Visszavonás',
+          onClick: () => {
+            void setDiscoveryPreference({
+              canonicalIdentity: identity,
+              source: isExternal(event) ? 'external' : 'native',
+              preference: 'neutral',
+            }).then(() => {
+              setSuppressedIdentities((current) => {
+                const next = new Set(current);
+                next.delete(identity);
+                return next;
+              });
+              toast.success('A discovery-beállítást visszavontad.');
+            }).catch(() => toast.error('A visszavonást nem sikerült elmenteni.'));
+          },
+        },
+      });
+    } catch {
+      setSuppressedIdentities((current) => {
+        const next = new Set(current);
+        next.delete(identity);
+        return next;
+      });
+      toast.error('A discovery-beállítást nem sikerült elmenteni.');
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const requests: Promise<void>[] = [];
+      if (nativeHasMore) requests.push(fetchEvents(true));
+      if (externalHasMore) requests.push(fetchExternalDbEvents(true));
+      if (eventbriteHasMore) requests.push(fetchEbEvents(true));
+      if (requests.length > 0) await Promise.all(requests);
+      setVisibleCount((count) => count + 24);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -503,6 +718,34 @@ const Events = () => {
               {sf.label}
             </Button>
           ))}
+        </div>
+
+        <div className="mx-auto mb-4 grid max-w-2xl gap-3 sm:grid-cols-2" aria-label="Időpont és férőhely szűrők">
+          <label className="text-sm font-medium">
+            Időszak
+            <select
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value as DateFilter)}
+            >
+              <option value="all">Minden közelgő időpont</option>
+              <option value="today">Ma</option>
+              <option value="week">Következő 7 nap</option>
+              <option value="month">Következő 30 nap</option>
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Férőhely
+            <select
+              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              value={capacityFilter}
+              onChange={(event) => setCapacityFilter(event.target.value as CapacityFilter)}
+            >
+              <option value="all">Minden kapacitás</option>
+              <option value="available">Van szabad hely</option>
+              <option value="waitlist">Betelt / várólistás</option>
+            </select>
+          </label>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-3 mb-4 items-center justify-center">
@@ -650,260 +893,117 @@ const Events = () => {
         </div>
 
         {eventbriteLoading && (
-          <div className="text-center text-sm text-muted-foreground mb-6">Eventbrite események betöltése...</div>
+          <div role="status" aria-live="polite" className="text-center text-sm text-muted-foreground mb-6">Külső események betöltése…</div>
+        )}
+
+        {eventsLoading && <div role="status" aria-live="polite" className="mb-6 text-center text-sm text-muted-foreground">Hobbeast események betöltése…</div>}
+        {eventsError && (
+          <div role="alert" className="mx-auto mb-6 flex max-w-2xl flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+            <span>{eventsError}</span>
+            <Button variant="outline" size="sm" onClick={() => void fetchEvents()}>Újrapróbálom</Button>
+          </div>
+        )}
+        {externalSupplyNotice && <div role="status" className="mx-auto mb-6 max-w-2xl rounded-xl border bg-muted/40 p-3 text-center text-sm text-muted-foreground">{externalSupplyNotice}</div>}
+        {activePrimaryFilter === 'personal' && discoveryBootstrapError && (
+          <div role="alert" className="mx-auto mb-6 max-w-2xl rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-sm text-amber-900">
+            {discoveryBootstrapError}
+          </div>
+        )}
+        {activePrimaryFilter === 'personal' && recommendationSignalsError && !discoveryBootstrapError && (
+          <div role="status" className="mx-auto mb-6 max-w-2xl rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-sm text-amber-900">
+            {recommendationSignalsError}
+          </div>
+        )}
+        {promotedContentError && (
+          <div role="status" className="mx-auto mb-6 max-w-2xl rounded-xl border bg-muted/40 p-3 text-center text-sm text-muted-foreground">
+            {promotedContentError}
+          </div>
         )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {filtered.map((event, i) => {
-            const relation: EventRelation =
-              user && event.created_by === user.id ? 'own' :
-              joinedEventIds.has(event.id) ? 'joined' :
-              eventMatchesFavorites(event, favorites) ? 'interest' :
-              'default';
-
-            const statusBadge =
-              relation === 'own' ? { label: 'Saját', className: OWN_BADGE_CLASS } :
-              relation === 'joined' ? { label: 'Csatlakoztam', className: JOINED_BADGE_CLASS } :
-              relation === 'interest' ? { label: 'Érdekelhet', className: INTEREST_BADGE_CLASS } :
-              null;
-
+          {visibleEntries.map((entry, index) => {
+            const event = entry.item;
+            const relation: EventRelation = user && event.created_by === user.id
+              ? 'own'
+              : joinedEventIds.has(event.id)
+                ? 'joined'
+                : eventMatchesFavorites(event, favorites)
+                  ? 'interest'
+                  : 'default';
+            const recommendation = recommendationByIdentity.get(eventCanonicalIdentity(event));
+            const recommendationReason = recommendation?.reasons[0] as RecommendationReasonCode | undefined;
             return (
-              <motion.div
+              <EventDiscoveryCard
                 key={event.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="rounded-xl border bg-card overflow-hidden hover-lift group cursor-pointer"
-              >
-                <div
-                  className="h-32 gradient-warm flex items-center justify-center"
-                  onClick={() => {
-                    if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event));
-                    navigate(`/events/${event.id}`);
-                  }}
-                >
-                  <span className="text-5xl">{event.image_emoji || '🎉'}</span>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">{event.category}</Badge>
-                    {event.source_label && event.source_label !== 'Hobbeast' && (
-                      <Badge variant="outline" className="text-xs border-accent bg-accent/10 text-accent">
-                        {event.source_label}
-                      </Badge>
-                    )}
-                    {statusBadge && (
-                      <Badge variant="outline" className={`text-xs ${statusBadge.className}`}>
-                        {statusBadge.label}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <h3
-                    className="font-display font-semibold text-lg mb-3 group-hover:text-primary transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (isExternal(event)) sessionStorage.setItem(`event-${event.id}`, JSON.stringify(event));
-                      navigate(`/events/${event.id}`);
-                    }}
-                  >
-                    {event.title}
-                  </h3>
-
-                  <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} />
-                      <span>{formatDate(event.event_date)}</span>
-                      {event.event_time && <>
-                        <Clock size={14} className="ml-2" />
-                        <span>{event.event_time}</span>
-                      </>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} />
-                      <span>{getLocationString(event)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users size={14} />
-                      <span>{event.participant_count || 0}{event.max_attendees ? `/${event.max_attendees}` : ''} résztvevő</span>
-                    </div>
-                  </div>
-
-                  {event.tags && event.tags.length > 0 && (
-                    <div className="flex gap-1.5 flex-wrap mb-4">
-                      {event.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs font-normal">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {isExternal(event) && event.eventbrite_url ? (
-                    <a href={event.eventbrite_url} target="_blank" rel="noopener noreferrer">
-                      <Button className={relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} size="sm">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Megnézem ({event.source_label})
-                      </Button>
-                    </a>
-                  ) : relation === 'own' ? (
-                    <Button variant="outline" className={OWN_BUTTON_CLASS} size="sm" disabled>
-                      Saját
-                    </Button>
-                  ) : relation === 'joined' ? (
-                    <Button variant="outline" className={JOINED_BUTTON_CLASS} size="sm" onClick={() => setLeaveTarget(event)}>
-                      Leiratkozás
-                    </Button>
-                  ) : (
-                    <Button
-                      className={relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS}
-                      size="sm"
-                      onClick={() => handleJoin(event.id)}
-                    >
-                      Csatlakozom
-                    </Button>
-                  )}
-                </div>
-              </motion.div>
+                entry={entry}
+                index={index}
+                relation={relation}
+                recommendationReason={recommendationReason}
+                showRecommendationReason={activePrimaryFilter === 'personal'}
+                joinPending={pendingJoinIds.has(event.id)}
+                onOpen={(selectedEvent) => {
+                  if (isExternal(selectedEvent)) sessionStorage.setItem(`event-${selectedEvent.id}`, JSON.stringify(selectedEvent));
+                  navigate(`/events/${selectedEvent.id}`);
+                }}
+                onJoin={(eventId) => void handleJoin(eventId)}
+                onLeave={setLeaveTarget}
+                onLessLikeThis={(selectedEvent) => void handleLessLikeThis(selectedEvent)}
+              />
             );
           })}
         </div>
 
-        {filtered.length === 0 && (
+        {(visibleCount < filtered.length || nativeHasMore || externalHasMore || eventbriteHasMore) && (
+          <div className="mt-8 text-center">
+            <Button variant="outline" onClick={() => void handleLoadMore()} disabled={loadingMore}>
+              {loadingMore ? 'További események betöltése…' : 'További események'}
+            </Button>
+          </div>
+        )}
+
+        {filtered.length === 0 && !eventsLoading && !eventsError && (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg mb-2">Nincs találat 😔</p>
-            <p className="text-sm">Próbálj más szűrőfeltételeket!</p>
+            <p className="text-sm mb-4">Próbálj más szűrőfeltételeket, vagy jelezd, hogy lenne igény erre a programra.</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={() => {
+                setSearch('');
+                setDateFilter('all');
+                setCapacityFilter('all');
+                setSourceFilter('all');
+                setPrimaryFilter('all');
+              }}>Szűrők törlése</Button>
+              <Button onClick={() => user ? setShowCreate(true) : navigate('/auth?redirect=/events')}>Szervezzünk valamit</Button>
+            </div>
           </div>
         )}
       </div>
 
-      {showCategoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4">
-          <div className="w-full sm:max-w-5xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border bg-card shadow-2xl">
-            <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 px-4 sm:px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-display font-bold">Kategóriák</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Választhatsz fő kategóriát, alkategóriát vagy konkrét tevékenységet is.
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setShowCategoryModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mt-4 flex justify-between gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    clearCategorySelections();
-                    setExpandedCategories(new Set());
-                    setExpandedSubcategories(new Set());
-                  }}
-                >
-                  Kijelölések törlése
-                </Button>
-                <Button className="gradient-primary text-primary-foreground border-0" onClick={() => setShowCategoryModal(false)}>
-                  Kész
-                </Button>
-              </div>
-            </div>
+      <CategoryFilterDialog
+        open={showCategoryModal}
+        selectedCategoryIds={selectedCategoryIds}
+        selectedSubcategoryKeys={selectedSubcategoryKeys}
+        selectedActivityKeys={selectedActivityKeys}
+        onOpenChange={setShowCategoryModal}
+        onToggleCategory={(categoryId) => {
+          setSearch('');
+          setPrimaryFilter('categories');
+          toggleSetValue(setSelectedCategoryIds, categoryId);
+        }}
+        onToggleSubcategory={(subcategoryKey) => {
+          setSearch('');
+          setPrimaryFilter('categories');
+          toggleSetValue(setSelectedSubcategoryKeys, subcategoryKey);
+        }}
+        onToggleActivity={(activityKey) => {
+          setSearch('');
+          setPrimaryFilter('categories');
+          toggleSetValue(setSelectedActivityKeys, activityKey);
+        }}
+        onClear={clearCategorySelections}
+      />
 
-            <div className="space-y-4 p-4 sm:p-6">
-              {HOBBY_CATALOG.map((category) => {
-                const categorySelected = selectedCategoryIds.has(category.id);
-                const categoryExpanded = expandedCategories.has(category.id);
-
-                return (
-                  <div key={category.id} className="rounded-2xl border p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearch('');
-                          setPrimaryFilter('categories');
-                          toggleSetValue(setSelectedCategoryIds, category.id);
-                          toggleSetValue(setExpandedCategories, category.id);
-                        }}
-                        className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
-                          categorySelected
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                            : 'border-border bg-background hover:bg-muted/50'
-                        }`}
-                      >
-                        {category.emoji} {category.name}
-                      </button>
-
-                      <Button variant="ghost" size="sm" onClick={() => toggleSetValue(setExpandedCategories, category.id)}>
-                        {categoryExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </Button>
-                    </div>
-
-                    {categoryExpanded && (
-                      <div className="space-y-3 pl-2">
-                        {category.subcategories.map((subcategory) => {
-                          const subKey = `${category.id}::${subcategory.id}`;
-                          const subSelected = selectedSubcategoryKeys.has(subKey);
-                          const subExpanded = expandedSubcategories.has(subKey);
-
-                          return (
-                            <div key={subKey} className="rounded-xl border border-dashed p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSearch('');
-                                    setPrimaryFilter('categories');
-                                    toggleSetValue(setSelectedSubcategoryKeys, subKey);
-                                    toggleSetValue(setExpandedSubcategories, subKey);
-                                  }}
-                                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
-                                    subSelected
-                                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                                      : 'border-border bg-background hover:bg-muted/50'
-                                  }`}
-                                >
-                                  {subcategory.emoji} {subcategory.name}
-                                </button>
-
-                                <Button variant="ghost" size="sm" onClick={() => toggleSetValue(setExpandedSubcategories, subKey)}>
-                                  {subExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                </Button>
-                              </div>
-
-                              {subExpanded && (
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  {subcategory.activities.map((activity) => {
-                                    const activityKey = `${category.id}::${subcategory.id}::${activity.id}`;
-                                    const activitySelected = selectedActivityKeys.has(activityKey);
-                                    return (
-                                      <button
-                                        key={activityKey}
-                                        type="button"
-                                        onClick={() => { setSearch(''); setPrimaryFilter('categories'); toggleSetValue(setSelectedActivityKeys, activityKey); }}
-                                        className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
-                                          activitySelected
-                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                                            : 'border-border bg-background hover:bg-muted/50'
-                                        }`}
-                                      >
-                                        {activity.emoji} {activity.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {showCreate && <CreateEventDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
+      {showCreate && <CreateEventDialog circleId={planningCircleId || undefined} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
       {leaveTarget && (
         <LeaveEventDialog
           eventTitle={leaveTarget.title}

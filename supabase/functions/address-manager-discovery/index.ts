@@ -19,7 +19,30 @@ import {
   setSelections,
 } from '../_address-manager-shared/repository.ts';
 import { PROVIDER_CATEGORIES, PROVIDER_PAGE_CAPS } from '../_address-manager-shared/constants.ts';
-import type { ProviderKey, ProviderSelfTestResult } from '../_address-manager-shared/types.ts';
+import type { AddressManagerLimits, MatrixSelectionUpdate, ProviderKey, ProviderSelfTestResult } from '../_address-manager-shared/types.ts';
+
+interface DiscoveryRequestBody {
+  action?: unknown;
+  limits?: Partial<AddressManagerLimits>;
+  updates?: MatrixSelectionUpdate[];
+  provider?: unknown;
+  countries?: unknown;
+  categories?: unknown;
+  onlyCompleted?: unknown;
+  olderThanMinutes?: unknown;
+  page?: unknown;
+  pageSize?: unknown;
+  iterations?: unknown;
+}
+
+function parseJsonObject(text: string): Record<string, unknown> {
+  try {
+    const parsed = text ? JSON.parse(text) as unknown : {};
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
 
 function resolveServiceKey() {
   return String(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
@@ -41,12 +64,7 @@ async function callInternalFunction<T>(req: Request, functionName: string, body:
   });
 
   const text = await res.text();
-  let payload: any = {};
-  try {
-    payload = text ? JSON.parse(text) : {};
-  } catch {
-    payload = { raw: text };
-  }
+  const payload = parseJsonObject(text);
 
   if (!res.ok) {
     throw new Error(`Internal function ${functionName} failed: ${res.status} ${text.slice(0, 400)}`);
@@ -83,9 +101,8 @@ async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
           `https://api.geoapify.com/v2/places?categories=catering.restaurant&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=5&apiKey=${encodeURIComponent(apiKey)}`,
         );
         const text = await res.text();
-        let payload: any = {};
-        try { payload = JSON.parse(text); } catch { payload = {}; }
-        const sampleCount = Array.isArray(payload?.features) ? payload.features.length : 0;
+        const payload = parseJsonObject(text);
+        const sampleCount = Array.isArray(payload.features) ? payload.features.length : 0;
         results.push({
           provider: 'geoapify',
           ok: res.ok,
@@ -112,9 +129,8 @@ async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
           `https://api.tomtom.com/search/2/categorySearch/restaurant.json?key=${encodeURIComponent(apiKey)}&lat=${lat}&lon=${lon}&radius=${radius}&limit=5&countrySet=HU`,
         );
         const text = await res.text();
-        let payload: any = {};
-        try { payload = JSON.parse(text); } catch { payload = {}; }
-        const sampleCount = Array.isArray(payload?.results) ? payload.results.length : 0;
+        const payload = parseJsonObject(text);
+        const sampleCount = Array.isArray(payload.results) ? payload.results.length : 0;
         results.push({
           provider: 'tomtom',
           ok: res.ok,
@@ -133,7 +149,7 @@ async function runSelfTest(): Promise<ProviderSelfTestResult[]> {
 }
 
 serve(safeServe(async (req) => {
-  const body = (await req.json().catch(() => ({}))) as any;
+  const body = (await req.json().catch(() => ({}))) as DiscoveryRequestBody;
   const action = String(body.action || 'bootstrap');
 
   // ---- health: zero DB access, only env probe ----
