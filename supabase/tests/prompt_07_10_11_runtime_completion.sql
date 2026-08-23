@@ -15,7 +15,11 @@ INSERT INTO public.profiles (user_id, display_name, user_origin, is_active) VALU
   ('07101100-0000-4000-8000-000000000002', 'Crew', 'real', true),
   ('07101100-0000-4000-8000-000000000003', 'Participant A', 'real', true),
   ('07101100-0000-4000-8000-000000000004', 'Admin one', 'real', true),
-  ('07101100-0000-4000-8000-000000000005', 'Admin two', 'real', true);
+  ('07101100-0000-4000-8000-000000000005', 'Admin two', 'real', true)
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 INSERT INTO public.user_roles (user_id, role) VALUES
   ('07101100-0000-4000-8000-000000000004', 'admin'),
   ('07101100-0000-4000-8000-000000000005', 'admin');

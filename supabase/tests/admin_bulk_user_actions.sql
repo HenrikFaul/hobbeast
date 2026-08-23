@@ -20,9 +20,10 @@ VALUES
   ('12000000-0000-4000-8000-000000000003', 'Protected real target', 'real', true),
   ('12000000-0000-4000-8000-000000000004', 'Generated target A', 'generated', true),
   ('12000000-0000-4000-8000-000000000005', 'Generated target B', 'generated', true)
-ON CONFLICT (user_id) DO UPDATE
-SET user_origin = EXCLUDED.user_origin,
-    is_active = EXCLUDED.is_active;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 
 INSERT INTO public.admin_operator_roles (user_id, role_key, grant_reason)
 VALUES

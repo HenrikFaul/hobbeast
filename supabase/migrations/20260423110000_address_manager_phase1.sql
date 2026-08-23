@@ -76,6 +76,22 @@ begin
 end
 $$;
 
+-- The pre-address-manager provider allowlist (20260414120000) does not accept
+-- provider='address_manager', so the seeding below would abort a clean-chain
+-- replay. Re-add the widened allowlist first (NOT VALID: historical rows may
+-- hold values the later db:* relax migrations legitimize).
+do $$
+begin
+  execute 'alter table public.app_runtime_config drop constraint if exists app_runtime_config_provider_check';
+exception when others then null;
+end
+$$;
+
+alter table public.app_runtime_config
+  add constraint app_runtime_config_provider_check
+  check (provider in ('aws', 'geoapify_tomtom', 'local_catalog', 'supabase', 'address_manager'))
+  not valid;
+
 -- Ensure runtime config keys for address manager exist with unrestricted defaults.
 insert into public.app_runtime_config (key, provider, options)
 values

@@ -1,0 +1,5 @@
+# Local verification stub for pg_net. Performs no network I/O.
+comment = 'pg_net local verification stub (records calls, never sends requests)'
+default_version = '0.0.1'
+relocatable = true
+superuser = false

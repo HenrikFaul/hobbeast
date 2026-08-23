@@ -35,7 +35,7 @@
 | Lint | ⛔ BLOCKED | Current-disk `bun run lint` (2026-08-22) → 248 errors, 31 warnings; still blocked under R-06 |
 | Playwright smoke | 🟡 PARTIAL | `e2e/smoke.spec.ts` exists; needs a running dev server + browser install to execute here |
 | Edge Function / Deno tests | ⛔ BLOCKED | No Deno harness wired yet; foundation documented in `docs/TESTING.md` §3 |
-| Migration dry-run / local Supabase | ⛔ BLOCKED | No local Supabase container available in this environment; operator must run `supabase db reset` / migration dry-run |
+| Migration dry-run / local replay | ✅ PASS (v1.9.0) | `bun run db:verify`: production dump restored 0 errors into a disposable PG18 cluster; 51+2 pending migrations replayed; `--mode=fresh` replays all 92; 15/15 SQL fixtures PASS in both modes. Hosted apply remains operator-owned |
 
 ## 2. Frontend routes & auth
 
@@ -83,7 +83,7 @@
 |---|---|---|
 | Migration count & history | ✅ PASS | Current-disk count: 50 migration files under `supabase/migrations/` (verified 2026-08-22) |
 | Append-only policy | ✅ PASS | no migration rewritten in this pass; new SQL would be a new timestamped file only |
-| RLS on public tables | 🟡 PARTIAL | README: "RLS enforced on every public-schema table". Full per-table evidence requires a live DB inspection (operator) |
+| RLS on public tables | 🟡 PARTIAL | v1.9.0 dump replay DISPROVED the blanket claim: live state had RLS off on 5 policy-bearing tables, a `USING (true)` profiles read policy and anon write grants. `20260823010000` repairs all of it and `db:verify` fixtures now prove the personas locally; hosted state stays unproven until the migration is applied there |
 | SECURITY DEFINER | 🟡 PARTIAL | `docs/SECURITY_DEFINER_AUDIT.md` exists (v1.7.5); Round B draft SQL exists (v1.7.6) but **not applied**; each high-risk function needs its own approved migration |
 | New public table in this pass | ✅ PASS | none added |
 

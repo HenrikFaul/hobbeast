@@ -28,3 +28,9 @@ supabase/.temp/
 .env
 .env.local
 .env.*.local
+
+# v1.9.0: credential-bearing local inputs — security:secrets flags these
+# (signed JWT / API-key patterns). Keep them on disk, never in Git history.
+BASEREQUIREMENTS/baserequests2.txt
+Hobbeast_Expericentre_15_step_production_prompt_pack.zip
+Hobbeast_Expericentre_15_step_production_prompt_pack/Loopie App _ Find Your People Nearby in Budapest_files/

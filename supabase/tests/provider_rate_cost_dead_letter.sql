@@ -4,7 +4,10 @@ BEGIN;
 INSERT INTO auth.users (id) VALUES ('94000000-0000-4000-8000-000000000001');
 INSERT INTO public.profiles (user_id, display_name, user_origin, is_active)
 VALUES ('94000000-0000-4000-8000-000000000001', 'P1508 operator', 'real', true)
-ON CONFLICT (user_id) DO NOTHING;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 INSERT INTO public.admin_operator_roles (user_id, role_key, grant_reason)
 VALUES ('94000000-0000-4000-8000-000000000001', 'super_admin', 'P1508 fixture')
 ON CONFLICT (user_id, role_key) DO NOTHING;

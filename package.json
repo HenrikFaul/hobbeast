@@ -1,7 +1,7 @@
 {
   "name": "hobbeast",
   "private": true,
-  "version": "1.8.4",
+  "version": "1.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "release:sbom": "node scripts/generate-sbom.mjs",
     "security:audit": "node scripts/audit-security-definer.mjs",
     "security:secrets": "node scripts/scan-secrets.mjs",
+    "db:verify": "node scripts/verify-database.mjs",
     "quality:performance": "node scripts/check-performance-budget.mjs",
     "test:e2e": "playwright test"
   },

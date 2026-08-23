@@ -34,7 +34,42 @@ npx playwright install --with-deps chromium
 npx playwright test
 ```
 
-## 3. Edge Function characterization harness (Deno, foundation)
+## 3. Database verification harness (disposable cluster)
+
+`bun run db:verify` (`scripts/verify-database.mjs`) is the runtime evidence gate for
+migrations, RLS and SQL fixtures. It never touches a hosted project.
+
+What it does:
+
+1. `initdb` a disposable PostgreSQL 18 cluster (127.0.0.1, random free port, temp dir).
+2. Bootstrap the Supabase platform roles (`supabase/tests/_local/00_roles.sql`).
+3. Register local stub extensions for `pg_net` / `pg_cron` / `supabase_vault` through the
+   PostgreSQL 18 `extension_control_path` (`supabase/tests/_local/pgshare/extension/`).
+   The stubs record calls/jobs/secrets instead of performing network, scheduling or crypto.
+4. `--mode=restore` (default): restore the newest production dump from
+   `E:/databasebackup/Hobbeast/backups` (override with `HOBBEAST_DB_DUMP`), then replay every
+   repository migration the dump's `supabase_migrations.schema_migrations` ledger has not
+   recorded. Migrations older than the ledger head replay leniently and are reported as
+   `RECONCILE` (the dump contains their objects without ledger rows).
+   `--mode=fresh`: replay the entire chain on an empty database instead.
+5. Run every `supabase/tests/*.sql` fixture; each one is self-rolling-back.
+
+Requirements: PostgreSQL 18+ on the machine (`PG_BIN` to override autodetection).
+Useful flags: `--keep` (retain the cluster for inspection), `--port=N`.
+
+```bash
+bun run db:verify
+```
+
+```bash
+bun run db:verify -- --mode=fresh
+```
+
+A migration or RLS change is **not verified** until this gate passes in restore mode — the
+2026-08-23 run proved that source-only review misses live drift (disabled RLS, dashboard-created
+policies, contradictory constraints, missing triggers).
+
+## 4. Edge Function characterization harness (Deno, foundation)
 
 The `place-search` (1306 LOC at the v1.8.1 measurement), notification/community rebuild and organizer/admin deep
 refactors remain **deferred until an Edge-side characterization harness exists**. This section

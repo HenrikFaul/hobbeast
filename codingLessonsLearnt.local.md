@@ -115,3 +115,55 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   an approved migration revokes broad grants and proves direct-call denial.
 - **Prevention**: Review database grants separately from every wrapper route. Wrapper auth is
   defense in depth, not a replacement for least-privilege function privileges.
+
+## v1.9.0 — The migration ledger is not the schema: only a dump replay proves the chain
+
+- **Symptom**: 52 of 91 repository migrations had never run against production data. The chain
+  also could not have run: `20260423193000` re-added a provider CHECK constraint that existing
+  `db:*` rows violate, so replay aborted mid-chain and every later migration was unreachable.
+- **Root cause**: Source-only review verified each migration in isolation, but nothing ever
+  replayed the whole chain on top of the real database state. The live schema had also drifted
+  from the migrations (dashboard-created policies, RLS toggled off, ledger entries missing for
+  applied objects).
+- **Fix**: `bun run db:verify` (`scripts/verify-database.mjs`) restores the production dump into a
+  disposable local PostgreSQL 18 cluster (platform roles bootstrapped, pg_net/pg_cron/vault
+  stubbed via `extension_control_path`), replays every pending migration, then runs all
+  `supabase/tests/*.sql` fixtures. Constraint re-adds that legacy rows can violate are `NOT VALID`.
+- **Prevention**: A migration is unverified until it has replayed over a real data snapshot.
+  Re-adding a CHECK constraint in a migration must always be `NOT VALID` unless the same
+  migration proves the data conforms.
+
+## v1.9.0 — Live-DB drift can silently disable an entire security layer
+
+- **Symptom**: The production dump had RLS DISABLED on `virtual_hubs`, `virtual_hub_members`,
+  `notifications`, `notification_preferences` and `event_messages`, while migrations kept adding
+  policies to them — every policy was inert and `anon` held full write grants. `profiles` carried
+  a `USING (true)` SELECT policy (`profiles_select_authenticated`) that exposed every private
+  column to any signed-in user, and `event_participants` had dashboard-created write policies
+  bypassing the audited RPC state machine.
+- **Root cause**: Hosted-dashboard edits (policy creation, RLS toggles) never landed in the
+  migration chain, and no gate compared live state against migration intent.
+- **Fix**: `20260823010000_production_rls_reassertion_and_profile_identity.sql` re-enables RLS,
+  revokes anon writes, drops the blanket/bypass policies, and reconciles the contradictory
+  double CHECK constraints (`profile_visibility`, `event_participants.status`,
+  `events.participation_type` default `'open'` that its own allowlist rejected).
+- **Prevention**: Never trust "the migration enabled RLS" — verify `relrowsecurity` and policy
+  names on a restored dump. Dashboard changes must be back-ported into migrations immediately.
+
+## v1.9.0 — RLS policies that cross-reference each other's tables recurse
+
+- **Symptom**: `infinite recursion detected in policy for relation "virtual_hubs"` as soon as RLS
+  was enabled on both hub tables: the hub policy consulted `virtual_hub_members` while the new
+  member policy consulted `virtual_hubs`.
+- **Fix**: The member policy checks host ownership through a `SECURITY DEFINER` helper
+  (`is_virtual_hub_host`) that reads outside RLS, breaking the cycle.
+- **Prevention**: When two RLS-enabled tables need each other for visibility decisions, at least
+  one direction must go through a SECURITY DEFINER function with a fixed search_path.
+
+## v1.9.0 — Windows pg_ctl start hangs a piped spawnSync forever
+
+- **Symptom**: `scripts/verify-database.mjs` blocked indefinitely at cluster start.
+- **Root cause**: On Windows the postmaster inherits `pg_ctl`'s stdout/stderr pipes; a piped
+  `spawnSync` waits for those pipes to close, which never happens while the server runs.
+- **Fix/Prevention**: Always launch `pg_ctl start` with `stdio: 'ignore'` (or shell redirection)
+  and read startup diagnostics from the `-l` logfile instead of the pipes.

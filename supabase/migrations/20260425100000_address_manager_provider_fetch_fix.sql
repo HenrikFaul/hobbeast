@@ -108,9 +108,13 @@ begin
 exception when others then null;
 end
 $$;
+-- NOT VALID for the same reason as 20260423193000: an existing db:* runtime
+-- config row must not abort the migration chain before 20260426203000 widens
+-- the allowlist. New writes stay guarded.
 alter table public.app_runtime_config
   add constraint app_runtime_config_provider_check
-  check (provider in ('aws', 'geoapify_tomtom', 'local_catalog', 'supabase', 'address_manager'));
+  check (provider in ('aws', 'geoapify_tomtom', 'local_catalog', 'supabase', 'address_manager'))
+  not valid;
 
 -- 5) Re-publish runtime config defaults (merge — don't overwrite existing).
 insert into public.app_runtime_config (key, provider, options)

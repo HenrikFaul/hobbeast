@@ -790,9 +790,15 @@ BEGIN
     FROM public.event_participants WHERE event_id = p_event_id;
     RETURN;
   END IF;
+  -- `end_time` and `event_time` are bare `time` columns on the production
+  -- schema; they only become comparable to now() when combined with
+  -- `event_date`. A bare-time value inside this COALESCE would fail to unify
+  -- with the timestamptz branches (proven by the dump-replay harness).
   v_completion_not_before := COALESCE(
     v_event.expected_end_at,
-    v_event.end_time,
+    CASE WHEN v_event.event_date IS NOT NULL AND v_event.end_time IS NOT NULL THEN
+      (v_event.event_date::text || ' ' || v_event.end_time::text)::timestamp AT TIME ZONE 'UTC'
+    END,
     v_event.start_time,
     CASE WHEN v_event.event_date IS NOT NULL THEN
       (v_event.event_date::text || ' ' || COALESCE(v_event.event_time::text, '00:00:00'))::timestamp AT TIME ZONE 'UTC'

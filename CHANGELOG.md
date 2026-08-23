@@ -12,6 +12,110 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.0] — 2026-08-23
+
+Runtime database evidence pass. The program's central HOLD reason — "no migration has ever
+been proven against the real database" — is closed for the local layer: a reproducible harness
+restores the 2026-06-18 production dump (933 users) into a disposable PostgreSQL 18 cluster,
+replays the full migration chain and runs every SQL acceptance fixture. The replay exposed
+production schema drift that source review could never see; a new reassertion migration
+repairs it. No hosted project was touched: no deploy, no push, no live migration.
+
+### Added
+- `scripts/verify-database.mjs` + `bun run db:verify` — disposable-cluster database
+  verification. `--mode=restore` (default) restores the newest dump from
+  `E:/databasebackup/Hobbeast/backups` (override: `HOBBEAST_DB_DUMP`), replays every
+  migration the dump ledger has not seen, then runs all 15 `supabase/tests/*.sql` fixtures;
+  `--mode=fresh` proves greenfield provisioning from the repository alone.
+- `supabase/tests/_local/00_roles.sql` — Supabase platform role bootstrap for vanilla
+  PostgreSQL (anon/authenticated/service_role/supabase_admin/…).
+- `supabase/tests/_local/pgshare/extension/` — local verification stubs for `pg_net`
+  (records calls, no network), `pg_cron` (records jobs, no worker) and `supabase_vault`
+  (plaintext shape, disposable clusters only), installed via PostgreSQL 18
+  `extension_control_path`. The dump now restores with **0 errors**.
+- `supabase/tests/_local/01_platform.sql` — fresh-mode platform scaffold: minimal
+  `auth.users` + `auth.uid()/role()/jwt()`, storage buckets/objects/foldername, the
+  `supabase_realtime` publication, and the hosted-style default privileges
+  (API roles get blanket grants; RLS is the row boundary, migrations REVOKE selectively).
+- `supabase/migrations/20260823010000_production_rls_reassertion_and_profile_identity.sql` —
+  repairs live-vs-migrations drift proven by the replay (details under Security/Fixed).
+
+### Security
+- The restored production state had **RLS disabled** on `virtual_hubs`, `virtual_hub_members`,
+  `notifications`, `notification_preferences` and `event_messages` while every policy written
+  for them was inert, and `anon` held full write grants on 16 tables. The reassertion
+  migration re-enables RLS on all five, revokes `anon` INSERT/UPDATE/DELETE/TRUNCATE on the
+  affected tables, and adds the missing SELECT/INSERT self-policies
+  (`notification_preferences`, `virtual_hub_members`) so re-enabling cannot lock users out.
+- `profiles_select_authenticated` (`USING (true)`, live-only, never in a migration) let any
+  signed-in user read every private profile column (email, address, exact coordinates,
+  birth date). Dropped; own-profile/public-profile/admin policies remain, everything else
+  goes through the safe DTO/RPC surfaces.
+- Live-only `event_participants_{insert,update,select}_self*` policies allowed direct client
+  writes that bypass the audited Prompt 06 join/cancel/transition/complete state machine.
+  Dropped; reads stay covered by the Prompt 06 read policy.
+- `is_virtual_hub_host(uuid,uuid)` SECURITY DEFINER helper breaks the RLS recursion between
+  the hub visibility policy and the new hub-member read policy.
+
+### Fixed
+- **The migration chain itself could not replay**: `20260423193000` and `20260425100000`
+  re-add `app_runtime_config_provider_check` with a pre-`db:*` allowlist that existing rows
+  violate (aborting everything after them on production data), and `20260423110000` seeds
+  `provider='address_manager'` rows before any migration allows that value (aborting a
+  clean-chain replay — the long-documented "baseline failure"). All three constraint re-adds
+  are now `NOT VALID` (same rationale as the existing `20260425150000` relax migration).
+- `complete_event_atomic` crashed on the production schema whenever `expected_end_at` was
+  null: `end_time`/`event_time` are bare `time` columns live and cannot join a timestamptz
+  COALESCE. They now combine with `event_date` first (fixed in `20260822060000`, which is
+  still unapplied everywhere).
+- `event_trip_plans` schema parity: live carries NOT NULL discrete
+  `start_lat/start_lon/end_lat/end_lon` columns created outside the chain; the reassertion
+  migration adds/backfills them where missing so fresh environments match production.
+- The dashboard-era `event_trip_plans_select_event_audience` policy was broken (references
+  `events.visibility`, not in the safe column allowlist → "permission denied") and leaky
+  (OR'ed past the reveal-window precision policy). Dropped; the Prompt 06 precision policy
+  is the read boundary.
+- `profiles.profile_visibility` carried two contradictory CHECK constraints whose
+  intersection banned the documented `members` tier; the legacy constraint is dropped and
+  `friends` values normalize to `members`.
+- `event_participants.status` double-constraint banned `invited`/`completed`, making the
+  Prompt 06 completion lifecycle unwritable on live data; the legacy allowlist is dropped in
+  favour of the full contract vocabulary.
+- `events.participation_type` live allowlist rejected the column's own default (`'open'`);
+  re-created to accept the default plus all historical values.
+- `profiles.id` (auth user id, no default) made every `INSERT (user_id, …)` fail; a
+  BEFORE INSERT trigger now derives `id`/`user_id` from each other. Fixtures upsert with
+  `ON CONFLICT (user_id)` because the live `handle_new_user_profile` trigger auto-creates a
+  profile per auth user.
+- `trg_auto_promote_waitlist` was missing on the live database (dropped outside the migration
+  chain; later migrations only redefine the function). Re-attached — without this no freed
+  seat ever promoted a waitlisted participant on production data.
+- `supabase/tests/prompt_06_09_integration.sql` populates the live NOT NULL discrete
+  coordinate columns of `event_trip_plans`; `supabase/tests/security_definer_round_b.sql`
+  now asserts the Edge-mediated (service_role-only) contract of the audited
+  `admin_update_user_profile` replacement instead of the retired direct-grant model.
+
+### Verification
+- `bun run db:verify` — restore mode: dump restore 0 errors; 51 migrations applied,
+  2 reconciled (objects predate the dump's ledger), 39 already in the ledger;
+  **15/15 SQL fixtures PASS** (capacity, waitlist FIFO, RLS personas, privacy boundaries,
+  feature-flag fail-closed, four-eyes, provider dead-letter, recommendation signals).
+- `bun run db:verify -- --mode=fresh` — full 92-migration greenfield replay,
+  **15/15 SQL fixtures PASS**: a new environment is provisionable from the repository alone.
+- `bun run test` — PASS, 59 files / 323 tests. `bun run typecheck` — PASS.
+  `bun run build:dev` — PASS (3,140+ modules).
+- `bun run release:validate` / `bun run security:secrets` — still fail-closed as intended:
+  `.env` remains tracked (operator-owned P0) and the historical requirement-pack files still
+  carry credential-like patterns.
+
+### Deferred / still open
+- Hosted re-import of the dump and applying the pending 53 migrations to a live project
+  remain operator actions; the harness proves the chain, not the hosted execution.
+- `.env` untracking + credential rotation (P0), Deno/Edge runtime tests, Playwright E2E,
+  and the legal/launch gates from `docs/GO_NO_GO_REPORT.md` are unchanged.
+
+---
+
 ## [1.8.4] — 2026-08-22
 
 Virtual Hubs 2.0 foundation (Prompt 05, partial). Closes two anonymous service-role paths in

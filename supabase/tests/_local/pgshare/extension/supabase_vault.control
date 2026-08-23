@@ -1,0 +1,6 @@
+# Local verification stub for supabase_vault. Stores nothing encrypted.
+comment = 'supabase_vault local verification stub (plaintext, disposable clusters only)'
+default_version = '0.0.1'
+relocatable = false
+schema = 'vault'
+superuser = false

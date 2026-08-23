@@ -21,7 +21,15 @@ INSERT INTO public.profiles (
   ('c2000000-0000-4000-8000-000000000002', 'Premium member', 'Budapest', '{}', 'real', true, 'members', 'members', 'city'),
   ('c3000000-0000-4000-8000-000000000003', 'Premium peer', 'Budapest', '{}', 'real', true, 'members', 'members', 'city'),
   ('c4000000-0000-4000-8000-000000000004', 'Unrelated user', 'Szeged', '{}', 'real', true, 'members', 'members', 'city')
-ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  city = EXCLUDED.city,
+  hobbies = EXCLUDED.hobbies,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active,
+  profile_visibility = EXCLUDED.profile_visibility,
+  interests_visibility = EXCLUDED.interests_visibility,
+  location_precision = EXCLUDED.location_precision;
 
 UPDATE public.feature_flags
 SET enabled = true, rollout_percentage = 100, cohorts = '{}',

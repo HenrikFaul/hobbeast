@@ -1,0 +1,109 @@
+szeretnék egy új projektet. 
+
+1) Baumeister, R. F., & Leary, M. R. (1995)
+
+The Need to Belong: Desire for Interpersonal Attachments as a Fundamental Human Motivation
+Journal: Psychological Bulletin
+
+Teljes URL:
+https://psycnet.apa.org/record/1995-29052-001
+
+Miért fontos: Az egyik legtöbbet hivatkozott alapcikk arról, hogy a valahová tartozás alapvető emberi szükséglet.
+Igény: belonging, stabil kapcsolatok, elfogadás.
+
+2) Holt-Lunstad, J., Smith, T. B., & Layton, J. B. (2010)
+
+Social Relationships and Mortality Risk: A Meta-analytic Review
+Journal: PLOS Medicine
+
+Teljes URL:
+https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.1000316
+
+Miért fontos: Nagy meta-analízis, amely kimutatja, hogy az erős társas kapcsolatok szignifikánsan növelik a túlélést.
+Igény: társas támogatás, stresszcsökkentés, biztonság.
+
+3) Holt-Lunstad et al. (2015)
+
+Loneliness and Social Isolation as Risk Factors for Mortality: A Meta-Analytic Review
+Journal: Perspectives on Psychological Science
+
+Teljes URL:
+https://journals.sagepub.com/doi/10.1177/1745691614568352
+
+Miért fontos: A társas izoláció és magány egészségügyi kockázatait számszerűsíti.
+Igény: kapcsolódás, társas integráció.
+
+4) U.S. Surgeon General (2023)
+
+Our Epidemic of Loneliness and Isolation – Advisory Report
+
+Teljes PDF URL:
+https://www.hhs.gov/sites/default/files/surgeon-general-social-connection-advisory.pdf
+
+Miért fontos: Átfogó, szakpolitikai és tudományos összegzés arról, hogy a társas kapcsolódás közegészségügyi prioritás.
+Igény: közösséghez tartozás, mentális jóllét.
+
+5) Eather, N. et al. (2023)
+
+The mental health and well-being benefits of community sport participation: a systematic review
+Journal: Systematic Reviews
+
+Teljes URL:
+https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-023-02264-8
+
+Miért fontos: Kifejezetten a közösségi sport pszichológiai és társas előnyeit elemzi.
+Igény: belonging, kompetencia, közösségi identitás.
+
+6) Cruwys, T. et al. (2014)
+
+Social Identity and Depression: Multiple Group Memberships Protect Against Depression
+Journal: Social Science & Medicine
+
+Teljes URL:
+https://www.sciencedirect.com/science/article/pii/S0277953614001087
+
+Miért fontos: A több csoporthoz tartozás védőfaktor a depresszióval szemben.
+Igény: identitás, közösségi beágyazottság.
+
+7) Pressman, S. D. et al. (2009)
+
+Association of Enjoyable Leisure Activities With Psychological and Physical Well-Being
+Journal: Psychosomatic Medicine
+
+Teljes URL:
+https://journals.lww.com/psychosomaticmedicine/Fulltext/2009/09000/Association_of_Enjoyable_Leisure_Activities_With.5.aspx
+
+Miért fontos: A szabadidős tevékenységek (különösen társas kontextusban) jobb pszichológiai és fizikai jólléttel járnak együtt.
+Igény: pozitív érzelmek, stresszcsökkentés.
+
+8) Harvard Health Publishing
+
+The health benefits of strong relationships
+
+Teljes URL:
+https://www.health.harvard.edu/staying-healthy/the-health-benefits-of-strong-relationships
+
+Miért fontos: Közérthető, sokat idézett összefoglaló a társas kapcsolatok egészségügyi előnyeiről.
+Igény: érzelmi támogatás, biztonság.
+
+9) American Psychological Association (APA)
+
+Improving social connection is a public health priority
+
+Teljes URL:
+https://www.apa.org/news/press/releases/2023/05/improving-social-connection
+
+Miért fontos: Szakmai állásfoglalás arról, hogy a társas kapcsolódás alapvető pszichológiai szükséglet.
+Igény: kapcsolódás, mentális jóllét.
+
+10) CDC – Social Connectedness
+
+Teljes URL:
+https://www.cdc.gov/social-connectedness/about/index.html
+
+Miért fontos: Tömör, szakmailag megalapozott összefoglaló a társas kapcsolatok egészségügyi hatásairól.
+Igény: stresszpuffer, mentális egészség, hosszabb élet.
+
+ezen cikkekre választ adva készítettünk el startup ptichet prezentációt piaci felmérést és app tervet. 
+a leírt cikkekre alapozva a csatolt dokumentációk alapján készítsd el a teljes webappot. sok komponenst akár (ha kell) felhasználhatsz a syncfolk projektből amit szintén te készítettél. 
+buildeld ki egy általad biztosított url-re

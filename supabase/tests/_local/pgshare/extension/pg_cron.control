@@ -1,0 +1,5 @@
+# Local verification stub for pg_cron. Runs no background jobs.
+comment = 'pg_cron local verification stub (records jobs, never executes them)'
+default_version = '0.0.1'
+relocatable = true
+superuser = false

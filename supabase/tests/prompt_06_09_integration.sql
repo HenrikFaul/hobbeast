@@ -20,7 +20,10 @@ BEGIN
     INSERT INTO auth.users (id) VALUES (v_user);
     INSERT INTO public.profiles (user_id, display_name, user_origin, is_active)
     VALUES (v_user, 'P0609 ' || left(v_user::text, 8), 'real', true)
-    ON CONFLICT (user_id) DO NOTHING;
+    ON CONFLICT (user_id) DO UPDATE SET
+      display_name = EXCLUDED.display_name,
+      user_origin = EXCLUDED.user_origin,
+      is_active = EXCLUDED.is_active;
   END LOOP;
 END $$;
 
@@ -71,10 +74,15 @@ VALUES
   ('60000000-0000-4000-8000-000000000002', '50000000-0000-4000-8000-000000000005', 'going'),
   ('60000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000003', 'waitlist');
 
+-- The live table keeps discrete NOT NULL coordinate columns alongside the newer
+-- jsonb point columns, so both shapes must be populated.
 INSERT INTO public.event_trip_plans (
-  event_id, provider, route_type, start_point, end_point, waypoints
+  event_id, provider, route_type,
+  start_lat, start_lon, end_lat, end_lon,
+  start_point, end_point, waypoints
 ) VALUES (
   '60000000-0000-4000-8000-000000000004', 'mapy', 'foot_hiking',
+  47.50, 19.05, 47.51, 19.06,
   '{"lat":47.50,"lon":19.05}'::jsonb, '{"lat":47.51,"lon":19.06}'::jsonb, '[]'::jsonb
 );
 

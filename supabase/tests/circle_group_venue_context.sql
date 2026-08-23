@@ -18,11 +18,12 @@ VALUES
   ('96000000-0000-4000-8000-000000000003', 'P1510 member B', 'Budapest', 47.48111, 19.02123, 'real', true),
   ('96000000-0000-4000-8000-000000000004', 'P1510 outsider', 'Budapest', 47.60001, 19.20002, 'real', true)
 ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
   city = EXCLUDED.city,
   location_lat = EXCLUDED.location_lat,
   location_lon = EXCLUDED.location_lon,
-  user_origin = 'real',
-  is_active = true;
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 
 UPDATE public.feature_flags
 SET enabled = true, rollout_percentage = 100, cohorts = '{}'::text[],

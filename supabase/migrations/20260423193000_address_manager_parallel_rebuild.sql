@@ -73,10 +73,17 @@ begin
     execute 'alter table public.app_runtime_config drop constraint if exists app_runtime_config_provider_check';
   end if;
 
+  -- NOT VALID: this intermediate allowlist predates the db:* provider family
+  -- that 20260426203000 makes canonical. A database that already holds a
+  -- db:<table> runtime-config row would otherwise abort this migration and
+  -- block every later migration in the chain. New writes are still guarded;
+  -- historical rows are deliberately not re-checked, matching the rationale
+  -- recorded in 20260425150000_address_manager_provider_check_relax.sql.
   execute $sql$
     alter table public.app_runtime_config
     add constraint app_runtime_config_provider_check
     check (provider in ('aws', 'geoapify_tomtom', 'local_catalog', 'supabase', 'address_manager'))
+    not valid
   $sql$;
 exception
   when duplicate_object then

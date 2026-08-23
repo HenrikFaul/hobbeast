@@ -25,11 +25,15 @@ VALUES
   ('94000000-0000-4000-8000-000000000002', 'P1509 host', 'Budapest', '{}', 25, NULL, NULL, '{}', 'real', true),
   ('94000000-0000-4000-8000-000000000003', 'P1509 blocked host', 'Budapest', '{}', 25, NULL, NULL, '{}', 'real', true)
 ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
   city = EXCLUDED.city,
   hobbies = EXCLUDED.hobbies,
+  preferred_radius_km = EXCLUDED.preferred_radius_km,
+  location_lat = EXCLUDED.location_lat,
+  location_lon = EXCLUDED.location_lon,
   availability_window = EXCLUDED.availability_window,
-  user_origin = 'real',
-  is_active = true;
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 
 INSERT INTO public.events (
   id, created_by, organizer_id, title, category, tags, event_date, event_time,

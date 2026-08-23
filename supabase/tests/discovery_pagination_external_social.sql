@@ -12,7 +12,10 @@ VALUES
   ('91000000-0000-4000-8000-000000000001', 'P1507 A', 'real', true),
   ('91000000-0000-4000-8000-000000000002', 'P1507 B', 'real', true),
   ('91000000-0000-4000-8000-000000000003', 'P1507 C', 'real', true)
-ON CONFLICT (user_id) DO UPDATE SET user_origin = 'real', is_active = true;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 
 INSERT INTO public.external_events (
   id, external_source, external_id, external_url, title, event_date, event_time,

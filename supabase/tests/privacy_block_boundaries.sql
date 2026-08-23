@@ -46,13 +46,13 @@ INSERT INTO public.profiles (
     'a5000000-0000-4000-8000-000000000005', 'Blocked participant',
     'P0 private address a5000000', 'Budapest', 'city', 'members', true
   )
-ON CONFLICT (user_id) DO UPDATE
-SET display_name = EXCLUDED.display_name,
-    address = EXCLUDED.address,
-    city = EXCLUDED.city,
-    location_precision = EXCLUDED.location_precision,
-    profile_visibility = EXCLUDED.profile_visibility,
-    is_active = EXCLUDED.is_active;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  address = EXCLUDED.address,
+  city = EXCLUDED.city,
+  location_precision = EXCLUDED.location_precision,
+  profile_visibility = EXCLUDED.profile_visibility,
+  is_active = EXCLUDED.is_active;
 
 INSERT INTO public.user_roles (user_id, role)
 VALUES ('a4000000-0000-4000-8000-000000000004', 'moderator');

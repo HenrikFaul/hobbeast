@@ -1,7 +1,17 @@
 # Sprint program status
 
-Current ordered production-pack resume point: **Prompt 05 — PARTIAL / RELEASE HOLD**.
-Prompts 01–04 below are foundations, not proof that their full runtime/DB acceptance gates closed.
+Current ordered production-pack resume point: **Prompts 01–15 source complete; local runtime DB evidence GREEN (v1.9.0); hosted execution + operator gates still HOLD**.
+
+v1.9.0 (2026-08-23) closed the program's central evidence gap: `bun run db:verify` restores the
+2026-06-18 production dump (933 users) into a disposable PostgreSQL 18 cluster, replays the full
+migration chain (51 applied + 2 reconciled over the dump's 39-entry ledger) and passes all
+15 SQL acceptance fixtures, in both restore and fresh modes. The replay surfaced and
+`20260823010000_production_rls_reassertion_and_profile_identity.sql` repaired live schema drift:
+RLS disabled on 5 policy-bearing tables, anon write grants, a `USING (true)` profiles read
+policy, direct participant-write bypass policies, a leaky trip-plan policy, contradictory CHECK
+constraints, the missing waitlist auto-promote trigger and a type bug in `complete_event_atomic`.
+Remaining HOLDs are operator-owned: hosted re-import + migration apply, `.env` untracking +
+credential rotation, Deno/Edge runtime tests, Playwright E2E, legal/launch approvals.
 
 Live status of the 5-sprint improvement program (`Hobbeast_5_sprint_javito_fejleszto_brandterv.md`). Update this doc whenever a sprint task lands.
 

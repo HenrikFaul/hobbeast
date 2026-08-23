@@ -140,10 +140,12 @@ VALUES
     2,
     'members'
   )
-ON CONFLICT (user_id) DO UPDATE
-SET display_name = EXCLUDED.display_name,
-    address = EXCLUDED.address,
-    profile_visibility = EXCLUDED.profile_visibility;
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  address = EXCLUDED.address,
+  hobbies = EXCLUDED.hobbies,
+  onboarding_step = EXCLUDED.onboarding_step,
+  profile_visibility = EXCLUDED.profile_visibility;
 
 -- An active subject override can refine an enabled rollout, but it must never
 -- bypass the global kill switch or an expired global registration.

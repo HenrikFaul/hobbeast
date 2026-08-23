@@ -7,7 +7,11 @@ BEGIN;
 INSERT INTO auth.users (id)
 VALUES ('71830000-0000-4000-8000-000000000001');
 INSERT INTO public.profiles (user_id, display_name, user_origin, is_active)
-VALUES ('71830000-0000-4000-8000-000000000001', 'Readiness owner', 'real', true);
+VALUES ('71830000-0000-4000-8000-000000000001', 'Readiness owner', 'real', true)
+ON CONFLICT (user_id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  user_origin = EXCLUDED.user_origin,
+  is_active = EXCLUDED.is_active;
 
 UPDATE public.feature_flags
 SET enabled = true,
