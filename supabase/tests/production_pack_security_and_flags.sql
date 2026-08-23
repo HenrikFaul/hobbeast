@@ -111,8 +111,8 @@ $structural_checks$;
 
 INSERT INTO auth.users (id)
 VALUES
-  ('11111111-1111-1111-1111-111111111111'),
-  ('22222222-2222-2222-2222-222222222222')
+  ('11111111-1111-4111-8111-111111111111'),
+  ('22222222-2222-4222-8222-222222222222')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.profiles (
@@ -125,7 +125,7 @@ INSERT INTO public.profiles (
 )
 VALUES
   (
-    '11111111-1111-1111-1111-111111111111',
+    '11111111-1111-4111-8111-111111111111',
     'RLS persona A',
     'A private fixture address',
     ARRAY['hiking'],
@@ -133,7 +133,7 @@ VALUES
     'members'
   ),
   (
-    '22222222-2222-2222-2222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
     'RLS persona B',
     'B private fixture address',
     ARRAY['cycling'],
@@ -158,19 +158,19 @@ INSERT INTO public.feature_flag_overrides (
 VALUES
   (
     'connections',
-    '11111111-1111-1111-1111-111111111111',
+    '11111111-1111-4111-8111-111111111111',
     true,
     'SQL kill-switch regression fixture',
     now() + interval '1 day',
-    '11111111-1111-1111-1111-111111111111'
+    '11111111-1111-4111-8111-111111111111'
   ),
   (
     'analytics',
-    '11111111-1111-1111-1111-111111111111',
+    '11111111-1111-4111-8111-111111111111',
     true,
     'SQL expiry regression fixture',
     now() + interval '1 day',
-    '11111111-1111-1111-1111-111111111111'
+    '11111111-1111-4111-8111-111111111111'
   )
 ON CONFLICT (flag_key, user_id) DO UPDATE
 SET enabled = EXCLUDED.enabled,
@@ -208,7 +208,7 @@ TO authenticated;
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claim.sub',
-  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-4111-8111-111111111111',
   true
 );
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
@@ -222,7 +222,7 @@ BEGIN
   SELECT count(*)
     INTO row_count
   FROM public.profiles
-  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+  WHERE user_id = '22222222-2222-4222-8222-222222222222';
 
   IF row_count <> 0 THEN
     RAISE EXCEPTION 'Persona A can read persona B private profile';
@@ -231,7 +231,7 @@ BEGIN
   SELECT count(*)
     INTO row_count
   FROM public.user_session_devices
-  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+  WHERE user_id = '22222222-2222-4222-8222-222222222222';
 
   IF row_count <> 0 THEN
     RAISE EXCEPTION 'Persona A can read persona B session metadata';
@@ -283,8 +283,8 @@ BEGIN
   BEGIN
     INSERT INTO public.connections (user_low_id, user_high_id)
     VALUES (
-      '11111111-1111-1111-1111-111111111111',
-      '22222222-2222-2222-2222-222222222222'
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222'
     );
     RAISE EXCEPTION 'Connection insert unexpectedly succeeded while flag is off';
   EXCEPTION
@@ -318,9 +318,9 @@ BEGIN
   END;
 
   report_id := public.submit_safety_report(
-    '22222222-2222-2222-2222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
     'user',
-    '22222222-2222-2222-2222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
     'harassment',
     'Non-production SQL fixture evidence',
     'profile',
@@ -340,14 +340,14 @@ BEGIN
   END IF;
 
   PERFORM public.set_user_block(
-    '22222222-2222-2222-2222-222222222222',
+    '22222222-2222-4222-8222-222222222222',
     true,
     'privacy'
   );
 
   SELECT count(*) INTO row_count
   FROM public.public_profile_cards
-  WHERE user_id = '22222222-2222-2222-2222-222222222222';
+  WHERE user_id = '22222222-2222-4222-8222-222222222222';
 
   IF row_count <> 0 THEN
     RAISE EXCEPTION 'Blocked user remains visible in public_profile_cards';
@@ -357,7 +357,7 @@ $persona_a_checks$;
 
 SELECT set_config(
   'request.jwt.claim.sub',
-  '22222222-2222-2222-2222-222222222222',
+  '22222222-2222-4222-8222-222222222222',
   true
 );
 
@@ -409,7 +409,7 @@ VALUES (
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claim.sub',
-  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-4111-8111-111111111111',
   true
 );
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);

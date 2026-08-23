@@ -24,7 +24,7 @@ export {
   titleCaseFromKey,
   type DbConfigFormState,
   type RankedCategorySuggestion,
-} from '@/components/admin/adminEventbriteHelpers';
+} from './databaseDomain';
 
 export type AdminExternalProviderTab = 'eventbrite' | 'ticketmaster' | 'seatgeek' | 'places';
 export type AdminExternalEventProvider = 'eventbrite' | 'ticketmaster' | 'seatgeek';

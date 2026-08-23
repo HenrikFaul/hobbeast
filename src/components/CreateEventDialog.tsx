@@ -244,14 +244,16 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
         visibilityType,
         privateLocationRevealHours,
       });
-      let eventId: string;
+      let createdEvent: Awaited<ReturnType<typeof createEventRecord>>;
       try {
-        eventId = await createEventRecord(eventInsertPayload);
+        createdEvent = await createEventRecord(eventInsertPayload);
       } catch {
         console.warn('[create_event] insert_failed', { errorCode: 'CREATE_EVENT_FAILED' });
         toast.error('Hiba az esemény létrehozásakor. Ellenőrizd a kötelező mezőket és próbáld újra.');
         return;
       }
+
+      const eventId = createdEvent.id;
 
       let circleLinked = !circleId;
       if (circleId) {
@@ -269,7 +271,11 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
         console.warn('[create_event] trip_plan_save_failed', { errorCode: 'TRIP_PLAN_SAVE_FAILED' });
         toast.error('Az esemény létrejött, de az útvonalterv mentése nem sikerült.');
       }
-      toast.success(circleId && circleLinked ? 'A Circle eseménye sikeresen létrejött!' : 'Esemény sikeresen létrehozva!');
+      if (createdEvent.organizerReadinessRequired && !createdEvent.isActive) {
+        toast.info('Az esemény biztonságos piszkozatként létrejött. A Szervezői központ readiness ellenőrzése után publikálható.');
+      } else {
+        toast.success(circleId && circleLinked ? 'A Circle eseménye sikeresen létrejött!' : 'Esemény sikeresen létrehozva!');
+      }
       onCreated();
     } catch {
       console.warn('[create_event] flow_failed', { errorCode: 'CREATE_EVENT_FLOW_FAILED' });

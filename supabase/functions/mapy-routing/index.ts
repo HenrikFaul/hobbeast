@@ -1,98 +1,147 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import {
+  ProviderFetchError,
+  corsHeaders,
+  fetchJson,
+  getSupabaseAdmin,
+} from '../shared/providerFetch.ts';
+import { correlationIdFromRequest, logEdgeEvent } from '../shared/edgeObservability.ts';
+import { requireAuthenticatedUserClient } from '../shared/userAuth.ts';
+import { consumeEdgeRateLimit, rateLimitSubjectHash } from '../shared/rateLimit.ts';
+import {
+  assertExternalProviderAvailable,
+  failExternalProviderRun,
+  finishExternalProviderRun,
+  startExternalProviderRun,
+} from '../shared/externalProviderRuns.ts';
+import { MapyRoutingRequestError, parseMapyRoutingRequest } from './contract.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Max-Age': '86400',
+const MAPY_BASE_URL = 'https://api.mapy.cz/v1';
+const edgeCorsHeaders = {
+  ...corsHeaders,
+  'Access-Control-Allow-Headers': `${corsHeaders['Access-Control-Allow-Headers']}, x-correlation-id`,
 };
 
+function respond(body: unknown, status: number, correlationId: string, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...edgeCorsHeaders,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'X-Correlation-ID': correlationId,
+      ...extraHeaders,
+    },
+  });
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const correlationId = correlationIdFromRequest(req);
+  if (req.method === 'OPTIONS') return new Response(null, { headers: edgeCorsHeaders });
+  if (req.method !== 'POST') {
+    return respond({ error: 'Method not allowed.', code: 'METHOD_NOT_ALLOWED', correlationId }, 405, correlationId);
   }
 
-  const apiKey = Deno.env.get('MAPY_CZ_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'MAPY_CZ_API_KEY not configured' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
+  const admin = getSupabaseAdmin(req);
+  let runId: string | null = null;
+  let action: 'route' | 'elevation' | 'unknown' = 'unknown';
   try {
-    const { action, params } = await req.json() as {
-      action: 'route' | 'elevation';
-      params: Record<string, unknown>;
-    };
-
-    if (action === 'route') {
-      const { start, end, waypoints = [], routeType = 'foot_fast' } = params as {
-        start: { lat: number; lon: number };
-        end: { lat: number; lon: number };
-        waypoints?: { lat: number; lon: number }[];
-        routeType?: string;
-      };
-
-      let url = `https://api.mapy.cz/v1/routing/route?apikey=${apiKey}` +
-        `&start=${start.lon},${start.lat}` +
-        `&end=${end.lon},${end.lat}` +
-        `&routeType=${routeType}` +
-        `&format=geojson` +
-        `&lang=cs`;
-
-      if (waypoints.length > 0) {
-        const wp = waypoints.map(w => `${w.lon},${w.lat}`).join('|');
-        url += `&waypoints=${wp}`;
-      }
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Mapy.cz routing error ${res.status}: ${body}`);
-      }
-      const data = await res.json();
-
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (action === 'elevation') {
-      const { coordinates } = params as {
-        coordinates: [number, number][]; // [lon, lat][]
-      };
-
-      // Mapy.cz elevation API: POST with coordinates
-      const url = `https://api.mapy.cz/v1/elevation?apikey=${apiKey}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          coordinates: coordinates.map(([lon, lat]) => ({ lon, lat })),
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Mapy.cz elevation error ${res.status}: ${body}`);
-      }
-      const data = await res.json();
-
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({ error: 'Unknown action. Use "route" or "elevation".' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const body = await parseMapyRoutingRequest(req);
+    action = body.action;
+    const { user } = await requireAuthenticatedUserClient(req);
+    const pepper = String(Deno.env.get('RATE_LIMIT_HASH_SECRET') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+    const subjectHash = await rateLimitSubjectHash({ request: req, userId: user.id, pepper });
+    const rate = await consumeEdgeRateLimit({
+      admin,
+      endpoint: `mapy-routing.${action}`,
+      subjectHash,
+      windowSeconds: 60,
+      requestLimit: action === 'route' ? 30 : 15,
     });
+    if (!rate.allowed) {
+      logEdgeEvent('warn', 'mapy_routing_rate_limited', correlationId, { action, retry_after_seconds: rate.retryAfterSeconds });
+      return respond(
+        { error: 'Too many requests.', code: 'RATE_LIMITED', retry_after_seconds: rate.retryAfterSeconds, correlationId },
+        429,
+        correlationId,
+        { 'Retry-After': String(rate.retryAfterSeconds) },
+      );
+    }
+
+    const apiKey = String(Deno.env.get('MAPY_CZ_API_KEY') || '').trim();
+    if (!apiKey) throw new Error('PROVIDER_NOT_CONFIGURED');
+    await assertExternalProviderAvailable(admin, 'mapy');
+    runId = await startExternalProviderRun(admin, 'mapy', action, user.id);
+
+    let payload: unknown;
+    let itemCount = 1;
+    if (body.action === 'route') {
+      const params = new URLSearchParams({
+        apikey: apiKey,
+        start: `${body.params.start.lon},${body.params.start.lat}`,
+        end: `${body.params.end.lon},${body.params.end.lat}`,
+        routeType: body.params.routeType,
+        format: 'geojson',
+        lang: 'cs',
+      });
+      if (body.params.waypoints.length > 0) {
+        params.set('waypoints', body.params.waypoints.map((point) => `${point.lon},${point.lat}`).join('|'));
+      }
+      payload = await fetchJson<unknown>(
+        `${MAPY_BASE_URL}/routing/route?${params}`,
+        { method: 'GET', headers: { Accept: 'application/json' } },
+        'mapy-routing',
+        { timeoutMs: 12_000, retries: 1, retryBaseMs: 400 },
+      );
+    } else {
+      itemCount = body.params.coordinates.length;
+      payload = await fetchJson<unknown>(
+        `${MAPY_BASE_URL}/elevation?apikey=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            coordinates: body.params.coordinates.map(([lon, lat]) => ({ lon, lat })),
+          }),
+        },
+        'mapy-elevation',
+        { timeoutMs: 12_000, retries: 1, retryBaseMs: 400 },
+      );
+    }
+
+    await finishExternalProviderRun(admin, runId, 'mapy', {
+      itemCount,
+      pageCount: 1,
+      costUnits: 1,
+      checkpoint: { action, completed_at: new Date().toISOString() },
+    });
+    logEdgeEvent('info', 'mapy_routing_succeeded', correlationId, { action, item_count: itemCount });
+    return respond(payload, 200, correlationId);
   } catch (error) {
-    console.error('mapy-routing error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (runId) {
+      await failExternalProviderRun(admin, runId, 'mapy', error, {
+        action,
+        safeContext: { correlation_id: correlationId },
+      }).catch(() => undefined);
+    }
+    const code = error instanceof MapyRoutingRequestError ? error.code
+      : error instanceof ProviderFetchError && error.kind === 'quota' ? 'PROVIDER_QUOTA'
+        : error instanceof ProviderFetchError ? 'PROVIDER_UNAVAILABLE'
+          : error instanceof Error && ['AUTH_REQUIRED', 'AUTH_INVALID'].includes(error.message) ? error.message
+            : error instanceof Error && ['PROVIDER_NOT_CONFIGURED', 'PROVIDER_DISABLED', 'PROVIDER_CIRCUIT_OPEN'].includes(error.message) ? error.message
+              : 'MAPY_ROUTING_FAILED';
+    const status = code === 'REQUEST_TOO_LARGE' ? 413
+      : code === 'INVALID_JSON' || code === 'INVALID_BODY' || code === 'INVALID_COORDINATE' ? 400
+        : code === 'AUTH_REQUIRED' || code === 'AUTH_INVALID' ? 401
+          : code === 'PROVIDER_QUOTA' ? 429
+            : code.startsWith('PROVIDER_') ? 503
+              : 500;
+    logEdgeEvent(status >= 500 ? 'error' : 'warn', 'mapy_routing_failed', correlationId, { action, code, status });
+    const message = status === 400 ? 'Invalid route request.'
+      : status === 401 ? 'Authentication required.'
+        : status === 413 ? 'Request too large.'
+          : status === 429 ? 'Provider quota is temporarily unavailable.'
+            : 'Routing provider is temporarily unavailable.';
+    return respond({ error: message, code, correlationId }, status, correlationId);
   }
 });

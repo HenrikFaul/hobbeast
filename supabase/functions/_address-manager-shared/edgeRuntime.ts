@@ -6,18 +6,31 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
 import { resolveVerifiedInternalProjectUrl } from '../shared/projectContract.ts';
+import { logEdgeEvent } from '../shared/edgeObservability.ts';
+import {
+  AddressManagerError,
+  correlationIdFromRequest,
+} from './requestContract.ts';
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id, x-idempotency-key',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Expose-Headers': 'x-correlation-id',
   'Access-Control-Max-Age': '86400',
 };
 
-export function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
+export function jsonResponse(body: unknown, status = 200, correlationId?: string) {
+  const payload = correlationId && body && typeof body === 'object' && !Array.isArray(body)
+    ? { ...(body as Record<string, unknown>), correlation_id: correlationId }
+    : body;
+  return new Response(JSON.stringify(payload), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...(correlationId ? { 'x-correlation-id': correlationId } : {}),
+    },
   });
 }
 
@@ -41,18 +54,35 @@ export function getSupabaseAdmin(req?: Request) {
 
 export type SupabaseAdminClient = ReturnType<typeof getSupabaseAdmin>;
 
+export type AddressManagerRequestContext = {
+  correlationId: string;
+};
+
 // Wrap a Deno serve handler so any unexpected throw turns into a JSON 500
 // rather than a runtime 503. Also handles CORS preflight uniformly.
-export function safeServe(handler: (req: Request) => Promise<Response>) {
+export function safeServe(
+  handler: (req: Request, context: AddressManagerRequestContext) => Promise<Response>,
+  functionName = 'address-manager',
+) {
   return async (req: Request): Promise<Response> => {
-    if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+    const correlationId = correlationIdFromRequest(req);
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { headers: { ...corsHeaders, 'x-correlation-id': correlationId } });
+    }
     try {
-      return await handler(req);
+      const response = await handler(req, { correlationId });
+      response.headers.set('x-correlation-id', correlationId);
+      return response;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      console.error('[edge-handler] uncaught:', message, stack);
-      return jsonResponse({ ok: false, error: message, stack: stack?.split('\n').slice(0, 5) }, 500);
+      const safeError = error instanceof AddressManagerError
+        ? error
+        : new AddressManagerError('INTERNAL_ERROR', 500);
+      logEdgeEvent('error', 'address_manager_request_failed', correlationId, {
+        function_name: functionName,
+        error_code: safeError.code,
+        error_type: error instanceof Error ? error.name : 'unknown',
+      });
+      return jsonResponse({ ok: false, code: safeError.code }, safeError.status, correlationId);
     }
   };
 }

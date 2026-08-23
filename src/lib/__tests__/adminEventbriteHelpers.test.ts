@@ -3,7 +3,7 @@ import {
   enrichMapperRow,
   formatDbCell,
   matchesColumnFilters,
-} from "@/components/admin/adminEventbriteHelpers";
+} from "@/features/external-events/admin/databaseDomain";
 
 describe("adminEventbriteHelpers", () => {
   describe("formatDbCell", () => {

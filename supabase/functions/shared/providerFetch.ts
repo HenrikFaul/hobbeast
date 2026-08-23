@@ -39,8 +39,6 @@ export function getSupabaseAdmin(req?: Request) {
   });
 }
 
-export const supabaseAdmin = getSupabaseAdmin();
-
 export interface ProviderFetchOptions {
   timeoutMs?: number;
   retries?: number;

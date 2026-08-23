@@ -2,6 +2,7 @@
 import { EUROPEAN_COUNTRIES, PROVIDERS, PROVIDER_CATEGORIES } from './constants.ts';
 import type { AddressManagerLimits, DiscoveryCell, MatrixSelectionUpdate, ProviderKey } from './types.ts';
 import type { SupabaseAdminClient } from './edgeRuntime.ts';
+import { enforceAddressManagerLimits, publicDiscoveryStats } from './requestContract.ts';
 
 export const DEFAULT_LIMITS: AddressManagerLimits = {
   geoapify_limit: 1000,
@@ -57,7 +58,10 @@ export async function getMatrix(supabaseAdmin: SupabaseAdminClient, provider?: P
   if (provider) query = query.eq('provider', provider);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as DiscoveryCell[];
+  return ((data || []) as DiscoveryCell[]).map((cell) => ({
+    ...cell,
+    stats: publicDiscoveryStats(cell.stats),
+  }));
 }
 
 export async function setSelections(supabaseAdmin: SupabaseAdminClient, updates: MatrixSelectionUpdate[]) {
@@ -91,6 +95,7 @@ export async function resetCellsByFilter(
     status: 'pending',
     last_error: null,
     cursor: {},
+    stats: {},
     last_run_started_at: null,
     last_run_completed_at: null,
     updated_at: new Date().toISOString(),
@@ -110,7 +115,7 @@ export async function releaseStaleLocks(supabaseAdmin: SupabaseAdminClient, olde
   const threshold = new Date(Date.now() - olderThanMinutes * 60 * 1000).toISOString();
   const { error } = await supabaseAdmin
     .from('sync_discovery_matrix')
-    .update({ status: 'pending', last_error: 'Stale lock auto-released', updated_at: new Date().toISOString() })
+    .update({ status: 'pending', last_error: 'STALE_LOCK_RELEASED', updated_at: new Date().toISOString() })
     .eq('status', 'running')
     .lt('last_run_started_at', threshold);
   if (error) throw error;
@@ -124,7 +129,7 @@ export async function loadLimits(supabaseAdmin: SupabaseAdminClient): Promise<Ad
     .maybeSingle();
   if (error) throw error;
 
-  return {
+  return enforceAddressManagerLimits({
     geoapify_limit: sanitizePositiveInt(data?.options?.geoapify_limit, DEFAULT_LIMITS.geoapify_limit),
     tomtom_limit: sanitizePositiveInt(data?.options?.tomtom_limit, DEFAULT_LIMITS.tomtom_limit),
     radius_meters: sanitizePositiveInt(data?.options?.radius_meters, DEFAULT_LIMITS.radius_meters),
@@ -132,12 +137,12 @@ export async function loadLimits(supabaseAdmin: SupabaseAdminClient): Promise<Ad
     max_parallel_workers: sanitizePositiveInt(data?.options?.max_parallel_workers, DEFAULT_LIMITS.max_parallel_workers, 100),
     worker_time_budget_ms: sanitizePositiveInt(data?.options?.worker_time_budget_ms, DEFAULT_LIMITS.worker_time_budget_ms, 55_000),
     worker_max_pages_per_tile: sanitizePositiveInt(data?.options?.worker_max_pages_per_tile, DEFAULT_LIMITS.worker_max_pages_per_tile, 200),
-  };
+  }, DEFAULT_LIMITS);
 }
 
 export async function saveLimits(supabaseAdmin: SupabaseAdminClient, limits: Partial<AddressManagerLimits>) {
   const current = await loadLimits(supabaseAdmin);
-  const merged: AddressManagerLimits = {
+  const merged = enforceAddressManagerLimits({
     geoapify_limit: sanitizePositiveInt(limits.geoapify_limit, current.geoapify_limit),
     tomtom_limit: sanitizePositiveInt(limits.tomtom_limit, current.tomtom_limit),
     radius_meters: sanitizePositiveInt(limits.radius_meters, current.radius_meters),
@@ -145,7 +150,7 @@ export async function saveLimits(supabaseAdmin: SupabaseAdminClient, limits: Par
     max_parallel_workers: sanitizePositiveInt(limits.max_parallel_workers, current.max_parallel_workers, 100),
     worker_time_budget_ms: sanitizePositiveInt(limits.worker_time_budget_ms, current.worker_time_budget_ms, 55_000),
     worker_max_pages_per_tile: sanitizePositiveInt(limits.worker_max_pages_per_tile, current.worker_max_pages_per_tile, 200),
-  };
+  }, current);
 
   const { error } = await supabaseAdmin
     .from('app_runtime_config')

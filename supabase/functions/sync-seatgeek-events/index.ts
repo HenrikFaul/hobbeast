@@ -37,7 +37,7 @@ serve(async (req) => {
         if (!result.pagination.hasMore) break;
       }
 
-      const { upserted } = await upsertExternalEvents(collected);
+      const { upserted } = await upsertExternalEvents(admin, collected);
       await finishExternalProviderRun(admin, runId, 'seatgeek', { itemCount: upserted, pageCount: fetchedPages, costUnits: fetchedPages });
       return jsonResponse({ synced: upserted });
     }

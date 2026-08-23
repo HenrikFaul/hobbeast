@@ -32,6 +32,11 @@ const ACTIVITY_LABELS: Record<string, string> = {
   sessions_revoked: 'Többi munkamenet visszavonva',
   new_device: 'Új eszköz',
   profile_privacy_changed: 'Adatvédelmi beállítás módosult',
+  first_event_confidence_changed: 'Első esemény beállításai módosultak',
+  data_export_requested: 'Adatexport kérve',
+  data_export_prepared: 'Adatexport elkészült',
+  deletion_requested: 'Fióktörlés kérve',
+  data_request_cancelled: 'Adatvédelmi kérés visszavonva',
 };
 
 export function SessionSecurityCard() {

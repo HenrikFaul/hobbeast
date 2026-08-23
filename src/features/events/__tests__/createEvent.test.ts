@@ -62,10 +62,23 @@ describe('create event domain boundary', () => {
     expect(payload.created_by).toBe('user-1');
   });
 
-  it('returns only the created ID from the repository mutation', async () => {
-    const single = vi.fn().mockResolvedValue({ data: { id: 'event-1' }, error: null });
+  it('returns the server-owned lifecycle state with the created ID', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        id: 'event-1',
+        outcome_status: 'draft',
+        is_active: false,
+        organizer_readiness_required: true,
+      },
+      error: null,
+    });
     mocks.from.mockReturnValue({ insert: () => ({ select: () => ({ single }) }) });
-    await expect(createEventRecord(buildEventInsertPayload(snapshot))).resolves.toBe('event-1');
+    await expect(createEventRecord(buildEventInsertPayload(snapshot))).resolves.toEqual({
+      id: 'event-1',
+      outcomeStatus: 'draft',
+      isActive: false,
+      organizerReadinessRequired: true,
+    });
     expect(mocks.from).toHaveBeenCalledWith('events');
   });
 

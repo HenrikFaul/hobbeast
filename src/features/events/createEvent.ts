@@ -62,6 +62,13 @@ export interface EventTimes {
   expectedEndAt: string | null;
 }
 
+export interface CreatedEventRecord {
+  id: string;
+  outcomeStatus: string;
+  isActive: boolean;
+  organizerReadinessRequired: boolean;
+}
+
 export function buildEventTimes(eventDate: Date | undefined, eventTime: string, expectedEndTime: string): EventTimes {
   if (!eventDate || !eventTime) return { startTimeIso: null, expectedEndAt: null };
   const [startHours, startMinutes] = eventTime.split(':').map(Number);
@@ -121,12 +128,17 @@ export function buildEventInsertPayload(snapshot: CreateEventFormSnapshot): Even
   };
 }
 
-export async function createEventRecord(payload: EventInsertPayload): Promise<string> {
+export async function createEventRecord(payload: EventInsertPayload): Promise<CreatedEventRecord> {
   const { data, error } = await supabase
     .from('events')
     .insert(payload)
-    .select('id')
+    .select('id, outcome_status, is_active, organizer_readiness_required')
     .single();
   if (error || !data) throw new Error('CREATE_EVENT_FAILED');
-  return data.id;
+  return {
+    id: data.id,
+    outcomeStatus: data.outcome_status,
+    isActive: data.is_active,
+    organizerReadinessRequired: data.organizer_readiness_required,
+  };
 }

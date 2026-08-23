@@ -1,8 +1,8 @@
 import type { ExternalEventNormalized } from './external-events-types.ts';
-import { supabaseAdmin } from './providerFetch.ts';
+import type { SupabaseAdminClient } from './providerFetch.ts';
 import { externalEventProvenance } from './externalEventPipeline.ts';
 
-export async function upsertExternalEvents(events: ExternalEventNormalized[]) {
+export async function upsertExternalEvents(supabaseAdmin: SupabaseAdminClient, events: ExternalEventNormalized[]) {
   if (!events.length) return { upserted: 0 };
 
   const rows = events.map((e) => ({
