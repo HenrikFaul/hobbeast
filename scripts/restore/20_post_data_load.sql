@@ -10,7 +10,30 @@
 --      project instead of the retired dsymdijzydaehntlmfzl host. The caller
 --      substitutes :edge_base_url (psql -v edge_base_url=...).
 
--- 1) identity_key backfill + dedup (same semantics as 20260822050100)
+-- 0) GoTrue NULL-token repair. GoTrue always writes '' into its token
+-- columns and its Go scanner cannot read NULL from them — a restored user
+-- with NULL confirmation_token breaks /token with "Database error querying
+-- schema". Normalize every restored row the way GoTrue would have written it.
+UPDATE auth.users SET
+  confirmation_token = COALESCE(confirmation_token, ''),
+  recovery_token = COALESCE(recovery_token, ''),
+  email_change_token_new = COALESCE(email_change_token_new, ''),
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  email_change = COALESCE(email_change, ''),
+  phone_change = COALESCE(phone_change, ''),
+  phone_change_token = COALESCE(phone_change_token, ''),
+  reauthentication_token = COALESCE(reauthentication_token, '')
+WHERE confirmation_token IS NULL OR recovery_token IS NULL
+   OR email_change_token_new IS NULL OR email_change_token_current IS NULL
+   OR email_change IS NULL OR phone_change IS NULL
+   OR phone_change_token IS NULL OR reauthentication_token IS NULL;
+
+-- 1) identity_key backfill + dedup (same semantics as 20260822050100).
+-- The unique index must come off first: live data contains hubs that collide
+-- on the derived key, and the index would reject the backfill before the
+-- dedup step can run. It is recreated below once the keeper set is unique.
+DROP INDEX IF EXISTS public.virtual_hubs_identity_key_uidx;
+
 UPDATE public.virtual_hubs
 SET identity_key = lower(btrim(hobby_category)) || '|' ||
   lower(coalesce(NULLIF(btrim(hobby_subcategory), ''), '-')) || '|' ||
@@ -46,6 +69,8 @@ END;
 $$;
 
 ALTER TABLE public.virtual_hubs ALTER COLUMN identity_key SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS virtual_hubs_identity_key_uidx
+  ON public.virtual_hubs USING btree (identity_key);
 
 -- 2) Re-enable user triggers
 DO $$
@@ -60,14 +85,15 @@ BEGIN
 END;
 $$;
 
--- 3) Re-attach BOTH signup triggers exactly as production had them
--- (base row + hobbeast enrichment; both are conflict-safe, firing order is
--- alphabetical just like on the retired project).
+-- 3) Re-attach ONE signup trigger: the enriched handle_new_user_profile
+-- (id + user_id + display_name + username + email + avatar, conflict-safe).
+--
+-- Production ran two triggers, but that pairing only worked because the
+-- legacy handle_new_user inserted an id-only row with user_id NULL. On the
+-- migrated schema (user_id NOT NULL + derive trigger) the second insert
+-- collides on a non-arbiter unique constraint, so the dual arrangement is
+-- retired in favour of the single enriched trigger that covers both jobs.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 DROP TRIGGER IF EXISTS on_auth_user_created_hobbeast ON auth.users;
 CREATE TRIGGER on_auth_user_created_hobbeast
   AFTER INSERT ON auth.users

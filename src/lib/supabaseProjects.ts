@@ -11,10 +11,10 @@
  * observes and warns.
  */
 
-export const TARGET_SUPABASE_PROJECT_REF = "dsymdijzydaehntlmfzl" as const;
+export const TARGET_SUPABASE_PROJECT_REF = "bqdvqmpwccsxumzijspj" as const;
 
 export const KNOWN_PROJECT_REFS = {
-  target: "dsymdijzydaehntlmfzl",
+  target: "bqdvqmpwccsxumzijspj",
   lovableCloud: "olzvughcoqnfkdpvbwjy",
 } as const;
 

@@ -1,6 +1,14 @@
 # Sprint program status
 
-Current ordered production-pack resume point: **Prompts 01–15 source complete; local runtime DB evidence GREEN (v1.9.0); hosted execution + operator gates still HOLD**.
+Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.9.1 HOSTED CUTOVER DONE — the site works again (login + consumer core verified on project `bqdvqmpwccsxumzijspj`)**.
+
+v1.9.1 (2026-08-24): new hosted Supabase project provisioned (old ones were deleted); all 93
+migrations applied with verified integrity; production data restored (933 users with working
+passwords); two login-breaking restore defects fixed (GoTrue NULL tokens, dual signup trigger);
+frontend re-pointed; production build gate passes; 6/26 Edge Functions deployed
+(event-operations, notification-preferences, discovery-feedback, delete-account,
+admin-user-profile-update, mass-create-users). Remaining: 20 function deployments +
+operator config (provider secrets, Auth SMTP/Site URL, Vercel env, AWS key rotation).
 
 v1.9.0 (2026-08-23) closed the program's central evidence gap: `bun run db:verify` restores the
 2026-06-18 production dump (933 users) into a disposable PostgreSQL 18 cluster, replays the full

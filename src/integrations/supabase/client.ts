@@ -6,10 +6,10 @@ import type { Database } from './types';
 
 /**
  * IMPORTANT:
- * All web-app database queries and Edge Function calls must target the dsymdijzydaehntlmfzl
+ * All web-app database queries and Edge Function calls must target the bqdvqmpwccsxumzijspj
  * Supabase project via the VITE_* frontend environment variables.
  */
-const CANONICAL_HOBBEAST_PROJECT_REF = 'dsymdijzydaehntlmfzl';
+const CANONICAL_HOBBEAST_PROJECT_REF = 'bqdvqmpwccsxumzijspj';
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
 const SUPABASE_PUBLISHABLE_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
 

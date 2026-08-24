@@ -4,7 +4,7 @@ import path from "path";
 import { readFileSync } from "node:fs";
 import { componentTagger } from "lovable-tagger";
 
-const TARGET_SUPABASE_PROJECT_REF = "dsymdijzydaehntlmfzl";
+const TARGET_SUPABASE_PROJECT_REF = "bqdvqmpwccsxumzijspj";
 const PACKAGE_VERSION = String(JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version || "local-unknown");
 
 function normalizeUrl(value?: string) {

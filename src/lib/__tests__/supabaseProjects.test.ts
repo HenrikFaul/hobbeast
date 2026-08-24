@@ -9,8 +9,8 @@ import {
 describe("supabaseProjects", () => {
   describe("extractProjectRef", () => {
     it("pulls the ref out of a supabase.co URL", () => {
-      expect(extractProjectRef("https://dsymdijzydaehntlmfzl.supabase.co")).toBe(
-        "dsymdijzydaehntlmfzl",
+      expect(extractProjectRef("https://bqdvqmpwccsxumzijspj.supabase.co")).toBe(
+        "bqdvqmpwccsxumzijspj",
       );
       expect(extractProjectRef("https://olzvughcoqnfkdpvbwjy.supabase.co/rest/v1")).toBe(
         "olzvughcoqnfkdpvbwjy",
@@ -27,7 +27,7 @@ describe("supabaseProjects", () => {
 
   describe("classifyProjectRef", () => {
     it("recognizes the target and lovable-cloud refs", () => {
-      expect(classifyProjectRef("dsymdijzydaehntlmfzl")).toBe("target");
+      expect(classifyProjectRef("bqdvqmpwccsxumzijspj")).toBe("target");
       expect(classifyProjectRef("olzvughcoqnfkdpvbwjy")).toBe("lovableCloud");
     });
     it("returns 'unknown' otherwise", () => {

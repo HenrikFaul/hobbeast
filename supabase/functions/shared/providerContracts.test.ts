@@ -66,7 +66,7 @@ Deno.test('target project contract rejects a hosted role mismatch without echoin
   assertEquals(error.message.includes('wrongprojectref'), false);
   assertThrows(
     () => resolveVerifiedInternalProjectUrl({
-      envUrl: 'https://dsymdijzydaehntlmfzl.supabase.co',
+      envUrl: 'https://bqdvqmpwccsxumzijspj.supabase.co',
       requestUrl: 'https://differentref.supabase.co/functions/v1/test',
     }),
     Error,

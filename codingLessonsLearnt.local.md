@@ -167,3 +167,40 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   `spawnSync` waits for those pipes to close, which never happens while the server runs.
 - **Fix/Prevention**: Always launch `pg_ctl start` with `stdio: 'ignore'` (or shell redirection)
   and read startup diagnostics from the `-l` logfile instead of the pipes.
+
+## v1.9.1 — GoTrue cannot read NULL from its token columns
+
+- **Symptom**: Restored users' password login failed with 500 "Database error querying
+  schema"; auth logs showed `Scan error on column "confirmation_token": converting NULL
+  to string is unsupported`.
+- **Root cause**: GoTrue always writes `''` into confirmation/recovery/email-change/phone-
+  change/reauthentication token columns; a SQL-level user restore leaves them NULL and the
+  Go scanner rejects that at login time — signup-created users are unaffected, so the
+  defect only surfaces for migrated accounts.
+- **Fix/Prevention**: Any auth.users data import must COALESCE all eight token columns to
+  `''` (now step 0 of `scripts/restore/20_post_data_load.sql`).
+
+## v1.9.1 — ON CONFLICT only arbitrates one constraint: dual signup triggers collide
+
+- **Symptom**: INSERT INTO auth.users failed with `profiles_user_id_key` violation once
+  both production signup triggers were reattached on the migrated schema.
+- **Root cause**: trigger 1 inserts the full (id=user_id) profile row; trigger 2 upserts
+  `ON CONFLICT (id)` — but the row now also collides on the user_id unique constraint,
+  which is not the arbiter, so PostgreSQL raises instead of updating. On legacy production
+  it worked only because trigger 1 left user_id NULL.
+- **Fix/Prevention**: attach a single enriched signup trigger
+  (`handle_new_user_profile`). Never pair triggers whose second insert can conflict on a
+  non-arbiter unique index.
+
+## v1.9.1 — A DB can bootstrap itself over pg_net when you have no direct connection
+
+- **Pattern**: With only management-API SQL access (no DB password), the hosted database
+  fetched all 93 migration files from the public repo via `net.http_get`, verified sizes,
+  and executed them server-side (multi-statement `EXECUTE` works; strip standalone
+  top-level `BEGIN;`/`COMMIT;` lines case-insensitively first, and check every fetched
+  md5 against local `git show` blobs before executing anything).
+- **Data path**: PII must not transit public URLs; a temporary double-keyed (random gate
+  secret + anon key) SECURITY DEFINER exec RPC let curl stream 2.8MB of INSERT batches
+  without exposing content, and was dropped immediately after. The PostgREST path enforces
+  `safeupdate` (WHERE-less DELETE rejected) — run pre/post steps over the management API
+  instead.

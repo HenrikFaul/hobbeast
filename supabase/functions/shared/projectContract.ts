@@ -1,4 +1,4 @@
-export const TARGET_SUPABASE_PROJECT_REF = 'dsymdijzydaehntlmfzl' as const;
+export const TARGET_SUPABASE_PROJECT_REF = 'bqdvqmpwccsxumzijspj' as const;
 
 export type ProjectContractErrorCode =
   | 'SUPABASE_PROJECT_URL_MISSING'

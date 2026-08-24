@@ -7,11 +7,11 @@ import {
   resolveVerifiedInternalProjectUrl,
 } from '../../../supabase/functions/shared/projectContract';
 
-const TARGET_URL = 'https://dsymdijzydaehntlmfzl.supabase.co';
+const TARGET_URL = 'https://bqdvqmpwccsxumzijspj.supabase.co';
 
 describe('Edge Supabase project contract', () => {
   it('accepts only the target hosted project and extracts its public ref', () => {
-    expect(extractSupabaseProjectRef(TARGET_URL)).toBe('dsymdijzydaehntlmfzl');
+    expect(extractSupabaseProjectRef(TARGET_URL)).toBe('bqdvqmpwccsxumzijspj');
     expect(resolveVerifiedInternalProjectUrl({ envUrl: TARGET_URL })).toBe(TARGET_URL);
   });
 
@@ -51,7 +51,7 @@ describe('Edge Supabase project contract', () => {
     expect(resolveVerifiedExternalProjectConfig({
       url: TARGET_URL,
       serviceRoleKey: 'redacted-test-key',
-      expectedRef: 'dsymdijzydaehntlmfzl',
+      expectedRef: 'bqdvqmpwccsxumzijspj',
     })?.url).toBe(TARGET_URL);
   });
 });

@@ -12,6 +12,77 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.1] — 2026-08-24
+
+**The Expericentre/Hobbeast site is live again.** The retired Supabase projects
+(`dsymdijzydaehntlmfzl` canonical, `olzvughcoqnfkdpvbwjy` Lovable) no longer exist; a new
+hosted project **`bqdvqmpwccsxumzijspj`** ("Hobbeast", eu-central-1, ~10 USD/month,
+user-approved) now carries the full schema, the restored production data and the first
+Edge Functions. Login is proven end-to-end.
+
+### Hosted execution (first time in the program)
+- All **93 migrations applied** to the new project via a pg_net bootstrap: the database
+  fetched each migration from the public GitHub repo (per-file md5 verified against local
+  git blobs), executed them server-side in ordered batches, and recorded the ledger.
+  Result: 129 public tables, 126 with RLS, 241 functions.
+- **Production data restored**: 933 auth users + 935 identities (bcrypt hashes intact →
+  old passwords keep working), 933 profiles, 11 events, 1487 deduped hubs, 2699 hub
+  members — loaded through a temporary double-keyed SECURITY DEFINER gate (dropped
+  immediately after), FK-safe topo order, triggers neutralized and reattached per the
+  restore runbook. Row counts match the local rehearsal exactly.
+- **Login verified**: GoTrue password-grant returns a session; the signup trigger creates
+  enriched profiles; the browser UI (Events feed with restored Ticketmaster supply,
+  Profile page) works with an authenticated session against the new project.
+- **Edge Functions deployed (6/26)**: event-operations (RSVP/lifecycle),
+  notification-preferences, discovery-feedback, delete-account, admin-user-profile-update,
+  mass-create-users. The remaining 20 are bundled and ready (see Deferred).
+
+### Fixed
+- **GoTrue NULL-token restore defect**: restored `auth.users` rows carried NULL in the
+  token columns GoTrue always writes as `''`, breaking `/token` with "Database error
+  querying schema". The POST runbook step now normalizes all eight token columns.
+- **Dual signup-trigger collision**: production ran `on_auth_user_created` +
+  `on_auth_user_created_hobbeast`; on the migrated schema (NOT NULL `user_id` + derive
+  trigger) the second insert hits a non-arbiter unique constraint. The runbook now attaches
+  only the enriched `handle_new_user_profile` trigger, which covers both jobs.
+- Restore runbook (`scripts/restore/`): identity-key unique index lifted around
+  backfill+dedup; `20260824010000_restore_schema_parity.sql` landed in the applied chain.
+
+### Changed
+- Canonical project ref `dsymdijzydaehntlmfzl` → `bqdvqmpwccsxumzijspj` in
+  `src/lib/supabaseProjects.ts`, `src/integrations/supabase/client.ts`, `vite.config.ts`,
+  `supabase/config.toml`, `supabase/functions/shared/projectContract.ts`, tests, `.env`.
+- `bun run build` (production) passes for the first time — the fail-closed target-ref gate
+  now has a live matching project.
+
+### Verification
+- `bun run test` 323/323 PASS · `typecheck` PASS · production `build` PASS.
+- Hosted smoke: password login 200 + access token; authenticated REST (own profile, hobby
+  catalog) and `list_discoverable_events_safe` RPC return correct data; `event-operations`
+  counts action responds; RLS restricts profile reads to own/public rows.
+- Local rehearsal DB re-validated with the same batches: 15/15 SQL fixtures PASS on loaded
+  production data.
+
+### Deferred / operator notes
+- **20 Edge Functions still to deploy** (bundles ready in the session scratchpad; redo via
+  the same `deploy_edge_function` flow): trust-safety, admin-control-plane,
+  admin-bulk-user-actions, analytics-ingest, virtual-hubs-admin, generate-hub-events,
+  notification-delivery-worker, organizer-ai-proposals, ai-event-proposals, place-search,
+  mapy-routing, eventbrite-import, seed-venues, sync-external-events, sync-local-places,
+  sync-seatgeek-events, sync-ticketmaster-events, address-manager-discovery,
+  address-manager-task-generator, address-manager-worker.
+- Provider API keys (Geoapify/TomTom/Ticketmaster/SeatGeek/Eventbrite/Mapy/Gemini) are not
+  set as Edge secrets — sync functions fail closed until the operator adds them.
+- Auth config (Site URL, redirect URLs, SMTP for signup emails) needs the dashboard;
+  the built-in sender is rate-limited. Storage avatar files were not in the DB dump —
+  avatars start empty.
+- Vercel (or other host) frontend env vars must be updated to the new project URL/key
+  and redeployed for the public site.
+- The repo is public and `.env` is tracked with the new anon key (public by design) and
+  the AWS Location key — rotate the AWS key and untrack `.env` (standing P0).
+
+---
+
 ## [1.9.0] — 2026-08-23
 
 Runtime database evidence pass. The program's central HOLD reason — "no migration has ever
