@@ -95,18 +95,24 @@ serve(async (req) => {
       );
     } else {
       itemCount = body.params.coordinates.length;
-      payload = await fetchJson<unknown>(
-        `${MAPY_BASE_URL}/elevation?apikey=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            coordinates: body.params.coordinates.map(([lon, lat]) => ({ lon, lat })),
-          }),
-        },
+      // Mapy elevation is a GET endpoint taking "positions=lon,lat;lon,lat" and returns
+      // items nested as { elevation, position: { lon, lat } }; the client contract is the
+      // flat { lon, lat, elevation } shape, so normalize here.
+      const positions = body.params.coordinates.map(([lon, lat]) => `${lon},${lat}`).join(';');
+      const elevationParams = new URLSearchParams({ positions, apikey: apiKey });
+      const raw = await fetchJson<{ items?: Array<{ elevation?: number; position?: { lon?: number; lat?: number } }> }>(
+        `${MAPY_BASE_URL}/elevation?${elevationParams}`,
+        { method: 'GET', headers: { Accept: 'application/json' } },
         'mapy-elevation',
         { timeoutMs: 12_000, retries: 1, retryBaseMs: 400 },
       );
+      payload = {
+        items: (raw?.items || []).map((item) => ({
+          lon: item?.position?.lon,
+          lat: item?.position?.lat,
+          elevation: item?.elevation,
+        })),
+      };
     }
 
     await finishExternalProviderRun(admin, runId, 'mapy', {

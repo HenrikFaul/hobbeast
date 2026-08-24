@@ -12,6 +12,60 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.5] — 2026-08-24
+
+**Full environment-variable audit: every configurable feature now has its keys.** A
+strict sweep of all `VITE_*` (frontend) and `Deno.env.get` (Edge) references, compared
+against what was actually set, then closed. The trip planner (Mapy) works end-to-end.
+
+### Fixed
+- **safeupdate breakage on the PostgREST path** (migration
+  `20260824120000_safeupdate_where_clause_fixes`): `refresh_external_supply_freshness`
+  (WHERE-less UPDATE on places_local_catalog) and `refresh_virtual_hubs` (bare
+  `DELETE FROM virtual_hub_members` + WHERE-less member_count UPDATE) failed with
+  "UPDATE requires a WHERE clause" whenever invoked via REST — this made EVERY
+  mapy-routing call 500 (startExternalProviderRun → freshness RPC). `WHERE true` added;
+  a full audit of all plpgsql functions found no other real offenders (the rest were
+  ON CONFLICT DO UPDATE / FOR UPDATE locks).
+- **mapy-routing elevation action**: the code POSTed JSON to the Mapy elevation API,
+  which is a GET endpoint taking `positions=lon,lat;…` → every call was 405. Switched to
+  GET and normalized the nested `{elevation, position:{lon,lat}}` response to the flat
+  `{lon, lat, elevation}` items shape the client parser expects.
+
+### Added (secrets/env — values live-validated before setting)
+- Edge secrets: `GEOAPIFY_API_KEY`, `TOMTOM_API_KEY` (from the operator's notes),
+  `MAPY_CZ_API_KEY` (recovered from git history — the never-rotated key still works),
+  `GEODATA_SUPABASE_URL` + `GEODATA_SUPABASE_SERVICE_ROLE_KEY` (GeoData project
+  buuoyyfzincmbxafvihc via CLI api-keys), `GEMINI_API_KEY` (existing "Hobbeast - Gemini"
+  key from Google AI Studio), fresh random `RATE_LIMIT_HASH_SECRET` +
+  `ANALYTICS_HASH_SALT`.
+- Vercel (Production + Preview): `VITE_MAPY_API_KEY`, `VITE_AWS_LOCATION_API_KEY`
+  (re-created — the first CLI add had shipped the value with literal quotes from `.env`),
+  `VITE_AWS_LOCATION_REGION`. Dead empty `GEODATA_*` legacy vars removed. Local `.env`
+  gains `VITE_MAPY_API_KEY`.
+
+### Verified (personally, against production)
+- mapy-routing route: 14 544 m / 14 791 s / 508 geometry points (Budapest→Normafa).
+- mapy-routing elevation: 3/3 points with altitudes in client shape.
+- place-search external mode: live TomTom results; db mode (venue group): live
+  unified_pois rows from GeoData.
+- refresh_external_supply_freshness via PostgREST: 200 (20 event rows).
+- Gemini generateContent with the stored key: 200.
+
+### Still unconfigured (no key source exists — operator must supply)
+- `TICKETMASTER_API_KEY`, `SEATGEEK_CLIENT_ID/SECRET`, `EVENTBRITE_*` (provider
+  developer accounts needed; sync functions fail cleanly with explicit messages).
+- `WEB_PUSH_DELIVERY_URL/TOKEN`, `EMAIL_DELIVERY_URL/TOKEN` (no delivery service
+  deployed; worker suppresses with `provider_not_configured`), SMTP in Supabase Auth.
+- Optional tuning vars with safe defaults: `EDGE_INFO_LOG_SAMPLE_RATE`, `APP_VERSION`,
+  `RELEASE_VERSION`, `VITE_MAPY_API_BASE_URL/TILE_URL`, `VITE_WEB_PUSH_PUBLIC_KEY`,
+  `EXTERNAL_SUPPLY` kill-switches, `EXTERNAL_SUPABASE_*` (unset = correct single-project
+  fallback).
+- Standing P0 unchanged: rotate the AWS Location key and the (public-by-design but
+  history-exposed) Mapy key at the providers, untrack `.env`.
+
+---
+
 ## [1.9.4] — 2026-08-24
 
 **Edge Function rollout complete: 26/26 live.** The remaining 14 functions were deployed
