@@ -12,6 +12,40 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.4] — 2026-08-24
+
+**Edge Function rollout complete: 26/26 live.** The remaining 14 functions were deployed
+with the Supabase CLI (`supabase functions deploy … --use-api`), which bundles the
+`supabase/functions/` sources natively (`../shared/` imports included) and applies the
+`config.toml` verify_jwt flags automatically — the manual bundle-rewrite pattern from
+v1.9.1/2 is no longer needed.
+
+### Added
+- Newly deployed: place-search, mapy-routing, generate-hub-events, ai-event-proposals,
+  admin-bulk-user-actions, eventbrite-import, seed-venues, sync-external-events,
+  sync-local-places, sync-seatgeek-events, sync-ticketmaster-events,
+  address-manager-{discovery,task-generator,worker}.
+
+### Verified
+- All 26 functions ACTIVE; verify_jwt flags match `supabase/config.toml` exactly.
+- place-search boots and serves the full handler contract (OPTIONS 200; POST returns
+  contract JSON — 0 results until the provider API keys are set, a known operator item).
+- mapy-routing correctly rejects unauthenticated calls (401, verify_jwt=true).
+
+### Changed (Google OAuth follow-up from v1.9.3)
+- Both Google identities in the restored database belong to the operator's own two
+  accounts; both are now registered as consent-screen test users, so Testing mode
+  currently blocks **no one**. Basic scopes (openid, email, profile) were registered on
+  the Data Access page. "Publish app" remains greyed out pending Google-side propagation.
+
+### Deferred
+- Operator: provider API keys as Edge secrets (GEOAPIFY/TOMTOM/TICKETMASTER/SEATGEEK/
+  EVENTBRITE/MAPY + GEODATA_SUPABASE_* for db-backed place search), SMTP, AWS Location
+  key rotation, `.env` untracking, Google consent screen Publish once the button
+  activates.
+
+---
+
 ## [1.9.3] — 2026-08-24
 
 **Google login works again on expericentre.com.** The "Unsupported provider: provider is
