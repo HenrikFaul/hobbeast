@@ -66,6 +66,7 @@ import {
   loadDiscoveryProfileLocation,
   loadJoinedEventIds,
 } from '@/features/events/eventsRepository';
+import riversideBadminton from '@/assets/editorial/events-riverside-badminton.webp';
 
 const Events = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -704,7 +705,7 @@ const Events = () => {
         >
           <div aria-hidden="true" className="absolute -right-14 -top-20 h-64 w-64 rounded-full border-[42px] border-[#dfff62]/15" />
           <div aria-hidden="true" className="absolute -bottom-24 right-[22%] h-56 w-56 rounded-full bg-[#ff8f72]/15 blur-3xl" />
-          <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="relative grid items-center gap-9 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.62fr)] lg:gap-12">
             <div>
               <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#dfff62]">
                 <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Programok a közeledben
@@ -717,18 +718,33 @@ const Events = () => {
                 Böngéssz helyi és külső programok között, használd a személyes ajánlásokat,
                 vagy szűrj pontosan dátum, férőhely és távolság szerint.
               </p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <div className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/15 px-4 text-sm font-semibold text-white/[0.78] backdrop-blur-sm">
+                  <MapPin size={16} className="text-[#dfff62]" aria-hidden="true" /> Budapest &amp; Wien
+                </div>
+                {user && (
+                  <Button className="rounded-full border-[#dfff62] bg-[#dfff62] px-6 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => setShowCreate(true)}>
+                    <Plus className="mr-1 h-4 w-4" /> Új esemény létrehozása
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 lg:flex-col lg:items-end">
-              <div className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/15 px-4 text-sm font-semibold text-white/[0.76] backdrop-blur-sm">
-                <MapPin size={16} className="text-[#dfff62]" aria-hidden="true" /> Budapest &amp; Wien
-              </div>
-              {user && (
-                <Button className="rounded-full border-[#dfff62] bg-[#dfff62] px-6 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => setShowCreate(true)}>
-                  <Plus className="mr-1 h-4 w-4" /> Új esemény létrehozása
-                </Button>
-              )}
-            </div>
+            <figure className="relative mx-auto aspect-[4/3] w-full max-w-[26rem]">
+              <div aria-hidden="true" className="absolute -inset-2 -rotate-3 rounded-[1.5rem_4rem_2rem_3.25rem] bg-[#ff8f72]" />
+              <img
+                src={riversideBadminton}
+                alt="Barátok tollaslabdáznak a Duna-parton naplementében"
+                width={1280}
+                height={853}
+                loading="lazy"
+                decoding="async"
+                className="relative h-full w-full rotate-1 rounded-[1.5rem_4rem_2rem_3.25rem] object-cover shadow-2xl"
+              />
+              <figcaption className="absolute -bottom-3 right-2 -rotate-2 rounded-full border-2 border-[#183124] bg-[#dfff62] px-4 py-2 text-sm font-extrabold text-[#183124] shadow-xl">
+                mozdulj • kapcsolódj
+              </figcaption>
+            </figure>
           </div>
         </motion.header>
 

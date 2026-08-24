@@ -10,8 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import heroImg from "@/assets/hero-community-v2.webp";
-import heroFallback from "@/assets/hero-community.jpg";
+import HeroMotionMedia from "@/components/HeroMotionMedia";
 
 const quickStarts = [
   {
@@ -52,19 +51,7 @@ const HeroSection = () => {
         transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
         className="relative mx-auto min-h-[760px] max-w-[92rem] overflow-hidden rounded-[2rem] bg-[#12251c] shadow-[0_36px_100px_-42px_rgba(13,35,24,0.72)] sm:min-h-[790px] sm:rounded-[2.75rem] lg:min-h-[820px]"
       >
-        <picture className="absolute inset-0">
-          <source srcSet={heroImg} type="image/webp" />
-          <img
-            src={heroFallback}
-            alt="Barátok közös szabadtéri programra érkeznek Budapesten"
-            width={1536}
-            height={1024}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover object-[61%_center] sm:object-[58%_center] lg:object-center"
-          />
-        </picture>
+        <HeroMotionMedia reduceMotion={Boolean(reduceMotion)} />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,27,18,0.96)_0%,rgba(8,27,18,0.84)_35%,rgba(8,27,18,0.26)_70%,rgba(8,27,18,0.08)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,24,16,0.18)_0%,transparent_42%,rgba(8,24,16,0.88)_100%)]" />
         <div aria-hidden="true" className="absolute -left-20 -top-28 h-72 w-72 rounded-full border-[52px] border-[#dfff62]/20" />
@@ -101,14 +88,14 @@ const HeroSection = () => {
             </motion.div>
 
             <motion.h1
-              aria-label="Találd meg a te embereidet."
+              aria-label="A város tele van közös történetekkel."
               initial={reduceMotion ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="max-w-4xl font-display text-[3.15rem] font-extrabold leading-[0.9] tracking-[-0.065em] text-white sm:text-[4.5rem] lg:text-[5.85rem] xl:text-[6.8rem]"
             >
-              Találd meg
-              <span className="block text-[#dfff62]">a te embereidet.</span>
+              A város tele van
+              <span className="block text-[#dfff62]">közös történetekkel.</span>
             </motion.h1>
 
             <motion.p
@@ -192,6 +179,17 @@ const HeroSection = () => {
           <span className="block text-[0.62rem] font-extrabold uppercase tracking-[0.14em]">Nyitott társaság</span>
           <span className="mt-0.5 block font-display text-lg font-extrabold">Gyere úgy, ahogy vagy ✦</span>
         </motion.div>
+
+        <motion.button
+          type="button"
+          initial={reduceMotion ? false : { opacity: 0, rotate: -5, scale: 0.9 }}
+          animate={{ opacity: 1, rotate: 2, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.72 }}
+          onClick={() => navigate("/events?q=társasjáték&mode=search")}
+          className="absolute right-10 top-[13.5rem] hidden min-h-11 rounded-full border-2 border-[#251b43] bg-[#c9b7ff] px-4 py-2 text-sm font-extrabold text-[#251b43] shadow-xl transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#12251c] xl:block"
+        >
+          társas esték ↗
+        </motion.button>
       </motion.div>
     </section>
   );

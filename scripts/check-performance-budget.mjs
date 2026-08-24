@@ -30,18 +30,57 @@ const measured = await Promise.all(files.map(async (absolute) => {
   };
 }));
 
+function optionalMatchLimit(value, label) {
+  if (value === undefined) return null;
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(`${label} must be a non-negative integer when provided`);
+  }
+  return value;
+}
+
 const results = [];
 for (const budget of config.budgets) {
   const pattern = new RegExp(budget.pattern, 'i');
   const matches = measured.filter((file) => pattern.test(file.name));
+  const configuredMinMatches = optionalMatchLimit(budget.minMatches, `${budget.id}.minMatches`);
+  const configuredMaxMatches = optionalMatchLimit(budget.maxMatches, `${budget.id}.maxMatches`);
+  const minMatches = configuredMinMatches ?? (budget.required ? 1 : 0);
+  const maxMatches = configuredMaxMatches ?? Number.POSITIVE_INFINITY;
+
+  if (maxMatches < minMatches) {
+    throw new RangeError(`${budget.id}.maxMatches must be greater than or equal to minMatches`);
+  }
+
+  const countFailure = matches.length < minMatches || matches.length > maxMatches;
+  const matchCount = {
+    actual: matches.length,
+    minimum: minMatches,
+    maximum: Number.isFinite(maxMatches) ? maxMatches : null,
+  };
+
   if (!matches.length) {
-    results.push({ id: budget.id, status: budget.required ? 'FAIL' : 'NOT_FOUND', matches: [] });
+    results.push({
+      id: budget.id,
+      status: countFailure ? 'FAIL' : 'NOT_FOUND',
+      matchCount,
+      matches: [],
+    });
     continue;
   }
 
   if (budget.perFile) {
     const failures = matches.filter((file) => file.rawBytes > budget.maxRawBytes || file.gzipBytes > budget.maxGzipBytes);
-    results.push({ id: budget.id, status: failures.length ? 'FAIL' : 'PASS', matches, failures });
+    results.push({
+      id: budget.id,
+      status: countFailure || failures.length ? 'FAIL' : 'PASS',
+      matchCount,
+      limits: {
+        maxRawBytes: budget.maxRawBytes,
+        maxGzipBytes: budget.maxGzipBytes,
+      },
+      matches,
+      failures,
+    });
     continue;
   }
 
@@ -51,7 +90,8 @@ for (const budget of config.budgets) {
   }), { rawBytes: 0, gzipBytes: 0 });
   results.push({
     id: budget.id,
-    status: totals.rawBytes <= budget.maxRawBytes && totals.gzipBytes <= budget.maxGzipBytes ? 'PASS' : 'FAIL',
+    status: !countFailure && totals.rawBytes <= budget.maxRawBytes && totals.gzipBytes <= budget.maxGzipBytes ? 'PASS' : 'FAIL',
+    matchCount,
     totals,
     limits: { rawBytes: budget.maxRawBytes, gzipBytes: budget.maxGzipBytes },
     matches,

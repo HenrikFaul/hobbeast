@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
+import boardgameFriends from "@/assets/editorial/explore-boardgame.webp";
 
 type ViewLevel = 'categories' | 'subcategories' | 'activities';
 
@@ -70,35 +71,58 @@ const Explore = () => {
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative mx-auto mb-12 max-w-6xl overflow-hidden rounded-[2rem] bg-[#251b43] px-5 py-10 text-center text-white shadow-[0_28px_80px_-42px_rgba(37,27,67,0.7)] sm:mb-16 sm:rounded-[2.6rem] sm:px-10 sm:py-14"
+          className="relative mx-auto mb-12 max-w-6xl overflow-hidden rounded-[2rem] bg-[#251b43] px-5 py-8 text-center text-white shadow-[0_28px_80px_-42px_rgba(37,27,67,0.7)] sm:mb-16 sm:rounded-[2.6rem] sm:px-10 sm:py-10 lg:px-12 lg:py-12 lg:text-left"
         >
           <div aria-hidden="true" className="absolute -left-16 -top-20 h-56 w-56 rounded-full border-[38px] border-[#dfff62]/15" />
           <div aria-hidden="true" className="absolute -bottom-24 -right-16 h-64 w-64 rounded-full bg-[#ff8f72]/15 blur-3xl" />
-          <div className="relative mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#dfff62]">
-            <Sparkles aria-hidden="true" size={14} /> Közös érdeklődésből valódi élmény
-          </div>
-          <h1 className="relative mb-5 font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-[4.5rem]">
-            Fedezd fel a <span className="text-[#ff8f72]">hobbidat</span>
-          </h1>
-          <p className="relative mx-auto mb-7 max-w-2xl text-base font-medium leading-relaxed text-white/[0.66] sm:text-lg">
-            Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.
-          </p>
+          <div className="relative grid items-center gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.78fr)] lg:gap-12">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#dfff62]">
+                <Sparkles aria-hidden="true" size={14} /> Közös érdeklődésből valódi élmény
+              </div>
+              <h1 className="mb-5 font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-[4.5rem]">
+                Fedezd fel a <span className="text-[#ff8f72]">hobbidat</span>
+              </h1>
+              <p className="mx-auto mb-7 max-w-2xl text-base font-medium leading-relaxed text-white/[0.68] sm:text-lg lg:mx-0">
+                Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.
+              </p>
 
-          <div className="relative mx-auto max-w-2xl">
-            <Search aria-hidden="true" size={20} className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-primary" />
-            <Input
-              aria-label="Hobbi keresése"
-              placeholder="Keress hobbit... pl. futás, festés, sakk"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); }}
-              className="h-14 rounded-2xl border-white/20 bg-[#fffdf7] pl-14 pr-5 text-base text-foreground shadow-xl backdrop-blur-sm sm:h-16 sm:rounded-3xl"
-            />
-          </div>
+              <div className="relative mx-auto max-w-2xl lg:mx-0">
+                <Search aria-hidden="true" size={20} className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-primary" />
+                <Input
+                  aria-label="Hobbi keresése"
+                  placeholder="Keress hobbit... pl. futás, festés, sakk"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); }}
+                  className="h-14 rounded-2xl border-white/20 bg-[#fffdf7] pl-14 pr-5 text-base text-foreground shadow-xl backdrop-blur-sm sm:h-16 sm:rounded-3xl"
+                />
+              </div>
 
-          <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-white/[0.66] sm:gap-3">
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.categories}</strong> kategória</span>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.subcategories}</strong> alkategória</span>
-            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.activities}</strong> tevékenység</span>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-white/[0.68] sm:gap-3 lg:justify-start">
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.categories}</strong> kategória</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.subcategories}</strong> alkategória</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.activities}</strong> tevékenység</span>
+              </div>
+            </div>
+
+            <figure className="relative mx-auto aspect-[4/3] w-full max-w-[29rem]">
+              <div aria-hidden="true" className="absolute -inset-3 rotate-3 rounded-[3rem_1.4rem_4.2rem_2rem] bg-[#dfff62]" />
+              <img
+                src={boardgameFriends}
+                alt="Baráti társaság nevet egy közös társasjáték mellett"
+                width={1280}
+                height={853}
+                loading="lazy"
+                decoding="async"
+                className="relative h-full w-full -rotate-1 rounded-[3rem_1.4rem_4.2rem_2rem] object-cover shadow-2xl"
+              />
+              <figcaption className="absolute -bottom-3 left-3 rotate-[-3deg] rounded-full border-2 border-[#251b43] bg-[#ff8f72] px-4 py-2 text-sm font-extrabold text-[#251b43] shadow-xl sm:left-6">
+                nevetés-kompatibilis ✓
+              </figcaption>
+              <span aria-hidden="true" className="absolute -right-2 top-5 rotate-6 rounded-full border-2 border-[#251b43] bg-[#c9b7ff] px-3 py-2 text-xs font-extrabold text-[#251b43] shadow-xl">
+                társas • új arcok
+              </span>
+            </figure>
           </div>
         </motion.header>
 
