@@ -141,13 +141,13 @@ const Auth = () => {
                   </div>
                   <div className="xl:mt-4">
                     <p className="text-sm font-extrabold">{feature.title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[#183124]/[0.58]">{feature.desc}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#183124]/[0.76]">{feature.desc}</p>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
-          <p className="text-sm font-medium text-[#183124]/[0.48]">© 2026 Hobbeast. Minden jog fenntartva.</p>
+          <p className="text-sm font-medium text-[#183124]/[0.7]">© 2026 Hobbeast. Minden jog fenntartva.</p>
         </div>
       </div>
 

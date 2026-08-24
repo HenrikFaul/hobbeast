@@ -108,7 +108,7 @@ const DiscoveryPreviewSection = () => {
                   key={item}
                   type="button"
                   onClick={() => openSearch(item)}
-                  className="min-h-10 rounded-full border border-white/15 px-3.5 text-sm font-semibold text-white/[0.72] transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                  className="min-h-11 rounded-full border border-white/15 px-3.5 text-sm font-semibold text-white/[0.82] transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#251b43]"
                 >
                   {item}
                 </button>
@@ -149,7 +149,7 @@ const DiscoveryPreviewSection = () => {
                   </span>
                   <span className="min-w-0">
                     <span className="font-display text-base font-extrabold sm:text-lg">{item.label}</span>
-                    <span className="mt-0.5 block text-xs font-medium text-[#183124]/[0.55] sm:text-sm">{item.detail}</span>
+                    <span className="mt-0.5 block text-xs font-medium text-[#183124]/[0.74] sm:text-sm">{item.detail}</span>
                   </span>
                   <span className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#183124]/5 transition-colors group-hover:bg-[#183124] group-hover:text-white">
                     <ArrowRight size={16} aria-hidden="true" />
@@ -163,7 +163,7 @@ const DiscoveryPreviewSection = () => {
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary"><Users size={18} aria-hidden="true" /></span>
                 <div>
                   <p className="text-sm font-extrabold">Nem találtad? Indíts sajátot.</p>
-                  <p className="text-xs text-[#183124]/[0.55]">A szervezői eszközök végig segítenek.</p>
+                  <p className="text-xs text-[#183124]/[0.74]">A szervezői eszközök végig segítenek.</p>
                 </div>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={openCreate} className="rounded-full border-[#183124]/15 bg-white">

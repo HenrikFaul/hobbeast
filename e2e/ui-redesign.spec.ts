@@ -57,4 +57,9 @@ test('mobile navigation and additive home discovery entry points preserve routin
   await search.fill('társasjáték');
   await search.press('Enter');
   await expect(page).toHaveURL(/\/events\?q=t%C3%A1rsasj%C3%A1t%C3%A9k&mode=search$/);
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: /Kategóriák szerint/i }).click();
+  await expect(page).toHaveURL(/\/events\?mode=categories$/);
+  await expect(page.getByRole('dialog', { name: 'Kategóriák' })).toBeVisible();
 });

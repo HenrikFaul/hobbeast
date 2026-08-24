@@ -82,7 +82,7 @@ const HeroSection = () => {
             <button
               type="button"
               onClick={() => navigate("/explore")}
-              className="hidden min-h-11 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:inline-flex"
+              className="hidden min-h-11 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#12251c] sm:inline-flex"
             >
               Hobbik felfedezése
               <ArrowUpRight size={16} aria-hidden="true" />
@@ -162,7 +162,7 @@ const HeroSection = () => {
                   transition={{ duration: 0.45, delay: 0.48 + index * 0.07 }}
                   whileHover={reduceMotion ? undefined : { y: -4 }}
                   onClick={() => navigate(item.path)}
-                  className="group flex min-h-[76px] items-center gap-3 rounded-[1.35rem] border border-white/20 bg-black/25 p-3 text-left text-white backdrop-blur-xl transition-colors hover:bg-black/40 sm:min-h-[92px] sm:p-4"
+                  className="group flex min-h-[76px] items-center gap-3 rounded-[1.35rem] border border-white/20 bg-black/25 p-3 text-left text-white backdrop-blur-xl transition-colors hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#12251c] sm:min-h-[92px] sm:p-4"
                 >
                   <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${item.tone}`}>
                     <item.icon size={20} aria-hidden="true" />

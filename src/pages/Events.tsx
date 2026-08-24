@@ -114,7 +114,12 @@ const Events = () => {
   const [primaryFilter, setPrimaryFilter] = useState<'all' | 'search' | 'personal' | 'categories'>(
     requestedMode === 'search' || requestedMode === 'personal' || requestedMode === 'categories' ? requestedMode : 'all',
   );
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(
+    () => requestedMode === 'categories'
+      && !searchParams.get('cat')
+      && !searchParams.get('sub')
+      && !searchParams.get('activity'),
+  );
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(() => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)));
   const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(() => new Set((searchParams.get('sub') || '').split(',').filter(Boolean)));
   const [selectedActivityKeys, setSelectedActivityKeys] = useState<Set<string>>(() => new Set((searchParams.get('activity') || '').split(',').filter(Boolean)));

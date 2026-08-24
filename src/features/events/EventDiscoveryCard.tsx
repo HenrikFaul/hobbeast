@@ -99,7 +99,7 @@ export function EventDiscoveryCard({
     >
       <button
         type="button"
-        className={`relative flex h-52 w-full items-center justify-center overflow-hidden bg-gradient-to-br ${visualTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:h-56`}
+        className={`relative flex h-52 w-full items-center justify-center overflow-hidden bg-gradient-to-br ${visualTone} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-7px] focus-visible:outline-[#183124] focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#dfff62] sm:h-56`}
         onClick={() => onOpen(event)}
         aria-label={`${event.title} részleteinek megnyitása`}
       >

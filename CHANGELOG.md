@@ -12,6 +12,73 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.8] — 2026-08-24
+
+**Social Playground UI/UX expansion.** Hobbeast now presents its existing, production-
+capable social and event feature set through a bolder, photo-led consumer experience.
+The release is additive: no route, auth rule, organizer capability, discovery filter,
+event lifecycle action, privacy control or admin surface was removed or replaced.
+
+### Added
+- Added an original, locally shipped WebP community hero with the previous JPEG retained
+  as a browser fallback, plus activity-led quick starts into the existing Events search.
+- Added a homepage discovery playground that hands real queries, personal discovery,
+  capacity, category and authenticated create-event intents to the existing URL/state
+  contracts instead of creating a parallel demo flow.
+- Added a visible `Hobbik` navigation entry for the existing Explore state machine and a
+  six-capability bento overview that keeps the complete product proposition discoverable.
+- Added responsive Playwright coverage at 320, 390, 768 and 1440 pixel widths for Home,
+  Events, Explore and Auth, including horizontal-overflow, mobile-menu and query-handoff
+  checks.
+
+### Changed
+- Reframed the shared consumer shell around forest, chartreuse, coral and lilac editorial
+  surfaces, with Bricolage Grotesque display typography and DM Sans body copy.
+- Self-hosted the Latin and Latin Extended WOFF2 subsets with their OFL license files, so
+  production typography works under the existing CSP without external font requests.
+- Rebuilt Home, Events, Explore and Auth presentation layers while leaving their handlers,
+  state machines, authorization boundaries and route destinations intact.
+- Enriched event cards with safe HTTPS provider imagery, lazy loading, no-referrer fetches
+  and emoji/gradient fallbacks while preserving promoted disclosure and every join, leave,
+  open, recommendation and external-provider callback.
+- Synchronized the SVG mark and multi-resolution favicon with the refreshed brand system.
+- Lazy-loaded the below-fold homepage bundle so the richer experience stays inside the
+  existing main-JavaScript transfer budget.
+
+### Accessibility
+- Preserved semantic headings, labelled navigation and keyboard-operable discovery cards.
+- Added explicit removal labels to active Events filters, corrected the external-event CTA
+  to avoid nested interactive elements, and respected reduced-motion preferences in all
+  newly animated consumer surfaces.
+- Raised small-copy contrast above WCAG AA, made new quick-query targets at least 44 px high,
+  and added high-contrast focus rings to controls rendered on dark hero surfaces.
+- Verified that the redesigned routes do not horizontally overflow down to 320 px.
+
+### Performance
+- Kept the global CSS gzip ceiling at 20 KiB; the built stylesheet is 19,805 bytes gzip.
+- Raised only the raw diagnostic CSS ceiling to 116 KiB to reflect readable utility output;
+  network-transfer protection was not relaxed.
+- Production build: main JavaScript 148,057 raw / 46,152 gzip; below-fold Home chunk
+  22,613 raw / 7,072 gzip.
+
+### Verified
+- `bun run typecheck`, `bun run lint`, `bun run build`,
+  `bun run quality:performance`, `bun run security:secrets` and
+  `bun run security:audit` — PASS (lint retains 14 pre-existing warnings, zero errors).
+- Vitest — PASS: 59 files / 323 tests.
+- Playwright — PASS: 11 checks; the single authenticated, mutating staging scenario remains
+  intentionally skipped without a disposable fixture.
+- Interactive desktop browser QA — PASS for Home, Events, Explore and Auth; the automated
+  Playwright matrix verified the compact responsive widths.
+
+### Operational boundary
+- The redesign uses original/local assets and code-native decoration; reference-product
+  imagery, copy and branding were not copied into the application.
+- This repository release records and validates the UI slice. Authenticated staging mutation
+  remains fixture-gated and is not represented as executed production proof.
+
+---
+
 ## [1.9.7] — 2026-08-24
 
 **Production release-path closure.** The Warm Social Field Guide UI remains intact,

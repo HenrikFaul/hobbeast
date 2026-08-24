@@ -87,7 +87,7 @@ const Navbar = () => {
                 <ProfileMenu />
               </div>
             ) : (
-              <Button size="sm" className="ml-1 rounded-full border-[#dfff62] bg-[#dfff62] px-5 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => navigate("/auth")}> 
+              <Button size="sm" className="ml-1 rounded-full border-[#dfff62] bg-[#dfff62] px-5 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => navigate("/auth")}>
                 Csatlakozz
               </Button>
             ))}

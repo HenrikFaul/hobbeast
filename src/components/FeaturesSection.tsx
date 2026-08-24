@@ -28,7 +28,7 @@ const features = [
     description: "Gyorsan átlátható események dátum, férőhely, forrás és távolság szerint — saját Hobbeast és külső kínálattal.",
     className: "bg-[#ff8f72] text-[#2f1711] sm:col-span-2 lg:col-span-5",
     iconClassName: "bg-[#2f1711] text-[#ffb7a5]",
-    copyClassName: "text-[#2f1711]/[0.72]",
+    copyClassName: "text-[#2f1711]/[0.84]",
   },
   {
     icon: MapPin,
@@ -37,7 +37,7 @@ const features = [
     description: "Lokációalapú felfedezés, útvonaltervezés és helyszínjavaslat egyetlen folyamatban.",
     className: "bg-[#dfff62] text-[#183124] sm:col-span-1 lg:col-span-4",
     iconClassName: "bg-[#183124] text-[#dfff62]",
-    copyClassName: "text-[#183124]/[0.68]",
+    copyClassName: "text-[#183124]/[0.82]",
   },
   {
     icon: Compass,
@@ -46,7 +46,7 @@ const features = [
     description: "Személyes ajánlások, kedvenc kategóriák és átlátható indoklás segítik a döntést.",
     className: "bg-[#c9b7ff] text-[#251b43] sm:col-span-1 lg:col-span-4",
     iconClassName: "bg-[#251b43] text-[#d9ceff]",
-    copyClassName: "text-[#251b43]/[0.68]",
+    copyClassName: "text-[#251b43]/[0.82]",
   },
   {
     icon: Sparkles,
@@ -55,7 +55,7 @@ const features = [
     description: "Túrától a társasig, koncerttől a kreatív workshopig — részletes hobbi-katalógusból indulhatsz.",
     className: "bg-[#f5d46f] text-[#33250a] sm:col-span-1 lg:col-span-4",
     iconClassName: "bg-[#33250a] text-[#f5d46f]",
-    copyClassName: "text-[#33250a]/[0.68]",
+    copyClassName: "text-[#33250a]/[0.82]",
   },
   {
     icon: ShieldCheck,

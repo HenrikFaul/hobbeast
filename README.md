@@ -100,11 +100,14 @@ npx playwright test
 
 ## Deployment
 
-Push to `main` deploys via Lovable to the preview URL. Publish from the Lovable UI to promote to the published/custom-domain URLs. Edge Functions deploy automatically with the project.
+Push to the reviewed GitHub `main` branch triggers the linked Vercel production build.
+Verify GitHub Actions, every attached Vercel status context and the canonical production
+URL as described in [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md). Edge Functions and hosted
+configuration remain separate, explicitly verified deployment steps.
 
 ## Versioning & release process
 
-- Semantic versioning (`MAJOR.MINOR.PATCH`). Current local candidate: **1.8.4** (release HOLD; see `docs/PRODUCTION_RISK_REGISTER.md`).
+- Semantic versioning (`MAJOR.MINOR.PATCH`). Current repository release: **1.9.8**.
 - Single source of truth: `CHANGELOG.md` (Keep a Changelog format).
 - Historical append snippets and upload READMEs are archived under `docs/releases/`.
 - Full release protocol: [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md).

@@ -221,3 +221,16 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
 - **Prevention**: A production release must prove the same target and lockfile from local gates,
   CI and hosting. Inspect every commit-status context, not only the canonical deployment;
   never infer deployability from a successful UI build alone.
+
+## v1.9.8 — Consumer redesign must extend product depth, not conceal it
+
+- **Symptom**: Competitor-inspired redesigns can look cleaner by silently removing advanced
+  filters, lifecycle actions, role-aware entry points or disclosure states from the rendered UI.
+- **Root cause**: Treating a screenshot as the product contract ignores the handlers, URL state,
+  accessibility names and authorization rules that make an established application useful.
+- **Fix**: Isolate presentation blocks from domain logic, keep every existing callback and route
+  contract, and make new discovery surfaces hand off to the existing Events query model. Use safe
+  provider images as progressive enhancement with local fallbacks instead of replacing data flows.
+- **Prevention**: Every major visual round must run the full unit suite plus responsive route,
+  overflow, mobile-menu and query-handoff E2E checks. Preserve the compressed asset budgets; if
+  richer UI grows raw source, lazy-load below-fold code before considering any transfer increase.

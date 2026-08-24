@@ -34,7 +34,7 @@ const CTASection = () => {
               <h2 className="mt-6 max-w-3xl text-balance font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
                 Készen állsz, hogy új embereket és közös élményeket találj?
               </h2>
-              <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-[#2f1711]/[0.68] sm:text-lg">
+              <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-[#2f1711]/[0.84] sm:text-lg">
                 Lépj be a Hobbeast világába, ahol a közös hobbi, a programok és
                 az új barátságok egyetlen, jól szervezett helyen találkoznak.
               </p>
