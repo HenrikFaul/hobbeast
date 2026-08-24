@@ -12,6 +12,44 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.2] — 2026-08-24
+
+**expericentre.com is live on the new stack.** The public domain now serves the
+Vercel production build wired to the `bqdvqmpwccsxumzijspj` Supabase project; the dead
+Lovable deployment (which embedded both deleted project refs and broke login) is out of
+the serving path.
+
+### Changed
+- **Domain cutover Lovable → Vercel**: the Lovable-purchased `expericentre.com` was
+  disconnected from the Lovable Hobbeast project (registration, auto-renew and DNS
+  management stay in the user's Lovable workspace); its now-unlocked DNS was pointed at
+  Vercel (`A @ → 76.76.21.21`, `CNAME www → cname.vercel-dns.com`, TTL 300) and the
+  certificate was issued via `vercel certs issue`. Verified live: HTTP 200, bundle
+  references the new project ref, the login page renders.
+- **Vercel project fixed**: every previous deployment had failed for months because the
+  project env still targeted the deleted `dsymdijzydaehntlmfzl` (our own fail-closed
+  build gate correctly blocked it). All four `VITE_*` env vars replaced (Production +
+  Preview), first green production deploy shipped, `expericentre.com` + `www` attached
+  to the `hobbeast` project. GitHub pushes now auto-deploy.
+
+### Added
+- Edge Functions deployed this round (12/26 total now live): trust-safety,
+  analytics-ingest, admin-control-plane, virtual-hubs-admin,
+  notification-delivery-worker, organizer-ai-proposals — on top of the earlier
+  event-operations, notification-preferences, discovery-feedback, delete-account,
+  admin-user-profile-update, mass-create-users.
+
+### Deferred
+- 14 Edge Functions remain (bundles ready): place-search, mapy-routing,
+  generate-hub-events, ai-event-proposals, admin-bulk-user-actions, eventbrite-import,
+  seed-venues, sync-external-events, sync-local-places, sync-seatgeek-events,
+  sync-ticketmaster-events, address-manager-{discovery,task-generator,worker}.
+- Operator items unchanged: provider API keys as Edge secrets, Auth Site URL
+  (set it to https://expericentre.com) + SMTP, AWS Location key rotation, `.env`
+  untracking. Optional: full registrar transfer of the domain away from Lovable.
+
+---
+
 ## [1.9.1] — 2026-08-24
 
 **The Expericentre/Hobbeast site is live again.** The retired Supabase projects
