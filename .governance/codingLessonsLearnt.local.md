@@ -16,3 +16,6 @@
   labelled close controls, bounded inner scrolling and background-scroll cleanup.
 - Offline UI QA should record expected provider/config errors separately from visual
   regressions; it is local proof, never hosted or production proof.
+- Re-read `HEAD`, `origin/main` and the worktree immediately before committing. If a
+  concurrent process has already committed and published the owned slice, never
+  duplicate or amend that shared history; append a factual closure commit instead.

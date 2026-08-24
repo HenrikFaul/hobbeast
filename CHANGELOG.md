@@ -69,6 +69,16 @@ data, event lifecycle and organizer/admin contracts remain unchanged.
 - No deployment, hosted configuration change, database mutation, commit or push was
   performed in this UI round.
 
+**Delivery correction — 2026-08-24:** the line above records the pre-publication QA
+snapshot. After that snapshot, the complete v1.9.6 UI/UX, documentation and visual
+evidence slice was committed as `b15c9aa` (`csapi`), with parent `d07140e`; the closure
+audit confirmed that `main` and `origin/main` both pointed to that revision. The
+follow-up closure synchronizes the package version to `1.9.6`. No deployment, hosted
+configuration change or database mutation was part of either commit.
+After the version carrier was synchronized, `release:validate` advanced past the
+version check and stopped at the pre-existing tracked-`.env` security gate. That gate
+remains **HOLD** pending the approved credential-rotation and untracking workflow.
+
 ---
 
 ## [1.9.5] — 2026-08-24

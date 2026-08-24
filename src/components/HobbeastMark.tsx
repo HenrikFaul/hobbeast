@@ -44,4 +44,3 @@ export const HobbeastMark = ({ className, title }: HobbeastMarkProps) => (
     />
   </svg>
 );
-
