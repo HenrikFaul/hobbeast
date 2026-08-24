@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
+import { CATEGORY_VISUALS } from "@/lib/categoryVisuals";
 import boardgameFriends from "@/assets/editorial/explore-boardgame.webp";
 
 type ViewLevel = 'categories' | 'subcategories' | 'activities';
@@ -203,25 +204,46 @@ const Explore = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className={`group min-h-64 rounded-[2rem] border border-foreground/[0.08] p-6 text-left shadow-[0_22px_55px_-38px_rgba(24,49,36,0.5)] transition duration-300 hover:-translate-y-1 hover:rotate-[0.3deg] hover:border-foreground/15 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${CATEGORY_TONES[i % CATEGORY_TONES.length]}`}
+                      className={`group relative isolate min-h-[19rem] overflow-hidden rounded-[2rem] border border-foreground/[0.08] p-4 text-left shadow-[0_22px_55px_-38px_rgba(24,49,36,0.5)] transition duration-300 hover:-translate-y-1 hover:rotate-[0.3deg] hover:border-foreground/15 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${CATEGORY_TONES[i % CATEGORY_TONES.length]}`}
                       onClick={() => handleCategoryClick(cat)}
                       aria-label={`${cat.name} kategória megnyitása`}
                     >
-                      <div className="mb-7 flex items-start justify-between">
-                        <span aria-hidden="true" className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] border border-white/50 bg-card/80 text-4xl shadow-sm">{cat.emoji}</span>
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-card/70 text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                          <ChevronRight aria-hidden="true" size={17} />
-                        </span>
-                      </div>
-                      <h3 className="font-display text-xl font-semibold leading-tight">{cat.name}</h3>
-                      <p className="mb-5 mt-2 text-sm leading-relaxed text-muted-foreground">{cat.description}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {cat.subcategories.slice(0, 3).map((sub) => (
-                          <Badge key={sub.id} variant="secondary" className="bg-card/70 text-xs font-normal">{sub.name}</Badge>
-                        ))}
-                        {cat.subcategories.length > 3 && (
-                          <Badge variant="outline" className="bg-card/50 text-xs font-normal">+{cat.subcategories.length - 3}</Badge>
-                        )}
+                      {CATEGORY_VISUALS[cat.id] && (
+                        <div aria-hidden="true" className="absolute inset-0 overflow-hidden" data-testid="category-visual">
+                          <img
+                            src={CATEGORY_VISUALS[cat.id].src}
+                            alt=""
+                            width={720}
+                            height={480}
+                            loading={i < 4 ? "eager" : "lazy"}
+                            decoding="async"
+                            style={{ objectPosition: CATEGORY_VISUALS[cat.id].position }}
+                            className="h-full w-full object-cover opacity-45 saturate-75 mix-blend-multiply transition duration-500 group-hover:scale-105 group-hover:opacity-55 motion-reduce:transform-none"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-white/10 to-white/45" />
+                        </div>
+                      )}
+
+                      <div className="relative flex h-full min-h-[17rem] flex-col">
+                        <div className="flex items-start justify-between">
+                          <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-white/70 bg-card/85 text-3xl shadow-sm backdrop-blur-md">{cat.emoji}</span>
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/65 bg-card/80 text-muted-foreground shadow-sm backdrop-blur-md transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                            <ChevronRight aria-hidden="true" size={17} />
+                          </span>
+                        </div>
+
+                        <div className="mt-auto rounded-[1.35rem] border border-white/55 bg-card/80 p-4 shadow-sm backdrop-blur-md">
+                          <h3 className="font-display text-xl font-semibold leading-tight">{cat.name}</h3>
+                          <p className="mb-4 mt-2 text-sm leading-relaxed text-muted-foreground">{cat.description}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cat.subcategories.slice(0, 3).map((sub) => (
+                              <Badge key={sub.id} variant="secondary" className="bg-card/80 text-xs font-normal">{sub.name}</Badge>
+                            ))}
+                            {cat.subcategories.length > 3 && (
+                              <Badge variant="outline" className="bg-card/65 text-xs font-normal">+{cat.subcategories.length - 3}</Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </motion.button>
                   ))}

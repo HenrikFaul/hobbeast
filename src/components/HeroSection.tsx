@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
@@ -11,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import HeroMotionMedia from "@/components/HeroMotionMedia";
+import HeroSideStories from "@/components/HeroSideStories";
+import { getSessionHeroVariant, HERO_MEDIA_VARIANTS, type HeroVariantKey } from "@/lib/heroMedia";
 
 const quickStarts = [
   {
@@ -39,19 +42,24 @@ const quickStarts = [
 const HeroSection = () => {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
+  const [heroVariant] = useState<HeroVariantKey>(() => getSessionHeroVariant());
+  const heroMedia = HERO_MEDIA_VARIANTS[heroVariant];
 
   return (
     <section className="relative isolate overflow-hidden px-3 pb-10 pt-[5.75rem] sm:px-5 sm:pb-14 sm:pt-[6.5rem]">
       <div className="pointer-events-none absolute -left-40 top-24 -z-10 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 bottom-0 -z-10 h-[28rem] w-[28rem] rounded-full bg-primary/15 blur-3xl" />
 
+      <HeroSideStories />
+
       <motion.div
         initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.992 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
         className="relative mx-auto min-h-[760px] max-w-[92rem] overflow-hidden rounded-[2rem] bg-[#12251c] shadow-[0_36px_100px_-42px_rgba(13,35,24,0.72)] sm:min-h-[790px] sm:rounded-[2.75rem] lg:min-h-[820px]"
+        data-hero-variant={heroVariant}
       >
-        <HeroMotionMedia reduceMotion={Boolean(reduceMotion)} />
+        <HeroMotionMedia reduceMotion={Boolean(reduceMotion)} variant={heroVariant} />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,27,18,0.96)_0%,rgba(8,27,18,0.84)_35%,rgba(8,27,18,0.26)_70%,rgba(8,27,18,0.08)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,24,16,0.18)_0%,transparent_42%,rgba(8,24,16,0.88)_100%)]" />
         <div aria-hidden="true" className="absolute -left-20 -top-28 h-72 w-72 rounded-full border-[52px] border-[#dfff62]/20" />
@@ -63,7 +71,7 @@ const HeroSection = () => {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#dfff62] opacity-60 motion-reduce:animate-none" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#dfff62]" />
               </span>
-              Budapest · közösség élőben
+              {heroMedia.kicker}
             </div>
 
             <button

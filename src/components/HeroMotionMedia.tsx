@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
-import heroPoster from "@/assets/editorial/hero-budapest-night.webp";
-import heroPosterFallback from "@/assets/editorial/hero-budapest-night.jpg";
-import heroPosterMobile from "@/assets/editorial/hero-budapest-night-mobile.webp";
+import { HERO_MEDIA_VARIANTS, type HeroVariantKey } from "@/lib/heroMedia";
 
 type NavigatorWithConnection = Navigator & {
   connection?: {
@@ -18,14 +16,16 @@ type WindowWithIdleCallback = Window & {
 
 interface HeroMotionMediaProps {
   reduceMotion: boolean;
+  variant: HeroVariantKey;
 }
 
-const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
+const HeroMotionMedia = ({ reduceMotion, variant }: HeroMotionMediaProps) => {
+  const media = HERO_MEDIA_VARIANTS[variant];
   const videoRef = useRef<HTMLVideoElement>(null);
   const userPausedRef = useRef(false);
   const [posterReady, setPosterReady] = useState(false);
   const [eligible, setEligible] = useState(false);
-  const [sources, setSources] = useState<{ webm: string; mp4: string } | null>(null);
+  const [source, setSource] = useState<string | null>(null);
   const [mediaReady, setMediaReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -40,7 +40,7 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
     setEligible(false);
     setMediaReady(false);
     setVideoFailed(false);
-    setSources(null);
+    setSource(null);
     userPausedRef.current = false;
 
     if (!posterReady || reduceMotion || window.matchMedia("(max-width: 767px)").matches) return;
@@ -56,17 +56,14 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
 
     const timer = window.setTimeout(() => setEligible(true), 450);
     return () => window.clearTimeout(timer);
-  }, [posterReady, reduceMotion]);
+  }, [posterReady, reduceMotion, variant]);
 
   useEffect(() => {
     if (!eligible) return;
 
     let cancelled = false;
-    void Promise.all([
-      import("@/assets/editorial/hero-budapest-night-motion.webm"),
-      import("@/assets/editorial/hero-budapest-night-motion.mp4"),
-    ]).then(([webm, mp4]) => {
-      if (!cancelled) setSources({ webm: webm.default, mp4: mp4.default });
+    void media.loadVideo().then((video) => {
+      if (!cancelled) setSource(video.default);
     }).catch(() => {
       if (!cancelled) setVideoFailed(true);
     });
@@ -74,7 +71,7 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
     return () => {
       cancelled = true;
     };
-  }, [eligible]);
+  }, [eligible, media]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -119,23 +116,23 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
 
   return (
     <>
-      <picture className="absolute inset-0" data-testid="hero-poster">
-        <source media="(max-width: 767px)" srcSet={heroPosterMobile} type="image/webp" />
-        <source srcSet={heroPoster} type="image/webp" />
+      <picture className="absolute inset-0" data-testid="hero-poster" data-hero-variant={variant}>
+        <source media="(max-width: 767px)" srcSet={media.posterMobile} type="image/webp" />
+        <source srcSet={media.poster} type="image/webp" />
         <img
-          src={heroPosterFallback}
-          alt="Barátok nevetnek egy budapesti nyári estén az óriáskerék fényei előtt"
+          src={media.posterFallback}
+          alt={media.posterAlt}
           width={1672}
           height={941}
           loading="eager"
           fetchPriority="high"
           decoding="async"
           onLoad={() => setPosterReady(true)}
-          className="h-full w-full object-cover object-[64%_center] sm:object-[61%_center] lg:object-center"
+          className={`h-full w-full object-cover ${media.objectPosition}`}
         />
       </picture>
 
-      {eligible && sources && !videoFailed && (
+      {eligible && source && !videoFailed && (
         <video
           ref={videoRef}
           data-testid="hero-motion-video"
@@ -145,7 +142,7 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
           playsInline
           autoPlay
           preload="none"
-          poster={heroPoster}
+          poster={media.poster}
           onLoadedData={() => {
             setMediaReady(true);
             playWhenAllowed();
@@ -155,8 +152,7 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
           onError={() => setVideoFailed(true)}
           className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${mediaReady ? "opacity-100" : "opacity-0"}`}
         >
-          <source src={sources.webm} type="video/webm" />
-          <source src={sources.mp4} type="video/mp4" />
+          <source src={source} type="video/mp4" />
         </video>
       )}
 
