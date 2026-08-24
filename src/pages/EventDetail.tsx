@@ -107,6 +107,14 @@ const SAMPLE_EVENTS = [
   { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: 'Street food stílusú főzőverseny a Bálnában! Csapatban vagy egyénileg, díjak a nyerteseknek.', created_by: '', participant_count: 18 },
 ];
 
+function getEventVisualTone(category: string) {
+  const normalized = category.toLocaleLowerCase('hu-HU');
+  if (/(sport|fut|túra|terep|természet)/.test(normalized)) return 'from-primary/30 via-primary/10 to-secondary';
+  if (/(kreatív|művész|zene|fest)/.test(normalized)) return 'from-accent/30 via-accent/10 to-secondary';
+  if (/(gasztro|főz|étel)/.test(normalized)) return 'from-amber-200/80 via-accent/10 to-secondary';
+  return 'from-secondary via-primary/[0.09] to-accent/[0.14]';
+}
+
 const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -336,18 +344,24 @@ const EventDetail = () => {
 
   if (loading) {
     return (
-      <main className="pt-24 pb-16 min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <main className="flex min-h-screen items-center justify-center px-4 pb-16 pt-28">
+        <div role="status" className="flex min-w-64 flex-col items-center rounded-[2rem] border border-border/70 bg-card/90 px-8 py-12 text-center shadow-xl shadow-primary/[0.05]">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <p className="mt-4 font-display font-semibold">Esemény betöltése</p>
+          <p className="mt-1 text-sm text-muted-foreground">Egy pillanat, összekészítjük a részleteket.</p>
+        </div>
       </main>
     );
   }
 
   if (!event) {
     return (
-      <main className="pt-24 pb-16 min-h-screen">
-        <div className="container mx-auto px-4 text-center py-20">
-          <p className="text-xl text-muted-foreground mb-4">Az esemény nem található 😔</p>
-          <Button variant="outline" onClick={() => navigate('/events')}>
+      <main className="min-h-screen px-4 pb-16 pt-28">
+        <div className="container mx-auto max-w-xl rounded-[2rem] border border-border/70 bg-card/90 px-6 py-16 text-center shadow-xl shadow-primary/[0.05]">
+          <span aria-hidden="true" className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-2xl">🗓️</span>
+          <h1 className="font-display text-2xl font-semibold">Az esemény nem található</h1>
+          <p className="mx-auto mb-6 mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Lehet, hogy az eseményt törölték, vagy a hivatkozás már nem érvényes.</p>
+          <Button variant="outline" className="rounded-full" onClick={() => navigate('/events')}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Vissza az eseményekhez
           </Button>
         </div>
@@ -356,61 +370,75 @@ const EventDetail = () => {
   }
 
   const locationPrecision = getLocationPrecision(event);
+  const visualTone = getEventVisualTone(event.category);
 
   return (
-    <main className="pt-24 pb-16 min-h-screen">
-      <div className="container mx-auto px-4 max-w-3xl">
+    <main className="relative min-h-screen overflow-hidden pb-20 pt-28 sm:pt-32">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-24 h-80 w-80 rounded-full bg-primary/[0.07] blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-[30rem] h-96 w-96 rounded-full bg-accent/[0.08] blur-3xl" />
+      <div className="container relative mx-auto max-w-5xl px-4 sm:px-6">
         {/* Back button */}
-        <Button variant="ghost" size="sm" onClick={() => navigate('/events')} className="mb-4 rounded-xl">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/events')} className="mb-5 rounded-full bg-card/60 backdrop-blur-sm">
           <ArrowLeft className="h-4 w-4 mr-1" /> Vissza
         </Button>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Hero */}
-          <div className="rounded-2xl gradient-warm h-48 sm:h-56 flex items-center justify-center mb-6 relative overflow-hidden">
-            <span className="text-7xl sm:text-8xl">{event.image_emoji || '🎉'}</span>
+          <div className={`relative mb-7 flex h-80 items-center justify-center overflow-hidden rounded-[2.5rem] border border-white/60 bg-gradient-to-br shadow-2xl shadow-primary/10 sm:h-96 ${visualTone}`}>
+            <span aria-hidden="true" className="absolute -left-16 -top-20 h-64 w-64 rounded-full border border-white/50 bg-card/15" />
+            <span aria-hidden="true" className="absolute -bottom-28 -right-14 h-80 w-80 rounded-full border border-white/50 bg-card/25" />
+            <span aria-hidden="true" className="absolute right-[20%] top-10 h-20 w-20 rounded-full bg-card/25 blur-xl" />
+            <span aria-hidden="true" className="mb-16 flex h-32 w-32 items-center justify-center rounded-[2.5rem] border border-white/70 bg-card/65 text-7xl shadow-2xl shadow-foreground/10 backdrop-blur-sm sm:h-40 sm:w-40 sm:text-8xl">{event.image_emoji || '🎉'}</span>
             {isExternal && (
-              <Badge className="absolute top-4 right-4 bg-accent text-accent-foreground border-0">
+              <Badge className="absolute right-5 top-5 rounded-full border border-white/60 bg-card/80 text-foreground shadow-sm backdrop-blur-sm">
                 {externalSource}
               </Badge>
             )}
+
+            <div className="absolute inset-x-3 bottom-3 rounded-[1.8rem] border border-white/60 bg-card/80 p-5 shadow-lg backdrop-blur-md sm:inset-x-5 sm:bottom-5 sm:p-7">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full bg-primary/10 text-primary">{event.category}</Badge>
+                {event.tags?.slice(0, 3).map(tag => (
+                  <Badge key={tag} variant="outline" className="hidden rounded-full bg-card/50 text-xs font-normal sm:inline-flex"><Tag className="mr-1 h-3 w-3" />{tag}</Badge>
+                ))}
+              </div>
+              <h1 className="max-w-4xl font-display text-2xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-5xl">{event.title}</h1>
+            </div>
           </div>
 
           {/* Title + badges */}
-          <div className="mb-6">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">{event.title}</h1>
+          {(event.tags?.length || (isOwner && !isSample)) && (
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2 sm:hidden">
+                {event.tags?.map(tag => (
+                  <Badge key={tag} variant="outline" className="rounded-full bg-card/60 text-xs"><Tag className="mr-1 h-3 w-3" />{tag}</Badge>
+                ))}
+              </div>
               {isOwner && !isSample && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => navigate(`/organizer?event=${id}`)}>
-                    <Settings className="h-3.5 w-3.5 mr-1" /> Szervezés
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="flex-shrink-0 rounded-full bg-card/70" onClick={() => navigate(`/organizer?event=${id}`)}>
+                    <Settings className="mr-1 h-3.5 w-3.5" /> Szervezés
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={() => setShowEdit(true)}>
-                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Szerkesztés
+                  <Button variant="outline" size="sm" className="flex-shrink-0 rounded-full bg-card/70" onClick={() => setShowEdit(true)}>
+                    <Edit2 className="mr-1 h-3.5 w-3.5" /> Szerkesztés
                   </Button>
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{event.category}</Badge>
-              {event.tags?.map(tag => (
-                <Badge key={tag} variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1" />{tag}</Badge>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Info cards */}
-          <div className="grid sm:grid-cols-2 gap-4 mb-6">
-            <Card className="rounded-xl">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 flex-shrink-0">
+          <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Card className="rounded-[1.75rem] border-border/70 bg-card/95 shadow-lg shadow-primary/[0.04]">
+              <CardContent className="flex items-start gap-4 p-5 sm:p-6">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10">
                   <Calendar className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Időpont</p>
-                  <p className="font-medium">{formatDate(event.event_date)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Időpont</p>
+                  <p className="mt-1 font-medium leading-snug">{formatDate(event.event_date)}</p>
                   {event.event_time && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" /> {event.event_time}
                     </p>
                   )}
@@ -418,26 +446,26 @@ const EventDetail = () => {
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 flex-shrink-0">
+            <Card className="rounded-[1.75rem] border-border/70 bg-card/95 shadow-lg shadow-primary/[0.04]">
+              <CardContent className="flex items-start gap-4 p-5 sm:p-6">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-accent/10">
                   <MapPin className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Helyszín</p>
-                  <p className="font-medium">{getLocationString(event)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Helyszín</p>
+                  <p className="mt-1 font-medium leading-snug">{getLocationString(event)}</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl sm:col-span-2">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 flex-shrink-0">
+            <Card className="rounded-[1.75rem] border-border/70 bg-card/95 shadow-lg shadow-primary/[0.04] sm:col-span-2 lg:col-span-1">
+              <CardContent className="flex items-start gap-4 p-5 sm:p-6">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-secondary">
                   <Users className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Résztvevők</p>
-                  <p className="font-medium">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Résztvevők</p>
+                  <p className="mt-1 font-medium">
                     {participantCount}{event.max_attendees ? ` / ${event.max_attendees}` : ''} fő
                   </p>
                   {event.max_attendees && participantCount >= event.max_attendees && (
@@ -450,14 +478,14 @@ const EventDetail = () => {
 
           {/* Venue / Place block */}
           {event.place_name && locationPrecision !== 'coarse' && (
-            <Card className="rounded-xl mb-6">
-              <CardContent className="p-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 flex-shrink-0">
+            <Card className="mb-7 rounded-[1.75rem] border-border/70 bg-card/95 shadow-lg shadow-primary/[0.04]">
+              <CardContent className="flex items-start gap-4 p-5 sm:p-6">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-accent/10">
                   <MapPin className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Helyszín részletei</p>
-                  <p className="font-medium">{event.place_name}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Helyszín részletei</p>
+                  <p className="mt-1 font-medium">{event.place_name}</p>
                   {event.place_address && locationPrecision === 'full' && <p className="text-sm text-muted-foreground">{event.place_address}</p>}
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {[event.place_city, event.place_postcode, event.place_country].filter(Boolean).join(', ')}
@@ -472,16 +500,16 @@ const EventDetail = () => {
 
           {/* Description */}
           {event.description && (
-            <Card className="rounded-xl mb-6">
-              <CardContent className="p-5">
-                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Leírás</p>
-                <p className="text-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
+            <Card className="mb-7 rounded-[1.75rem] border-border/70 bg-card/95 shadow-lg shadow-primary/[0.04]">
+              <CardContent className="p-6 sm:p-8">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Az élményről</p>
+                <p className="whitespace-pre-line text-base leading-7 text-foreground sm:text-lg sm:leading-8">{event.description}</p>
               </CardContent>
             </Card>
           )}
 
           {!isSample && !isExternal && (
-            <div className="mb-6">
+            <div className="mb-7">
               <EventExpectationPanel
                 isOrganizer={Boolean(isOwner)}
                 data={{
@@ -501,38 +529,38 @@ const EventDetail = () => {
           )}
 
           {tripPlan && locationPrecision === 'full' && (
-            <div className="mb-6">
+            <div className="mb-7">
               <MapyTripPlanner value={tripPlan} readOnly />
             </div>
           )}
 
           {/* Action buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 rounded-[1.75rem] border border-primary/15 bg-primary/[0.06] p-3 shadow-lg shadow-primary/[0.04] sm:p-4">
             {isExternal && externalUrl ? (
               <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                <Button className="w-full h-12 rounded-xl gradient-primary text-primary-foreground border-0 shadow-glow font-semibold">
+                <Button className="h-12 w-full rounded-full border-0 gradient-primary font-semibold text-primary-foreground shadow-glow">
                   <ExternalLink className="h-4 w-4 mr-2" /> Megnézem ({externalSource})
                 </Button>
               </a>
             ) : isSample ? (
-              <Button className="flex-1 h-12 rounded-xl gradient-primary text-primary-foreground border-0 shadow-glow font-semibold" onClick={() => toast.info('Ez egy bemutató esemény.')}>
+              <Button className="h-12 flex-1 rounded-full border-0 gradient-primary font-semibold text-primary-foreground shadow-glow" onClick={() => toast.info('Ez egy bemutató esemény.')}>
                 Csatlakozom
               </Button>
             ) : participationStatus === 'completed' ? (
-              <Button disabled variant="secondary" className="flex-1 h-12 rounded-xl font-semibold">
+              <Button disabled variant="secondary" className="h-12 flex-1 rounded-full font-semibold">
                 Esemény teljesítve
               </Button>
             ) : hasJoined ? (
-              <Button variant="outline" className="flex-1 h-12 rounded-xl border-destructive text-destructive hover:bg-destructive/10 font-semibold"
+              <Button variant="outline" className="h-12 flex-1 rounded-full border-destructive bg-card font-semibold text-destructive hover:bg-destructive/10"
                 onClick={() => setShowLeave(true)}>
                 Leiratkozás
               </Button>
             ) : (
-              <Button className="flex-1 h-12 rounded-xl gradient-primary text-primary-foreground border-0 shadow-glow font-semibold" onClick={handleJoin}>
+              <Button className="h-12 flex-1 rounded-full border-0 gradient-primary font-semibold text-primary-foreground shadow-glow" onClick={handleJoin}>
                 Csatlakozom
               </Button>
             )}
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={() => {
+            <Button variant="outline" size="icon" aria-label="Esemény hivatkozásának másolása" className="h-12 w-12 rounded-full bg-card" onClick={() => {
               navigator.clipboard.writeText(window.location.href);
               toast.success('Link másolva!');
             }}>

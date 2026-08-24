@@ -68,9 +68,15 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="*" element={
-                  <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
-                    <div className="pointer-events-none fixed inset-0 tech-grid opacity-[0.06]" />
-                    <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,hsl(188_100%_58%/0.06),transparent_24%),radial-gradient(circle_at_bottom_right,hsl(272_100%_73%/0.05),transparent_28%)]" />
+                  <div className="relative isolate min-h-screen overflow-x-clip bg-background text-foreground">
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_8%_22%,hsl(18_70%_82%/0.24),transparent_24rem),radial-gradient(circle_at_92%_12%,hsl(92_34%_77%/0.3),transparent_30rem),linear-gradient(180deg,hsl(var(--background)),hsl(42_33%_93%))]"
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none fixed -right-40 top-[42vh] -z-10 h-96 w-96 rounded-full bg-accent/10 blur-3xl"
+                    />
                     <Navbar />
                     <Suspense fallback={<RouteFallback />}>
                       <Routes>

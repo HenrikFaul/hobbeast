@@ -11,7 +11,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { toast } from 'sonner';
 import { Mail, ArrowLeft, CheckCircle2, KeyRound, Heart, Users, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '@/assets/hobbeast-logo.png';
+import { HobbeastMark } from '@/components/HobbeastMark';
 import { sanitizeRedirectPath } from '@/lib/redirect';
 import { mapAuthError } from '@/features/identity/authErrors';
 
@@ -118,7 +118,7 @@ const Auth = () => {
         </div>
         <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Hobbeast" className="h-11 w-11 rounded-2xl" />
+            <span className="rounded-2xl bg-primary-foreground p-1 shadow-soft"><HobbeastMark className="h-10 w-10" /></span>
             <span className="font-display text-2xl font-bold">Hobbeast</span>
           </div>
           <div className="space-y-8">
@@ -149,7 +149,7 @@ const Auth = () => {
       <div className="flex flex-1 items-center justify-center p-6 lg:p-12 bg-background">
         <div className="w-full max-w-md">
           <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
-            <img src={logo} alt="Hobbeast" className="h-11 w-11 rounded-2xl" />
+            <HobbeastMark className="h-11 w-11" />
             <span className="font-display text-2xl font-bold">Hobbeast</span>
           </div>
 

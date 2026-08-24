@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, useCallback, useMemo, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { PlaceAutocomplete, type PlaceSelection } from '@/components/PlaceAutocomplete';
 import { ActivityAutocomplete, type ActivitySelection } from '@/components/ActivityAutocomplete';
@@ -208,6 +208,14 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
   onClose();
 }, [isDirty, onClose]);
 
+useEffect(() => {
+  const previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  return () => {
+    document.body.style.overflow = previousOverflow;
+  };
+}, []);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasRequiredFields || !user) return;
@@ -287,17 +295,18 @@ const handleBackdropClick = useCallback((event: ReactMouseEvent<HTMLDivElement>)
 
   return (
     <CreateEventErrorBoundary onClose={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={handleBackdropClick}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-foreground/25 p-4 backdrop-blur-sm" onClick={handleBackdropClick}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.2 }}
-        className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-modal" onClick={e => e.stopPropagation()}>
+        role="dialog" aria-modal="true" aria-labelledby="create-event-title"
+        className="max-h-[90vh] w-full max-w-5xl overscroll-contain overflow-y-auto rounded-[1.75rem] border border-border/75 bg-card p-5 shadow-modal sm:p-6" onClick={e => e.stopPropagation()}>
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <CalendarPlus className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-display text-lg font-bold">Új esemény létrehozása</h3>
+            <h3 id="create-event-title" className="font-display text-lg font-bold">Új esemény létrehozása</h3>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleRequestClose} className="rounded-xl"><X className="h-4 w-4" /></Button>
+          <Button aria-label="Eseménylétrehozó bezárása" variant="ghost" size="icon" onClick={handleRequestClose}><X className="h-4 w-4" /></Button>
         </div>
 
         <form onSubmit={handleCreate} className="space-y-4">

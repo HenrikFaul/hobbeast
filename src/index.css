@@ -5,90 +5,74 @@
 @tailwind utilities;
 
 /*
- * Hobbeast — Refined SaaS Enterprise theme (Linear / Vercel / Stripe inspired)
- * Deep neutral slate, single restrained blue accent, minimal glow.
- * All utility class names below are preserved from earlier versions so
- * existing components keep rendering — only their visual language is toned
- * down to look human-crafted, not AI-generated.
+ * Hobbeast — warm community design system.
+ *
+ * Existing utility names remain available because product screens already
+ * depend on them. Their visual meaning is intentionally re-mapped from the
+ * former cyber/enterprise language to tactile, human community surfaces.
  */
 
 @layer base {
   :root {
-    /* Core surfaces — deep neutral slate, no colour cast */
-    --background: 222 20% 8%;
-    --foreground: 210 20% 96%;
-
-    --card: 222 18% 11%;
-    --card-foreground: 210 20% 96%;
-
-    --popover: 222 18% 12%;
-    --popover-foreground: 210 20% 96%;
-
-    /* Primary — one restrained enterprise blue, used sparingly */
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 8%;
-    --primary-glow: 217 91% 68%;
-
-    --secondary: 222 14% 16%;
-    --secondary-foreground: 210 18% 92%;
-
-    --muted: 222 14% 14%;
-    --muted-foreground: 215 15% 68%;
-
-    /* Accent — same blue family, slightly lighter. No teal, no emerald. */
-    --accent: 213 90% 66%;
-    --accent-foreground: 222 47% 8%;
-
-    --destructive: 0 72% 55%;
+    --background: 42 38% 95%;
+    --foreground: 137 19% 16%;
+    --card: 43 55% 99%;
+    --card-foreground: 137 19% 16%;
+    --popover: 43 55% 99%;
+    --popover-foreground: 137 19% 16%;
+    --primary: 128 36% 27%;
+    --primary-foreground: 44 60% 98%;
+    --primary-glow: 112 24% 46%;
+    --secondary: 81 26% 89%;
+    --secondary-foreground: 132 27% 22%;
+    --muted: 39 26% 91%;
+    --muted-foreground: 135 8% 42%;
+    --accent: 15 75% 56%;
+    --accent-foreground: 43 55% 99%;
+    --destructive: 2 64% 48%;
     --destructive-foreground: 0 0% 100%;
+    --success: 142 42% 37%;
+    --success-foreground: 43 55% 99%;
+    --warning: 38 78% 51%;
+    --warning-foreground: 30 35% 14%;
+    --border: 39 21% 83%;
+    --input: 39 21% 79%;
+    --ring: 128 36% 27%;
+    --radius: 1.1rem;
 
-    --success: 152 55% 48%;
-    --success-foreground: 222 47% 8%;
+    --sidebar-background: 43 48% 97%;
+    --sidebar-foreground: 137 19% 16%;
+    --sidebar-primary: 128 36% 27%;
+    --sidebar-primary-foreground: 44 60% 98%;
+    --sidebar-accent: 81 26% 89%;
+    --sidebar-accent-foreground: 132 27% 22%;
+    --sidebar-border: 39 21% 83%;
+    --sidebar-ring: 128 36% 27%;
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 222 47% 8%;
+    --font-display: 'Urbanist', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+    --font-body: 'Epilogue', 'Segoe UI Variable Text', 'Segoe UI', sans-serif;
 
-    --border: 222 14% 20%;
-    --input: 222 14% 18%;
-    --ring: 217 91% 60%;
+    --shadow-card: 0 1px 2px hsl(31 28% 24% / 0.05), 0 12px 34px -22px hsl(31 28% 24% / 0.24);
+    --shadow-elevated: 0 2px 8px hsl(31 28% 24% / 0.07), 0 28px 70px -34px hsl(31 28% 24% / 0.34);
+    --shadow-modal: 0 30px 90px -30px hsl(31 28% 18% / 0.44);
+    --shadow-glow: 0 10px 28px -16px hsl(var(--primary) / 0.62);
+    --shadow-soft: 0 12px 35px -25px hsl(31 28% 24% / 0.28);
+    --shadow-card-hover: 0 24px 58px -30px hsl(31 28% 20% / 0.38);
 
-    --radius: 0.75rem;
-
-    --sidebar-background: 222 18% 10%;
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 8%;
-    --sidebar-accent: 222 14% 16%;
-    --sidebar-accent-foreground: 210 18% 92%;
-    --sidebar-border: 222 14% 20%;
-    --sidebar-ring: 217 91% 60%;
-
-    --font-display: 'Urbanist', system-ui, sans-serif;
-    --font-body: 'Epilogue', system-ui, sans-serif;
-
-    /* Restrained shadows — soft, neutral, no coloured halo */
-    --shadow-card: 0 1px 2px hsl(222 40% 2% / 0.4), 0 8px 24px -12px hsl(222 40% 2% / 0.6);
-    --shadow-elevated: 0 1px 2px hsl(222 40% 2% / 0.4), 0 20px 48px -20px hsl(222 40% 2% / 0.7);
-    --shadow-modal: 0 24px 80px -24px hsl(222 40% 2% / 0.8);
-    --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.35);
-    --shadow-soft: 0 1px 2px hsl(222 40% 2% / 0.3), 0 4px 16px -8px hsl(222 40% 2% / 0.5);
-    --shadow-card-hover: 0 1px 2px hsl(222 40% 2% / 0.4), 0 16px 40px -18px hsl(222 40% 2% / 0.7);
-
-    /* Gradients — subtle, neutral, no rainbow */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(213 90% 66%));
-    --gradient-accent: linear-gradient(135deg, hsl(213 90% 66%), hsl(217 91% 60%));
+    --gradient-primary: linear-gradient(110deg, hsl(128 36% 25%), hsl(28 35% 47%) 58%, hsl(15 75% 53%));
+    --gradient-accent: linear-gradient(120deg, hsl(20 66% 59%), hsl(12 78% 59%));
     --gradient-hero:
-      radial-gradient(1200px 600px at 80% -10%, hsl(217 91% 60% / 0.10), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, hsl(213 90% 66% / 0.08), transparent 60%),
-      linear-gradient(180deg, hsl(222 20% 10%), hsl(222 22% 7%));
-    --gradient-warm: linear-gradient(180deg, hsl(222 20% 10%), hsl(222 22% 8%));
-    --gradient-surface: linear-gradient(180deg, hsl(222 18% 13%), hsl(222 20% 10%));
-    --gradient-subtle: linear-gradient(135deg, hsl(217 91% 60% / 0.06), transparent 60%);
+      radial-gradient(900px 520px at 90% 0%, hsl(83 30% 78% / 0.64), transparent 65%),
+      radial-gradient(760px 480px at 0% 85%, hsl(24 48% 82% / 0.52), transparent 67%),
+      linear-gradient(180deg, hsl(43 55% 98%), hsl(42 38% 94%));
+    --gradient-warm: linear-gradient(145deg, hsl(43 55% 99%), hsl(35 45% 92%));
+    --gradient-surface: linear-gradient(160deg, hsl(43 55% 99%), hsl(79 27% 94%));
+    --gradient-subtle: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.08));
 
-    /* Legacy neon vars kept but neutralised to the blue family */
-    --neon-cyan: 217 91% 60%;
-    --neon-gold: 213 90% 66%;
-    --neon-magenta: 217 91% 60%;
+    /* Compatibility variables for older feature components. */
+    --neon-cyan: 128 36% 27%;
+    --neon-gold: 15 75% 56%;
+    --neon-magenta: 16 62% 60%;
   }
 }
 
@@ -97,243 +81,249 @@
     @apply border-border;
   }
 
-  /* Global focus — visible, high-contrast ring on keyboard nav only.
-     Applies uniformly to buttons, links, inputs, tabs, table headers, etc. */
   *:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-    border-radius: calc(var(--radius) - 4px);
+    outline: 3px solid hsl(var(--ring) / 0.72);
+    outline-offset: 3px;
+    border-radius: 0.7rem;
   }
+
   :focus:not(:focus-visible) {
     outline: none;
   }
 
-  /* Consistent disabled state across the app */
   button:disabled,
-  [aria-disabled="true"],
+  [aria-disabled='true'],
   input:disabled,
   select:disabled,
   textarea:disabled {
-    opacity: 0.55;
     cursor: not-allowed;
+    opacity: 0.55;
   }
 
-  /* Placeholders always use the token, never a low-contrast gray */
   ::placeholder {
     color: hsl(var(--muted-foreground));
-    opacity: 1;
+    opacity: 0.88;
   }
 
-  /* Wrap tables so they scroll on narrow viewports instead of breaking layout */
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    min-width: 320px;
+    font-family: var(--font-body);
+    background-image:
+      radial-gradient(900px 600px at 105% -10%, hsl(92 28% 82% / 0.54), transparent 63%),
+      radial-gradient(760px 560px at -12% 40%, hsl(24 52% 86% / 0.42), transparent 64%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(42 33% 93%));
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  option {
+    background: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+
+  ::selection {
+    background: hsl(var(--accent) / 0.26);
+    color: hsl(var(--foreground));
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
   .table-wrap {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Respect reduced-motion */
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-      scroll-behavior: auto !important;
-    }
+  .page-shell {
+    @apply relative min-h-screen pt-24 sm:pt-28;
   }
 
-  html {
-    color-scheme: dark;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-body);
-    background-image:
-      radial-gradient(1200px 700px at 80% -10%, hsl(217 91% 60% / 0.06), transparent 60%),
-      radial-gradient(900px 600px at -10% 110%, hsl(213 90% 66% / 0.05), transparent 60%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(222 22% 7%));
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "ss01", "cv11";
-  }
-
-  ::selection {
-    background: hsl(var(--primary) / 0.28);
-    color: hsl(var(--foreground));
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-    font-weight: 700;
+  .page-kicker {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/15 bg-card/80 px-3.5 py-2 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-primary shadow-soft backdrop-blur-md;
   }
 }
 
 @layer utilities {
   .glass {
-    background: hsl(var(--card) / 0.72);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--card) / 0.78);
+    border: 1px solid hsl(43 65% 100% / 0.78);
+    box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.36), var(--shadow-soft);
+    backdrop-filter: blur(18px) saturate(125%);
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
   }
 
   .glass-strong {
-    background: hsl(var(--background) / 0.82);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    border-color: hsl(var(--border) / 0.8);
+    background: hsl(var(--card) / 0.92);
+    border-color: hsl(43 65% 100% / 0.82);
+    box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.45), var(--shadow-elevated);
+    backdrop-filter: blur(22px) saturate(135%);
+    -webkit-backdrop-filter: blur(22px) saturate(135%);
   }
 
   .gradient-primary { background: var(--gradient-primary); }
   .gradient-accent { background: var(--gradient-accent); }
   .gradient-hero { background: var(--gradient-hero); }
   .gradient-warm { background: var(--gradient-warm); }
-
   .shadow-glow { box-shadow: var(--shadow-glow); }
   .shadow-soft { box-shadow: var(--shadow-soft); }
 
-  /* Text treatments — solid foreground by default, gradient only for one
-     accent word at a time. Kills the "AI shimmer everywhere" look. */
   .text-gradient {
-    background: linear-gradient(135deg, hsl(217 91% 68%), hsl(213 90% 78%));
+    background: linear-gradient(110deg, hsl(var(--primary)) 8%, hsl(var(--accent)) 92%);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
 
   .text-gradient-accent {
-    background: linear-gradient(135deg, hsl(213 90% 74%), hsl(217 91% 66%));
+    background: linear-gradient(110deg, hsl(var(--accent)), hsl(16 58% 60%));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
 
-  /* text-chrome: previously a silver gradient. Now a plain, high-contrast
-     foreground — reads as intentional editorial, not chrome-y. */
   .text-chrome {
     color: hsl(var(--foreground));
     -webkit-text-fill-color: hsl(var(--foreground));
   }
 
   .hover-lift {
-    @apply transition-all duration-300;
+    @apply transition-[transform,box-shadow,border-color] duration-300;
   }
+
   .hover-lift:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    border-color: hsl(var(--primary) / 0.2);
     box-shadow: var(--shadow-card-hover);
-    border-color: hsl(var(--border));
   }
 
   .card-premium {
-    @apply rounded-xl border transition-all duration-200;
-    background: hsl(var(--card));
-    border-color: hsl(var(--border));
-    box-shadow: var(--shadow-soft);
+    @apply rounded-[1.5rem] border transition-[transform,box-shadow,border-color] duration-300;
+    background: hsl(var(--card) / 0.94);
+    border-color: hsl(var(--border) / 0.82);
+    box-shadow: var(--shadow-card);
   }
+
   .card-premium:hover {
-    transform: translateY(-1px);
+    transform: translateY(-3px);
+    border-color: hsl(var(--primary) / 0.22);
     box-shadow: var(--shadow-card-hover);
-    border-color: hsl(var(--border));
   }
 
-  /* Chrome panel — flattened into a clean card surface, no metallic sheen. */
   .chrome-panel {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: var(--shadow-soft);
-    border-radius: 0.9rem;
+    background: linear-gradient(155deg, hsl(var(--card)), hsl(80 28% 96%));
+    border: 1px solid hsl(var(--border) / 0.78);
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow-card);
   }
 
-  /* Divider — hairline neutral rule with a faint blue tint at centre. */
   .neon-divider {
     height: 1px;
-    background: linear-gradient(90deg,
-      transparent,
-      hsl(var(--border)) 20%,
-      hsl(var(--primary) / 0.35) 50%,
-      hsl(var(--border)) 80%,
-      transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--border)) 18%, hsl(var(--primary) / 0.34) 49%, hsl(var(--accent) / 0.28) 72%, transparent);
   }
 
-  /* Grid — much fainter, no animation. Reads as engineering texture, not sci-fi. */
   .tech-grid {
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
-    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+    background-image: radial-gradient(circle, hsl(var(--primary) / 0.22) 1px, transparent 1.2px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse at 50% 35%, black 5%, transparent 68%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 35%, black 5%, transparent 68%);
   }
 
-  /* Scan-line — no more moving sweep. Left as a no-op wrapper for compat. */
-  .scan-line { position: relative; }
+  .scan-line,
+  .scanline-sweep { position: relative; }
 
   .section-padding {
-    @apply py-16 sm:py-20 md:py-24;
+    @apply py-20 sm:py-24 lg:py-32;
   }
 
-  /* Gradient border — replaced with a crisp single-pixel hairline that
-     hints at a blue accent only on hover. */
-  .gradient-border {
-    position: relative;
-  }
+  .gradient-border { position: relative; }
+
   .gradient-border::before {
-    content: '';
     position: absolute;
     inset: 0;
-    border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(180deg, hsl(var(--border)), hsl(var(--border) / 0.6));
+    border-radius: inherit;
+    background: linear-gradient(145deg, hsl(var(--primary) / 0.22), hsl(var(--accent) / 0.18), hsl(var(--border)));
+    content: '';
+    pointer-events: none;
+    transition: background 240ms ease;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    pointer-events: none;
-    transition: background 240ms ease;
-  }
-  .gradient-border:hover::before {
-    background: linear-gradient(180deg, hsl(var(--primary) / 0.55), hsl(var(--border)));
   }
 
-  /* Legacy neon helpers — kept as names, muted to blue-family so no page
-     screams. If a component still uses these, they now read as accents. */
+  .gradient-border:hover::before {
+    background: linear-gradient(145deg, hsl(var(--primary) / 0.48), hsl(var(--accent) / 0.38));
+  }
+
   .font-mono-tech {
-    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
-    letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+    letter-spacing: 0.02em;
   }
 
   .neon-cyan { color: hsl(var(--primary)); }
   .neon-gold { color: hsl(var(--accent)); }
-
-  .neon-ring-cyan {
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4);
-  }
-  .neon-ring-gold {
-    box-shadow: 0 0 0 1px hsl(var(--accent) / 0.4);
-  }
+  .neon-ring-cyan { box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), var(--shadow-soft); }
+  .neon-ring-gold { box-shadow: 0 0 0 1px hsl(var(--accent) / 0.3), var(--shadow-soft); }
 
   .grid-bg,
   .grid-bg-accent {
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background-image: radial-gradient(circle, hsl(var(--primary) / 0.16) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 
-  .scanline-sweep { position: relative; }
-
-  .animate-beat { animation: none; }
-  .animate-neon-pulse { animation: none; }
+  .animate-beat,
+  .animate-neon-pulse,
   .animate-glitch { animation: none; }
 
   .circuit-border {
     border: 1px solid hsl(var(--border));
-    box-shadow: var(--shadow-soft);
+    box-shadow: var(--shadow-card);
   }
 
   .hud-label {
-    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    font-family: var(--font-body);
     font-size: 0.68rem;
-    letter-spacing: 0.14em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground));
   }

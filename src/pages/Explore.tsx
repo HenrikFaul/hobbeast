@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Users, ChevronRight, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight, Search, Sparkles, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
 
 type ViewLevel = 'categories' | 'subcategories' | 'activities';
+
+const CATEGORY_TONES = [
+  'bg-primary/[0.07]',
+  'bg-accent/[0.09]',
+  'bg-secondary/80',
+] as const;
 
 const Explore = () => {
   const [search, setSearch] = useState("");
@@ -15,8 +21,6 @@ const Explore = () => {
   const [selectedSubcategory, setSelectedSubcategory] = useState<HobbySubcategory | null>(null);
 
   const stats = getCatalogStats();
-
-  // If searching, show flat results
   const searchResults = search.trim() ? searchActivities(search) : null;
 
   const handleCategoryClick = (cat: HobbyCategory) => {
@@ -46,186 +50,254 @@ const Explore = () => {
   };
 
   const intensityColor = (i: string) => {
-    const map: Record<string, string> = { none: 'bg-muted text-muted-foreground', low: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400', extreme: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' };
+    const map: Record<string, string> = {
+      none: 'border-border bg-secondary text-secondary-foreground',
+      low: 'border-primary/20 bg-primary/10 text-primary',
+      medium: 'border-amber-300 bg-amber-50 text-amber-800',
+      high: 'border-orange-300 bg-orange-50 text-orange-800',
+      extreme: 'border-red-300 bg-red-50 text-red-800',
+    };
     return map[i] || '';
   };
 
   return (
-    <main className="pt-24 pb-16 min-h-screen">
-      <div className="container mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold font-display mb-3">
+    <main className="relative min-h-screen overflow-hidden pb-20 pt-28 sm:pt-32">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-20 h-72 w-72 rounded-full bg-primary/[0.07] blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-28 top-56 h-80 w-80 rounded-full bg-accent/[0.09] blur-3xl" />
+
+      <div className="container relative mx-auto px-4 sm:px-6">
+        <motion.header
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-auto mb-12 max-w-4xl text-center sm:mb-16"
+        >
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.07] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            <Sparkles aria-hidden="true" size={14} /> Közös érdeklődésből valódi élmény
+          </div>
+          <h1 className="mb-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
             Fedezd fel a <span className="text-gradient">hobbidat</span>
           </h1>
-          <p className="text-muted-foreground max-w-lg mx-auto mb-2">
+          <p className="mx-auto mb-7 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.
           </p>
-          <p className="text-xs text-muted-foreground mb-6">
-            {stats.categories} kategória · {stats.subcategories} alkategória · {stats.activities} tevékenység
-          </p>
-          <div className="relative max-w-md mx-auto">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+
+          <div className="relative mx-auto max-w-2xl">
+            <Search aria-hidden="true" size={20} className="absolute left-5 top-1/2 z-10 -translate-y-1/2 text-primary" />
             <Input
+              aria-label="Hobbi keresése"
               placeholder="Keress hobbit... pl. futás, festés, sakk"
               value={search}
               onChange={(e) => { setSearch(e.target.value); }}
-              className="pl-10"
+              className="h-14 rounded-2xl border-border/70 bg-card/95 pl-14 pr-5 text-base shadow-lg shadow-primary/[0.06] backdrop-blur-sm sm:h-16 sm:rounded-3xl"
             />
           </div>
-        </motion.div>
 
-        {/* Search results */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground sm:gap-3">
+            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.categories}</strong> kategória</span>
+            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.subcategories}</strong> alkategória</span>
+            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.activities}</strong> tevékenység</span>
+          </div>
+        </motion.header>
+
         {searchResults ? (
-          <div>
-            <p className="text-sm text-muted-foreground mb-4">{searchResults.length} találat „{search}" keresésre</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <section aria-live="polite">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">Keresési eredmények</p>
+                <h2 className="mt-1 font-display text-2xl font-semibold">{searchResults.length} találat „{search}" keresésre</h2>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSearch('')} className="rounded-full">Keresés törlése</Button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {searchResults.map((act, i) => (
-                <motion.div key={act.activityId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-                  className="p-4 rounded-xl border bg-card hover-lift cursor-pointer">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{act.activityEmoji}</span>
-                    <div>
-                      <h4 className="font-display font-semibold text-sm">{act.activityName}</h4>
-                      <p className="text-xs text-muted-foreground">{act.categoryName} › {act.subcategoryName}</p>
+                <motion.article
+                  key={act.activityId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.02 }}
+                  className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/[0.04]"
+                >
+                  <div className="mb-5 flex items-start gap-3">
+                    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/[0.08] text-2xl">{act.activityEmoji}</span>
+                    <div className="min-w-0 pt-0.5">
+                      <h3 className="font-display font-semibold leading-snug">{act.activityName}</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{act.categoryName} › {act.subcategoryName}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    <Badge variant="secondary" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
                       {intensityLabel(act.profile.physicalIntensity)}
                     </Badge>
                     {act.profile.canBeOnline && <Badge variant="outline" className="text-[10px]">Online is</Badge>}
                     {act.profile.isCompetitive && <Badge variant="outline" className="text-[10px]">Versenyszerű</Badge>}
                     <Badge variant="outline" className="text-[10px]">
-                      <Users size={8} className="mr-0.5" />{act.profile.groupSize.typical} fő
+                      <Users aria-hidden="true" size={8} className="mr-0.5" />{act.profile.groupSize.typical} fő
                     </Badge>
                   </div>
-                </motion.div>
+                </motion.article>
               ))}
             </div>
+
             {searchResults.length === 0 && (
-              <div className="text-center py-16 text-muted-foreground">
-                <p className="text-lg mb-2">Nem találtunk ilyen hobbit 😔</p>
-                <p className="text-sm">Próbálj más keresőszót!</p>
+              <div className="mx-auto max-w-xl rounded-[2rem] border border-border/70 bg-card/90 px-6 py-14 text-center shadow-xl shadow-primary/[0.04]">
+                <span aria-hidden="true" className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-2xl">🔎</span>
+                <h2 className="font-display text-xl font-semibold">Nem találtunk ilyen hobbit</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Próbálj egy rövidebb vagy másik keresőszót!</p>
+                <Button variant="outline" size="sm" onClick={() => setSearch('')} className="mt-5 rounded-full">Új keresés</Button>
               </div>
             )}
-          </div>
+          </section>
         ) : (
           <>
-            {/* Breadcrumb / back */}
             {view !== 'categories' && (
-              <div className="flex items-center gap-2 mb-6">
-                <Button variant="ghost" size="sm" onClick={handleBack} className="gap-1">
-                  <ArrowLeft size={14} /> Vissza
+              <nav aria-label="Hobbi kategória útvonal" className="mb-8 flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card/70 p-2 pr-4 shadow-sm backdrop-blur-sm">
+                <Button variant="ghost" size="sm" onClick={handleBack} className="gap-1 rounded-full">
+                  <ArrowLeft aria-hidden="true" size={14} /> Vissza
                 </Button>
                 <span className="text-sm text-muted-foreground">
                   {selectedCategory?.emoji} {selectedCategory?.name}
-                  {selectedSubcategory && <> <ChevronRight size={12} className="inline mx-1" /> {selectedSubcategory.name}</>}
+                  {selectedSubcategory && <> <ChevronRight aria-hidden="true" size={12} className="mx-1 inline" /> {selectedSubcategory.name}</>}
                 </span>
-              </div>
+              </nav>
             )}
 
-            {/* Categories grid */}
             {view === 'categories' && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {HOBBY_CATALOG.map((cat, i) => (
-                  <motion.div key={cat.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                    className="group p-5 rounded-xl border bg-card hover-lift cursor-pointer"
-                    onClick={() => handleCategoryClick(cat)}>
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="text-3xl">{cat.emoji}</span>
-                      <ChevronRight size={16} className="text-muted-foreground group-hover:text-primary transition-colors mt-1" />
-                    </div>
-                    <h3 className="font-display font-semibold mb-1">{cat.name}</h3>
-                    <p className="text-xs text-muted-foreground mb-3">{cat.description}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {cat.subcategories.slice(0, 3).map((sub) => (
-                        <Badge key={sub.id} variant="secondary" className="text-xs font-normal">{sub.name}</Badge>
-                      ))}
-                      {cat.subcategories.length > 3 && (
-                        <Badge variant="outline" className="text-xs font-normal">+{cat.subcategories.length - 3}</Badge>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Subcategories */}
-            {view === 'subcategories' && selectedCategory && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedCategory.subcategories.map((sub, i) => (
-                  <motion.div key={sub.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                    className="group p-5 rounded-xl border bg-card hover-lift cursor-pointer"
-                    onClick={() => handleSubcategoryClick(sub)}>
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="text-2xl">{sub.emoji || selectedCategory.emoji}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className={`text-[10px] ${intensityColor(sub.profile.physicalIntensity)}`}>
-                          {intensityLabel(sub.profile.physicalIntensity)}
-                        </Badge>
-                        <ChevronRight size={14} className="text-muted-foreground" />
+              <section aria-labelledby="category-heading">
+                <div className="mb-7 max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">Indulj el innen</p>
+                  <h2 id="category-heading" className="mt-2 font-display text-2xl font-semibold sm:text-3xl">Milyen élményre vágysz?</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {HOBBY_CATALOG.map((cat, i) => (
+                    <motion.button
+                      type="button"
+                      key={cat.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className={`group min-h-64 rounded-[2rem] border border-border/70 p-6 text-left shadow-lg shadow-primary/[0.04] transition duration-300 hover:-translate-y-1 hover:border-primary/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${CATEGORY_TONES[i % CATEGORY_TONES.length]}`}
+                      onClick={() => handleCategoryClick(cat)}
+                      aria-label={`${cat.name} kategória megnyitása`}
+                    >
+                      <div className="mb-7 flex items-start justify-between">
+                        <span aria-hidden="true" className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] border border-white/50 bg-card/80 text-4xl shadow-sm">{cat.emoji}</span>
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-card/70 text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                          <ChevronRight aria-hidden="true" size={17} />
+                        </span>
                       </div>
-                    </div>
-                    <h3 className="font-display font-semibold mb-2">{sub.name}</h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {sub.activities.slice(0, 4).map((act) => (
-                        <Badge key={act.id} variant="outline" className="text-xs font-normal">{act.name}</Badge>
-                      ))}
-                      {sub.activities.length > 4 && (
-                        <Badge variant="outline" className="text-xs font-normal">+{sub.activities.length - 4}</Badge>
-                      )}
-                    </div>
-                    <div className="mt-3 flex gap-2 text-[10px] text-muted-foreground">
-                      <span><Users size={10} className="inline mr-0.5" />{sub.profile.groupSize.min}–{sub.profile.groupSize.max} fő</span>
-                      {sub.profile.canBeOnline && <span>🌐 Online is</span>}
-                      {sub.profile.hasDistance && <span>📏 Távolság</span>}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                      <h3 className="font-display text-xl font-semibold leading-tight">{cat.name}</h3>
+                      <p className="mb-5 mt-2 text-sm leading-relaxed text-muted-foreground">{cat.description}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cat.subcategories.slice(0, 3).map((sub) => (
+                          <Badge key={sub.id} variant="secondary" className="bg-card/70 text-xs font-normal">{sub.name}</Badge>
+                        ))}
+                        {cat.subcategories.length > 3 && (
+                          <Badge variant="outline" className="bg-card/50 text-xs font-normal">+{cat.subcategories.length - 3}</Badge>
+                        )}
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </section>
             )}
 
-            {/* Activities */}
+            {view === 'subcategories' && selectedCategory && (
+              <section aria-labelledby="subcategory-heading">
+                <div className="mb-7 max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">{selectedCategory.name}</p>
+                  <h2 id="subcategory-heading" className="mt-2 font-display text-2xl font-semibold sm:text-3xl">Válassz egy közelebbi irányt</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {selectedCategory.subcategories.map((sub, i) => (
+                    <motion.button
+                      type="button"
+                      key={sub.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      className="group min-h-56 rounded-[2rem] border border-border/70 bg-card/95 p-6 text-left shadow-lg shadow-primary/[0.04] transition duration-300 hover:-translate-y-1 hover:border-primary/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      onClick={() => handleSubcategoryClick(sub)}
+                      aria-label={`${sub.name} alkategória megnyitása`}
+                    >
+                      <div className="mb-6 flex items-start justify-between gap-3">
+                        <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-3xl">{sub.emoji || selectedCategory.emoji}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-[10px] ${intensityColor(sub.profile.physicalIntensity)}`}>
+                            {intensityLabel(sub.profile.physicalIntensity)}
+                          </Badge>
+                          <ChevronRight aria-hidden="true" size={16} className="text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                        </div>
+                      </div>
+                      <h3 className="font-display text-lg font-semibold">{sub.name}</h3>
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {sub.activities.slice(0, 4).map((act) => (
+                          <Badge key={act.id} variant="outline" className="bg-background/60 text-xs font-normal">{act.name}</Badge>
+                        ))}
+                        {sub.activities.length > 4 && (
+                          <Badge variant="outline" className="bg-background/60 text-xs font-normal">+{sub.activities.length - 4}</Badge>
+                        )}
+                      </div>
+                      <div className="mt-5 flex flex-wrap gap-3 border-t border-border/60 pt-4 text-[11px] text-muted-foreground">
+                        <span><Users aria-hidden="true" size={11} className="mr-1 inline" />{sub.profile.groupSize.min}–{sub.profile.groupSize.max} fő</span>
+                        {sub.profile.canBeOnline && <span>🌐 Online is</span>}
+                        {sub.profile.hasDistance && <span>📏 Távolság</span>}
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {view === 'activities' && selectedSubcategory && (
-              <div>
-                {/* Profile summary card */}
-                <div className="mb-6 p-4 rounded-xl border bg-muted/30">
-                  <h4 className="font-display font-semibold text-sm mb-2">Esemény paraméterek ehhez az alkategóriához:</h4>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <Badge variant="secondary" className={intensityColor(selectedSubcategory.profile.physicalIntensity)}>
+              <section aria-labelledby="activity-heading">
+                <div className="mb-7 max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">{selectedSubcategory.name}</p>
+                  <h2 id="activity-heading" className="mt-2 font-display text-2xl font-semibold sm:text-3xl">Találd meg a neked való tevékenységet</h2>
+                </div>
+
+                <div className="mb-8 rounded-[2rem] border border-primary/15 bg-primary/[0.06] p-5 sm:p-6">
+                  <h3 className="font-display text-sm font-semibold">Esemény paraméterek ehhez az alkategóriához:</h3>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <Badge variant="outline" className={intensityColor(selectedSubcategory.profile.physicalIntensity)}>
                       {intensityLabel(selectedSubcategory.profile.physicalIntensity)}
                     </Badge>
-                    <Badge variant="outline"><Users size={10} className="mr-1" />{selectedSubcategory.profile.groupSize.min}–{selectedSubcategory.profile.groupSize.max} fő (átlag: {selectedSubcategory.profile.groupSize.typical})</Badge>
-                    {selectedSubcategory.profile.hasDuration && <Badge variant="outline">⏱ Időtartam ({selectedSubcategory.profile.suggestedDurationMin || '?'} perc)</Badge>}
-                    {selectedSubcategory.profile.hasDistance && <Badge variant="outline">📏 Távolság/hossz</Badge>}
-                    {selectedSubcategory.profile.hasSkillLevel && <Badge variant="outline">📊 Szint</Badge>}
-                    {selectedSubcategory.profile.hasEquipment && <Badge variant="outline">🎒 Felszerelés</Badge>}
-                    {selectedSubcategory.profile.isCompetitive && <Badge variant="outline">🏆 Verseny</Badge>}
-                    {selectedSubcategory.profile.isTeamBased && <Badge variant="outline">👥 Csapat</Badge>}
-                    {selectedSubcategory.profile.canBeOnline && <Badge variant="outline">🌐 Online</Badge>}
+                    <Badge variant="outline" className="bg-card/60"><Users aria-hidden="true" size={10} className="mr-1" />{selectedSubcategory.profile.groupSize.min}–{selectedSubcategory.profile.groupSize.max} fő (átlag: {selectedSubcategory.profile.groupSize.typical})</Badge>
+                    {selectedSubcategory.profile.hasDuration && <Badge variant="outline" className="bg-card/60">⏱ Időtartam ({selectedSubcategory.profile.suggestedDurationMin || '?'} perc)</Badge>}
+                    {selectedSubcategory.profile.hasDistance && <Badge variant="outline" className="bg-card/60">📏 Távolság/hossz</Badge>}
+                    {selectedSubcategory.profile.hasSkillLevel && <Badge variant="outline" className="bg-card/60">📊 Szint</Badge>}
+                    {selectedSubcategory.profile.hasEquipment && <Badge variant="outline" className="bg-card/60">🎒 Felszerelés</Badge>}
+                    {selectedSubcategory.profile.isCompetitive && <Badge variant="outline" className="bg-card/60">🏆 Verseny</Badge>}
+                    {selectedSubcategory.profile.isTeamBased && <Badge variant="outline" className="bg-card/60">👥 Csapat</Badge>}
+                    {selectedSubcategory.profile.canBeOnline && <Badge variant="outline" className="bg-card/60">🌐 Online</Badge>}
                     {selectedSubcategory.profile.ageRestriction && selectedSubcategory.profile.ageRestriction !== 'all' && (
-                      <Badge variant="outline">🔞 {selectedSubcategory.profile.ageRestriction}</Badge>
+                      <Badge variant="outline" className="bg-card/60">🔞 {selectedSubcategory.profile.ageRestriction}</Badge>
                     )}
                     {selectedSubcategory.profile.locationTypes.map(lt => (
-                      <Badge key={lt} variant="outline">{lt === 'indoor' ? '🏠 Beltéri' : lt === 'outdoor' ? '🌳 Kültéri' : lt === 'online' ? '💻 Online' : lt === 'both' ? '🏠🌳 Mindkettő' : lt}</Badge>
+                      <Badge key={lt} variant="outline" className="bg-card/60">{lt === 'indoor' ? '🏠 Beltéri' : lt === 'outdoor' ? '🌳 Kültéri' : lt === 'online' ? '💻 Online' : lt === 'both' ? '🏠🌳 Mindkettő' : lt}</Badge>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {selectedSubcategory.activities.map((act, i) => {
                     const mergedProfile = { ...selectedSubcategory.profile, ...(act.profile || {}) };
                     return (
-                      <motion.div key={act.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                        className="p-4 rounded-xl border bg-card hover-lift cursor-pointer">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-2xl">{act.emoji || selectedSubcategory.emoji}</span>
-                          <h4 className="font-display font-semibold text-sm">{act.name}</h4>
+                      <motion.article
+                        key={act.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/[0.04]"
+                      >
+                        <div className="mb-4 flex items-center gap-3">
+                          <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary text-2xl">{act.emoji || selectedSubcategory.emoji}</span>
+                          <h3 className="font-display font-semibold leading-snug">{act.name}</h3>
                         </div>
                         {act.profile && Object.keys(act.profile).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div className="flex flex-wrap gap-1.5 border-t border-border/50 pt-4">
                             {act.profile.physicalIntensity && (
-                              <Badge variant="secondary" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
+                              <Badge variant="outline" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
                                 {intensityLabel(act.profile.physicalIntensity)}
                               </Badge>
                             )}
@@ -235,16 +307,16 @@ const Explore = () => {
                             {act.profile.isTeamBased && <Badge variant="outline" className="text-[10px]">👥 Csapat</Badge>}
                             {act.profile.groupSize && (
                               <Badge variant="outline" className="text-[10px]">
-                                <Users size={8} className="mr-0.5" />{mergedProfile.groupSize?.typical} fő
+                                <Users aria-hidden="true" size={8} className="mr-0.5" />{mergedProfile.groupSize?.typical} fő
                               </Badge>
                             )}
                           </div>
                         )}
-                      </motion.div>
+                      </motion.article>
                     );
                   })}
                 </div>
-              </div>
+              </section>
             )}
           </>
         )}

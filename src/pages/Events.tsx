@@ -690,13 +690,14 @@ const Events = () => {
   };
 
   return (
-    <main className="pt-24 pb-16 min-h-screen">
-      <div className="container mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold font-display mb-3">
+    <main className="min-h-screen pb-20 pt-28 sm:pt-32">
+      <div className="container mx-auto">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-9 text-center">
+          <span className="page-kicker mb-5"><Filter className="h-3.5 w-3.5" aria-hidden="true" /> Programok a közeledben</span>
+          <h1 className="mb-3 font-display text-4xl font-extrabold tracking-[-0.045em] sm:text-5xl">
             Közelgő <span className="text-gradient">események</span>
           </h1>
-          <p className="text-muted-foreground max-w-lg mx-auto mb-6">
+          <p className="mx-auto mb-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Csatlakozz programokhoz a közeledben, vagy szervezz sajátot!
           </p>
           {user && (
@@ -706,7 +707,8 @@ const Events = () => {
           )}
         </motion.div>
 
-        <div className="flex gap-2 justify-center mb-4 flex-wrap">
+        <section aria-label="Eseményszűrők" className="mx-auto mb-10 max-w-5xl rounded-[2rem] border border-border/75 bg-card/[0.78] p-4 shadow-elevated backdrop-blur-md sm:p-6">
+        <div className="mb-5 flex flex-wrap justify-center gap-2 sm:justify-start">
           {SOURCE_FILTERS.map((sf) => (
             <Button
               key={sf.value}
@@ -720,11 +722,11 @@ const Events = () => {
           ))}
         </div>
 
-        <div className="mx-auto mb-4 grid max-w-2xl gap-3 sm:grid-cols-2" aria-label="Időpont és férőhely szűrők">
+        <div className="mx-auto mb-4 grid gap-3 sm:grid-cols-2" aria-label="Időpont és férőhely szűrők">
           <label className="text-sm font-medium">
             Időszak
             <select
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              className="mt-1.5 h-11 w-full rounded-[0.9rem] border border-input/80 bg-card px-3.5 shadow-[inset_0_1px_0_hsl(var(--card))] focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-ring/25"
               value={dateFilter}
               onChange={(event) => setDateFilter(event.target.value as DateFilter)}
             >
@@ -737,7 +739,7 @@ const Events = () => {
           <label className="text-sm font-medium">
             Férőhely
             <select
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+              className="mt-1.5 h-11 w-full rounded-[0.9rem] border border-input/80 bg-card px-3.5 shadow-[inset_0_1px_0_hsl(var(--card))] focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-ring/25"
               value={capacityFilter}
               onChange={(event) => setCapacityFilter(event.target.value as CapacityFilter)}
             >
@@ -748,8 +750,8 @@ const Events = () => {
           </label>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 mb-4 items-center justify-center">
-          <div className="relative w-full lg:w-80">
+        <div className="mb-5 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
             <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
                 const value = e.target.value;
@@ -761,7 +763,7 @@ const Events = () => {
                 }
               }} className="pl-9" />
           </div>
-          <div className="flex gap-2 flex-wrap justify-center">
+          <div className="flex flex-wrap justify-center gap-2 lg:justify-end">
             <Button
               size="sm"
               variant={activePrimaryFilter === 'all' ? 'default' : 'outline'}
@@ -781,7 +783,7 @@ const Events = () => {
                 setSearch('');
                 setPrimaryFilter('personal');
               }}
-              className={activePrimaryFilter === 'personal' ? 'border-0 bg-sky-600 text-white hover:bg-sky-700' : ''}
+              className={activePrimaryFilter === 'personal' ? 'border-0 bg-accent text-accent-foreground hover:bg-accent/90' : ''}
             >
               Nekem
             </Button>
@@ -794,7 +796,7 @@ const Events = () => {
                 setPrimaryFilter('categories');
                 setShowCategoryModal(true);
               }}
-              className={activePrimaryFilter === 'categories' ? 'border-0 bg-emerald-600 text-white hover:bg-emerald-700' : ''}
+              className={activePrimaryFilter === 'categories' ? 'border border-primary/15 bg-secondary text-primary hover:bg-secondary/80' : ''}
             >
               Kategóriák{selectedCategoryCount > 0 ? ` (${selectedCategoryCount})` : ''}
             </Button>
@@ -802,12 +804,12 @@ const Events = () => {
         </div>
 
         {selectedCategoryCount > 0 && activePrimaryFilter === 'categories' && (
-          <div className="flex flex-wrap justify-center gap-2 mb-6">
+          <div className="mb-5 flex flex-wrap justify-center gap-2 lg:justify-start">
             {Array.from(selectedCategoryIds).map((categoryId) => {
               const category = HOBBY_CATALOG.find((item) => item.id === categoryId);
               if (!category) return null;
               return (
-                <Badge key={categoryId} variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 gap-2">
+                <Badge key={categoryId} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {category.name}
                   <button type="button" onClick={() => toggleSetValue(setSelectedCategoryIds, categoryId)}>
                     <X className="h-3 w-3" />
@@ -821,7 +823,7 @@ const Events = () => {
               const subcategory = category?.subcategories.find((item) => item.id === subcategoryId);
               if (!subcategory) return null;
               return (
-                <Badge key={key} variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 gap-2">
+                <Badge key={key} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {subcategory.name}
                   <button type="button" onClick={() => toggleSetValue(setSelectedSubcategoryKeys, key)}>
                     <X className="h-3 w-3" />
@@ -836,7 +838,7 @@ const Events = () => {
               const activity = subcategory?.activities.find((item) => item.id === activityId);
               if (!activity) return null;
               return (
-                <Badge key={key} variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 gap-2">
+                <Badge key={key} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {activity.name}
                   <button type="button" onClick={() => toggleSetValue(setSelectedActivityKeys, key)}>
                     <X className="h-3 w-3" />
@@ -847,7 +849,7 @@ const Events = () => {
           </div>
         )}
 
-        <div className="max-w-3xl mx-auto mb-8 rounded-2xl border bg-card p-4 sm:p-5">
+        <div className="rounded-[1.4rem] border border-primary/10 bg-secondary/35 p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
               <h2 className="font-semibold">Távolság alapú szűrés</h2>
@@ -891,6 +893,7 @@ const Events = () => {
               : 'A távolságszűréshez ments el lokációt a profilodban.'}
           </div>
         </div>
+        </section>
 
         {eventbriteLoading && (
           <div role="status" aria-live="polite" className="text-center text-sm text-muted-foreground mb-6">Külső események betöltése…</div>

@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HobbeastMark } from "@/components/HobbeastMark";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizerMode } from "@/hooks/useOrganizerMode";
-import logo from "@/assets/hobbeast-logo.png";
 
 const navLinks = [
   { to: "/", label: "Főoldal" },
@@ -22,55 +22,61 @@ const Navbar = () => {
   const { user, loading } = useAuth();
   const { mode, canUseOrganizerMode } = useOrganizerMode();
 
+  const isCurrentRoute = (path: string) =>
+    path === "/" ? location.pathname === path : location.pathname.startsWith(path);
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 glass-strong">
-      <div className="absolute inset-x-0 bottom-0 neon-divider opacity-70" />
-      <div className="container mx-auto flex items-center justify-between h-16 px-4 relative">
-        <Link to="/" className="flex items-center gap-3">
-          <img src={logo} alt="Hobbeast" className="h-9 w-9 rounded-xl ring-1 ring-primary/20" />
+    <nav className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5" aria-label="Fő navigáció">
+      <div className="glass-strong relative mx-auto flex h-[4.5rem] max-w-[86rem] items-center justify-between rounded-[1.4rem] px-3 sm:px-5">
+        <Link
+          to="/"
+          className="group flex min-h-11 items-center gap-2.5 rounded-2xl pr-2"
+          aria-label="Hobbeast főoldal"
+        >
+          <HobbeastMark className="h-10 w-10 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-[1.04]" />
           <div className="flex items-center gap-2">
-            <span className="font-display text-xl font-bold text-chrome">Hobbeast</span>
+            <span className="font-display text-xl font-extrabold tracking-[-0.045em] text-foreground sm:text-[1.35rem]">
+              Hobbeast
+            </span>
             {canUseOrganizerMode && mode === "organizer" && (
-              <span className="hidden sm:inline-flex rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+              <span className="hidden rounded-full border border-primary/15 bg-secondary px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.12em] text-primary sm:inline-flex">
                 Organizer
               </span>
             )}
           </div>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.to;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`relative rounded-xl px-4 py-2 text-sm font-medium transition-all ${
-                  isActive
-                    ? "text-foreground bg-primary/10 border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-primary/5"
-                }`}
-              >
-                {link.label}
-                {isActive && (
-                  <span className="absolute bottom-0 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-primary shadow-glow" />
-                )}
-              </Link>
-            );
-          })}
-
-          <div className="mx-2 h-6 w-px bg-border" />
+        <div className="hidden items-center gap-1 lg:flex">
+          <div className="mr-1 flex items-center gap-0.5 rounded-full bg-background/55 p-1">
+            {navLinks.map((link) => {
+              const isActive = isCurrentRoute(link.to);
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-[color,background-color,box-shadow] duration-200 ${
+                    isActive
+                      ? "bg-card text-primary shadow-soft"
+                      : "text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
 
           {canUseOrganizerMode && user && (
             <Button
               variant={location.pathname.startsWith("/organizer") ? "default" : "outline"}
               size="sm"
-              className="rounded-xl"
               onClick={() => navigate("/organizer")}
             >
-              <BriefcaseBusiness className="mr-2 h-4 w-4" /> Organizer
+              <BriefcaseBusiness className="mr-1 h-4 w-4" /> Organizer
             </Button>
           )}
+
           {!loading &&
             (user ? (
               <div className="ml-1 flex items-center gap-2">
@@ -78,11 +84,7 @@ const Navbar = () => {
                 <ProfileMenu />
               </div>
             ) : (
-              <Button
-                size="sm"
-                className="ml-1 rounded-xl gradient-primary text-primary-foreground"
-                onClick={() => navigate("/auth")}
-              >
+              <Button size="sm" className="ml-1" onClick={() => navigate("/auth")}>
                 Csatlakozz
               </Button>
             ))}
@@ -93,45 +95,54 @@ const Navbar = () => {
           aria-label={mobileOpen ? "Menü bezárása" : "Menü megnyitása"}
           aria-expanded={mobileOpen}
           aria-controls="mobile-nav"
-          className="rounded-xl p-2 text-foreground transition-colors hover:bg-primary/10 md:hidden min-h-11 min-w-11 flex items-center justify-center"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border/70 bg-card/70 text-foreground transition-colors hover:bg-secondary lg:hidden"
+          onClick={() => setMobileOpen((open) => !open)}
         >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
       {mobileOpen && (
-        <div id="mobile-nav" className="md:hidden border-t border-border/60 glass-strong pb-4">
-          {navLinks.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              onClick={() => setMobileOpen(false)}
-              className={`block px-6 py-3 text-sm font-medium transition-colors ${
-                location.pathname === link.to ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div
+          id="mobile-nav"
+          className="glass-strong mx-auto mt-2 max-w-[86rem] rounded-[1.6rem] p-3 shadow-modal lg:hidden"
+        >
+          <div className="grid gap-1">
+            {navLinks.map((link) => {
+              const isActive = isCurrentRoute(link.to);
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex min-h-12 items-center rounded-2xl px-4 text-base font-semibold transition-colors ${
+                    isActive ? "bg-secondary text-primary" : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+
           {canUseOrganizerMode && user && (
             <Button
-              size="sm"
               variant="outline"
-              className="mx-6 mt-2 w-[calc(100%-3rem)] rounded-xl"
+              className="mt-2 w-full"
               onClick={() => {
                 navigate("/organizer");
                 setMobileOpen(false);
               }}
             >
-              <BriefcaseBusiness className="mr-2 h-4 w-4" /> Organizer felület
+              <BriefcaseBusiness className="mr-1 h-4 w-4" /> Organizer felület
             </Button>
           )}
-          <div className="px-6 pt-2">
+
+          <div className="mt-2 border-t border-border/70 pt-3">
             {user ? (
               <div className="flex items-center gap-2">
                 <Button
-                  size="sm"
                   className="flex-1"
                   variant="outline"
                   onClick={() => {
@@ -145,8 +156,7 @@ const Navbar = () => {
               </div>
             ) : (
               <Button
-                size="sm"
-                className="w-full rounded-xl gradient-primary text-primary-foreground"
+                className="w-full"
                 onClick={() => {
                   navigate("/auth");
                   setMobileOpen(false);

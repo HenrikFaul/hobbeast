@@ -12,6 +12,65 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.6] — 2026-08-24
+
+**Warm Social Field Guide visual redesign.** Hobbeast now presents the existing
+product as a warm, human community experience instead of a dark enterprise/cyber
+dashboard. The work is visual and additive: route, authentication, authorization,
+data, event lifecycle and organizer/admin contracts remain unchanged.
+
+### Changed
+- Rebuilt the shared design foundation around ivory/paper surfaces, forest green,
+  sage and the existing Hobbeast coral character; the legacy `tech-grid`, neon and
+  chrome compatibility classes now resolve to quiet, organic treatments.
+- Reworked the app shell with a floating translucent navigation surface, clearer
+  active states, a composed mobile menu, a high-contrast community footer and a
+  code-native Hobbeast mark. Added the previously missing favicon asset.
+- Refined the shared Button, Card, Badge, Input, Textarea, Select, Tabs, Dialog,
+  AlertDialog, Sheet, Drawer and toast primitives. Tailwind now exposes the intended
+  card, elevated and modal shadow tokens instead of silently dropping them.
+- Recomposed the home hero, features, research and CTA sections into a responsive,
+  photo-first editorial experience. The community image enters the first viewport
+  on mobile instead of appearing below the fold.
+- Redesigned Explore as an accessible editorial category browser. Category and
+  subcategory surfaces are native keyboard-operable buttons with explicit labels.
+- Redesigned the Events filter shelf, discovery cards and EventDetail hierarchy with
+  category-aware imagery, clearer time/place/capacity information and stronger CTA
+  placement while preserving the existing discovery and participation callbacks.
+- Updated Auth branding and fixed the 11-tab Admin list so it can grow vertically on
+  narrow screens instead of being constrained to the primitive's former fixed height.
+
+### Fixed
+- Added real Tailwind mappings for `shadow-card`, `shadow-elevated` and
+  `shadow-modal`.
+- Added mobile viewport gutters and bounded internal scrolling to shared dialogs.
+- The custom create-event modal now exposes `role=dialog`, `aria-modal`, a labelled
+  44 px close target and background-scroll locking with cleanup on unmount.
+- Removed the old white bitmap logo (including its visible spelling error) from all
+  rendered app surfaces without deleting the source asset.
+- Removed a React DOM console warning caused by the unsupported hero image
+  `fetchPriority` prop.
+
+### Verified
+- `bun run typecheck` — PASS.
+- `bun run lint` — PASS with 14 pre-existing warnings and zero errors.
+- `bun run test` — PASS, 59 files / 323 tests.
+- `bun run build` — PASS, 3,185 transformed modules.
+- Interactive local browser QA — PASS at 390×844, 768×1024 and 1440×1000 for the
+  home, Explore, Events, EventDetail, Auth and create-event surfaces; no horizontal
+  overflow on the checked mobile routes; mobile menu ARIA and visible focus PASS.
+- Before/after evidence is stored in `artifacts/ui-redesign/v1.9.6/`.
+
+### Validation boundary
+- `bun run test:e2e -- --list` remains **NOT_RUN / tooling HOLD** because the existing
+  `playwright.config.ts` imports the absent `lovable-agent-playwright-config` package.
+- Browser QA used an intentionally offline local configuration. Expected Supabase and
+  external-provider connection errors are not treated as hosted or production proof.
+- No deployment, hosted configuration change, database mutation, commit or push was
+  performed in this UI round.
+
+---
+
 ## [1.9.5] — 2026-08-24
 
 **Full environment-variable audit: every configurable feature now has its keys.** A
