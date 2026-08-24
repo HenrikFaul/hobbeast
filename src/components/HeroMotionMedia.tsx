@@ -167,7 +167,7 @@ const HeroMotionMedia = ({ reduceMotion }: HeroMotionMediaProps) => {
           aria-label={paused ? "Háttérvideó lejátszása" : "Háttérvideó szüneteltetése"}
           aria-pressed={paused}
           onClick={togglePlayback}
-          className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#12251c] sm:right-7 sm:top-7"
+          className="absolute right-5 top-5 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfff62] focus-visible:ring-offset-2 focus-visible:ring-offset-[#12251c] sm:right-7 sm:top-7"
         >
           {paused ? <Play size={17} fill="currentColor" aria-hidden="true" /> : <Pause size={17} fill="currentColor" aria-hidden="true" />}
         </button>

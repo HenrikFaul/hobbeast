@@ -12,6 +12,65 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.9] — 2026-08-24
+
+**Budapest Social Stories visual release.** The existing Hobbeast product now carries a
+more human, city-specific editorial identity across Home, Explore, Events and About. The
+release remains additive: no route, discovery state, event lifecycle action, auth boundary,
+organizer control, community capability, privacy rule or admin surface was removed.
+
+### Added
+- Added four original, people-first Budapest lifestyle scenes for the night hero, a garden
+  board-game gathering, riverside badminton and a Népsziget dog walk. Their prompts,
+  normalized derivatives, metadata and SHA-256 hashes are recorded in the committed media
+  provenance ledger.
+- Added a restrained 10-second desktop hero motion pair in VP9 WebM and faststart H.264 MP4,
+  with a static WebP/JPEG poster and a portrait mobile WebP fallback.
+- Added editorial image panels and original Hobbeast identity labels to Explore, Events and
+  About, while routing every new CTA into the existing `/events` or `/explore` behavior.
+- Added fail-closed media budgets: 1.5 MB per video, 2.5 MB for the complete hero pair and
+  exactly two production variants.
+- Added Playwright coverage for About at 320, 390, 768 and 1440 pixels, reduced-motion media
+  suppression and the hero pause/play control.
+
+### Changed
+- Replaced the reference-adjacent home headline with the Hobbeast-owned statement
+  “A város tele van közös történetekkel.”
+- Reframed the Explore header as an activity-led editorial split, enriched the Events header
+  with a people-in-motion scene, and introduced an About belonging story without changing
+  their existing data or state contracts.
+- Delayed video module and asset loading until the eager poster is ready and the browser is
+  idle. Mobile, Save-Data, constrained-network and reduced-motion visitors keep the static
+  experience.
+- Raised only the readable raw-CSS diagnostic ceiling from 116 KiB to 120 KiB for the new
+  responsive editorial utilities; the 20 KiB gzip transfer ceiling remains unchanged.
+
+### Accessibility and performance
+- Added a visible 48×48 px keyboard-operable pause/resume control for motion lasting longer
+  than five seconds; the video is muted, decorative, audio-free and pauses offscreen or in a
+  hidden tab.
+- Reduced-motion users receive no `<video>`, `<source>` or MP4/WebM request. The poster remains
+  the LCP asset and motion sources are dynamically imported only when eligible.
+- Production media totals 1,342,739 bytes across both video variants; every shipped image is
+  below the existing 256 KB per-image ceiling.
+
+### Verified
+- `bun install --frozen-lockfile`, `bun run typecheck`, `bun run lint`, `bun run test`,
+  `bun run build` and `bun run quality:performance` — PASS (lint retains 14 pre-existing
+  warnings and zero errors; Vitest: 59 files / 323 tests).
+- Responsive and media Playwright coverage — PASS; the authenticated mutating staging path
+  remains intentionally skipped without a disposable fixture.
+- Interactive browser QA — PASS on Home, Explore, Events and About, including media loading,
+  original CTA destinations, horizontal overflow and pause/resume state changes.
+
+### Operational boundary
+- The supplied Loopie video and Bumble BFF pages were used only to study rhythm and visual
+  principles. No competitor asset, frame, logo, layout, testimonial or copy was shipped.
+- Generated people are synthetic editorial subjects, not real Hobbeast members or proof of a
+  named venue. Hosted production status is recorded separately from local/browser evidence.
+
+---
+
 ## [1.9.8] — 2026-08-24
 
 **Social Playground UI/UX expansion.** Hobbeast now presents its existing, production-
