@@ -204,3 +204,16 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   without exposing content, and was dropped immediately after. The PostgREST path enforces
   `safeupdate` (WHERE-less DELETE rejected) — run pre/post steps over the management API
   instead.
+
+## v1.9.7 — A release is not closed until CI targets, secrets and local tooling agree
+
+- **Symptom**: Local UI gates passed, but CI still targeted a deleted Supabase project, the
+  repository tracked `.env`, the dependency audit stopped on high/critical advisories, and
+  Playwright imported a package that had never existed in the manifest.
+- **Root cause**: Visual delivery evidence was treated as release evidence while hosted CI
+  configuration and inherited template tooling drifted independently.
+- **Fix**: Prove the Git index state directly, synchronize CI and GitHub Actions secrets to the
+  current project, replace unavailable template tooling with the native runner, and require a
+  zero-high dependency audit before publication.
+- **Prevention**: A production release must prove the same target and lockfile from local gates,
+  CI and hosting. Never infer deployability from a successful UI build alone.

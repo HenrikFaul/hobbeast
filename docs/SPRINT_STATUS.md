@@ -1,6 +1,14 @@
 # Sprint program status
 
-Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.9.1 HOSTED CUTOVER DONE — the site works again (login + consumer core verified on project `bqdvqmpwccsxumzijspj`)**.
+Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.9.7 RELEASE PATH CLOSED — current Supabase CI target, secret scan, dependency audit, E2E tooling, GitHub Actions and Vercel production publication are enforced.**
+
+v1.9.7 (2026-08-24): removed `.env` from tracking while preserving it locally; verified the
+historically exposed GeoData server credential is rejected; moved the deployed Edge integration
+to the current server-side key; synchronized GitHub Actions with the current Hobbeast project;
+closed all high/critical dependency advisories; replaced the broken Playwright template import;
+and moved the release runbook to the real GitHub `main` → Vercel production path. Mapy/AWS
+browser-key restrictions remain recorded provider hardening, not an unreported private-secret
+claim.
 
 v1.9.1 (2026-08-24): new hosted Supabase project provisioned (old ones were deleted); all 93
 migrations applied with verified integrity; production data restored (933 users with working

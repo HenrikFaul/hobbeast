@@ -12,6 +12,51 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.7] — 2026-08-24
+
+**Production release-path closure.** The Warm Social Field Guide UI remains intact,
+while the repository, CI and hosted secret configuration now satisfy the automated
+release gates that previously stopped v1.9.6.
+
+### Security
+- Removed `.env` from Git tracking without deleting or changing the operator's local
+  file, expanded the ignore policy to every `.env.*` variant except `.env.example`,
+  and documented the complete browser configuration surface with blank examples.
+- Verified that the service-role credential found in historical repository content is
+  rejected by the GeoData project. Replaced the Hobbeast Edge integration's legacy
+  GeoData service-role value with the project's current server-side secret key.
+- Updated the GitHub Actions `VITE_SUPABASE_PUBLISHABLE_KEY` secret and both CI runtime
+  target refs to the current Hobbeast Supabase project.
+- Raised Vite, Vitest, React Router, PostCSS, Tailwind and the ESLint toolchain to
+  supported secure patch/minor lines, refreshed vulnerable transitives, and removed
+  the unused Recharts wrapper/dependency that was the sole source of the unresolved
+  Lodash advisory. Regenerated the committed CycloneDX SBOM from the final lockfile.
+
+### Fixed
+- Replaced the unavailable `lovable-agent-playwright-config` template import with a
+  native Playwright configuration and retained a compatibility fixture entrypoint.
+- Updated the release runbook from the retired Lovable publication path to the actual
+  GitHub `main` → Vercel production path.
+
+### Verified
+- `bun install --frozen-lockfile` and `bun audit --audit-level=high` — PASS; zero
+  high/critical dependency findings.
+- `bun run security:secrets`, `bun run security:audit`, `bun run typecheck`,
+  `bun run lint`, `bun run test`, `bun run build`, `bun run quality:performance` and
+  `bun run release:validate` — PASS (lint retains 14 pre-existing warnings; unit suite
+  remains 59 files / 323 tests).
+- Playwright — PASS: 6 unauthenticated/runtime checks passed; the single mutating,
+  authenticated staging scenario was intentionally skipped because no disposable
+  fixture was supplied.
+
+### Operational boundary
+- AWS Location and Mapy browser keys remain public client configuration. Provider-side
+  origin/service restrictions and rotation remain an operator security-hardening task;
+  they are recorded as residual quota risk rather than being represented as private
+  frontend secrets.
+
+---
+
 ## [1.9.6] — 2026-08-24
 
 **Warm Social Field Guide visual redesign.** Hobbeast now presents the existing

@@ -8,7 +8,7 @@ const allowMutations = process.env.HOBBEAST_E2E_ALLOW_MUTATIONS === '1';
 test.describe('fail-closed unauthenticated routes', () => {
   for (const route of ['/profile', '/community', '/organizer', '/admin']) {
     test(`${route} requires authentication`, async ({ page }) => {
-      await page.goto(route);
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
       await expect(page).toHaveURL(/\/auth(?:\?|$)/);
       await expect(page.getByRole('heading', { name: /Üdv újra|Csatlakozz/i })).toBeVisible();
     });

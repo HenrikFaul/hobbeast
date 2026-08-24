@@ -51,8 +51,8 @@ jobs:
       - name: Build
         run: bun run build
         env:
-          VITE_SUPABASE_URL: https://dsymdijzydaehntlmfzl.supabase.co
-          VITE_SUPABASE_PROJECT_ID: dsymdijzydaehntlmfzl
+          VITE_SUPABASE_URL: https://bqdvqmpwccsxumzijspj.supabase.co
+          VITE_SUPABASE_PROJECT_ID: bqdvqmpwccsxumzijspj
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_BUILD_COMMIT_SHA: ${{ github.sha }}
 
@@ -68,8 +68,8 @@ jobs:
       - name: End-to-end smoke
         run: bun run test:e2e
         env:
-          VITE_SUPABASE_URL: https://dsymdijzydaehntlmfzl.supabase.co
-          VITE_SUPABASE_PROJECT_ID: dsymdijzydaehntlmfzl
+          VITE_SUPABASE_URL: https://bqdvqmpwccsxumzijspj.supabase.co
+          VITE_SUPABASE_PROJECT_ID: bqdvqmpwccsxumzijspj
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Generate release SBOM

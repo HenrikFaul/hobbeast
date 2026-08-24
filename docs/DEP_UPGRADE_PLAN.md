@@ -37,12 +37,15 @@ surface is untriage-able.
 - Verify: full visual pass on hero, admin, organizer, event detail,
   profile.
 
-### 5. Vite 5 → 6 (MEDIUM risk)
+### 5. Vite 5 → 6 (COMPLETED in v1.9.7)
 - Breaking: default `target: 'baseline-widely-available'`, `optimizeDeps`
   changes, Rollup 4.
 - Touch points: `vite.config.ts` (manualChunks strategy).
 - Verify: dev server starts, `bun run build` succeeds, bundle sizes stay
   within +10% of current 136 KB entry.
+- Result: upgraded to Vite 6.4.3 to close a high-severity Windows path advisory;
+  typecheck, 323 unit tests, production build, performance budget and Playwright smoke
+  all passed without changing the existing manual chunk strategy.
 
 ### 6. React 18 → 19 (HIGH risk)
 - Breaking: `useEffect` cleanup timing, `forwardRef` semi-deprecated,
