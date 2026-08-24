@@ -12,6 +12,44 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.9.3] — 2026-08-24
+
+**Google login works again on expericentre.com.** The "Unsupported provider: provider is
+not enabled" error is fixed: a new Google OAuth client backs the Supabase Google provider
+and the full browser flow was verified end-to-end (button → account chooser → consent →
+session on expericentre.com).
+
+### Fixed
+- **Google OAuth provider**: the old login relied on Lovable's managed Google client,
+  which died with the Lovable deployment. A new OAuth client ("Hobbeast Web", client id
+  `689452010964-nncln74ik5dk1rv500obffnsh4v6tik1.apps.googleusercontent.com`) was created
+  in the user's Google Cloud project `gen-lang-client-0838265874` (Google Auth Platform:
+  app "Hobbeast", External audience, authorized domains `expericentre.com` +
+  `bqdvqmpwccsxumzijspj.supabase.co`, redirect URI
+  `https://bqdvqmpwccsxumzijspj.supabase.co/auth/v1/callback`). The client secret lives
+  only in the Supabase provider config — never in this repo.
+- **Supabase Auth URL configuration** (was still the localhost default): Site URL →
+  `https://expericentre.com`; redirect allowlist → `https://expericentre.com/**`,
+  `https://www.expericentre.com/**`, `http://localhost:8080/**`,
+  `https://hobbeast.vercel.app/**`.
+
+### Verified (personally, in the browser, against production)
+- Google flow end-to-end: expericentre.com/auth → "Folytatás Google fiókkal" → Google
+  account chooser → consent → redirected back with a live session.
+- Identity linking: the Google identity attached to the EXISTING restored user
+  (providers `[email, google]`, 1 auth.users row, 1 profiles row — no duplicate account).
+- Email/password login re-verified: password grant → 200 + access token.
+
+### Known limitation
+- The Google consent screen is still in **Testing** mode ("Publish app" is greyed out —
+  Google reports the just-created config as incomplete, expected to clear with
+  propagation, "5 minutes to a few hours"). Until it is published to Production, only
+  registered test users (currently henrikfaul.hf@gmail.com) can complete Google login;
+  everyone else still has working email/password login. Operator follow-up: press
+  **Publish app** on Google Auth Platform → Audience once the button activates.
+
+---
+
 ## [1.9.2] — 2026-08-24
 
 **expericentre.com is live on the new stack.** The public domain now serves the
