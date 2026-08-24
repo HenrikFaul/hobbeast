@@ -1,18 +1,18 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:c7b03af3-e03d-515c-a380-4f536be0bc3f",
+  "serialNumber": "urn:uuid:22721296-89aa-563b-a0cc-22a844120e84",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-24T17:25:46.922Z",
+    "timestamp": "2026-08-24T23:35:12+02:00",
     "component": {
       "type": "application",
       "name": "hobbeast",
-      "version": "1.9.7",
+      "version": "1.10.0",
       "properties": [
         {
           "name": "hobbeast:commit-sha",
-          "value": "local-uncommitted"
+          "value": "dfa2f4d6e796c93882bd22b31d892070dbf84f49"
         },
         {
           "name": "hobbeast:bun-lock-sha256",
