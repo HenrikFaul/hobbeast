@@ -11,6 +11,7 @@ import { useOrganizerMode } from "@/hooks/useOrganizerMode";
 const navLinks = [
   { to: "/", label: "Főoldal" },
   { to: "/events", label: "Események" },
+  { to: "/explore", label: "Hobbik" },
   { to: "/community", label: "Közösség" },
   { to: "/about", label: "Rólunk" },
 ];
@@ -26,17 +27,19 @@ const Navbar = () => {
     path === "/" ? location.pathname === path : location.pathname.startsWith(path);
 
   return (
-    <nav className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5" aria-label="Fő navigáció">
-      <div className="glass-strong relative mx-auto flex h-[4.5rem] max-w-[86rem] items-center justify-between rounded-[1.4rem] px-3 sm:px-5">
+    <nav className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4" aria-label="Fő navigáció">
+      <div className="relative mx-auto flex h-[4.5rem] max-w-[90rem] items-center justify-between rounded-[1.45rem] border border-white/80 bg-[#fffdf7]/[0.92] px-3 shadow-[0_18px_55px_-28px_rgba(20,45,31,0.46)] backdrop-blur-xl sm:px-5">
         <Link
           to="/"
           className="group flex min-h-11 items-center gap-2.5 rounded-2xl pr-2"
           aria-label="Hobbeast főoldal"
         >
-          <HobbeastMark className="h-10 w-10 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-[1.04]" />
-          <div className="flex items-center gap-2">
-            <span className="font-display text-xl font-extrabold tracking-[-0.045em] text-foreground sm:text-[1.35rem]">
-              Hobbeast
+          <HobbeastMark className="h-10 w-10 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-[1.06]" />
+          <div className="flex items-center gap-2.5">
+            <span className="font-display text-xl font-extrabold tracking-[-0.055em] text-foreground sm:text-[1.4rem]">Hobbeast</span>
+            <span className="hidden h-6 w-px bg-border xl:block" aria-hidden="true" />
+            <span className="hidden text-[0.64rem] font-bold uppercase leading-tight tracking-[0.13em] text-muted-foreground xl:block">
+              Találd meg<br />a közösséged
             </span>
             {canUseOrganizerMode && mode === "organizer" && (
               <span className="hidden rounded-full border border-primary/15 bg-secondary px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-[0.12em] text-primary sm:inline-flex">
@@ -47,7 +50,7 @@ const Navbar = () => {
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
-          <div className="mr-1 flex items-center gap-0.5 rounded-full bg-background/55 p-1">
+          <div className="mr-1 flex items-center gap-0.5 rounded-full bg-[#edf0e7] p-1">
             {navLinks.map((link) => {
               const isActive = isCurrentRoute(link.to);
               return (
@@ -57,8 +60,8 @@ const Navbar = () => {
                   aria-current={isActive ? "page" : undefined}
                   className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-[color,background-color,box-shadow] duration-200 ${
                     isActive
-                      ? "bg-card text-primary shadow-soft"
-                      : "text-muted-foreground hover:bg-card/70 hover:text-foreground"
+                      ? "bg-[#183124] text-white shadow-soft"
+                      : "text-muted-foreground hover:bg-white/80 hover:text-foreground"
                   }`}
                 >
                   {link.label}
@@ -84,7 +87,7 @@ const Navbar = () => {
                 <ProfileMenu />
               </div>
             ) : (
-              <Button size="sm" className="ml-1" onClick={() => navigate("/auth")}>
+              <Button size="sm" className="ml-1 rounded-full border-[#dfff62] bg-[#dfff62] px-5 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => navigate("/auth")}> 
                 Csatlakozz
               </Button>
             ))}
@@ -95,7 +98,7 @@ const Navbar = () => {
           aria-label={mobileOpen ? "Menü bezárása" : "Menü megnyitása"}
           aria-expanded={mobileOpen}
           aria-controls="mobile-nav"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border/70 bg-card/70 text-foreground transition-colors hover:bg-secondary lg:hidden"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-full border border-foreground/10 bg-[#edf0e7] text-foreground transition-colors hover:bg-[#dfff62] lg:hidden"
           onClick={() => setMobileOpen((open) => !open)}
         >
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
@@ -105,7 +108,7 @@ const Navbar = () => {
       {mobileOpen && (
         <div
           id="mobile-nav"
-          className="glass-strong mx-auto mt-2 max-w-[86rem] rounded-[1.6rem] p-3 shadow-modal lg:hidden"
+          className="mx-auto mt-2 max-w-[90rem] rounded-[1.6rem] border border-white/80 bg-[#fffdf7]/95 p-3 shadow-modal backdrop-blur-xl lg:hidden"
         >
           <div className="grid gap-1">
             {navLinks.map((link) => {
@@ -117,7 +120,7 @@ const Navbar = () => {
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => setMobileOpen(false)}
                   className={`flex min-h-12 items-center rounded-2xl px-4 text-base font-semibold transition-colors ${
-                    isActive ? "bg-secondary text-primary" : "text-foreground hover:bg-muted"
+                    isActive ? "bg-[#183124] text-white" : "text-foreground hover:bg-[#edf0e7]"
                   }`}
                 >
                   {link.label}

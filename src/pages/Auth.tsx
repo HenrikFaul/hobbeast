@@ -109,45 +109,51 @@ const Auth = () => {
   ];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[#f1eee5]">
       {/* Left branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden gradient-primary">
+      <div className="relative hidden overflow-hidden bg-[#dfff62] lg:flex lg:w-[52%]">
         <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 h-64 w-64 rounded-full bg-primary-foreground/5 blur-3xl" />
-          <div className="absolute bottom-20 right-10 h-80 w-80 rounded-full bg-primary-foreground/10 blur-3xl" />
-        </div>
-        <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
-          <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-primary-foreground p-1 shadow-soft"><HobbeastMark className="h-10 w-10" /></span>
-            <span className="font-display text-2xl font-bold">Hobbeast</span>
+          <div className="absolute -left-28 -top-28 h-80 w-80 rounded-full border-[58px] border-[#183124]/10" />
+          <div className="absolute -right-20 top-[18%] h-52 w-52 rotate-12 rounded-[3rem] bg-[#ff8f72]" />
+          <div className="absolute -bottom-28 left-[38%] h-72 w-72 rounded-full bg-[#c9b7ff]" />
+          <div className="absolute right-[7%] top-[33%] rotate-6 rounded-[1.5rem] bg-[#fffdf7] px-5 py-4 text-[#183124] shadow-xl">
+            <span className="block text-[0.62rem] font-extrabold uppercase tracking-[0.14em]">Ma is történik valami</span>
+            <span className="mt-1 block font-display text-lg font-extrabold">Találkozz élőben ✦</span>
           </div>
-          <div className="space-y-8">
+        </div>
+        <div className="relative z-10 flex w-full flex-col justify-between p-12 text-[#183124] xl:p-16">
+          <div className="flex items-center gap-3">
+            <span className="rounded-2xl bg-[#fffdf7] p-1 shadow-soft"><HobbeastMark className="h-10 w-10" /></span>
+            <span className="font-display text-2xl font-extrabold tracking-[-0.04em]">Hobbeast</span>
+          </div>
+          <div className="max-w-2xl space-y-8">
             <div className="space-y-4">
-              <h1 className="font-display text-5xl font-bold leading-tight">Találd meg a<br />közösséged,<br />élj át élményeket</h1>
-              <p className="text-lg text-primary-foreground/70 max-w-md">Fedezd fel a hobbi közösségeket a közeledben, szervezz programokat és találj barátokat.</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em]">Az új kedvenc társaságod itt kezdődik</p>
+              <h1 aria-label="Találd meg a te embereidet." className="font-display text-6xl font-extrabold leading-[0.88] tracking-[-0.065em] xl:text-7xl">Találd meg<br />a te<br /><span className="text-[#ff6948]">embereidet.</span></h1>
+              <p className="max-w-md text-lg font-medium text-[#183124]/[0.68]">Fedezd fel a hobbi közösségeket a közeledben, szervezz programokat és találj barátokat.</p>
             </div>
-            <div className="space-y-4">
+            <div className="grid gap-3 xl:grid-cols-3">
               {features.map((feature, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + i * 0.15 }}
-                  className="flex items-center gap-4 rounded-2xl bg-primary-foreground/10 backdrop-blur-sm p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/20">
+                  className="flex items-center gap-3 rounded-[1.35rem] border border-[#183124]/10 bg-[#fffdf7]/70 p-3.5 backdrop-blur-sm xl:block">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#183124] text-[#dfff62]">
                     <feature.icon className="h-5 w-5" />
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{feature.title}</p>
-                    <p className="text-xs text-primary-foreground/60">{feature.desc}</p>
+                  <div className="xl:mt-4">
+                    <p className="text-sm font-extrabold">{feature.title}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#183124]/[0.58]">{feature.desc}</p>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
-          <p className="text-sm text-primary-foreground/40">© 2026 Hobbeast. Minden jog fenntartva.</p>
+          <p className="text-sm font-medium text-[#183124]/[0.48]">© 2026 Hobbeast. Minden jog fenntartva.</p>
         </div>
       </div>
 
       {/* Right form */}
-      <div className="flex flex-1 items-center justify-center p-6 lg:p-12 bg-background">
-        <div className="w-full max-w-md">
+      <div className="flex flex-1 items-start justify-center bg-[#f1eee5] p-4 py-8 sm:items-center sm:p-6 lg:p-10 xl:p-14">
+        <div className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-card p-6 shadow-[0_28px_80px_-44px_rgba(24,49,36,0.55)] sm:p-9 lg:p-10">
           <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
             <HobbeastMark className="h-11 w-11" />
             <span className="font-display text-2xl font-bold">Hobbeast</span>

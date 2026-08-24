@@ -1,13 +1,40 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Users, Sparkles, CalendarDays, ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Bike,
+  MapPin,
+  Music2,
+  Palette,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import heroImg from "@/assets/hero-community.jpg";
+import heroImg from "@/assets/hero-community-v2.webp";
+import heroFallback from "@/assets/hero-community.jpg";
 
-const stats = [
-  { icon: Users, label: "Közösség", value: "10K+" },
-  { icon: CalendarDays, label: "Aktív program", value: "500+" },
-  { icon: Sparkles, label: "Hobbi kategória", value: "80+" },
+const quickStarts = [
+  {
+    icon: Bike,
+    eyebrow: "Mozdulj ki",
+    title: "Sport & természet",
+    path: "/events?q=túra&mode=search",
+    tone: "bg-[#dfff62] text-[#183124]",
+  },
+  {
+    icon: Palette,
+    eyebrow: "Alkoss együtt",
+    title: "Kreatív programok",
+    path: "/events?q=kreatív&mode=search",
+    tone: "bg-[#ff8f72] text-[#2f1711]",
+  },
+  {
+    icon: Music2,
+    eyebrow: "Kapcsolódj",
+    title: "Zene & városi esték",
+    path: "/events?q=zene&mode=search",
+    tone: "bg-[#c9b7ff] text-[#251b43]",
+  },
 ];
 
 const HeroSection = () => {
@@ -15,120 +42,157 @@ const HeroSection = () => {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section className="relative isolate overflow-hidden bg-background pb-14 pt-24 sm:pb-20 sm:pt-28 lg:pb-24 lg:pt-32">
-      <div className="pointer-events-none absolute -left-28 top-16 h-72 w-72 rounded-full bg-accent/[0.12] blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 bottom-10 h-96 w-96 rounded-full bg-primary/[0.10] blur-3xl" />
+    <section className="relative isolate overflow-hidden px-3 pb-10 pt-[5.75rem] sm:px-5 sm:pb-14 sm:pt-[6.5rem]">
+      <div className="pointer-events-none absolute -left-40 top-24 -z-10 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 bottom-0 -z-10 h-[28rem] w-[28rem] rounded-full bg-primary/15 blur-3xl" />
 
-      <div className="container relative mx-auto px-4">
-        <div className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-[0_28px_90px_-48px_hsl(var(--foreground)/0.42)] sm:rounded-[2.5rem]">
-          <div className="grid lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
-            <motion.div
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.985 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-              className="relative order-1 min-h-[270px] overflow-hidden sm:min-h-[360px] lg:order-2 lg:min-h-full"
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.992 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+        className="relative mx-auto min-h-[760px] max-w-[92rem] overflow-hidden rounded-[2rem] bg-[#12251c] shadow-[0_36px_100px_-42px_rgba(13,35,24,0.72)] sm:min-h-[790px] sm:rounded-[2.75rem] lg:min-h-[820px]"
+      >
+        <picture className="absolute inset-0">
+          <source srcSet={heroImg} type="image/webp" />
+          <img
+            src={heroFallback}
+            alt="Barátok közös szabadtéri programra érkeznek Budapesten"
+            width={1536}
+            height={1024}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            className="h-full w-full object-cover object-[61%_center] sm:object-[58%_center] lg:object-center"
+          />
+        </picture>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,27,18,0.96)_0%,rgba(8,27,18,0.84)_35%,rgba(8,27,18,0.26)_70%,rgba(8,27,18,0.08)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,24,16,0.18)_0%,transparent_42%,rgba(8,24,16,0.88)_100%)]" />
+        <div aria-hidden="true" className="absolute -left-20 -top-28 h-72 w-72 rounded-full border-[52px] border-[#dfff62]/20" />
+
+        <div className="relative flex min-h-[760px] flex-col px-5 pb-5 pt-8 sm:min-h-[790px] sm:px-9 sm:pb-8 sm:pt-10 lg:min-h-[820px] lg:px-14 lg:pb-10 lg:pt-12 xl:px-20">
+          <div className="flex items-center justify-between gap-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/20 px-3.5 py-2 text-[0.68rem] font-bold uppercase tracking-[0.16em] text-white backdrop-blur-md sm:text-xs">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#dfff62] opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#dfff62]" />
+              </span>
+              Budapest · közösség élőben
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/explore")}
+              className="hidden min-h-11 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:inline-flex"
             >
-              <img
-                src={heroImg}
-                alt="Baráti közösség közös szabadtéri élményen"
-                width={1600}
-                height={900}
-                loading="eager"
-                decoding="async"
-                className="absolute inset-0 h-full w-full object-cover object-center"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/45 via-transparent to-transparent lg:bg-gradient-to-r lg:from-card/35 lg:via-transparent lg:to-transparent" />
+              Hobbik felfedezése
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </button>
+          </div>
 
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/40 bg-white/80 p-3.5 text-foreground shadow-lg backdrop-blur-md sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-[21rem] sm:p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Sparkles size={17} aria-hidden="true" />
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      Közösség élőben
-                    </div>
-                    <div className="mt-0.5 font-display text-sm font-semibold leading-snug sm:text-base">
-                      Valódi emberek. Valódi élmények. Együtt.
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+          <div className="mt-16 max-w-[47rem] sm:mt-20 lg:mt-24">
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.16 }}
+              className="mb-5 flex items-center gap-2 text-sm font-semibold text-white/[0.78]"
+            >
+              <Sparkles size={16} className="text-[#dfff62]" aria-hidden="true" />
+              Több közös élmény. Kevesebb üres görgetés.
             </motion.div>
 
-            <motion.div
-              initial={reduceMotion ? false : { opacity: 0, y: 22 }}
+            <motion.h1
+              aria-label="Találd meg a te embereidet."
+              initial={reduceMotion ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="order-2 flex flex-col justify-center px-5 py-9 sm:px-9 sm:py-12 lg:order-1 lg:px-12 lg:py-16 xl:px-16"
+              transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="max-w-4xl font-display text-[3.15rem] font-extrabold leading-[0.9] tracking-[-0.065em] text-white sm:text-[4.5rem] lg:text-[5.85rem] xl:text-[6.8rem]"
             >
-              <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.08] px-4 py-2 text-sm font-semibold text-primary">
-                <Sparkles size={14} aria-hidden="true" />
-                Találd meg a közösséged
-              </div>
+              Találd meg
+              <span className="block text-[#dfff62]">a te embereidet.</span>
+            </motion.h1>
 
-              <h1 className="max-w-2xl text-balance font-display text-4xl font-bold leading-[1.02] tracking-[-0.035em] text-foreground sm:text-5xl lg:text-[3.6rem] xl:text-[4.15rem]">
-                Élj át többet együtt –
-                <span className="mt-2 block text-primary">
-                  találj társakat a közös élményekhez
-                </span>
-              </h1>
+            <motion.p
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.32 }}
+              className="mt-6 max-w-xl text-base font-medium leading-relaxed text-white/[0.78] sm:text-lg lg:text-xl"
+            >
+              Fedezz fel helyi programokat, találj társakat a kedvenc hobbidhoz,
+              vagy indíts saját eseményt. A Hobbeastben az online érdeklődésből
+              valódi találkozás lesz.
+            </motion.p>
 
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                A Hobbeast egy modern közösségi vezérlőpult: legyen szó túráról,
-                közös koncertről, teniszről, kutyasétáltatásról vagy bármilyen
-                hobbiról – itt valódi embereket találsz, akikkel együtt csinálhatod.
-              </p>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Button
-                  size="lg"
-                  className="h-12 rounded-full px-7 text-base font-semibold sm:px-8"
-                  onClick={() => navigate("/events")}
-                >
-                  Indítsd a keresést
-                  <ArrowRight size={17} aria-hidden="true" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-full border-border/90 bg-background/55 px-7 text-base sm:px-8"
-                  onClick={() => navigate("/about")}
-                >
-                  Mi ez pontosan?
-                </Button>
-              </div>
-
-              <div className="mt-9 grid grid-cols-3 gap-2 border-t border-border/70 pt-6 sm:gap-4">
-                {stats.map((stat, index) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.32 + index * 0.07 }}
-                    className="min-w-0"
-                  >
-                    <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-primary sm:h-9 sm:w-9">
-                      <stat.icon size={15} aria-hidden="true" />
-                    </div>
-                    <div className="font-display text-xl font-bold leading-none text-foreground sm:text-2xl">
-                      {stat.value}
-                    </div>
-                    <div className="mt-1 truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground sm:text-xs sm:tracking-[0.12em]">
-                      {stat.label}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.4 }}
+              className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+            >
+              <Button
+                size="lg"
+                className="h-[3.25rem] rounded-full border-[#dfff62] bg-[#dfff62] px-7 text-base font-bold text-[#183124] shadow-[0_18px_40px_-20px_rgba(223,255,98,0.9)] hover:bg-[#e7ff8b] sm:px-8"
+                onClick={() => navigate("/events")}
+              >
+                Programot keresek
+                <ArrowRight size={18} aria-hidden="true" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-[3.25rem] rounded-full border-white/30 bg-white/10 px-7 text-base font-semibold text-white shadow-none backdrop-blur-md hover:border-white/45 hover:bg-white/20 hover:text-white sm:px-8"
+                onClick={() => navigate("/about")}
+              >
+                Így működik
+              </Button>
             </motion.div>
           </div>
+
+          <div className="mt-auto pt-14">
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-white/[0.65]">
+              <MapPin size={14} className="text-[#dfff62]" aria-hidden="true" />
+              Mivel kezdenéd?
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-3 sm:gap-3 lg:max-w-[61rem]">
+              {quickStarts.map((item, index) => (
+                <motion.button
+                  key={item.title}
+                  type="button"
+                  initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, delay: 0.48 + index * 0.07 }}
+                  whileHover={reduceMotion ? undefined : { y: -4 }}
+                  onClick={() => navigate(item.path)}
+                  className="group flex min-h-[76px] items-center gap-3 rounded-[1.35rem] border border-white/20 bg-black/25 p-3 text-left text-white backdrop-blur-xl transition-colors hover:bg-black/40 sm:min-h-[92px] sm:p-4"
+                >
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${item.tone}`}>
+                    <item.icon size={20} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.64rem] font-bold uppercase tracking-[0.13em] text-white/[0.55]">
+                      {item.eyebrow}
+                    </span>
+                    <span className="mt-1 block font-display text-sm font-bold leading-tight sm:text-base">
+                      {item.title}
+                    </span>
+                  </span>
+                  <ArrowUpRight className="ml-auto hidden h-4 w-4 shrink-0 text-white/[0.45] transition-colors group-hover:text-[#dfff62] lg:block" aria-hidden="true" />
+                </motion.button>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, rotate: 4, scale: 0.9 }}
+          animate={{ opacity: 1, rotate: -3, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.62 }}
+          className="absolute right-8 top-28 hidden rounded-[1.35rem] bg-[#ff8f72] px-5 py-4 text-[#2f1711] shadow-xl xl:block"
+          aria-hidden="true"
+        >
+          <span className="block text-[0.62rem] font-extrabold uppercase tracking-[0.14em]">Nyitott társaság</span>
+          <span className="mt-0.5 block font-display text-lg font-extrabold">Gyere úgy, ahogy vagy ✦</span>
+        </motion.div>
+      </motion.div>
     </section>
   );
 };

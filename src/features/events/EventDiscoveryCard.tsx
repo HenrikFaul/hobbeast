@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion';
-import { Calendar, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
+import { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowUpRight, Calendar, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { resolveEventLocationLabel } from '@/lib/eventLocationHelper';
@@ -15,20 +16,20 @@ import {
   type EventRelation,
 } from './discoveryModel';
 
-const OWN_BADGE_CLASS = 'border-accent/25 bg-accent/10 text-foreground';
+const OWN_BADGE_CLASS = 'border-accent/25 bg-accent/15 text-foreground';
 const JOINED_BADGE_CLASS = 'border-primary/25 bg-primary/10 text-primary';
 const INTEREST_BADGE_CLASS = 'border-primary/15 bg-secondary text-secondary-foreground';
 const OWN_BUTTON_CLASS = 'w-full cursor-default border-accent/20 bg-accent/10 text-foreground hover:bg-accent/10';
 const JOINED_BUTTON_CLASS = 'w-full border-primary/25 bg-card text-primary hover:bg-primary/5';
-const INTEREST_BUTTON_CLASS = 'w-full border-0 bg-accent text-accent-foreground hover:bg-accent/90';
-const DEFAULT_BUTTON_CLASS = 'w-full border-0 gradient-primary text-primary-foreground';
+const INTEREST_BUTTON_CLASS = 'w-full border-accent bg-accent text-accent-foreground hover:bg-accent/90';
+const DEFAULT_BUTTON_CLASS = 'w-full border-primary bg-primary text-primary-foreground';
 
 function getVisualTone(category: string) {
   const normalized = category.toLocaleLowerCase('hu-HU');
-  if (/(sport|fut|túra|terep|természet)/.test(normalized)) return 'from-primary/25 via-primary/10 to-secondary';
-  if (/(kreatív|művész|zene|fest)/.test(normalized)) return 'from-accent/25 via-accent/10 to-secondary';
-  if (/(gasztro|főz|étel)/.test(normalized)) return 'from-amber-200/70 via-accent/10 to-secondary';
-  return 'from-secondary via-primary/[0.08] to-accent/[0.12]';
+  if (/(sport|fut|túra|terep|természet)/.test(normalized)) return 'from-[#cde96b] via-[#dfff62] to-[#edf0e7]';
+  if (/(kreatív|művész|zene|fest)/.test(normalized)) return 'from-[#ff8f72] via-[#ffc0af] to-[#fff1e9]';
+  if (/(gasztro|főz|étel)/.test(normalized)) return 'from-[#f5d46f] via-[#ffe5a1] to-[#fff6d8]';
+  return 'from-[#c9b7ff] via-[#ddd3ff] to-[#f2eeff]';
 }
 
 export type DiscoveryCardEntry = RankedDiscoveryItem<EventData & { eventId: string }>;
@@ -52,6 +53,15 @@ function formatDate(date: string | null) {
     : 'Dátum nélkül';
 }
 
+function formatDateTile(date: string | null) {
+  if (!date) return { day: '—', month: 'HAMAROSAN' };
+  const value = new Date(date);
+  return {
+    day: value.toLocaleDateString('hu-HU', { day: '2-digit' }),
+    month: value.toLocaleDateString('hu-HU', { month: 'short' }).replace('.', '').toUpperCase(),
+  };
+}
+
 export function EventDiscoveryCard({
   entry,
   index,
@@ -64,6 +74,8 @@ export function EventDiscoveryCard({
   onLeave,
   onLessLikeThis,
 }: EventDiscoveryCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const reduceMotion = useReducedMotion();
   const event = entry.item;
   const statusBadge = relation === 'own'
     ? { label: 'Saját', className: OWN_BADGE_CLASS }
@@ -73,29 +85,59 @@ export function EventDiscoveryCard({
         ? { label: 'Érdekelhet', className: INTEREST_BADGE_CLASS }
         : null;
   const outboundUrl = safeExternalUrl(event.eventbrite_url);
+  const visualImageUrl = safeExternalUrl(event.eventbrite_logo_url);
   const visualTone = getVisualTone(event.category);
+  const dateTile = formatDateTile(event.event_date);
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06 }}
-      className="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-border/70 bg-card/95 shadow-lg shadow-primary/[0.05] transition-shadow hover:shadow-xl"
+      whileHover={reduceMotion ? undefined : { y: -5 }}
+      transition={{ duration: 0.42, delay: Math.min(index * 0.04, 0.28) }}
+      className="group flex h-full flex-col overflow-hidden rounded-[1.8rem] border border-foreground/[0.08] bg-card shadow-[0_20px_55px_-38px_rgba(24,49,36,0.52)]"
     >
       <button
         type="button"
-        className={`relative flex h-44 w-full items-center justify-center overflow-hidden bg-gradient-to-br ${visualTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`}
+        className={`relative flex h-52 w-full items-center justify-center overflow-hidden bg-gradient-to-br ${visualTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:h-56`}
         onClick={() => onOpen(event)}
         aria-label={`${event.title} részleteinek megnyitása`}
       >
-        <span aria-hidden="true" className="absolute -left-8 -top-10 h-32 w-32 rounded-full border border-white/40 bg-card/20" />
-        <span aria-hidden="true" className="absolute -bottom-12 -right-6 h-40 w-40 rounded-full border border-white/50 bg-card/30" />
-        <span aria-hidden="true" className="relative flex h-24 w-24 items-center justify-center rounded-[2rem] border border-white/60 bg-card/70 text-6xl shadow-xl shadow-foreground/10 backdrop-blur-sm transition-transform duration-300 group-hover:scale-105">{event.image_emoji || '🎉'}</span>
-        <span aria-hidden="true" className="absolute bottom-4 left-5 rounded-full border border-white/60 bg-card/75 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground backdrop-blur-sm">{event.category}</span>
+        {visualImageUrl && !imageFailed ? (
+          <img
+            src={visualImageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setImageFailed(true)}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
+          />
+        ) : (
+          <>
+            <span aria-hidden="true" className="absolute -left-10 -top-12 h-36 w-36 rounded-full border-[24px] border-white/30" />
+            <span aria-hidden="true" className="absolute -bottom-16 -right-8 h-48 w-48 rounded-full border-[32px] border-white/[0.35]" />
+            <span aria-hidden="true" className="relative flex h-24 w-24 rotate-[-3deg] items-center justify-center rounded-[1.7rem] border border-white/60 bg-card/[0.72] text-6xl shadow-xl shadow-foreground/10 backdrop-blur-sm transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105">
+              {event.image_emoji || '🎉'}
+            </span>
+          </>
+        )}
+        {visualImageUrl && !imageFailed && <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />}
+
+        <span className="absolute left-4 top-4 flex h-[3.65rem] w-[3.65rem] flex-col items-center justify-center rounded-[1.1rem] bg-[#fffdf7] text-[#183124] shadow-lg" aria-hidden="true">
+          <span className="font-display text-xl font-extrabold leading-none">{dateTile.day}</span>
+          <span className="mt-0.5 text-[0.56rem] font-extrabold tracking-[0.12em]">{dateTile.month}</span>
+        </span>
+        <span className="absolute bottom-4 left-4 rounded-full border border-white/[0.55] bg-[#fffdf7]/90 px-3 py-1.5 text-[0.62rem] font-extrabold uppercase tracking-[0.13em] text-[#183124] backdrop-blur-sm">
+          {event.category}
+        </span>
+        <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#183124] text-white shadow-lg transition-transform duration-300 group-hover:rotate-6 group-hover:scale-105" aria-hidden="true">
+          <ArrowUpRight size={17} />
+        </span>
       </button>
+
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="rounded-full bg-secondary/80 text-xs">{event.category}</Badge>
           {entry.isPromoted && entry.disclosureLabel === 'Promoted' && (
             <Badge aria-label="Promoted event" variant="outline" className="rounded-full border-violet-300 bg-violet-50 text-xs text-violet-800">Promoted</Badge>
           )}
@@ -111,7 +153,7 @@ export function EventDiscoveryCard({
         </div>
 
         {showRecommendationReason && recommendationReason && (
-          <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-primary/10 bg-primary/[0.06] px-3.5 py-2.5 text-xs text-primary">
+          <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-primary/10 bg-secondary/70 px-3.5 py-2.5 text-xs text-primary">
             <span title="Miért látom ezt?">{RECOMMENDATION_REASON_LABELS[recommendationReason]}</span>
             <button
               type="button"
@@ -123,7 +165,7 @@ export function EventDiscoveryCard({
           </div>
         )}
 
-        <h3 className="mb-4 font-display text-xl font-semibold leading-snug transition-colors group-hover:text-primary">
+        <h3 className="mb-4 font-display text-xl font-extrabold leading-[1.08] tracking-[-0.03em] transition-colors group-hover:text-primary sm:text-[1.45rem]">
           <button
             type="button"
             className="cursor-pointer rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -133,7 +175,7 @@ export function EventDiscoveryCard({
           </button>
         </h3>
 
-        <div className="mb-5 space-y-2.5 text-sm text-muted-foreground">
+        <div className="mb-5 space-y-2.5 text-sm font-medium text-muted-foreground">
           <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/[0.07] text-primary"><Calendar aria-hidden="true" size={13} /></span>
             <span>{formatDate(event.event_date)}</span>
@@ -143,7 +185,7 @@ export function EventDiscoveryCard({
             </>}
           </div>
           <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/[0.09] text-accent"><MapPin aria-hidden="true" size={13} /></span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/[0.12] text-accent"><MapPin aria-hidden="true" size={13} /></span>
             <span>{resolveEventLocationLabel(event)}</span>
           </div>
           <div className="flex items-center gap-2.5">
@@ -154,18 +196,18 @@ export function EventDiscoveryCard({
 
         {event.tags && event.tags.length > 0 && (
           <div className="mb-5 flex flex-wrap gap-1.5">
-            {event.tags.map((tag) => <Badge key={tag} variant="outline" className="rounded-full bg-background/50 text-xs font-normal">{tag}</Badge>)}
+            {event.tags.map((tag) => <Badge key={tag} variant="outline" className="rounded-full bg-background/55 text-xs font-normal">{tag}</Badge>)}
           </div>
         )}
 
         <div className="mt-auto border-t border-border/60 pt-4">
           {isExternal(event) ? (
             outboundUrl ? (
-              <a href={outboundUrl} target="_blank" rel="noopener noreferrer" className="block">
-                <Button className={`${relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} rounded-full`} size="sm">
+              <Button asChild className={`${relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} rounded-full`} size="sm">
+                <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> Megnézem ({event.source_label})
-                </Button>
-              </a>
+                </a>
+              </Button>
             ) : (
               <Button className="w-full rounded-full" variant="outline" size="sm" disabled>Forráslink ellenőrzés alatt</Button>
             )

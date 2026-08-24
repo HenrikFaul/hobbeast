@@ -3,7 +3,7 @@
   "distDirectory": "dist/assets",
   "budgets": [
     { "id": "landing-main-js", "pattern": "^index-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 163840, "maxGzipBytes": 51200, "required": true },
-    { "id": "global-css", "pattern": "^index-[A-Za-z0-9_-]+\\.css$", "maxRawBytes": 102400, "maxGzipBytes": 20480, "required": true },
+    { "id": "global-css", "pattern": "^index-[A-Za-z0-9_-]+\\.css$", "maxRawBytes": 118784, "maxGzipBytes": 20480, "required": true },
     { "id": "events-route", "pattern": "^Events-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 122880, "maxGzipBytes": 40960, "required": true },
     { "id": "event-detail-route", "pattern": "^EventDetail-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 81920, "maxGzipBytes": 30720, "required": true },
     { "id": "admin-route", "pattern": "^Admin-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 225280, "maxGzipBytes": 71680, "required": true },

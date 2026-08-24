@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Filter, Plus, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Filter, MapPin, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -691,24 +691,48 @@ const Events = () => {
 
   return (
     <main className="min-h-screen pb-20 pt-28 sm:pt-32">
-      <div className="container mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-9 text-center">
-          <span className="page-kicker mb-5"><Filter className="h-3.5 w-3.5" aria-hidden="true" /> Programok a közeledben</span>
-          <h1 className="mb-3 font-display text-4xl font-extrabold tracking-[-0.045em] sm:text-5xl">
-            Közelgő <span className="text-gradient">események</span>
-          </h1>
-          <p className="mx-auto mb-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Csatlakozz programokhoz a közeledben, vagy szervezz sajátot!
-          </p>
-          {user && (
-            <Button className="gradient-primary text-primary-foreground border-0 shadow-glow" onClick={() => setShowCreate(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Új esemény létrehozása
-            </Button>
-          )}
-        </motion.div>
+      <div className="container mx-auto px-4">
+        <motion.header
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative mb-6 overflow-hidden rounded-[2rem] bg-[#183124] px-5 py-9 text-white shadow-[0_28px_80px_-42px_rgba(24,49,36,0.7)] sm:rounded-[2.6rem] sm:px-9 sm:py-12 lg:px-14 lg:py-14"
+        >
+          <div aria-hidden="true" className="absolute -right-14 -top-20 h-64 w-64 rounded-full border-[42px] border-[#dfff62]/15" />
+          <div aria-hidden="true" className="absolute -bottom-24 right-[22%] h-56 w-56 rounded-full bg-[#ff8f72]/15 blur-3xl" />
+          <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#dfff62]">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Programok a közeledben
+              </span>
+              <h1 className="max-w-4xl font-display text-4xl font-extrabold leading-[0.96] tracking-[-0.055em] sm:text-5xl lg:text-[4rem]">
+                Események, amikből
+                <span className="block text-[#ff8f72]">közös emlék lesz.</span>
+              </h1>
+              <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-white/[0.66] sm:text-lg">
+                Böngéssz helyi és külső programok között, használd a személyes ajánlásokat,
+                vagy szűrj pontosan dátum, férőhely és távolság szerint.
+              </p>
+            </div>
 
-        <section aria-label="Eseményszűrők" className="mx-auto mb-10 max-w-5xl rounded-[2rem] border border-border/75 bg-card/[0.78] p-4 shadow-elevated backdrop-blur-md sm:p-6">
-        <div className="mb-5 flex flex-wrap justify-center gap-2 sm:justify-start">
+            <div className="flex flex-wrap gap-3 lg:flex-col lg:items-end">
+              <div className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/15 px-4 text-sm font-semibold text-white/[0.76] backdrop-blur-sm">
+                <MapPin size={16} className="text-[#dfff62]" aria-hidden="true" /> Budapest &amp; Wien
+              </div>
+              {user && (
+                <Button className="rounded-full border-[#dfff62] bg-[#dfff62] px-6 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => setShowCreate(true)}>
+                  <Plus className="mr-1 h-4 w-4" /> Új esemény létrehozása
+                </Button>
+              )}
+            </div>
+          </div>
+        </motion.header>
+
+        <section aria-label="Eseményszűrők" className="mx-auto mb-10 rounded-[2rem] border border-border/75 bg-card/[0.88] p-4 shadow-elevated backdrop-blur-md sm:p-6 lg:p-7">
+        <div className="mb-5 flex items-center gap-2 text-sm font-extrabold text-foreground">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfff62] text-[#183124]"><Filter size={16} aria-hidden="true" /></span>
+          Finomhangold a találatokat
+        </div>
+        <div className="mb-5 flex flex-wrap gap-2">
           {SOURCE_FILTERS.map((sf) => (
             <Button
               key={sf.value}
@@ -752,7 +776,7 @@ const Events = () => {
 
         <div className="mb-5 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" aria-hidden="true" />
             <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
                 const value = e.target.value;
                 setSearch(value);
@@ -761,7 +785,7 @@ const Events = () => {
                 } else {
                   setPrimaryFilter((prev) => prev === 'search' ? 'all' : prev);
                 }
-              }} className="pl-9" />
+              }} className="h-12 rounded-full bg-background/80 pl-11" />
           </div>
           <div className="flex flex-wrap justify-center gap-2 lg:justify-end">
             <Button
@@ -811,7 +835,7 @@ const Events = () => {
               return (
                 <Badge key={categoryId} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {category.name}
-                  <button type="button" onClick={() => toggleSetValue(setSelectedCategoryIds, categoryId)}>
+                  <button type="button" aria-label={`${category.name} szűrő eltávolítása`} onClick={() => toggleSetValue(setSelectedCategoryIds, categoryId)}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -825,7 +849,7 @@ const Events = () => {
               return (
                 <Badge key={key} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {subcategory.name}
-                  <button type="button" onClick={() => toggleSetValue(setSelectedSubcategoryKeys, key)}>
+                  <button type="button" aria-label={`${subcategory.name} szűrő eltávolítása`} onClick={() => toggleSetValue(setSelectedSubcategoryKeys, key)}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -840,7 +864,7 @@ const Events = () => {
               return (
                 <Badge key={key} variant="outline" className="gap-2 border-primary/15 bg-secondary/75 text-primary">
                   {activity.name}
-                  <button type="button" onClick={() => toggleSetValue(setSelectedActivityKeys, key)}>
+                  <button type="button" aria-label={`${activity.name} szűrő eltávolítása`} onClick={() => toggleSetValue(setSelectedActivityKeys, key)}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -849,7 +873,7 @@ const Events = () => {
           </div>
         )}
 
-        <div className="rounded-[1.4rem] border border-primary/10 bg-secondary/35 p-4 sm:p-5">
+        <div className="rounded-[1.4rem] border border-primary/10 bg-[#edf0e7] p-4 sm:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
               <h2 className="font-semibold">Távolság alapú szűrés</h2>
@@ -923,7 +947,17 @@ const Events = () => {
           </div>
         )}
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">Felfedezhető programok</p>
+            <h2 className="mt-1 font-display text-2xl font-extrabold">Válassz egy következő élményt</h2>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-3.5 py-2 text-xs font-semibold text-muted-foreground">
+            <CalendarDays size={14} className="text-accent" aria-hidden="true" /> Közelgő események
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {visibleEntries.map((entry, index) => {
             const event = entry.item;
             const relation: EventRelation = user && event.created_by === user.id
@@ -958,8 +992,8 @@ const Events = () => {
 
         {(visibleCount < filtered.length || nativeHasMore || externalHasMore || eventbriteHasMore) && (
           <div className="mt-8 text-center">
-            <Button variant="outline" onClick={() => void handleLoadMore()} disabled={loadingMore}>
-              {loadingMore ? 'További események betöltése…' : 'További események'}
+            <Button className="rounded-full px-6" variant="outline" onClick={() => void handleLoadMore()} disabled={loadingMore}>
+              {loadingMore ? 'További események betöltése…' : <>További események <ArrowRight aria-hidden="true" /></>}
             </Button>
           </div>
         )}

@@ -4,9 +4,9 @@ import { HobbeastMark } from "@/components/HobbeastMark";
 
 const Footer = () => {
   return (
-    <footer className="relative mt-8 overflow-hidden rounded-t-[2.5rem] bg-primary text-primary-foreground sm:mt-12 sm:rounded-t-[3.5rem]">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-accent/20 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-[18%] h-80 w-80 rounded-full bg-secondary/10 blur-3xl" />
+    <footer className="relative mt-8 overflow-hidden rounded-t-[2.5rem] bg-[#183124] text-white sm:mt-12 sm:rounded-t-[3.5rem]">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-[#ff8f72]/20 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-[18%] h-80 w-80 rounded-full bg-[#dfff62]/10 blur-3xl" />
 
       <div className="container relative mx-auto py-14 sm:py-20">
         <div className="mb-12 grid grid-cols-2 gap-9 sm:gap-12 lg:grid-cols-[1.5fr_repeat(3,1fr)]">
@@ -15,12 +15,12 @@ const Footer = () => {
               <span className="rounded-2xl bg-primary-foreground p-1 shadow-soft">
                 <HobbeastMark className="h-10 w-10" />
               </span>
-              <span className="font-display text-2xl font-extrabold tracking-[-0.045em]">Hobbeast</span>
+              <span className="font-display text-2xl font-extrabold tracking-[-0.055em]">Hobbeast</span>
             </Link>
-            <p className="max-w-sm text-sm leading-7 text-primary-foreground/[0.72] sm:text-base">
+            <p className="max-w-sm text-sm leading-7 text-white/[0.68] sm:text-base">
               Hobbik, közös élmények és valódi kapcsolódások — közelebb, mint gondolnád.
             </p>
-            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary-foreground/15 bg-primary-foreground/10 px-3.5 py-2 text-xs font-semibold text-primary-foreground/85">
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white/[0.85]">
               <MapPin size={14} aria-hidden="true" />
               Budapest &amp; Wien
             </div>

@@ -1,15 +1,15 @@
+import { lazy, Suspense } from "react";
 import HeroSection from "@/components/HeroSection";
-import FeaturesSection from "@/components/FeaturesSection";
-import ResearchSection from "@/components/ResearchSection";
-import CTASection from "@/components/CTASection";
+
+const HomeBelowFold = lazy(() => import("@/components/HomeBelowFold"));
 
 const Index = () => {
   return (
     <main>
       <HeroSection />
-      <FeaturesSection />
-      <ResearchSection />
-      <CTASection />
+      <Suspense fallback={<div aria-hidden="true" className="min-h-[28rem] bg-[#fffdf7]" />}>
+        <HomeBelowFold />
+      </Suspense>
     </main>
   );
 };

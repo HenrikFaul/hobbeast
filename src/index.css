@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,31 +14,31 @@
 
 @layer base {
   :root {
-    --background: 42 38% 95%;
-    --foreground: 137 19% 16%;
-    --card: 43 55% 99%;
-    --card-foreground: 137 19% 16%;
-    --popover: 43 55% 99%;
-    --popover-foreground: 137 19% 16%;
-    --primary: 128 36% 27%;
-    --primary-foreground: 44 60% 98%;
-    --primary-glow: 112 24% 46%;
-    --secondary: 81 26% 89%;
-    --secondary-foreground: 132 27% 22%;
-    --muted: 39 26% 91%;
-    --muted-foreground: 135 8% 42%;
-    --accent: 15 75% 56%;
-    --accent-foreground: 43 55% 99%;
+    --background: 45 36% 95%;
+    --foreground: 148 34% 14%;
+    --card: 48 100% 98%;
+    --card-foreground: 148 34% 14%;
+    --popover: 48 100% 98%;
+    --popover-foreground: 148 34% 14%;
+    --primary: 146 43% 21%;
+    --primary-foreground: 48 100% 98%;
+    --primary-glow: 79 100% 69%;
+    --secondary: 82 24% 90%;
+    --secondary-foreground: 146 34% 20%;
+    --muted: 43 23% 91%;
+    --muted-foreground: 145 8% 40%;
+    --accent: 11 100% 69%;
+    --accent-foreground: 16 38% 14%;
     --destructive: 2 64% 48%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 42% 37%;
     --success-foreground: 43 55% 99%;
     --warning: 38 78% 51%;
     --warning-foreground: 30 35% 14%;
-    --border: 39 21% 83%;
-    --input: 39 21% 79%;
-    --ring: 128 36% 27%;
-    --radius: 1.1rem;
+    --border: 42 20% 82%;
+    --input: 42 20% 77%;
+    --ring: 146 43% 21%;
+    --radius: 1.2rem;
 
     --sidebar-background: 43 48% 97%;
     --sidebar-foreground: 137 19% 16%;
@@ -49,8 +49,8 @@
     --sidebar-border: 39 21% 83%;
     --sidebar-ring: 128 36% 27%;
 
-    --font-display: 'Urbanist', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
-    --font-body: 'Epilogue', 'Segoe UI Variable Text', 'Segoe UI', sans-serif;
+    --font-display: 'Bricolage Grotesque', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+    --font-body: 'DM Sans', 'Segoe UI Variable Text', 'Segoe UI', sans-serif;
 
     --shadow-card: 0 1px 2px hsl(31 28% 24% / 0.05), 0 12px 34px -22px hsl(31 28% 24% / 0.24);
     --shadow-elevated: 0 2px 8px hsl(31 28% 24% / 0.07), 0 28px 70px -34px hsl(31 28% 24% / 0.34);
@@ -59,19 +59,19 @@
     --shadow-soft: 0 12px 35px -25px hsl(31 28% 24% / 0.28);
     --shadow-card-hover: 0 24px 58px -30px hsl(31 28% 20% / 0.38);
 
-    --gradient-primary: linear-gradient(110deg, hsl(128 36% 25%), hsl(28 35% 47%) 58%, hsl(15 75% 53%));
-    --gradient-accent: linear-gradient(120deg, hsl(20 66% 59%), hsl(12 78% 59%));
+    --gradient-primary: linear-gradient(120deg, hsl(146 43% 18%), hsl(144 38% 28%) 62%, hsl(79 60% 43%));
+    --gradient-accent: linear-gradient(120deg, hsl(11 100% 72%), hsl(350 86% 68%));
     --gradient-hero:
       radial-gradient(900px 520px at 90% 0%, hsl(83 30% 78% / 0.64), transparent 65%),
       radial-gradient(760px 480px at 0% 85%, hsl(24 48% 82% / 0.52), transparent 67%),
-      linear-gradient(180deg, hsl(43 55% 98%), hsl(42 38% 94%));
+      linear-gradient(180deg, hsl(48 100% 98%), hsl(45 36% 94%));
     --gradient-warm: linear-gradient(145deg, hsl(43 55% 99%), hsl(35 45% 92%));
     --gradient-surface: linear-gradient(160deg, hsl(43 55% 99%), hsl(79 27% 94%));
     --gradient-subtle: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.08));
 
     /* Compatibility variables for older feature components. */
-    --neon-cyan: 128 36% 27%;
-    --neon-gold: 15 75% 56%;
+    --neon-cyan: 146 43% 21%;
+    --neon-gold: 11 100% 69%;
     --neon-magenta: 16 62% 60%;
   }
 }
@@ -115,9 +115,9 @@
     min-width: 320px;
     font-family: var(--font-body);
     background-image:
-      radial-gradient(900px 600px at 105% -10%, hsl(92 28% 82% / 0.54), transparent 63%),
-      radial-gradient(760px 560px at -12% 40%, hsl(24 52% 86% / 0.42), transparent 64%),
-      linear-gradient(180deg, hsl(var(--background)), hsl(42 33% 93%));
+      radial-gradient(900px 600px at 105% -10%, hsl(79 100% 82% / 0.32), transparent 63%),
+      radial-gradient(760px 560px at -12% 40%, hsl(11 100% 88% / 0.28), transparent 64%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(45 31% 93%));
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

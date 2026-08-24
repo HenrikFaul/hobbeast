@@ -9,9 +9,10 @@ import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, t
 type ViewLevel = 'categories' | 'subcategories' | 'activities';
 
 const CATEGORY_TONES = [
-  'bg-primary/[0.07]',
-  'bg-accent/[0.09]',
-  'bg-secondary/80',
+  'bg-[#dfff62]',
+  'bg-[#ffb09b]',
+  'bg-[#c9b7ff]',
+  'bg-[#f5d46f]',
 ] as const;
 
 const Explore = () => {
@@ -69,15 +70,17 @@ const Explore = () => {
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mx-auto mb-12 max-w-4xl text-center sm:mb-16"
+          className="relative mx-auto mb-12 max-w-6xl overflow-hidden rounded-[2rem] bg-[#251b43] px-5 py-10 text-center text-white shadow-[0_28px_80px_-42px_rgba(37,27,67,0.7)] sm:mb-16 sm:rounded-[2.6rem] sm:px-10 sm:py-14"
         >
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.07] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+          <div aria-hidden="true" className="absolute -left-16 -top-20 h-56 w-56 rounded-full border-[38px] border-[#dfff62]/15" />
+          <div aria-hidden="true" className="absolute -bottom-24 -right-16 h-64 w-64 rounded-full bg-[#ff8f72]/15 blur-3xl" />
+          <div className="relative mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#dfff62]">
             <Sparkles aria-hidden="true" size={14} /> Közös érdeklődésből valódi élmény
           </div>
-          <h1 className="mb-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-            Fedezd fel a <span className="text-gradient">hobbidat</span>
+          <h1 className="relative mb-5 font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-[4.5rem]">
+            Fedezd fel a <span className="text-[#ff8f72]">hobbidat</span>
           </h1>
-          <p className="mx-auto mb-7 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          <p className="relative mx-auto mb-7 max-w-2xl text-base font-medium leading-relaxed text-white/[0.66] sm:text-lg">
             Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.
           </p>
 
@@ -88,14 +91,14 @@ const Explore = () => {
               placeholder="Keress hobbit... pl. futás, festés, sakk"
               value={search}
               onChange={(e) => { setSearch(e.target.value); }}
-              className="h-14 rounded-2xl border-border/70 bg-card/95 pl-14 pr-5 text-base shadow-lg shadow-primary/[0.06] backdrop-blur-sm sm:h-16 sm:rounded-3xl"
+              className="h-14 rounded-2xl border-white/20 bg-[#fffdf7] pl-14 pr-5 text-base text-foreground shadow-xl backdrop-blur-sm sm:h-16 sm:rounded-3xl"
             />
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground sm:gap-3">
-            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.categories}</strong> kategória</span>
-            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.subcategories}</strong> alkategória</span>
-            <span className="rounded-full border border-border/70 bg-card/70 px-3 py-1.5"><strong className="text-foreground">{stats.activities}</strong> tevékenység</span>
+          <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-white/[0.66] sm:gap-3">
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.categories}</strong> kategória</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.subcategories}</strong> alkategória</span>
+            <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5"><strong className="text-white">{stats.activities}</strong> tevékenység</span>
           </div>
         </motion.header>
 
@@ -176,7 +179,7 @@ const Explore = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className={`group min-h-64 rounded-[2rem] border border-border/70 p-6 text-left shadow-lg shadow-primary/[0.04] transition duration-300 hover:-translate-y-1 hover:border-primary/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${CATEGORY_TONES[i % CATEGORY_TONES.length]}`}
+                      className={`group min-h-64 rounded-[2rem] border border-foreground/[0.08] p-6 text-left shadow-[0_22px_55px_-38px_rgba(24,49,36,0.5)] transition duration-300 hover:-translate-y-1 hover:rotate-[0.3deg] hover:border-foreground/15 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${CATEGORY_TONES[i % CATEGORY_TONES.length]}`}
                       onClick={() => handleCategoryClick(cat)}
                       aria-label={`${cat.name} kategória megnyitása`}
                     >
