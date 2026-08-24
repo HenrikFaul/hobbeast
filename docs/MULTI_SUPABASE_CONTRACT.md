@@ -9,19 +9,19 @@ the single source of truth for which project each layer must point to.
 | Role                 | Project ref              | What lives there                                                     |
 | -------------------- | ------------------------ | -------------------------------------------------------------------- |
 | **Lovable Cloud**    | `olzvughcoqnfkdpvbwjy`   | The project Lovable's tooling owns. Used ONLY by Lovable's internal tools (`supabase--read_query`, migration approvals surface here). |
-| **Target (dsym)**    | `dsymdijzydaehntlmfzl`   | The **real** app database. Frontend, Edge Functions, auth, storage all point here. This is the production data. |
+| **Target (current)** | `bqdvqmpwccsxumzijspj`   | The **real** app database. Frontend, Edge Functions, auth, storage all point here. This is the production data. |
 | **Geodata (opt.)**   | project-mapper managed   | External geodata catalog cache. Accessed only from `sync-local-places` and address-manager Edge Functions via secrets, never from the browser. |
 
 ## Frontend contract (`.env`, Vite build-time)
 
-- `VITE_SUPABASE_URL` → `https://dsymdijzydaehntlmfzl.supabase.co`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` → dsym anon key
-- `VITE_SUPABASE_PROJECT_ID` → `dsymdijzydaehntlmfzl`
+- `VITE_SUPABASE_URL` → `https://bqdvqmpwccsxumzijspj.supabase.co`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` → current target publishable/anon key
+- `VITE_SUPABASE_PROJECT_ID` → `bqdvqmpwccsxumzijspj`
 
 `src/integrations/supabase/client.ts` is auto-generated; never hand-edit.
 The Vite plugin in `vite.config.ts` reads the browser-facing `VITE_*` pair only
 and, from the v1.8.4 candidate onward, **fails a production build closed** unless
-both the URL ref and `VITE_SUPABASE_PROJECT_ID` are `dsymdijzydaehntlmfzl` and
+both the URL ref and `VITE_SUPABASE_PROJECT_ID` are `bqdvqmpwccsxumzijspj` and
 the URL/key are present. It does not silently replace a wrong frontend pair with
 server-scoped `SUPABASE_*` values.
 
@@ -33,25 +33,25 @@ These helpers:
 
 1. Prefer the request origin when it ends in `.supabase.co` (the platform
    already routes to the correct project).
-2. Fall back to the `SUPABASE_URL` secret, which points to dsym.
-3. Read `SUPABASE_SERVICE_ROLE_KEY` (dsym) for the admin client.
+2. Fall back to the `SUPABASE_URL` secret, which points to the current target.
+3. Read `SUPABASE_SERVICE_ROLE_KEY` for the current target admin client.
 
 **Never** hard-code a project URL inside a function body. Never call the
 Lovable Cloud project from Edge Function code.
 
 ## Supabase CLI
 
-`supabase/config.toml`'s `project_id` must be `dsymdijzydaehntlmfzl`. Same
+`supabase/config.toml`'s `project_id` must be `bqdvqmpwccsxumzijspj`. Same
 for `supabase/.temp/project-ref`. If either drifts, `supabase link` /
 `supabase functions deploy` will happily push to the wrong project.
 
 ## How to query each project
 
-- **dsym (target, prod data):** REST via `curl` with
-  `EXTERNAL_SUPABASE_SERVICE_ROLE_KEY`. See
-  `.lovable/memory/architecture/dsym-db-access.md`. The Lovable
-  `supabase--read_query` tool does **not** work against dsym — it queries
-  the Lovable Cloud project only.
+- **Current target (production data):** use the current project through the reviewed CLI,
+  Edge or operator path. Historical `dsym` access notes are no longer authoritative. The
+  previous projects were deleted during the v1.9.1 recovery. Do not reuse legacy REST
+  instructions or credentials from `.lovable/memory/architecture/dsym-db-access.md`.
+  The target of any operator or Lovable query tool must be verified before use.
 - **Lovable Cloud:** use `supabase--read_query`. Only meaningful for
   Lovable-owned rows (rare).
 
@@ -65,8 +65,9 @@ for `supabase/.temp/project-ref`. If either drifts, `supabase link` /
   origin the app was served from (see `src/pages/Auth.tsx`, uses
   `window.location.origin` since v1.7.4).
 
-## Next step (deferred)
+## Rotation contract
 
-A single `supabase-projects.ts` module that exports typed identifiers for
-each project + a runtime assertion that the frontend client is talking to
-dsym. Tracked in `docs/SPRINT_STATUS.md` under Sprint 1.1 (v2 plan).
+The typed project identifiers and frontend/Edge runtime assertions now live in
+`src/lib/supabaseProjects.ts`, `src/integrations/supabase/client.ts` and
+`supabase/functions/shared/projectContract.ts`. Any future project rotation must update these,
+CI, `vite.config.ts`, `supabase/config.toml`, the linked CLI state and this contract together.

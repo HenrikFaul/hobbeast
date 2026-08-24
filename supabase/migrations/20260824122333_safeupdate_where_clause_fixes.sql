@@ -1,13 +1,5 @@
 -- safeupdate compatibility: the hosted PostgREST connection path loads pg-safeupdate,
--- which rejects UPDATE/DELETE statements that carry no top-level WHERE clause. Two
--- SECURITY DEFINER functions still contained bare statements and therefore failed with
--- "UPDATE requires a WHERE clause" whenever an Edge Function invoked them via REST
--- (mapy-routing -> startExternalProviderRun -> refresh_external_supply_freshness was
--- the user-visible breakage: every route plan returned MAPY_ROUTING_FAILED).
--- A trailing "WHERE true" is semantically identical and satisfies the parser check.
--- Audit of every plpgsql function in public found exactly these offenders; all other
--- matches were ON CONFLICT ... DO UPDATE or FOR UPDATE row locks, which are unaffected.
-
+-- which rejects UPDATE/DELETE statements that carry no top-level WHERE clause.
 CREATE OR REPLACE FUNCTION public.refresh_external_supply_freshness()
  RETURNS TABLE(event_rows integer, place_rows integer)
  LANGUAGE plpgsql
@@ -91,4 +83,4 @@ BEGIN
     SELECT count(*) FROM virtual_hub_members WHERE hub_id = virtual_hubs.id
   ) WHERE true;
 END;
-$function$;
+$function$;;

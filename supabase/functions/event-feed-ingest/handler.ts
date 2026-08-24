@@ -29,7 +29,7 @@ async function sha256(value: string) {
 type UserClient = Parameters<EventFeedRepository['reviewSource']>[0];
 
 export interface EventFeedHandlerDependencies {
-  requireAdminUser: (request: Request) => Promise<{ id: string }>;
+  requireAuthenticatedUser: (request: Request) => Promise<{ id: string }>;
   createUserClient: (request: Request) => UserClient;
   repository: EventFeedRepository;
   processClaim?: typeof processEventFeedClaim;
@@ -43,7 +43,13 @@ export interface EventFeedHandlerDependencies {
     details: Record<string, unknown>,
   ) => void;
   nowMs?: () => number;
+  syncDueBudgetMs?: number;
 }
+
+const SYNC_DUE_MAX_BATCHES = 3;
+const SYNC_DUE_MAX_CLAIMS = 30;
+const SYNC_DUE_DEFAULT_BUDGET_MS = 60_000;
+const SYNC_DUE_BATCH_START_HEADROOM_MS = 15_000;
 
 async function processClaims(
   claims: EventFeedClaim[],
@@ -63,6 +69,84 @@ async function processClaims(
     });
   }
   return results;
+}
+
+async function drainDueClaims(
+  batchSize: number,
+  nonce: string,
+  startedAt: number,
+  dependencies: EventFeedHandlerDependencies,
+) {
+  const nowMs = dependencies.nowMs ?? Date.now;
+  const budgetMs = Math.max(1, Math.min(
+    dependencies.syncDueBudgetMs ?? SYNC_DUE_DEFAULT_BUDGET_MS,
+    SYNC_DUE_DEFAULT_BUDGET_MS,
+  ));
+  const results: Array<Record<string, unknown>> = [];
+  let batchCount = 0;
+  let claimedCount = 0;
+  let exhausted = false;
+  let stopReason: 'exhausted' | 'batch_limit' | 'claim_limit' | 'time_budget' = 'exhausted';
+
+  while (batchCount < SYNC_DUE_MAX_BATCHES && claimedCount < SYNC_DUE_MAX_CLAIMS) {
+    if (
+      batchCount > 0
+      && nowMs() - startedAt >= Math.max(0, budgetMs - SYNC_DUE_BATCH_START_HEADROOM_MS)
+    ) {
+      stopReason = 'time_budget';
+      break;
+    }
+
+    const remaining = SYNC_DUE_MAX_CLAIMS - claimedCount;
+    const claimLimit = Math.min(batchSize, remaining);
+    const batchNumber = batchCount + 1;
+    const claims = await dependencies.repository.claimDue(
+      claimLimit,
+      `cron:${nonce}:batch-${batchNumber}`,
+    );
+    batchCount = batchNumber;
+    claimedCount += claims.length;
+
+    if (claims.length === 0) {
+      exhausted = true;
+      stopReason = 'exhausted';
+      break;
+    }
+
+    results.push(...await processClaims(claims, dependencies));
+    if (claims.length < claimLimit) {
+      exhausted = true;
+      stopReason = 'exhausted';
+      break;
+    }
+  }
+
+  if (!exhausted && stopReason !== 'time_budget') {
+    stopReason = claimedCount >= SYNC_DUE_MAX_CLAIMS ? 'claim_limit' : 'batch_limit';
+  }
+  const failures = results.filter((result) => result.status === 'failed').length;
+  const continuationRequired = !exhausted;
+  return {
+    results,
+    failures,
+    drain: {
+      batch_size: batchSize,
+      batch_count: batchCount,
+      claimed_count: claimedCount,
+      processed_count: results.length,
+      failure_count: failures,
+      exhausted,
+      continuation_required: continuationRequired,
+      stop_reason: stopReason,
+      continuation: continuationRequired
+        ? {
+          action: 'sync_due' as const,
+          limit: batchSize,
+          requires_fresh_signed_dispatch: true,
+        }
+        : null,
+    },
+  };
 }
 
 function publicError(error: unknown) {
@@ -122,17 +206,28 @@ export function createEventFeedHandler(dependencies: EventFeedHandlerDependencie
           issuedAt: body.issued_at,
           bodySha256: await sha256(rawBody),
         });
-        const claims = await dependencies.repository.claimDue(body.limit, `cron:${body.nonce}`);
-        const results = await processClaims(claims, dependencies);
-        const failures = results.filter((result) => result.status === 'failed').length;
-        dependencies.logEvent(failures ? 'warn' : 'info', 'event_feed_sync_due', correlationId, {
-          claimed_count: claims.length, failure_count: failures,
+        const { results, failures, drain } = await drainDueClaims(
+          body.limit,
+          body.nonce,
+          startedAt,
+          dependencies,
+        );
+        dependencies.logEvent(failures || drain.continuation_required ? 'warn' : 'info', 'event_feed_sync_due', correlationId, {
+          batch_count: drain.batch_count,
+          claimed_count: drain.claimed_count,
+          processed_count: drain.processed_count,
+          failure_count: failures,
+          exhausted: drain.exhausted,
+          continuation_required: drain.continuation_required,
+          stop_reason: drain.stop_reason,
           duration_ms: Math.round(nowMs() - startedAt),
         });
-        return json({ ok: failures === 0, results }, failures ? 207 : 200, correlationId);
+        const status = failures ? 207 : drain.continuation_required ? 202 : 200;
+        return json({ ok: failures === 0, results, drain }, status, correlationId);
       }
 
-      const actor = await dependencies.requireAdminUser(request);
+      const actor = await dependencies.requireAuthenticatedUser(request);
+      await dependencies.repository.requireProviderManager(actor.id);
       if (body.action === 'status') {
         const result = await dependencies.repository.status({ query: body.query, page: body.page, limit: body.limit });
         return json(result, 200, correlationId);

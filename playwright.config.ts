@@ -1,7 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-const appUrl = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://127.0.0.1:8080";
-const appPort = new URL(appUrl).port || "8080";
+const configuredAppUrl = String(process.env.PLAYWRIGHT_TEST_BASE_URL || "").trim();
+const appUrl = configuredAppUrl || "http://127.0.0.1:4179";
+const appPort = new URL(appUrl).port || "4179";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -15,7 +16,10 @@ export default defineConfig({
   webServer: {
     command: `bun run dev -- --host 127.0.0.1 --port ${appPort}`,
     url: appUrl,
-    reuseExistingServer: !process.env.CI,
+    // A generic process on the old dev port can satisfy Playwright's URL probe
+    // while serving a completely different application. Reuse is therefore an
+    // explicit opt-in through PLAYWRIGHT_TEST_BASE_URL only.
+    reuseExistingServer: Boolean(configuredAppUrl) && !process.env.CI,
     timeout: 120_000,
   },
 });

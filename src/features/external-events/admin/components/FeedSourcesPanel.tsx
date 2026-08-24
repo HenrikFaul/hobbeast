@@ -1,4 +1,18 @@
-import { Activity, AlertCircle, CheckCircle, Clock, Pause, Play, RefreshCw, Search } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  Pause,
+  Play,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -55,15 +69,22 @@ function formatDateTime(value: string | null) {
 
 export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
   const actionRunning = Boolean(model.actionSourceId);
+  const firstVisibleSource = model.pagination.total === 0
+    ? 0
+    : (model.pagination.page - 1) * model.pagination.limit + 1;
+  const lastVisibleSource = firstVisibleSource === 0
+    ? 0
+    : firstVisibleSource + model.sources.length - 1;
+  const paginationDisabled = model.loading || actionRunning;
 
   return (
     <div className="space-y-5" aria-busy={model.loading || actionRunning}>
-      <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/5 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Activity className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div>
             <p className="font-medium">Ellenőrzött esemény-feed registry</p>
-            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               RSS, Atom, ICS és JSON-LD források állapota. A próba nem publikál; a szinkron is csak a backend jóváhagyási és minőségi kapuin át tehet eseményt láthatóvá.
             </p>
           </div>
@@ -97,13 +118,48 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
         </div>
       )}
 
+      <form
+        className="rounded-xl border bg-card/70 p-4"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void model.searchSources();
+        }}
+      >
+        <label htmlFor="event-feed-source-search" className="text-sm font-medium">
+          Forrás keresése
+        </label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="event-feed-source-search"
+            value={model.queryDraft}
+            onChange={(event) => model.setQueryDraft(event.target.value)}
+            placeholder="Kiadó neve…"
+            maxLength={100}
+            disabled={paginationDisabled}
+          />
+          <Button type="submit" variant="outline" disabled={paginationDisabled}>
+            <Search /> Keresés
+          </Button>
+          {model.query && (
+            <Button type="button" variant="ghost" onClick={() => void model.clearSearch()} disabled={paginationDisabled}>
+              <X /> Szűrés törlése
+            </Button>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+          {model.query ? `„${model.query}” · ` : ''}
+          {firstVisibleSource}–{lastVisibleSource} / {model.pagination.total} találat
+        </p>
+      </form>
+
       {model.loading && model.sources.length === 0 ? (
-        <div className="flex min-h-28 items-center justify-center gap-2 rounded-xl border border-dashed text-sm text-muted-foreground" role="status">
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed py-8 text-sm text-muted-foreground" role="status">
           <RefreshCw className="h-4 w-4 animate-spin" /> Feed registry betöltése…
         </div>
       ) : model.sources.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nincs megjeleníthető feed forrás.
+          {model.query ? 'Nincs a keresésnek megfelelő feed forrás.' : 'Nincs megjeleníthető feed forrás.'}
         </div>
       ) : (
         <section className="space-y-3" aria-labelledby="feed-sources-heading">
@@ -111,7 +167,7 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
             <h3 id="feed-sources-heading" className="font-display text-base font-semibold">Források</h3>
             <span className="text-xs text-muted-foreground">{model.sources.length} látható sor</span>
           </div>
-          <div className="max-h-[48rem] space-y-3 overflow-y-auto pr-1">
+          <div className="max-h-screen space-y-3 overflow-y-auto pr-1">
             {model.sources.map((source) => {
               const sourceBusy = model.actionSourceId === source.sourceId;
               const approvalDraft = model.approvalDrafts[source.sourceId];
@@ -123,7 +179,7 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
               const reviewEvidenceMismatch = source.reviewState === 'approved' && !approvalEvidenceComplete;
               return (
                 <article key={source.sourceId} className="rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="font-medium">{source.publisherName}</h4>
@@ -163,7 +219,7 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
                     </div>
                   </div>
 
-                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm md:grid-cols-4">
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                     <div>
                       <dt className="text-xs text-muted-foreground">Város</dt>
                       <dd className="mt-1 font-medium">{source.city || 'Nincs megadva'}</dd>
@@ -182,14 +238,14 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
                     </div>
                   </dl>
 
-                  <fieldset className="mt-4 space-y-4 rounded-xl border border-primary/15 bg-primary/[0.025] p-4">
+                  <fieldset className="mt-4 space-y-4 rounded-xl border border-primary/15 bg-muted/30 p-4">
                     <legend className="px-1 text-sm font-semibold">Auditált jóváhagyás</legend>
                     <p id={`${fieldId}-requirements`} className="text-xs leading-relaxed text-muted-foreground">
                       A jóváhagyás fail-closed: minden bizonyítékot ennél a forrásnál külön kell megerősíteni. A próba és a szinkron ezt nem kerüli meg.
                     </p>
 
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(9rem,1fr)_minmax(9rem,1fr)]">
-                      <div className="min-w-0">
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <div className="min-w-0 md:col-span-2">
                         <label htmlFor={`${fieldId}-host`} className="text-xs font-medium">Exact fetch host</label>
                         <Input
                           id={`${fieldId}-host`}
@@ -204,7 +260,7 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
                           spellCheck={false}
                           disabled={!approvalDraft || model.loading || actionRunning}
                         />
-                        <p id={`${fieldId}-host-help`} className={`mt-1 break-all text-[11px] ${approvalDraft?.fetchHost && !isExactEventFeedHost(approvalDraft.fetchHost) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <p id={`${fieldId}-host-help`} className={`mt-1 break-all text-xs ${approvalDraft?.fetchHost && !isExactEventFeedHost(approvalDraft.fetchHost) ? 'text-destructive' : 'text-muted-foreground'}`}>
                           {approvalDraft?.fetchHost && !isExactEventFeedHost(approvalDraft.fetchHost)
                             ? 'Csak pontos FQDN adható meg, séma, port, wildcard és útvonal nélkül.'
                             : source.endpointUrl || 'Az endpoint URL nem érkezett meg a registryből.'}
@@ -295,7 +351,7 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
                         maxLength={500}
                         disabled={!approvalDraft || model.loading || actionRunning}
                       />
-                      <p id={`${fieldId}-reason-help`} className="mt-1 text-[11px] text-muted-foreground">
+                      <p id={`${fieldId}-reason-help`} className="mt-1 text-xs text-muted-foreground">
                         A jóváhagyás és a kikapcsolás külön auditált művelet; az indoklás ehhez a forráshoz tartozik.
                       </p>
                     </div>
@@ -331,6 +387,52 @@ export function FeedSourcesPanel({ model }: FeedSourcesPanelProps) {
               );
             })}
           </div>
+          {model.pagination.totalPages > 1 && (
+            <nav
+              className="flex flex-wrap items-center justify-center gap-2 rounded-xl border bg-card/70 p-3"
+              aria-label="Feed forrás oldalak"
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void model.goToPage(1)}
+                disabled={paginationDisabled || model.pagination.page === 1}
+              >
+                <ChevronsLeft /> Első
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void model.goToPage(model.pagination.page - 1)}
+                disabled={paginationDisabled || model.pagination.page === 1}
+              >
+                <ChevronLeft /> Előző
+              </Button>
+              <span className="px-2 text-sm tabular-nums" aria-live="polite">
+                {model.pagination.page} / {model.pagination.totalPages}. oldal
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void model.goToPage(model.pagination.page + 1)}
+                disabled={paginationDisabled || model.pagination.page === model.pagination.totalPages}
+              >
+                Következő <ChevronRight />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void model.goToPage(model.pagination.totalPages)}
+                disabled={paginationDisabled || model.pagination.page === model.pagination.totalPages}
+              >
+                Utolsó <ChevronsRight />
+              </Button>
+            </nav>
+          )}
         </section>
       )}
 

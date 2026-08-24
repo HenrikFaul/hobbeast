@@ -55,6 +55,8 @@ import {
   validateEventbriteToken,
 } from './repository';
 
+const EVENT_FEED_PAGE_SIZE = 20;
+
 export function useExternalEventsAdminController() {
   const [providerTab, setProviderTab] = useState<AdminExternalProviderTab>('eventbrite');
 
@@ -80,6 +82,9 @@ export function useExternalEventsAdminController() {
   const [feedActionSourceId, setFeedActionSourceId] = useState<string | null>(null);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedApprovalDrafts, setFeedApprovalDrafts] = useState<Record<string, AdminEventFeedApprovalDraft>>({});
+  const [feedPage, setFeedPage] = useState(1);
+  const [feedQuery, setFeedQuery] = useState('');
+  const [feedQueryDraft, setFeedQueryDraft] = useState('');
 
   const [functionGroupProviders, setFunctionGroupProviders] = useState(INITIAL_FUNCTION_GROUP_PROVIDERS);
   const [providerLoading, setProviderLoading] = useState(true);
@@ -180,16 +185,26 @@ export function useExternalEventsAdminController() {
     }
   }, []);
 
-  const refreshFeedStatus = useCallback(async () => {
+  const loadFeedStatusPage = useCallback(async (page: number, query: string) => {
     setFeedLoading(true);
     setFeedError(null);
     try {
-      const snapshot = await loadEventFeedStatus();
+      const normalizedQuery = query.trim();
+      const snapshot = await loadEventFeedStatus({
+        page,
+        limit: EVENT_FEED_PAGE_SIZE,
+        query: normalizedQuery || undefined,
+      });
       setFeedSnapshot(snapshot);
-      setFeedApprovalDrafts((current) => Object.fromEntries(snapshot.sources.map((source) => [
-        source.sourceId,
-        current[source.sourceId] ?? eventFeedApprovalDraft(source),
-      ])));
+      setFeedPage(snapshot.pagination.page);
+      setFeedQuery(normalizedQuery);
+      setFeedApprovalDrafts((current) => {
+        const next = { ...current };
+        snapshot.sources.forEach((source) => {
+          next[source.sourceId] = current[source.sourceId] ?? eventFeedApprovalDraft(source);
+        });
+        return next;
+      });
       setFeedLoaded(true);
     } catch (error) {
       setFeedError(getErrorMessage(error, 'Nem sikerült betölteni a feed registry állapotát.'));
@@ -197,6 +212,26 @@ export function useExternalEventsAdminController() {
       setFeedLoading(false);
     }
   }, []);
+
+  const refreshFeedStatus = useCallback(
+    () => loadFeedStatusPage(feedPage, feedQuery),
+    [feedPage, feedQuery, loadFeedStatusPage],
+  );
+
+  const searchFeedSources = useCallback(
+    () => loadFeedStatusPage(1, feedQueryDraft),
+    [feedQueryDraft, loadFeedStatusPage],
+  );
+
+  const clearFeedSourceSearch = useCallback(() => {
+    setFeedQueryDraft('');
+    return loadFeedStatusPage(1, '');
+  }, [loadFeedStatusPage]);
+
+  const goToFeedPage = useCallback((requestedPage: number) => {
+    const page = Math.max(1, Math.min(feedSnapshot.pagination.totalPages, Math.trunc(requestedPage)));
+    return loadFeedStatusPage(page, feedQuery);
+  }, [feedQuery, feedSnapshot.pagination.totalPages, loadFeedStatusPage]);
 
   const updateFeedApprovalDraft = useCallback((
     sourceId: string,
@@ -652,10 +687,17 @@ export function useExternalEventsAdminController() {
       summary: feedSnapshot.summary,
       sources: feedSnapshot.sources,
       runs: feedSnapshot.runs,
+      pagination: feedSnapshot.pagination,
+      query: feedQuery,
+      queryDraft: feedQueryDraft,
       loading: feedLoading,
       actionSourceId: feedActionSourceId,
       error: feedError,
       approvalDrafts: feedApprovalDrafts,
+      setQueryDraft: setFeedQueryDraft,
+      searchSources: searchFeedSources,
+      clearSearch: clearFeedSourceSearch,
+      goToPage: goToFeedPage,
       updateApprovalDraft: updateFeedApprovalDraft,
       refresh: refreshFeedStatus,
       probe: probeFeed,

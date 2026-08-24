@@ -290,6 +290,65 @@ describe('AdminEventbrite safe-refactor characterization', () => {
     });
   });
 
+  it('reaches every feed registry page and applies publisher search on the server', async () => {
+    edgeMocks.invoke.mockImplementation(async (functionName: string, options?: { body?: Record<string, unknown> }) => {
+      if (functionName !== 'event-feed-ingest' || options?.body?.action !== 'status') {
+        return { data: { ok: true }, error: null };
+      }
+      const page = Number(options.body.page || 1);
+      const query = typeof options.body.query === 'string' ? options.body.query : '';
+      const filtered = Boolean(query);
+      return {
+        data: {
+          summary: { total: 185, pending_review: 185, approved: 0, enabled: 0, healthy: 0, quarantined_items: 0 },
+          sources: [{
+            source_id: page === 10 ? 'src_00000010' : 'src_00000001',
+            publisher_name: filtered ? 'Budapest Park' : `Registry oldal ${page}`,
+            format: 'rss',
+            city: 'Budapest',
+            health_status: 'unknown',
+            review_state: 'pending_review',
+            legal_review_status: 'pending',
+            robots_allowed: false,
+            enabled: false,
+            poll_interval_minutes: 1440,
+            min_publish_quality: 80,
+          }],
+          runs: [],
+          pagination: { page, limit: 20, total: filtered ? 1 : 185 },
+        },
+        error: null,
+      };
+    });
+
+    await renderAdminEventbrite();
+    await activateTab('Feedek');
+    await flushEffects();
+
+    expect(document.body.textContent).toContain('1 / 10. oldal');
+    await act(async () => button('Utolsó')?.click());
+    await flushEffects();
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: { action: 'status', page: 10, limit: 20 },
+    });
+    expect(document.body.textContent).toContain('Registry oldal 10');
+    expect(document.body.textContent).toContain('10 / 10. oldal');
+
+    const queryInput = document.querySelector<HTMLInputElement>('#event-feed-source-search');
+    const searchButton = document.querySelector<HTMLButtonElement>('form[role="search"] button[type="submit"]');
+    expect(queryInput).not.toBeNull();
+    expect(searchButton).not.toBeNull();
+    setControlValue(queryInput!, 'Budapest Park');
+    await act(async () => searchButton?.click());
+    await flushEffects();
+
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: { action: 'status', page: 1, limit: 20, query: 'Budapest Park' },
+    });
+    expect(document.body.textContent).toContain('Budapest Park');
+    expect(document.body.textContent).toContain('„Budapest Park” · 1–1 / 1 találat');
+  });
+
   it('keeps Eventbrite loading disabled-state, normalized result rendering and visible error state', async () => {
     let resolveSearch: ((value: unknown) => void) | undefined;
     eventbriteMocks.searchEventbriteEvents.mockReturnValueOnce(new Promise((resolve) => {

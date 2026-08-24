@@ -1,5 +1,5 @@
 import { classifyEventCategory } from './categories.ts';
-import { cleanXmlText, normalizeUrl, stableId, truncate } from './text.ts';
+import { cleanXmlText, normalizeSearchText, normalizeUrl, stableId, truncate } from './text.ts';
 import {
   EVENT_FEED_LIMITS,
   type EventFeedCandidate,
@@ -11,8 +11,9 @@ import {
 function evaluateQuality(
   item: Omit<ParsedEventFeedItem, 'quality'>,
   now: Date,
+  blockers: EventFeedQualityReason[] = [],
 ): EventFeedQualityDecision {
-  const reasons: EventFeedQualityReason[] = [];
+  const reasons: EventFeedQualityReason[] = [...new Set(blockers)];
   if (!item.title) reasons.push('missing_title');
 
   if (!item.startAt) {
@@ -39,13 +40,22 @@ function evaluateQuality(
 
 export function normalizeEventCandidate(
   candidate: EventFeedCandidate,
-  context: { sourceId: string; sourceUrl: string; now: Date },
+  context: {
+    sourceId: string;
+    sourceUrl: string;
+    now: Date;
+    sourceCity?: string | null;
+    sourceCategories?: string[] | null;
+  },
 ): ParsedEventFeedItem {
   const title = cleanXmlText(candidate.title, EVENT_FEED_LIMITS.maxTitleChars);
   const description = cleanXmlText(candidate.description, EVENT_FEED_LIMITS.maxDescriptionChars) || null;
-  const sourceCategories = (candidate.sourceCategories ?? [])
+  const sourceCategories = [...new Set([
+    ...(candidate.sourceCategories ?? []),
+    ...(context.sourceCategories ?? []),
+  ]
     .map((category) => cleanXmlText(category, 120))
-    .filter(Boolean)
+    .filter(Boolean))]
     .slice(0, EVENT_FEED_LIMITS.maxTags);
   const classification = classifyEventCategory([
     title,
@@ -65,6 +75,9 @@ export function normalizeEventCandidate(
     recurrenceId ?? '',
   ].join('|'));
 
+  const categorySearchTags = sourceCategories
+    .map((category) => normalizeSearchText(category).replace(/\s+/g, '-'))
+    .filter(Boolean);
   const itemWithoutQuality: Omit<ParsedEventFeedItem, 'quality'> = {
     sourceId: context.sourceId,
     format: candidate.format,
@@ -82,16 +95,22 @@ export function normalizeEventCandidate(
     location: {
       name: cleanXmlText(candidate.location?.name, 256) || null,
       address: cleanXmlText(candidate.location?.address, 512) || null,
-      city: cleanXmlText(candidate.location?.city, 160) || null,
+      city: cleanXmlText(candidate.location?.city, 160)
+        || cleanXmlText(context.sourceCity, 160)
+        || null,
       online: candidate.location?.online === true,
     },
     category: classification.category,
-    tags: classification.tags,
+    tags: [...new Set([
+      ...classification.tags,
+      ...(classification.category ? [classification.category] : []),
+      ...categorySearchTags,
+    ])].slice(0, EVENT_FEED_LIMITS.maxTags),
     sourceCategories,
   };
 
   return {
     ...itemWithoutQuality,
-    quality: evaluateQuality(itemWithoutQuality, context.now),
+    quality: evaluateQuality(itemWithoutQuality, context.now, candidate.qualityBlockers),
   };
 }

@@ -108,6 +108,107 @@ END:VCALENDAR`, {
     expect(event.quality.reasons).toContain('cancelled');
   });
 
+  it('preserves ICS VALUE=DATE as an all-day date without manufacturing a UTC time', () => {
+    const [event] = parseEventDocument(`BEGIN:VCALENDAR\r
+VERSION:2.0\r
+BEGIN:VEVENT\r
+UID:all-day@example.hu\r
+DTSTART;VALUE=DATE:20270910\r
+DTEND;VALUE=DATE:20270911\r
+SUMMARY:Egész napos közösségi piknik\r
+LOCATION:Városliget\r
+URL:https://events.example.hu/piknik\r
+CATEGORIES:Közösség\r
+END:VEVENT\r
+END:VCALENDAR`, {
+      sourceId: 'ics-source', sourceUrl: 'https://events.example.hu/calendar.ics',
+      contentType: 'text/calendar', now: NOW,
+    }).events;
+
+    expect(event).toMatchObject({
+      startAt: '2027-09-10', endAt: '2027-09-11',
+      quality: { publishable: true, reasons: [] },
+    });
+  });
+
+  it('uses X-WR-TIMEZONE for floating ICS dates across winter and summer DST', () => {
+    const events = parseEventDocument(`BEGIN:VCALENDAR\r
+VERSION:2.0\r
+X-WR-TIMEZONE:Europe/Budapest\r
+BEGIN:VEVENT\r
+UID:winter@example.hu\r
+DTSTART:20270115T190000\r
+SUMMARY:Téli társasest\r
+LOCATION:Klub\r
+URL:https://events.example.hu/winter\r
+CATEGORIES:Társasjáték\r
+END:VEVENT\r
+BEGIN:VEVENT\r
+UID:summer@example.hu\r
+DTSTART:20270715T190000\r
+SUMMARY:Nyári társasest\r
+LOCATION:Klub\r
+URL:https://events.example.hu/summer\r
+CATEGORIES:Társasjáték\r
+END:VEVENT\r
+END:VCALENDAR`, {
+      sourceId: 'ics-source', sourceUrl: 'https://events.example.hu/calendar.ics',
+      contentType: 'text/calendar', now: NOW,
+    }).events;
+
+    expect(events.map((event) => event.startAt)).toEqual([
+      '2027-01-15T18:00:00.000Z',
+      '2027-07-15T17:00:00.000Z',
+    ]);
+  });
+
+  it('quarantines a floating ICS DTSTART without calendar or audited source timezone', () => {
+    const calendar = `BEGIN:VCALENDAR\r
+VERSION:2.0\r
+BEGIN:VEVENT\r
+UID:floating@example.hu\r
+DTSTART:20270910T190000\r
+SUMMARY:Lebegő időpontú koncert\r
+LOCATION:Klub\r
+URL:https://events.example.hu/floating\r
+CATEGORIES:Koncert\r
+END:VEVENT\r
+END:VCALENDAR`;
+    const [unresolved] = parseEventDocument(calendar, {
+      sourceId: 'ics-source', sourceUrl: 'https://events.example.hu/calendar.ics',
+      contentType: 'text/calendar', now: NOW,
+    }).events;
+    const [resolved] = parseEventDocument(calendar, {
+      sourceId: 'ics-source', sourceUrl: 'https://events.example.hu/calendar.ics',
+      contentType: 'text/calendar', now: NOW, sourceTimezone: 'Europe/Budapest',
+    }).events;
+
+    expect(unresolved.startAt).toBeNull();
+    expect(unresolved.quality).toMatchObject({ publishable: false });
+    expect(unresolved.quality.reasons).toEqual(expect.arrayContaining(['missing_timezone', 'missing_start']));
+    expect(resolved.startAt).toBe('2027-09-10T17:00:00.000Z');
+    expect(resolved.quality.publishable).toBe(true);
+  });
+
+  it('applies audited source city and category enrichment before the quality gate', () => {
+    const [event] = parseEventDocument(`<rss><channel><item>
+      <guid>minimal-1</guid><title>Nyitott közösségi program</title>
+      <link>https://events.example.hu/minimal-1</link>
+      <start_date>2027-09-10T18:00:00+02:00</start_date>
+    </item></channel></rss>`, {
+      sourceId: 'rss-source', sourceUrl: SOURCE_URL, now: NOW,
+      sourceCity: 'Budapest', sourceCategories: ['Sport & Mozgás', 'Futás'],
+    }).events;
+
+    expect(event).toMatchObject({
+      location: { city: 'Budapest' },
+      category: 'sport',
+      sourceCategories: ['Sport & Mozgás', 'Futás'],
+      quality: { publishable: true, reasons: [] },
+    });
+    expect(event.tags).toEqual(expect.arrayContaining(['sport', 'futas', 'sport-mozgas']));
+  });
+
   it('parses Event nodes nested in a JSON-LD @graph', () => {
     const [event] = parseEventDocument(JSON.stringify({
       '@context': 'https://schema.org',
@@ -199,6 +300,33 @@ Allow: /private/open$
     expect(evaluateRobotsTxt(robots, 'OtherBot/1.0', '/all-bots').allowed).toBe(false);
   });
 
+  it('requires an exact product-token group and falls back to the wildcard group', () => {
+    const robots = `User-agent: Hobbeast
+Allow: /private
+User-agent: *
+Disallow: /private
+`;
+    expect(evaluateRobotsTxt(robots, 'HobbeastBot/1.0', '/private')).toMatchObject({
+      allowed: false,
+      matchedUserAgent: '*',
+    });
+  });
+
+  it('normalizes percent-encoded unreserved and UTF-8 octets before path comparison', () => {
+    const robots = `User-agent: *
+Disallow: /private
+Disallow: /árvíz
+Disallow: /download/%2A
+`;
+    expect(evaluateRobotsTxt(robots, 'HobbeastBot/1.0', '/pri%76ate').allowed).toBe(false);
+    expect(evaluateRobotsTxt(robots, 'HobbeastBot/1.0', '/%C3%A1rv%C3%ADz').allowed).toBe(false);
+    expect(evaluateRobotsTxt(robots, 'HobbeastBot/1.0', '/download/*').allowed).toBe(false);
+  });
+
+  it('keeps /robots.txt implicitly allowed', () => {
+    expect(evaluateRobotsTxt('User-agent: *\nDisallow: /', 'HobbeastBot/1.0', '/robots.txt').allowed).toBe(true);
+  });
+
   it('fails closed for robots 5xx/429 responses and treats ordinary 4xx as unavailable', () => {
     expect(evaluateRobotsResponse(503, '', 'HobbeastBot/1.0', '/feed')).toMatchObject({
       allowed: false, reason: 'robots_temporary_failure',
@@ -238,6 +366,15 @@ describe('registered feed safe fetch', () => {
     expect(result).toMatchObject({ status: 'not_modified', body: null, bodyBytes: 0, httpStatus: 304 });
   });
 
+  it('accepts an explicitly allowed empty 204 robots response without a content type', async () => {
+    const result = await safeFetchRegisteredFeed('safe-source', registry, {
+      fetchImpl: vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
+      resolveHost: publicResolver,
+    }, { acceptEmptySuccess: true });
+
+    expect(result).toMatchObject({ status: 'ok', httpStatus: 204, contentType: null, body: '', bodyBytes: 0 });
+  });
+
   it('rejects literal/private hosts and DNS rebinding results', async () => {
     const literal = new Map([['literal', {
       sourceId: 'literal', endpointUrl: 'https://127.0.0.1/feed', allowedHost: '127.0.0.1',
@@ -268,16 +405,58 @@ describe('registered feed safe fetch', () => {
     const resolver = vi.fn()
       .mockResolvedValueOnce(['93.184.216.34'])
       .mockResolvedValueOnce(['10.0.0.12']);
-    const fetchImpl = vi.fn(async () => new Response(null, {
+    const pinnedFetchImpl = vi.fn(async () => new Response(null, {
       status: 302,
       headers: { location: '/moved.xml' },
     }));
 
     await expect(safeFetchRegisteredFeed('safe-source', registry, {
-      fetchImpl: fetchImpl as typeof fetch,
+      pinnedFetchImpl,
       resolveHost: resolver,
     })).rejects.toMatchObject({ code: 'unsafe_dns_result' });
     expect(resolver).toHaveBeenCalledTimes(2);
+    expect(pinnedFetchImpl).toHaveBeenCalledTimes(1);
+    expect(pinnedFetchImpl).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: 'events.example.hu' }),
+      expect.any(Object),
+      '93.184.216.34',
+    );
+  });
+
+  it('uses the resolver-validated IP in the production transport instead of native fetch DNS', async () => {
+    const pinnedFetchImpl = vi.fn(async (_url, init, address) => {
+      expect(new Headers(init.headers).get('user-agent')).toBe('HobbeastBot/1.0');
+      expect(address).toBe('93.184.216.34');
+      return new Response('<rss/>', {
+        status: 200,
+        headers: { 'content-type': 'application/rss+xml' },
+      });
+    });
+
+    const result = await safeFetchRegisteredFeed('safe-source', registry, {
+      pinnedFetchImpl,
+      resolveHost: async () => ['93.184.216.34'],
+    });
+
+    expect(result).toMatchObject({ status: 'ok', body: '<rss/>', bodyBytes: 6 });
+    expect(pinnedFetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs caller authorization before following each same-host redirect', async () => {
+    const authorizeRequest = vi.fn(async (url: URL) => {
+      if (url.pathname === '/private/feed.xml') throw new Error('ROBOTS_DISALLOWED');
+    });
+    const fetchImpl = vi.fn(async () => new Response(null, {
+      status: 302,
+      headers: { location: '/private/feed.xml' },
+    }));
+
+    await expect(safeFetchRegisteredFeed('safe-source', registry, {
+      fetchImpl: fetchImpl as typeof fetch,
+      resolveHost: publicResolver,
+      authorizeRequest,
+    })).rejects.toThrow('ROBOTS_DISALLOWED');
+    expect(authorizeRequest).toHaveBeenCalledTimes(2);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

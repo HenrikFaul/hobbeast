@@ -114,7 +114,10 @@ export async function parseEventFeedRequest(request: Request): Promise<EventFeed
     idempotency_key: idempotencyKey || undefined,
     query: boundedString(body.query, 100) || undefined,
     page: Math.max(1, Math.min(100, Math.trunc(Number(body.page) || 1))),
-    limit: Math.max(1, Math.min(20, Math.trunc(Number(body.limit) || 10))),
+    // `sync_due.limit` is a per-batch size, not a total-drain ceiling. The
+    // handler applies independent batch/count/time bounds around repeated
+    // claims. Keep the existing smaller status-page contract unchanged.
+    limit: Math.max(1, Math.min(action === 'sync_due' ? 50 : 20, Math.trunc(Number(body.limit) || 10))),
     issued_at: issuedAt || undefined,
     nonce: nonce || undefined,
     enable: body.enable === true,

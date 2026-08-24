@@ -1,5 +1,6 @@
 import {
   evaluateRobotsResponse,
+  EVENT_FEED_LIMITS,
   EVENT_FEED_USER_AGENT,
   parseEventDocument,
   safeFetchRegisteredFeed,
@@ -18,6 +19,7 @@ export interface EventFeedClaim {
   publisher_name: string;
   city?: string | null;
   categories?: string[] | null;
+  timezone?: string | null;
   review_state: string;
   enabled: boolean;
   legal_review_status: string;
@@ -69,6 +71,7 @@ export interface EventFeedProcessorRepository {
     errorKind?: string | null;
     errorCode?: string | null;
     failureSampleRedacted?: string | null;
+    snapshotComplete?: boolean;
   }): Promise<unknown>;
 }
 
@@ -182,8 +185,18 @@ async function fetchAndParse(
 ): Promise<{ fetched: SafeFeedFetchResult; parsed: EventFeedParseResult | null }> {
   const safeFetch = dependencies.safeFetch ?? safeFetchRegisteredFeed;
   const parseDocument = dependencies.parseDocument ?? parseEventDocument;
-  const fetchDependencies = dependencies.resolveHost ? { resolveHost: dependencies.resolveHost } : {};
-  let fetched = await safeFetch(claim.source_id, registryFor(claim), fetchDependencies, {
+  const fetchDependenciesFor = (approvedUrl: string) => {
+    const approvedTarget = new URL(approvedUrl).toString();
+    return {
+      ...(dependencies.resolveHost ? { resolveHost: dependencies.resolveHost } : {}),
+      authorizeRequest: async (requestUrl: URL) => {
+        if (requestUrl.toString() !== approvedTarget) {
+          await assertRobotsAllowsFetch(claim, dependencies, requestUrl.toString());
+        }
+      },
+    };
+  };
+  let fetched = await safeFetch(claim.source_id, registryFor(claim), fetchDependenciesFor(claim.endpoint_url), {
     maxBodyBytes: claim.max_response_bytes,
     maxRedirects: 3,
     timeoutMs: 12_000,
@@ -195,6 +208,9 @@ async function fetchAndParse(
     sourceUrl: fetched.finalUrl,
     contentType: fetched.contentType,
     now: dependencies.now?.() ?? new Date(),
+    sourceTimezone: claim.timezone,
+    sourceCity: claim.city,
+    sourceCategories: claim.categories,
     limits: { maxBodyBytes: claim.max_response_bytes },
   });
 
@@ -207,17 +223,29 @@ async function fetchAndParse(
       }
     });
     if (discoveredUrl) {
-      fetched = await safeFetch(claim.source_id, registryFor(claim, discoveredUrl, false), fetchDependencies, {
+      // A discovered feed can live below a different robots path than the HTML
+      // landing page. Re-evaluate the live policy for the exact target before
+      // issuing the second request.
+      await assertRobotsAllowsFetch(claim, dependencies, discoveredUrl);
+      fetched = await safeFetch(
+        claim.source_id,
+        registryFor(claim, discoveredUrl, false),
+        fetchDependenciesFor(discoveredUrl),
+        {
         maxBodyBytes: claim.max_response_bytes,
         maxRedirects: 3,
         timeoutMs: 12_000,
-      });
+        },
+      );
       if (fetched.status === 'ok' && fetched.body !== null) {
         parsed = parseDocument(fetched.body, {
           sourceId: claim.source_id,
           sourceUrl: fetched.finalUrl,
           contentType: fetched.contentType,
           now: dependencies.now?.() ?? new Date(),
+          sourceTimezone: claim.timezone,
+          sourceCity: claim.city,
+          sourceCategories: claim.categories,
           limits: { maxBodyBytes: claim.max_response_bytes },
         });
       }
@@ -230,11 +258,12 @@ async function fetchAndParse(
 async function assertRobotsAllowsFetch(
   claim: EventFeedClaim,
   dependencies: EventFeedProcessorDependencies,
+  targetUrl = claim.endpoint_url,
 ) {
   if (claim.run_action !== 'probe' && claim.robots_allowed !== true) {
     throw new Error('ROBOTS_APPROVAL_REQUIRED');
   }
-  const endpoint = new URL(claim.endpoint_url);
+  const endpoint = new URL(targetUrl);
   const robotsUrl = new URL('/robots.txt', endpoint);
   const safeFetch = dependencies.safeFetch ?? safeFetchRegisteredFeed;
   const fetchDependencies = dependencies.resolveHost ? { resolveHost: dependencies.resolveHost } : {};
@@ -244,10 +273,11 @@ async function assertRobotsAllowsFetch(
     fetchDependencies,
     {
       maxBodyBytes: 512 * 1024,
-      maxRedirects: 2,
+      maxRedirects: 5,
       timeoutMs: 8_000,
       userAgent: EVENT_FEED_USER_AGENT,
       returnHttpErrors: true,
+      acceptEmptySuccess: true,
     },
   );
   const decision = evaluateRobotsResponse(
@@ -286,6 +316,7 @@ export async function processEventFeedClaim(
     if (fetched.status === 'not_modified') {
       await repository.completeRun({
         claim, status: 'not_modified', httpStatus, etag, lastModified,
+        snapshotComplete: false,
       });
       return { source_id: claim.source_id, status: 'not_modified', discovered, quarantined, published, duplicates };
     }
@@ -321,6 +352,9 @@ export async function processEventFeedClaim(
       quarantinedCount: quarantined,
       publishedCount: published,
       duplicateCount: duplicates,
+      snapshotComplete: claim.run_action === 'sync'
+        && parsed.format !== 'html'
+        && parsed.events.length < EVENT_FEED_LIMITS.maxItems,
     });
     return { source_id: claim.source_id, status: 'succeeded', discovered, quarantined, published, duplicates };
   } catch (error) {
@@ -338,6 +372,7 @@ export async function processEventFeedClaim(
       errorKind: 'feed_ingest_failure',
       errorCode: String(errorCode).slice(0, 120),
       failureSampleRedacted: `${claim.source_id} feed_ingest_failure`,
+      snapshotComplete: false,
     }).catch(() => undefined);
     throw error;
   }

@@ -6,7 +6,7 @@ function getBearerToken(req: Request) {
   return authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 }
 
-export async function requireAdminUser(req: Request, admin = getSupabaseAdmin(req)) {
+export async function requireAuthenticatedUser(req: Request) {
   const token = getBearerToken(req);
   if (!token) {
     throw new Error('Missing authorization token.');
@@ -38,6 +38,12 @@ export async function requireAdminUser(req: Request, admin = getSupabaseAdmin(re
   if (userError || !user) {
     throw new Error(`Unauthorized request: ${userError?.message || 'unknown user'}`);
   }
+
+  return user;
+}
+
+export async function requireAdminUser(req: Request, admin = getSupabaseAdmin(req)) {
+  const user = await requireAuthenticatedUser(req);
 
   const { data: roleRow, error: roleError } = await admin
     .from('user_roles')

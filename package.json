@@ -1,7 +1,7 @@
 {
   "name": "hobbeast",
   "private": true,
-  "version": "1.10.0",
+  "version": "1.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "event-feeds:validate": "node scripts/validate-event-feed-registry.mjs",
+    "event-feeds:seed": "node scripts/generate-event-feed-seed.mjs",
+    "event-feeds:validate": "node scripts/validate-event-feed-registry.mjs && node scripts/generate-event-feed-seed.mjs --check",
     "release:validate": "node scripts/validate-release.mjs",
     "release:sbom": "node scripts/generate-sbom.mjs",
     "security:audit": "node scripts/audit-security-definer.mjs",

@@ -41,7 +41,7 @@ export function classifyEventCategory(parts: Array<string | null | undefined>): 
   let best: { id: HobbeastCategoryId; score: number; order: number } | null = null;
   const matches: string[] = [];
 
-  CATEGORY_RULES.forEach((rule, order) => {
+  for (const [order, rule] of CATEGORY_RULES.entries()) {
     let score = 0;
     for (const keyword of rule.keywords) {
       const normalizedKeyword = normalizeSearchText(keyword);
@@ -58,7 +58,7 @@ export function classifyEventCategory(parts: Array<string | null | undefined>): 
     if (score > 0 && (!best || score > best.score || (score === best.score && order < best.order))) {
       best = { id: rule.id, score, order };
     }
-  });
+  }
 
   return {
     category: best?.id ?? null,

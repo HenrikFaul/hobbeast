@@ -51,6 +51,7 @@ describe('external-events admin normalized domain', () => {
         duplicate_count: 1,
         started_at: '2026-08-25T08:00:00.000Z',
       }],
+      pagination: { page: 2, limit: 1, total: 2 },
     });
 
     expect(snapshot.summary).toEqual({
@@ -77,6 +78,7 @@ describe('external-events admin normalized domain', () => {
       published: 5,
       duplicates: 1,
     }));
+    expect(snapshot.pagination).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
     expect(normalizeEventFeedActionResults({
       ok: true,
       results: [{ source_id: 'src_1234abcd', status: 'succeeded', discovered: 4, quarantined: 1, published: 2 }],

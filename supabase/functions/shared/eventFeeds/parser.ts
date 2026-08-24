@@ -41,7 +41,7 @@ export function parseEventDocument(body: string, context: EventFeedParseContext)
   if (format === 'rss' || format === 'atom') assertSafeXml(body);
   if (format === 'rss') candidates = parseRssCandidates(body, limits.maxItems);
   else if (format === 'atom') candidates = parseAtomCandidates(body, limits.maxItems);
-  else if (format === 'ics') candidates = parseIcsCandidates(body, limits.maxItems);
+  else if (format === 'ics') candidates = parseIcsCandidates(body, limits.maxItems, context.sourceTimezone ?? null);
   else if (format === 'json-ld') candidates = parseJsonLdCandidates(body, limits.maxItems);
   else {
     candidates = parseHtmlJsonLdCandidates(body, limits.maxItems);
@@ -55,6 +55,8 @@ export function parseEventDocument(body: string, context: EventFeedParseContext)
       sourceId: context.sourceId,
       sourceUrl: context.sourceUrl,
       now,
+      sourceCity: context.sourceCity,
+      sourceCategories: context.sourceCategories,
     })),
     discoveredFeedUrls,
     warnings,

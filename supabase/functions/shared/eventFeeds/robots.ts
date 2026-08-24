@@ -65,7 +65,9 @@ function matchingGroups(groups: RobotsGroup[], userAgent: string) {
 
   for (const group of groups) {
     for (const agent of group.userAgents) {
-      const specificity = agent === '*' ? 0 : product.startsWith(agent) ? agent.length : -1;
+      // RFC 9309 group selection is a case-insensitive product-token match,
+      // not a prefix match (e.g. "Hobbeast" must not capture HobbeastBot).
+      const specificity = agent === '*' ? 0 : product === agent ? agent.length : -1;
       if (specificity < 0) continue;
       if (specificity > bestSpecificity) {
         matches.length = 0;
@@ -77,12 +79,46 @@ function matchingGroups(groups: RobotsGroup[], userAgent: string) {
   return matches;
 }
 
+const UNRESERVED_ASCII = /^[A-Za-z0-9._~-]$/;
+
+function percentEncoded(byte: number) {
+  return `%${byte.toString(16).toUpperCase().padStart(2, '0')}`;
+}
+
+function canonicalComparisonPath(value: string, preserveWildcard: boolean) {
+  let result = '';
+  for (let index = 0; index < value.length;) {
+    const encoded = /^%([0-9a-f]{2})/i.exec(value.slice(index));
+    if (encoded) {
+      const byte = Number.parseInt(encoded[1], 16);
+      const character = String.fromCharCode(byte);
+      result += UNRESERVED_ASCII.test(character) ? character : percentEncoded(byte);
+      index += 3;
+      continue;
+    }
+
+    const codePoint = value.codePointAt(index) ?? 0;
+    const character = String.fromCodePoint(codePoint);
+    if (codePoint > 0x7f) {
+      for (const byte of new TextEncoder().encode(character)) result += percentEncoded(byte);
+    } else if (character === '*' && !preserveWildcard) {
+      result += '%2A';
+    } else if (character === '$') {
+      result += '%24';
+    } else {
+      result += character;
+    }
+    index += character.length;
+  }
+  return result;
+}
+
 function normalizedPath(path: string) {
   try {
     const parsed = new URL(path, 'https://robots.invalid');
-    return `${parsed.pathname}${parsed.search}` || '/';
+    return canonicalComparisonPath(`${parsed.pathname}${parsed.search}` || '/', false);
   } catch {
-    return path.startsWith('/') ? path : `/${path}`;
+    return canonicalComparisonPath(path.startsWith('/') ? path : `/${path}`, false);
   }
 }
 
@@ -93,7 +129,8 @@ function escapeRegex(value: string) {
 function ruleMatches(pattern: string, path: string) {
   const anchored = pattern.endsWith('$');
   const withoutAnchor = anchored ? pattern.slice(0, -1) : pattern;
-  const regexSource = withoutAnchor.split('*').map(escapeRegex).join('.*');
+  const canonicalPattern = canonicalComparisonPath(withoutAnchor, true);
+  const regexSource = canonicalPattern.split('*').map(escapeRegex).join('.*');
   try {
     return new RegExp(`^${regexSource}${anchored ? '$' : ''}`).test(path);
   } catch {
@@ -102,7 +139,15 @@ function ruleMatches(pattern: string, path: string) {
 }
 
 function ruleSpecificity(pattern: string) {
-  return pattern.replace(/\*/g, '').replace(/\$$/, '').length;
+  const anchored = pattern.endsWith('$');
+  const canonical = canonicalComparisonPath(anchored ? pattern.slice(0, -1) : pattern, true).replace(/\*/g, '');
+  let octets = 0;
+  for (let index = 0; index < canonical.length;) {
+    if (/^%[0-9A-F]{2}/.test(canonical.slice(index))) index += 3;
+    else index += 1;
+    octets += 1;
+  }
+  return octets;
 }
 
 export function evaluateRobotsTxt(body: string, userAgent: string, path: string): RobotsDecision {
@@ -112,6 +157,9 @@ export function evaluateRobotsTxt(body: string, userAgent: string, path: string)
   }
 
   const requestPath = normalizedPath(path);
+  if (requestPath === '/robots.txt' || requestPath.startsWith('/robots.txt?')) {
+    return { allowed: true, matchedUserAgent: null, matchedRule: null, reason: 'no_matching_rule' };
+  }
   let winning: { rule: RobotsRule; specificity: number; matchedAgent: string } | null = null;
   for (const { group, matchedAgent } of matches) {
     for (const rule of group.rules) {

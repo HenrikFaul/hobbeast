@@ -80,10 +80,18 @@ export interface AdminEventFeedRun {
   finishedAt: string | null;
 }
 
+export interface AdminEventFeedPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface AdminEventFeedStatusSnapshot {
   summary: AdminEventFeedSummary;
   sources: AdminEventFeedSource[];
   runs: AdminEventFeedRun[];
+  pagination: AdminEventFeedPagination;
 }
 
 export interface AdminEventFeedActionResult {
@@ -366,6 +374,7 @@ function normalizeFeedRun(value: unknown): AdminEventFeedRun | null {
 export function normalizeEventFeedStatus(value: unknown): AdminEventFeedStatusSnapshot {
   const response = asRecord(value);
   const summary = asRecord(response.summary);
+  const rawPagination = asRecord(response.pagination);
   const rawSources = Array.isArray(response.sources)
     ? response.sources
     : Array.isArray(response.items)
@@ -378,6 +387,13 @@ export function normalizeEventFeedStatus(value: unknown): AdminEventFeedStatusSn
   const runs = rawRuns
     .map(normalizeFeedRun)
     .filter((run): run is AdminEventFeedRun => Boolean(run));
+  const limit = Math.max(1, Math.trunc(nonNegativeNumber(rawPagination.limit) || 20));
+  const total = nonNegativeNumber(rawPagination.total ?? summary.total ?? sources.length);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const page = Math.min(
+    totalPages,
+    Math.max(1, Math.trunc(nonNegativeNumber(rawPagination.page) || 1)),
+  );
 
   return {
     summary: {
@@ -397,6 +413,7 @@ export function normalizeEventFeedStatus(value: unknown): AdminEventFeedStatusSn
     },
     sources,
     runs,
+    pagination: { page, limit, total, totalPages },
   };
 }
 

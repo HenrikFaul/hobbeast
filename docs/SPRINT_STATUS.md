@@ -1,6 +1,15 @@
 # Sprint program status
 
-Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.9.7 RELEASE PATH CLOSED — current Supabase CI target, secret scan, dependency audit, E2E tooling, GitHub Actions and Vercel production publication are enforced.**
+Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.11.0 Hungarian event-feed ingestion is implemented and locally release-gated, with every imported source pending, disabled and subject to explicit legal + robots review before activation.**
+
+v1.11.0 (2026-08-25): imported the 185-row Hungarian source workbook as a deterministic,
+fail-closed candidate registry; added RSS, Atom, ICS, Schema.org Event and bounded HTML
+normalization; exact-host SSRF and live robots controls; quarantine, quality, deduplication and
+cancellation handling; HMAC/replay-safe scheduling contracts; and an auditable Admin Feedek
+surface. The existing event providers, native events, routes, search taxonomy and strong
+marketing copy remain intact. Local release evidence passes 68 Vitest files / 376 tests, all 16
+fresh-database fixtures, production build, performance budget and 14 Playwright scenarios. No
+source is bulk-approved or scheduled by the release.
 
 v1.9.7 (2026-08-24): removed `.env` from tracking while preserving it locally; verified the
 historically exposed GeoData server credential is rejected; moved the deployed Edge integration

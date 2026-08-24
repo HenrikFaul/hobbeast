@@ -3,6 +3,7 @@ export * from './html.ts';
 export * from './ics.ts';
 export * from './jsonLd.ts';
 export * from './parser.ts';
+export * from './pinnedHttps.ts';
 export * from './quality.ts';
 export * from './robots.ts';
 export * from './safeFetch.ts';

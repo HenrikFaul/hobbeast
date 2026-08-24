@@ -57,6 +57,7 @@ export type EventFeedQualityReason =
   | 'missing_https_url'
   | 'missing_location'
   | 'missing_category'
+  | 'missing_timezone'
   | 'cancelled';
 
 export interface EventFeedQualityDecision {
@@ -102,6 +103,7 @@ export interface EventFeedCandidate {
   location?: Partial<EventFeedLocation> | null;
   sourceCategories?: string[];
   classificationText?: string[];
+  qualityBlockers?: EventFeedQualityReason[];
 }
 
 export interface EventFeedParseContext {
@@ -109,6 +111,9 @@ export interface EventFeedParseContext {
   sourceUrl: string;
   contentType?: string | null;
   now?: Date;
+  sourceTimezone?: string | null;
+  sourceCity?: string | null;
+  sourceCategories?: string[] | null;
   limits?: Partial<Pick<EventFeedLimits, 'maxBodyBytes' | 'maxItems'>>;
 }
 

@@ -72,7 +72,7 @@ $$;
 SELECT public.store_external_event_feed_raw_payload(
   'fixture_event_feed', :'probe_run_id', :'probe_lease_token',
   'application/rss+xml', '<rss><fixture>probe</fixture></rss>',
-  encode(digest('<rss><fixture>probe</fixture></rss>', 'sha256'), 'hex')
+  '3b65c76e32a3051f78832247365f3ea3c8564171e67569ac2fcf15f6dd7645d5'
 ) AS raw_id \gset probe_
 
 SELECT *
@@ -195,8 +195,33 @@ $$;
 SELECT public.store_external_event_feed_raw_payload(
   'fixture_event_feed', :'sync_run_id', :'sync_lease_token',
   'application/rss+xml', '<rss><fixture>publish</fixture></rss>',
-  encode(digest('<rss><fixture>publish</fixture></rss>', 'sha256'), 'hex')
+  'eab98a6a27fb5d2f17a0d9d8e618c91e0a38ae06f19c66f724944744ec1415dc'
 ) AS raw_id \gset sync_
+
+-- Parser blockers remain quarantined even if a caller supplies a high score.
+SELECT *
+FROM public.commit_external_event_feed_item(
+  'fixture_event_feed', :'sync_run_id', :'sync_lease_token',
+  'fixture-blocked-item',
+  jsonb_build_object(
+    'title', 'Blocked fixture event',
+    'event_date', (current_date + 12)::text,
+    'external_url', 'https://events.example.org/events/blocked',
+    'category', 'music',
+    'location_city', 'Budapest'
+  ),
+  100, ARRAY['missing_location'], :'sync_raw_id'
+) \gset blocked_
+SELECT set_config('fixture.blocked_state', :'blocked_item_state', true);
+SELECT set_config('fixture.blocked_published', :'blocked_published', true);
+DO $$
+BEGIN
+  IF current_setting('fixture.blocked_state') <> 'quarantined'
+     OR current_setting('fixture.blocked_published')::boolean THEN
+    RAISE EXCEPTION 'parser blocker escaped quarantine';
+  END IF;
+END;
+$$;
 
 SELECT *
 FROM public.commit_external_event_feed_item(
@@ -269,7 +294,7 @@ $$;
 
 SELECT public.complete_external_event_feed_run(
   'fixture_event_feed', :'sync_run_id', :'sync_lease_token', 'succeeded',
-  200, '"fixture-publish"', 'Tue, 25 Aug 2026 09:00:00 GMT', 1, 0, 1, 0
+  200, '"fixture-publish"', 'Tue, 25 Aug 2026 09:00:00 GMT', 2, 1, 1, 0
 );
 
 RESET ROLE;
@@ -291,6 +316,72 @@ BEGIN
     WHERE item ? 'source_payload'
   ) THEN
     RAISE EXCEPTION 'safe external event RPC leaked source_payload';
+  END IF;
+END;
+$$;
+RESET ROLE;
+
+-- A scheduled cancellation deactivates the previously published event. A
+-- probe can never execute this public-side state transition.
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+UPDATE public.external_event_feed_sources
+SET next_poll_at = now(), next_retry_at = NULL
+WHERE source_id = 'fixture_event_feed';
+SET LOCAL ROLE service_role;
+SELECT *
+FROM public.claim_external_event_feed_source(
+  'fixture_event_feed', 'fixture-cancel-worker', 600, false
+) \gset cancel_
+
+SELECT *
+FROM public.commit_external_event_feed_item(
+  'fixture_event_feed', :'cancel_run_id', :'cancel_lease_token',
+  'fixture-item-1',
+  jsonb_build_object(
+    'title', 'Fixture koncert',
+    'event_date', (current_date + 10)::text,
+    'external_url', 'https://events.example.org/events/fixture-1',
+    'category', 'music',
+    'location_city', 'Budapest',
+    'status', 'cancelled'
+  ),
+  80, ARRAY['cancelled'], NULL
+) \gset cancel_item_
+SELECT set_config('fixture.cancel_state', :'cancel_item_item_state', true);
+SELECT set_config('fixture.cancel_event_id', :'cancel_item_external_event_id', true);
+DO $$
+DECLARE
+  v_event_id uuid := current_setting('fixture.cancel_event_id')::uuid;
+BEGIN
+  IF current_setting('fixture.cancel_state') <> 'cancelled' THEN
+    RAISE EXCEPTION 'cancelled feed item did not transition to cancelled';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.external_events
+    WHERE id = v_event_id AND (is_active = true OR import_state <> 'cancelled')
+  ) THEN
+    RAISE EXCEPTION 'cancelled feed event remained active';
+  END IF;
+END;
+$$;
+SELECT public.complete_external_event_feed_run(
+  'fixture_event_feed', :'cancel_run_id', :'cancel_lease_token', 'succeeded',
+  200, NULL, NULL, 1, 0, 0, 0
+);
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.role', 'anon', true);
+SET LOCAL ROLE anon;
+DO $$
+DECLARE
+  v_page jsonb;
+BEGIN
+  v_page := public.list_external_events_safe_page(current_date, 100, 0);
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_page -> 'items') item
+    WHERE item ->> 'title' = 'Fixture koncert'
+  ) THEN
+    RAISE EXCEPTION 'cancelled feed event remained visible in safe RPC';
   END IF;
 END;
 $$;

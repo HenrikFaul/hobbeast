@@ -12,6 +12,76 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.11.0] — 2026-08-25
+
+**Audited Hungarian event-feed ingestion.** Hobbeast can now grow its existing event supply
+from reviewed RSS, Atom, ICS, Schema.org Event JSON-LD and bounded HTML discovery without
+weakening native events or the existing Eventbrite, Ticketmaster and SeatGeek integrations.
+The supplied V4 workbook is treated as a candidate inventory, never as legal or technical
+approval: all 185 sources start pending and disabled.
+
+### Added
+- Added a deterministic 185-source registry snapshot and generated data-only seed migration.
+  Sixty-seven candidates have a probeable strict HTTPS URL; 118 remain URL-review HOLD. The
+  generator and validator enforce both counts and never approve or enable a row.
+- Added a pure TypeScript parser/normalizer for RSS 2.0, Atom, ICS recurrence/cancellation,
+  Schema.org Event graphs and same-host HTML feed discovery. Article publication dates never
+  become event dates, and normalized items map into the existing 17-category Hobbeast search
+  taxonomy.
+- Added an SSRF-hardened fetcher with exact registered-host enforcement, global-address DNS
+  validation on every hop, HTTPS/443 only, bounded redirects, ETag/Last-Modified, 304 support,
+  time/body/item/string limits and a fresh robots.txt decision before every fetched path.
+- Added a lease-based source registry, run ledger, service-only raw quarantine with 14-day TTL,
+  normalized item quarantine, quality/dedupe gates, cancellation deactivation and safe public
+  external-event projection.
+- Added the `event-feed-ingest` Edge function with admin-only manual actions and raw-body HMAC,
+  timestamp, nonce/header matching and one-time replay protection for scheduled batches.
+- Added an Admin → External events → **Feedek** surface for source/run visibility, probe, sync
+  and fail-closed approval. Approval requires an exact FQDN, explicit legal and robots evidence,
+  poll interval, quality threshold, reason and audited idempotency data.
+- Added `docs/EVENT_FEED_INGESTION.md` with activation, monitoring, incident and rollback
+  boundaries.
+
+### Security and privacy
+- Closed legacy authenticated access to internal service-role resolver/scheduler functions and
+  converted cron commands to secret-free runtime function calls. Scheduler secrets are read at
+  execution time rather than embedded in `cron.job.command`.
+- Removed direct `anon`/`authenticated` reads from `external_events`; the safe RPC returns only
+  active, positive and fresh/aging public supply. Raw provider bodies remain inaccessible to
+  browser roles.
+- A pending probe can touch only a pre-registered exact HTTPS host, writes only quarantine/audit
+  state and cannot publish. Normal sync additionally requires approved legal/robots evidence and
+  an enabled source in both claim and commit transactions.
+- Parser blockers quarantine even a high-scoring item. Only safe HTTPS image URLs survive, and
+  upstream cancellations make the corresponding public event invisible.
+
+### Copy preservation and non-regression
+- Added a marketing-copy registry with canonical, eligible, archived and blocked lifecycle
+  states. The current home CTA remains rendered while the earlier approved “Csatlakozz a
+  közösséghez” variant is retained for future editorial use instead of being overwritten.
+- Preserved every existing route, event lifecycle, discovery filter, provider workflow,
+  category identifier, organizer/admin boundary and the v1.10.0 Connected City design.
+- Kept the global stylesheet inside its existing 120 KiB raw / 20 KiB gzip ceiling by reusing
+  established responsive utilities in the new admin panel rather than raising the budget.
+
+### Verified
+- Frozen Bun install, high-severity dependency audit, secret scan, TypeScript and ESLint pass;
+  lint retains the 14 pre-existing warnings and zero errors.
+- Vitest full suite passes 68 files / 376 tests.
+- Fresh database verification applies 96 migrations and passes all 16 self-rolling-back SQL
+  fixtures, including feed probe quarantine, positive/idempotent publish, cancellation,
+  client raw denial, lease and cron replay cases.
+- Production build and performance budget pass. Global CSS is 122,585 raw / 20,467 gzip bytes;
+  landing JavaScript is 157,735 raw / 49,184 gzip bytes.
+
+### Activation boundary
+- Repository implementation and local verification do not approve any source and do not create
+  a cron schedule. Production activation additionally requires hosted migration/function proof,
+  matching Edge/Vault HMAC secrets, explicit per-source legal and robots review, and observed
+  probe/quarantine results. These states must not be inferred from a successful local build.
+
+---
+
 ## [1.10.0] — 2026-08-24
 
 **Connected City visual release.** Hobbeast now presents hobbies and human connection through

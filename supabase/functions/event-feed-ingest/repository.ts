@@ -97,6 +97,7 @@ export function createEventFeedRepository(admin: DatabaseClient) {
         p_error_kind: input.errorKind ?? null,
         p_error_code: input.errorCode ?? null,
         p_failure_sample_redacted: input.failureSampleRedacted ?? null,
+        p_snapshot_complete: input.snapshotComplete === true,
       });
       databaseError('EVENT_FEED_RUN_COMPLETE_FAILED', error);
       return data;
@@ -105,6 +106,19 @@ export function createEventFeedRepository(admin: DatabaseClient) {
 
   return {
     processor: processorRepository,
+
+    async requireProviderManager(userId: string) {
+      const { data, error } = await admin.rpc('admin_has_capability', {
+        _user_id: userId,
+        _capability_key: 'providers.manage',
+      });
+      databaseError('EVENT_FEED_CAPABILITY_CHECK_FAILED', error);
+      if (data !== true) {
+        throw new EventFeedRepositoryError(
+          'EVENT_FEED_CAPABILITY_CHECK_FAILED', 'capability_required', null,
+        );
+      }
+    },
 
     async status(input: { query?: string; page: number; limit: number }) {
       const from = (input.page - 1) * input.limit;

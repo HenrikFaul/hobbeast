@@ -24,6 +24,10 @@ describe('event feed request boundary', () => {
     await expect(parseEventFeedRequest(post({ action: 'sync_source', source_id: 'src_2dca3e1d' }))).resolves.toMatchObject({
       action: 'sync_source', source_id: 'src_2dca3e1d',
     });
+    await expect(parseEventFeedRequest(post({
+      action: 'sync_due', issued_at: 1_787_644_800,
+      nonce: '11111111-1111-4111-8111-111111111111', limit: 500,
+    }))).resolves.toMatchObject({ action: 'sync_due', limit: 50 });
   });
 
   it('rejects unnamespaced sources, unknown fields and unaudited reviews', async () => {

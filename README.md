@@ -25,25 +25,25 @@ Hobbeast is a community-first platform where people meet around **shared real-wo
 
 Core surfaces:
 
-- **Event discovery** — filterable feed of Hobbeast-native and imported external events (Eventbrite, Ticketmaster, SeatGeek).
+- **Event discovery** — filterable feed of Hobbeast-native and imported external events (Eventbrite, Ticketmaster, SeatGeek and approved RSS/Atom/ICS/JSON-LD feeds).
 - **Event detail & participation** — RSVP, waitlist, auto-promotion, organizer messaging, notifications.
 - **Event creation** — organizers create events with rich location autocomplete, category taxonomy, templates, capacity, waitlist, hike planner (mapy.cz) for outdoor categories.
 - **Profile & preferences** — favorite categories drive personalized notifications and hub membership.
 - **Virtual hubs** — invisible communities auto-formed per hobby × city; members receive event alerts.
 - **Organizer dashboard** — analytics, participants, messaging, templates.
-- **Admin console** — user management with bulk actions and filters, hubs administration, external event sync configuration, local places (Geoapify / TomTom) address sync.
+- **Admin console** — user management with bulk actions and filters, hubs administration, external event sync configuration, audited feed-source review, local places (Geoapify / TomTom) address sync.
 
 Brand voice: Hungarian first, community-forward, energetic, supportive. Not a music app, not a generic event aggregator.
 
 ## Architecture
 
-- **Frontend**: React 18 + Vite 5 + TypeScript 5 + Tailwind CSS 3 + shadcn/ui.
+- **Frontend**: React 18 + Vite 6 + TypeScript 5 + Tailwind CSS 3 + shadcn/ui.
 - **State/data**: TanStack Query, React Router 6, Zod, react-hook-form.
 - **Maps**: Leaflet + mapy.cz embedded planner.
 - **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions on Deno).
-  - Canonical project ref: `dsymdijzydaehntlmfzl`.
+  - Canonical project ref: `bqdvqmpwccsxumzijspj`.
   - RLS enforced on every public-schema table; roles stored in `user_roles` and checked via the `has_role(_user_id, _role)` security-definer function.
-- **External providers**: Eventbrite, Ticketmaster, SeatGeek (event ingest); Geoapify, TomTom, Mapy.cz (places/geo).
+- **External providers**: Eventbrite, Ticketmaster, SeatGeek and approved event feeds (event ingest); Geoapify, TomTom, Mapy.cz (places/geo).
 - **AI**: Lovable AI Gateway (`LOVABLE_API_KEY`).
 
 Client entrypoint:
@@ -79,6 +79,7 @@ Edge Function secrets (server-only, never bundled to the client):
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`
 - `EXTERNAL_SUPABASE_URL`, `EXTERNAL_SUPABASE_SERVICE_ROLE_KEY`
 - `EVENTBRITE_API_KEY`, `TICKETMASTER_API_KEY`
+- `EVENT_FEED_CRON_HMAC_SECRET` — HMAC key for replay-protected scheduled feed batches.
 - `GEOAPIFY_API_KEY`, `TOMTOM_API_KEY`, `MAPY_CZ_API_KEY`
 - `LOVABLE_API_KEY`
 
@@ -89,6 +90,7 @@ Never commit `.env` or `supabase/.temp`. Never log secret values.
 ```bash
 npm test           # vitest unit + component tests
 npm run test:watch # watch mode
+npm run event-feeds:validate # verify the 185-source candidate snapshot
 ```
 
 Playwright E2E (added in Sprint 1.3):
@@ -107,7 +109,7 @@ configuration remain separate, explicitly verified deployment steps.
 
 ## Versioning & release process
 
-- Semantic versioning (`MAJOR.MINOR.PATCH`). Current repository release: **1.10.0**.
+- Semantic versioning (`MAJOR.MINOR.PATCH`). Current repository release: **1.11.0**.
 - Single source of truth: `CHANGELOG.md` (Keep a Changelog format).
 - Historical append snippets and upload READMEs are archived under `docs/releases/`.
 - Full release protocol: [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md).

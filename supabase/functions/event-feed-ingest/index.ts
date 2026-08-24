@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
-import { requireAdminUser } from '../shared/adminAuth.ts';
+import { requireAuthenticatedUser } from '../shared/adminAuth.ts';
 import { correlationIdFromRequest, logEdgeEvent } from '../shared/edgeObservability.ts';
 import { getSupabaseAdmin, resolveInternalSupabaseUrl } from '../shared/providerFetch.ts';
 import { resolveEventFeedHostAddresses } from './dnsResolver.ts';
@@ -23,7 +23,7 @@ function createUserClient(request: Request) {
 Deno.serve(async (request) => {
   const admin = getSupabaseAdmin(request);
   const handler = createEventFeedHandler({
-    requireAdminUser: (candidate) => requireAdminUser(candidate, admin),
+    requireAuthenticatedUser,
     createUserClient,
     repository: createEventFeedRepository(admin),
     resolveHost: resolveEventFeedHostAddresses,

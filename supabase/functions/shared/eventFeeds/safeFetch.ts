@@ -1,4 +1,5 @@
 import { EVENT_FEED_LIMITS } from './types.ts';
+import { pinnedHttpsFetch, type PinnedHttpsFetch } from './pinnedHttps.ts';
 
 export interface RegisteredFeedSource {
   sourceId: string;
@@ -11,8 +12,11 @@ export interface RegisteredFeedSource {
 export type FeedSourceRegistry = ReadonlyMap<string, RegisteredFeedSource> | Readonly<Record<string, RegisteredFeedSource>>;
 
 export interface SafeFeedFetchDependencies {
+  /** Explicit test/controlled adapter only. Production defaults to the pinned transport. */
   fetchImpl?: typeof fetch;
+  pinnedFetchImpl?: PinnedHttpsFetch;
   resolveHost?: (hostname: string) => Promise<string[]>;
+  authorizeRequest?: (url: URL, redirectCount: number) => Promise<void> | void;
 }
 
 export interface SafeFeedFetchOptions {
@@ -21,6 +25,7 @@ export interface SafeFeedFetchOptions {
   timeoutMs?: number;
   userAgent?: string;
   returnHttpErrors?: boolean;
+  acceptEmptySuccess?: boolean;
 }
 
 export interface SafeFeedFetchResult {
@@ -46,6 +51,7 @@ export type SafeFeedFetchErrorCode =
   | 'missing_redirect_location'
   | 'http_error'
   | 'unsupported_content_type'
+  | 'unsupported_content_encoding'
   | 'body_too_large'
   | 'timeout'
   | 'network_error';
@@ -141,8 +147,11 @@ async function defaultResolveHost(hostname: string) {
 }
 
 function registryEntry(registry: FeedSourceRegistry, sourceId: string) {
-  if (registry instanceof Map) return registry.get(sourceId);
-  return Object.prototype.hasOwnProperty.call(registry, sourceId) ? registry[sourceId] : undefined;
+  if (typeof (registry as ReadonlyMap<string, RegisteredFeedSource>).get === 'function') {
+    return (registry as ReadonlyMap<string, RegisteredFeedSource>).get(sourceId);
+  }
+  const record = registry as Readonly<Record<string, RegisteredFeedSource>>;
+  return Object.prototype.hasOwnProperty.call(record, sourceId) ? record[sourceId] : undefined;
 }
 
 function validateRequestUrl(rawUrl: string, allowedHost: string) {
@@ -173,7 +182,7 @@ function validateRequestUrl(rawUrl: string, allowedHost: string) {
   return url;
 }
 
-async function verifyDns(hostname: string, resolver: (hostname: string) => Promise<string[]>) {
+async function verifiedAddresses(hostname: string, resolver: (hostname: string) => Promise<string[]>) {
   let addresses: string[];
   try {
     addresses = await resolver(hostname);
@@ -185,6 +194,7 @@ async function verifyDns(hostname: string, resolver: (hostname: string) => Promi
   if (addresses.some((address) => !isGlobalUnicastAddress(address))) {
     throw new SafeFeedFetchError('Feed hostname resolved to a non-global address', 'unsafe_dns_result');
   }
+  return addresses;
 }
 
 function safeConditionalHeader(value: string | null | undefined) {
@@ -246,7 +256,8 @@ export async function safeFetchRegisteredFeed(
   const maxBodyBytes = Math.max(1, Math.min(options.maxBodyBytes ?? EVENT_FEED_LIMITS.maxBodyBytes, EVENT_FEED_LIMITS.maxBodyBytes));
   const maxRedirects = Math.max(0, Math.min(options.maxRedirects ?? 3, 5));
   const timeoutMs = Math.max(100, Math.min(options.timeoutMs ?? 12_000, 30_000));
-  const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const testFetchImpl = dependencies.fetchImpl;
+  const pinnedFetchImpl = dependencies.pinnedFetchImpl ?? pinnedHttpsFetch;
   const resolveHost = dependencies.resolveHost ?? defaultResolveHost;
   const allowedHost = normalizeHostname(source.allowedHost);
   let currentUrl = validateRequestUrl(source.endpointUrl, allowedHost);
@@ -265,20 +276,27 @@ export async function safeFetchRegisteredFeed(
   if (lastModified) headers.set('If-Modified-Since', lastModified);
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-    await verifyDns(currentUrl.hostname, resolveHost);
+    // Callers can add a policy layer (for example, robots.txt) that must be
+    // re-evaluated before every redirected request. URL/host validation has
+    // already happened, and a defensive copy prevents callback mutation.
+    await dependencies.authorizeRequest?.(new URL(currentUrl.toString()), redirectCount);
+    const addresses = await verifiedAddresses(currentUrl.hostname, resolveHost);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-      response = await fetchImpl(currentUrl.toString(), {
+      const requestInit: RequestInit = {
         method: 'GET',
         headers,
         redirect: 'manual',
         signal: controller.signal,
-      });
+      };
+      response = testFetchImpl
+        ? await testFetchImpl(currentUrl.toString(), requestInit)
+        : await pinnedFetchImpl(currentUrl, requestInit, addresses[0]);
     } catch (error) {
       clearTimeout(timeout);
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
         throw new SafeFeedFetchError('Feed request timed out', 'timeout');
       }
       throw new SafeFeedFetchError('Feed request failed', 'network_error');
@@ -313,6 +331,20 @@ export async function safeFetchRegisteredFeed(
         };
       }
 
+      if (options.acceptEmptySuccess && (response.status === 204 || response.status === 205)) {
+        await response.body?.cancel().catch(() => undefined);
+        return {
+          status: 'ok',
+          finalUrl: currentUrl.toString(),
+          httpStatus: response.status,
+          contentType: response.headers.get('content-type'),
+          etag: response.headers.get('etag'),
+          lastModified: response.headers.get('last-modified'),
+          body: '',
+          bodyBytes: 0,
+        };
+      }
+
       if (response.status < 200 || response.status >= 300) {
         if (options.returnHttpErrors && response.status >= 400 && response.status <= 599) {
           await response.body?.cancel().catch(() => undefined);
@@ -336,6 +368,11 @@ export async function safeFetchRegisteredFeed(
       if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
         await response.body?.cancel().catch(() => undefined);
         throw new SafeFeedFetchError('Feed response has an unsupported content type', 'unsupported_content_type');
+      }
+      const contentEncoding = (response.headers.get('content-encoding') || '').trim().toLowerCase();
+      if (contentEncoding && contentEncoding !== 'identity') {
+        await response.body?.cancel().catch(() => undefined);
+        throw new SafeFeedFetchError('Feed response has an unsupported content encoding', 'unsupported_content_encoding');
       }
 
       let cappedBody: Awaited<ReturnType<typeof readCappedBody>>;

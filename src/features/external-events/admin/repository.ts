@@ -116,8 +116,20 @@ async function invokeEventFeed(
   return data;
 }
 
-export async function loadEventFeedStatus(): Promise<AdminEventFeedStatusSnapshot> {
-  const data = await invokeEventFeed({ action: 'status', page: 1, limit: 20 }, 'event_feed_status');
+export interface EventFeedStatusQuery {
+  query?: string;
+  page?: number;
+  limit?: number;
+}
+
+export async function loadEventFeedStatus(input: EventFeedStatusQuery = {}): Promise<AdminEventFeedStatusSnapshot> {
+  const page = Math.max(1, Math.min(100, Math.trunc(input.page || 1)));
+  const limit = Math.max(1, Math.min(20, Math.trunc(input.limit || 20)));
+  const query = input.query?.trim().slice(0, 100) || undefined;
+  const data = await invokeEventFeed(
+    { action: 'status', page, limit, ...(query ? { query } : {}) },
+    'event_feed_status',
+  );
   return normalizeEventFeedStatus(data);
 }
 

@@ -131,6 +131,29 @@ BEGIN
 END;
 $$;
 
+-- If the legacy daily job already exists, preserve its cadence while replacing
+-- the old command that may contain an interpolated bearer token. This does not
+-- create a new schedule when none was configured.
+DO $$
+DECLARE
+  v_existing_schedule text;
+BEGIN
+  IF to_regclass('cron.job') IS NOT NULL THEN
+    EXECUTE 'SELECT schedule FROM cron.job WHERE jobname = $1 LIMIT 1'
+      INTO v_existing_schedule
+      USING 'sync-local-places-daily-hu';
+    IF v_existing_schedule IS NOT NULL THEN
+      PERFORM cron.unschedule('sync-local-places-daily-hu');
+      PERFORM cron.schedule(
+        'sync-local-places-daily-hu',
+        v_existing_schedule,
+        'select public.enqueue_local_places_batch(false);'
+      );
+    END IF;
+  END IF;
+END;
+$$;
+
 -- Every legacy secret/scheduler entry point is service-only. PUBLIC is revoked
 -- as well because PostgreSQL grants function EXECUTE to PUBLIC by default.
 REVOKE ALL ON FUNCTION public.resolve_internal_edge_function_base_url() FROM PUBLIC, anon, authenticated;
@@ -1081,11 +1104,11 @@ BEGIN
     WHERE external_source = 'feed' AND external_id = v_external_id
     RETURNING id INTO v_external_event_id;
 
-    UPDATE public.external_event_feed_items
+    UPDATE public.external_event_feed_items AS feed_item
     SET item_state = 'cancelled',
-        external_event_id = COALESCE(v_external_event_id, external_event_id),
+        external_event_id = COALESCE(v_external_event_id, feed_item.external_event_id),
         last_seen_at = now()
-    WHERE id = v_feed_item.id;
+    WHERE feed_item.id = v_feed_item.id;
 
     RETURN QUERY SELECT v_feed_item.id, COALESCE(v_external_event_id, v_feed_item.external_event_id), 'cancelled'::text, false;
     RETURN;

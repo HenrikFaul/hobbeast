@@ -101,16 +101,29 @@ function isoFromParts(parts: RegExpMatchArray, timezone: string | null) {
   }
 }
 
-function parseIcsDate(property: IcsProperty | null) {
-  if (!property) return null;
+interface ParsedIcsDate {
+  value: string | null;
+  unresolvedTimezone: boolean;
+}
+
+function parseIcsDate(property: IcsProperty | null, defaultTimezone: string | null): ParsedIcsDate {
+  if (!property) return { value: null, unresolvedTimezone: false };
   const value = property.value.trim();
   const dateOnly = value.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (dateOnly) return isoFromParts(dateOnly, null);
+  if (dateOnly) {
+    // Preserve all-day values as calendar dates. Converting them to midnight
+    // UTC would manufacture a local event time (and can shift the date).
+    return { value: `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`, unresolvedTimezone: false };
+  }
 
   const dateTime = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/i);
-  if (!dateTime) return null;
-  const timezone = dateTime[7] ? null : property.params.get('TZID') ?? null;
-  return isoFromParts(dateTime, timezone);
+  if (!dateTime) return { value: null, unresolvedTimezone: false };
+  if (dateTime[7]) return { value: isoFromParts(dateTime, null), unresolvedTimezone: false };
+
+  const timezone = property.params.get('TZID') || defaultTimezone;
+  if (!timezone) return { value: null, unresolvedTimezone: true };
+  const parsed = isoFromParts(dateTime, timezone);
+  return { value: parsed, unresolvedTimezone: parsed === null };
 }
 
 function first(properties: IcsProperty[], name: string) {
@@ -138,10 +151,17 @@ function organizerName(properties: IcsProperty[]) {
   return cleanXmlText(organizer.value.replace(/^mailto:/i, ''), 256) || null;
 }
 
-function candidateFromProperties(properties: IcsProperty[], calendarCancelled: boolean): EventFeedCandidate {
+function candidateFromProperties(
+  properties: IcsProperty[],
+  calendarCancelled: boolean,
+  defaultTimezone: string | null,
+): EventFeedCandidate {
   const uid = textValue(properties, 'UID');
   const recurrenceProperty = first(properties, 'RECURRENCE-ID');
-  const recurrenceId = parseIcsDate(recurrenceProperty) || cleanXmlText(recurrenceProperty?.value, 256) || null;
+  const recurrenceId = parseIcsDate(recurrenceProperty, defaultTimezone).value
+    || cleanXmlText(recurrenceProperty?.value, 256)
+    || null;
+  const start = parseIcsDate(first(properties, 'DTSTART'), defaultTimezone);
   const location = textValue(properties, 'LOCATION');
   const url = textValue(properties, 'URL');
   const categories = parseCategories(properties);
@@ -156,24 +176,34 @@ function candidateFromProperties(properties: IcsProperty[], calendarCancelled: b
     description: textValue(properties, 'DESCRIPTION'),
     url,
     imageUrl: textValue(properties, 'IMAGE') || null,
-    startAt: parseIcsDate(first(properties, 'DTSTART')),
-    endAt: parseIcsDate(first(properties, 'DTEND')),
-    publishedAt: parseIcsDate(first(properties, 'LAST-MODIFIED')) || parseIcsDate(first(properties, 'DTSTAMP')),
+    startAt: start.value,
+    endAt: parseIcsDate(first(properties, 'DTEND'), defaultTimezone).value,
+    publishedAt: parseIcsDate(first(properties, 'LAST-MODIFIED'), defaultTimezone).value
+      || parseIcsDate(first(properties, 'DTSTAMP'), defaultTimezone).value,
     status: calendarCancelled || status === 'CANCELLED' ? 'cancelled' : 'scheduled',
     organizerName: organizerName(properties),
     location: { name: location || null, address: null, city: null, online },
     sourceCategories: categories,
     classificationText: categories,
+    qualityBlockers: start.unresolvedTimezone ? ['missing_timezone'] : [],
   };
 }
 
-export function parseIcsCandidates(input: string, maxItems = EVENT_FEED_LIMITS.maxItems): EventFeedCandidate[] {
+export function parseIcsCandidates(
+  input: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+): EventFeedCandidate[] {
   if (!/BEGIN:VCALENDAR/i.test(input)) {
     throw new EventFeedParseError('Payload is not an iCalendar document', 'malformed_payload');
   }
 
   const lines = unfoldLines(input);
   const calendarCancelled = lines.some((line) => /^METHOD:CANCEL\s*$/i.test(line));
+  const calendarTimezone = lines
+    .map(parseProperty)
+    .find((property) => property?.name === 'X-WR-TIMEZONE');
+  const defaultTimezone = cleanXmlText(calendarTimezone?.value, 128) || sourceTimezone;
   const events: EventFeedCandidate[] = [];
   let current: IcsProperty[] | null = null;
 
@@ -183,7 +213,9 @@ export function parseIcsCandidates(input: string, maxItems = EVENT_FEED_LIMITS.m
       continue;
     }
     if (/^END:VEVENT\s*$/i.test(line)) {
-      if (current && events.length < maxItems) events.push(candidateFromProperties(current, calendarCancelled));
+      if (current && events.length < maxItems) {
+        events.push(candidateFromProperties(current, calendarCancelled, defaultTimezone));
+      }
       current = null;
       if (events.length >= maxItems) break;
       continue;
