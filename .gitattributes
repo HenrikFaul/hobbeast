@@ -1,0 +1,10 @@
+# Binary artifacts must never be eol-converted
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary
+*.docx binary
+*.woff binary
+*.woff2 binary
+*.lockb binary
