@@ -31,6 +31,9 @@ against what was actually set, then closed. The trip planner (Mapy) works end-to
   which is a GET endpoint taking `positions=lon,lat;…` → every call was 405. Switched to
   GET and normalized the nested `{elevation, position:{lon,lat}}` response to the flat
   `{lon, lat, elevation}` items shape the client parser expects.
+- **Frontend elevation enrichment (`src/lib/mapy.ts`)**: sent `lang=hu`, which the Mapy
+  elevation API rejects with 422 (its lang enum has no Hungarian) → switched to `en`.
+  Caught during the live browser verification of the trip planner.
 
 ### Added (secrets/env — values live-validated before setting)
 - Edge secrets: `GEOAPIFY_API_KEY`, `TOMTOM_API_KEY` (from the operator's notes),
