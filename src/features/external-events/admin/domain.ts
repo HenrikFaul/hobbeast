@@ -26,9 +26,73 @@ export {
   type RankedCategorySuggestion,
 } from './databaseDomain';
 
-export type AdminExternalProviderTab = 'eventbrite' | 'ticketmaster' | 'seatgeek' | 'places';
+export type AdminExternalProviderTab = 'eventbrite' | 'ticketmaster' | 'seatgeek' | 'places' | 'feeds';
 export type AdminExternalEventProvider = 'eventbrite' | 'ticketmaster' | 'seatgeek';
 export type ProviderRunPhase = 'idle' | 'loading' | 'success' | 'empty' | 'error';
+
+export interface AdminEventFeedSummary {
+  total: number;
+  pendingReview: number;
+  approved: number;
+  enabled: number;
+  healthy: number;
+  quarantinedItems: number;
+}
+
+export interface AdminEventFeedSource {
+  sourceId: string;
+  publisherName: string;
+  format: string;
+  city: string | null;
+  healthStatus: string;
+  reviewState: string;
+  enabled: boolean;
+  lastSuccessAt: string | null;
+  nextPollAt: string | null;
+  endpointUrl: string | null;
+  fetchHosts: string[];
+  legalReviewStatus: string;
+  robotsAllowed: boolean;
+  pollIntervalMinutes: number;
+  minPublishQuality: number;
+}
+
+export interface AdminEventFeedApprovalDraft {
+  fetchHost: string;
+  legalReviewApproved: boolean;
+  robotsAllowed: boolean;
+  enable: boolean;
+  pollIntervalMinutes: number;
+  minPublishQuality: number;
+  reason: string;
+}
+
+export interface AdminEventFeedRun {
+  id: string;
+  sourceId: string;
+  action: string;
+  status: string;
+  discovered: number;
+  quarantined: number;
+  published: number;
+  duplicates: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface AdminEventFeedStatusSnapshot {
+  summary: AdminEventFeedSummary;
+  sources: AdminEventFeedSource[];
+  runs: AdminEventFeedRun[];
+}
+
+export interface AdminEventFeedActionResult {
+  sourceId: string;
+  status: string;
+  discovered: number;
+  quarantined: number;
+  published: number;
+}
 
 export interface AdminExternalEventDto {
   id: string;
@@ -102,7 +166,11 @@ export const INITIAL_FUNCTION_GROUP_PROVIDERS: Record<AddressSearchFunctionGroup
 };
 
 export function isAdminExternalProviderTab(value: string): value is AdminExternalProviderTab {
-  return value === 'eventbrite' || value === 'ticketmaster' || value === 'seatgeek' || value === 'places';
+  return value === 'eventbrite'
+    || value === 'ticketmaster'
+    || value === 'seatgeek'
+    || value === 'places'
+    || value === 'feeds';
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
@@ -174,6 +242,181 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+function stringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function nonNegativeNumber(value: unknown): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : 0;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).map((item) => item.trim())
+    : [];
+}
+
+function hostFromUrl(value: string | null): string {
+  if (!value) return '';
+  try {
+    return new URL(value).hostname.toLocaleLowerCase('en-US');
+  } catch {
+    return '';
+  }
+}
+
+function normalizeFeedSource(value: unknown): AdminEventFeedSource | null {
+  const row = asRecord(value);
+  const sourceId = stringValue(row.source_id ?? row.sourceId ?? row.id);
+  if (!sourceId) return null;
+  const enabled = row.enabled === true;
+  const endpointUrl = nullableString(row.endpoint_url ?? row.endpointUrl);
+  const fetchHosts = stringArray(row.fetch_hosts ?? row.fetchHosts);
+  return {
+    sourceId,
+    publisherName: stringValue(row.publisher_name ?? row.publisherName ?? row.name, sourceId),
+    format: stringValue(row.format ?? row.endpoint_kind ?? row.endpointKind, 'ismeretlen'),
+    city: nullableString(row.city),
+    healthStatus: stringValue(row.health_status ?? row.healthStatus, enabled ? 'unknown' : 'disabled'),
+    reviewState: stringValue(row.review_state ?? row.reviewState, 'pending_review'),
+    enabled,
+    lastSuccessAt: nullableString(
+      row.last_successful_parse_at ?? row.lastSuccessfulParseAt ?? row.last_success_at ?? row.lastSuccessAt,
+    ),
+    nextPollAt: nullableString(row.next_poll_at ?? row.nextPollAt),
+    endpointUrl,
+    fetchHosts,
+    legalReviewStatus: stringValue(row.legal_review_status ?? row.legalReviewStatus, 'pending'),
+    robotsAllowed: row.robots_allowed === true || row.robotsAllowed === true,
+    pollIntervalMinutes: Math.max(15, nonNegativeNumber(row.poll_interval_minutes ?? row.pollIntervalMinutes) || 1440),
+    minPublishQuality: Math.min(100, Math.max(50, Number(row.min_publish_quality ?? row.minPublishQuality) || 80)),
+  };
+}
+
+export function eventFeedApprovalDraft(source: AdminEventFeedSource): AdminEventFeedApprovalDraft {
+  return {
+    fetchHost: source.fetchHosts[0] || hostFromUrl(source.endpointUrl),
+    legalReviewApproved: false,
+    robotsAllowed: false,
+    enable: source.enabled,
+    pollIntervalMinutes: source.pollIntervalMinutes,
+    minPublishQuality: source.minPublishQuality,
+    reason: '',
+  };
+}
+
+export function isExactEventFeedHost(value: string): boolean {
+  return /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
+    .test(value.trim().toLocaleLowerCase('en-US'));
+}
+
+export function isEventFeedApprovalDraftReady(draft: AdminEventFeedApprovalDraft | undefined): boolean {
+  return Boolean(
+    draft
+      && isExactEventFeedHost(draft.fetchHost)
+      && draft.legalReviewApproved
+      && draft.robotsAllowed
+      && Number.isInteger(draft.pollIntervalMinutes)
+      && draft.pollIntervalMinutes >= 15
+      && draft.pollIntervalMinutes <= 10_080
+      && Number.isFinite(draft.minPublishQuality)
+      && draft.minPublishQuality >= 50
+      && draft.minPublishQuality <= 100
+      && draft.reason.trim().length >= 8,
+  );
+}
+
+export function hasEventFeedApprovalEvidence(source: AdminEventFeedSource): boolean {
+  return source.reviewState === 'approved'
+    && source.legalReviewStatus === 'approved'
+    && source.robotsAllowed;
+}
+
+export function isEventFeedSourceTrustedActive(source: AdminEventFeedSource): boolean {
+  return source.enabled && hasEventFeedApprovalEvidence(source);
+}
+
+function normalizeFeedRun(value: unknown): AdminEventFeedRun | null {
+  const row = asRecord(value);
+  const id = stringValue(row.id ?? row.run_id ?? row.runId);
+  const sourceId = stringValue(row.source_id ?? row.sourceId);
+  if (!id || !sourceId) return null;
+  const counts = asRecord(row.counts);
+  return {
+    id,
+    sourceId,
+    action: stringValue(row.action, 'sync'),
+    status: stringValue(row.status, 'unknown'),
+    discovered: nonNegativeNumber(row.discovered_count ?? row.discovered ?? counts.discovered),
+    quarantined: nonNegativeNumber(row.quarantined_count ?? row.quarantined ?? counts.quarantined),
+    published: nonNegativeNumber(row.published_count ?? row.published ?? counts.published),
+    duplicates: nonNegativeNumber(row.duplicate_count ?? row.duplicates ?? counts.duplicates),
+    startedAt: nullableString(row.started_at ?? row.startedAt),
+    finishedAt: nullableString(row.finished_at ?? row.finishedAt),
+  };
+}
+
+export function normalizeEventFeedStatus(value: unknown): AdminEventFeedStatusSnapshot {
+  const response = asRecord(value);
+  const summary = asRecord(response.summary);
+  const rawSources = Array.isArray(response.sources)
+    ? response.sources
+    : Array.isArray(response.items)
+      ? response.items
+      : [];
+  const rawRuns = Array.isArray(response.runs) ? response.runs : [];
+  const sources = rawSources
+    .map(normalizeFeedSource)
+    .filter((source): source is AdminEventFeedSource => Boolean(source));
+  const runs = rawRuns
+    .map(normalizeFeedRun)
+    .filter((run): run is AdminEventFeedRun => Boolean(run));
+
+  return {
+    summary: {
+      total: nonNegativeNumber(summary.total ?? sources.length),
+      pendingReview: nonNegativeNumber(
+        summary.pending_review ?? summary.pendingReview
+          ?? sources.filter((source) => source.reviewState === 'pending_review').length,
+      ),
+      approved: nonNegativeNumber(
+        summary.approved ?? sources.filter((source) => source.reviewState === 'approved').length,
+      ),
+      enabled: nonNegativeNumber(summary.enabled ?? sources.filter((source) => source.enabled).length),
+      healthy: nonNegativeNumber(
+        summary.healthy ?? sources.filter((source) => source.healthStatus === 'healthy').length,
+      ),
+      quarantinedItems: nonNegativeNumber(summary.quarantined_items ?? summary.quarantinedItems),
+    },
+    sources,
+    runs,
+  };
+}
+
+export function normalizeEventFeedActionResults(value: unknown): AdminEventFeedActionResult[] {
+  const response = asRecord(value);
+  const rawResults = Array.isArray(response.results)
+    ? response.results
+    : response.result
+      ? [response.result]
+      : [];
+  return rawResults.map((value) => {
+    const row = asRecord(value);
+    return {
+      sourceId: stringValue(row.source_id ?? row.sourceId),
+      status: stringValue(row.status, response.ok === true ? 'succeeded' : 'unknown'),
+      discovered: nonNegativeNumber(row.discovered),
+      quarantined: nonNegativeNumber(row.quarantined),
+      published: nonNegativeNumber(row.published),
+    };
+  }).filter((result) => Boolean(result.sourceId));
 }
 
 function getNestedValue(source: unknown, path: string): unknown {

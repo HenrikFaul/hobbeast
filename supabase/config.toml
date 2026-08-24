@@ -42,6 +42,11 @@ verify_jwt = false
 # authorization/ownership check.
 verify_jwt = false
 
+[functions.event-feed-ingest]
+# Manual actions verify the admin JWT in-handler; scheduled batches require a
+# short-lived HMAC signature and never accept a caller-supplied fetch URL.
+verify_jwt = false
+
 [functions.discovery-feedback]
 # The handler authenticates the user and the RPC enforces ownership + feature
 # flag state.

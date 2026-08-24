@@ -138,11 +138,11 @@ describe('AdminEventbrite safe-refactor characterization', () => {
     await flushEffects();
   }
 
-  it('keeps the four provider cards and the initial configuration load contract', async () => {
+  it('keeps the four provider cards, adds Feedek and preserves the initial configuration load contract', async () => {
     await renderAdminEventbrite();
 
     expect(Array.from(document.querySelectorAll('[role="tab"]')).map((item) => item.textContent)).toEqual([
-      'Eventbrite', 'Ticketmaster', 'SeatGeek', 'Címkereső',
+      'Eventbrite', 'Ticketmaster', 'SeatGeek', 'Címkereső', 'Feedek',
     ]);
     expect(document.body.textContent).toContain('Eventbrite integráció');
     expect(button('Keresés')).toBeDefined();
@@ -150,6 +150,144 @@ describe('AdminEventbrite safe-refactor characterization', () => {
     expect(button('Szervezeti események')).toBeDefined();
     expect(providerMocks.getAllFunctionGroupProviders).toHaveBeenCalledOnce();
     expect(providerMocks.getDbSearchTableConfigs).toHaveBeenCalledWith(true);
+    expect(edgeMocks.invoke).not.toHaveBeenCalledWith('event-feed-ingest', expect.anything());
+  });
+
+  it('loads feed status lazily and keeps probe, sync, approve and disable on the event-feed-ingest contract', async () => {
+    const sourceId = 'src_1234abcd';
+    edgeMocks.invoke.mockImplementation(async (functionName: string, options?: { body?: Record<string, unknown> }) => {
+      if (functionName !== 'event-feed-ingest') return { data: null, error: null };
+      const action = options?.body?.action;
+      if (action === 'status') {
+        return {
+          data: {
+            summary: { total: 1, pending_review: 1, approved: 0, enabled: 0, healthy: 1, quarantined_items: 2 },
+            sources: [{
+              source_id: sourceId,
+              publisher_name: 'Budapest Közösségi Ház',
+              format: 'rss',
+              city: 'Budapest',
+              endpoint_url: 'https://events.example.test/feed.xml',
+              fetch_hosts: ['events.example.test'],
+              health_status: 'healthy',
+              review_state: 'pending_review',
+              legal_review_status: 'pending',
+              robots_allowed: false,
+              enabled: false,
+              poll_interval_minutes: 1440,
+              min_publish_quality: 80,
+              last_successful_parse_at: '2026-08-25T08:00:00.000Z',
+              next_poll_at: '2026-08-26T08:00:00.000Z',
+            }],
+            runs: [{
+              id: 'run-1',
+              source_id: sourceId,
+              action: 'probe',
+              status: 'succeeded',
+              discovered_count: 3,
+              quarantined_count: 1,
+              published_count: 0,
+              duplicate_count: 1,
+              started_at: '2026-08-25T08:00:00.000Z',
+              finished_at: '2026-08-25T08:00:02.000Z',
+            }],
+          },
+          error: null,
+        };
+      }
+      if (action === 'probe_source' || action === 'sync_source') {
+        return {
+          data: { ok: true, results: [{ source_id: sourceId, status: 'succeeded', discovered: 3, quarantined: 1, published: 1 }] },
+          error: null,
+        };
+      }
+      if (action === 'review_source') return { data: { ok: true, source: { source_id: sourceId } }, error: null };
+      return { data: { error: 'UNEXPECTED_ACTION' }, error: null };
+    });
+
+    await renderAdminEventbrite();
+    expect(edgeMocks.invoke).not.toHaveBeenCalledWith('event-feed-ingest', expect.anything());
+    await activateTab('Feedek');
+    await flushEffects();
+
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: { action: 'status', page: 1, limit: 20 },
+    });
+    expect(document.body.textContent).toContain('Budapest Közösségi Ház');
+    expect(document.body.textContent).toContain('RSS');
+    expect(document.body.textContent).toContain('Utolsó siker');
+    expect(document.body.textContent).toContain('Következő poll');
+    expect(document.body.textContent).toContain('Nem aktív');
+    expect(document.body.textContent).not.toContain('Auditált · aktív');
+    expect(document.body.textContent).toContain('3 észlelt · 1 karantén · 0 publikálási számláló · 1 duplikátum');
+    expect(document.body.textContent).toContain('önmagukban nem jelentik, hogy a forrás auditált, aktív vagy nyilvánosan publikáló');
+
+    const approveButton = button('Jóváhagyás');
+    const disableButton = button('Kikapcsolás');
+    expect(approveButton?.disabled).toBe(true);
+    expect(disableButton?.disabled).toBe(true);
+
+    await act(async () => button('Próba')?.click());
+    await flushEffects();
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: { action: 'probe_source', source_id: sourceId },
+    });
+
+    await act(async () => button('Szinkron')?.click());
+    await flushEffects();
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: { action: 'sync_source', source_id: sourceId },
+    });
+
+    const reason = document.querySelector<HTMLInputElement>('input[aria-label="Feed művelet indoklása"]');
+    const host = document.querySelector<HTMLInputElement>('input[aria-label="Budapest Közösségi Ház exact fetch host"]');
+    const legalReview = document.querySelector<HTMLButtonElement>('[aria-label="Budapest Közösségi Ház jogi ellenőrzése jóváhagyva"]');
+    const robotsAllowed = document.querySelector<HTMLButtonElement>('[aria-label="Budapest Közösségi Ház robots engedélyezve"]');
+    const enable = document.querySelector<HTMLButtonElement>('[aria-label="Budapest Közösségi Ház feed engedélyezése jóváhagyáskor"]');
+    expect(reason).not.toBeNull();
+    expect(host?.value).toBe('events.example.test');
+    expect(legalReview?.getAttribute('aria-checked')).toBe('false');
+    expect(robotsAllowed?.getAttribute('aria-checked')).toBe('false');
+    setControlValue(reason!, 'Robots és jogi ellenőrzés rendben');
+    expect(button('Jóváhagyás')?.disabled).toBe(true);
+
+    await act(async () => {
+      legalReview?.click();
+      robotsAllowed?.click();
+      enable?.click();
+    });
+    expect(button('Jóváhagyás')?.disabled).toBe(false);
+
+    await act(async () => button('Jóváhagyás')?.click());
+    await flushEffects();
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: expect.objectContaining({
+        action: 'review_source',
+        source_id: sourceId,
+        decision: 'approved',
+        reason: 'Robots és jogi ellenőrzés rendben',
+        enable: true,
+        fetch_hosts: ['events.example.test'],
+        legal_review_status: 'approved',
+        robots_allowed: true,
+        poll_interval_minutes: 1440,
+        min_publish_quality: 80,
+        request_id: expect.any(String),
+        idempotency_key: expect.stringContaining(`feed-review:${sourceId}:approved:`),
+      }),
+    });
+
+    setControlValue(reason!, 'Forrás ideiglenesen kikapcsolva');
+    await act(async () => button('Kikapcsolás')?.click());
+    await flushEffects();
+    expect(edgeMocks.invoke).toHaveBeenCalledWith('event-feed-ingest', {
+      body: expect.objectContaining({
+        action: 'review_source',
+        source_id: sourceId,
+        decision: 'disabled',
+        reason: 'Forrás ideiglenesen kikapcsolva',
+      }),
+    });
   });
 
   it('keeps Eventbrite loading disabled-state, normalized result rendering and visible error state', async () => {

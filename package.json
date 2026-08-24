@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "event-feeds:validate": "node scripts/validate-event-feed-registry.mjs",
     "release:validate": "node scripts/validate-release.mjs",
     "release:sbom": "node scripts/generate-sbom.mjs",
     "security:audit": "node scripts/audit-security-definer.mjs",

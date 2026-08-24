@@ -235,12 +235,23 @@ const Events = () => {
         location_type: e.location_type,
         max_attendees: e.max_attendees,
         image_emoji: e.image_url ? null : '🎫',
-        tags: [...(e.tags || []), e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source],
+        tags: [
+          ...(e.tags || []),
+          e.external_source === 'ticketmaster'
+            ? 'Ticketmaster'
+            : e.external_source === 'feed'
+              ? 'Ellenőrzött programforrás'
+              : e.external_source,
+        ],
         description: e.description,
         created_by: '',
         participant_count: 0,
         source: 'eventbrite' as const,
-        source_label: e.external_source === 'ticketmaster' ? 'Ticketmaster' : e.external_source,
+        source_label: e.external_source === 'ticketmaster'
+          ? 'Ticketmaster'
+          : e.external_source === 'feed'
+            ? 'Ellenőrzött programforrás'
+            : e.external_source,
         eventbrite_url: e.external_url || undefined,
         eventbrite_logo_url: e.image_url,
         source_last_synced_at: e.source_last_synced_at,

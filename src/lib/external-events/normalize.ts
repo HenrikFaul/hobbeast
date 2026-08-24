@@ -17,7 +17,7 @@ export interface ExternalEventCardLike {
   description: string | null;
   created_by: string;
   participant_count: number;
-  source: 'ticketmaster' | 'seatgeek';
+  source: 'ticketmaster' | 'seatgeek' | 'feed';
   source_label: string;
   external_url: string | null;
   image_url: string | null;
@@ -56,6 +56,8 @@ export function providerLabel(source: ExternalEventNormalized['external_source']
       return 'Universe';
     case 'tickettailor':
       return 'Ticket Tailor';
+    case 'feed':
+      return 'Ellenőrzött programforrás';
     default:
       return 'Külső forrás';
   }
@@ -84,7 +86,11 @@ export function mapExternalEventToCardLike(event: ExternalEventNormalized): Exte
     description: event.description,
     created_by: '',
     participant_count: 0,
-    source: event.external_source === 'ticketmaster' ? 'ticketmaster' : 'seatgeek',
+    source: event.external_source === 'ticketmaster'
+      ? 'ticketmaster'
+      : event.external_source === 'feed'
+        ? 'feed'
+        : 'seatgeek',
     source_label: providerLabel(event.external_source),
     external_url: event.external_url,
     image_url: event.image_url,

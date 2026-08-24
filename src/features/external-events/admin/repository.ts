@@ -24,8 +24,12 @@ import {
   type DbTableFacetDiscoveryResult,
 } from '@/lib/searchProviderConfig';
 import {
+  normalizeEventFeedActionResults,
+  normalizeEventFeedStatus,
   normalizeEventbriteEvents,
   normalizeExternalEvents,
+  type AdminEventFeedActionResult,
+  type AdminEventFeedStatusSnapshot,
   type AdminExternalEventDto,
   type ProviderConfigurationSnapshot,
 } from './domain';
@@ -59,6 +63,29 @@ export interface EventbriteOrganizationPull {
   events: AdminExternalEventDto[];
 }
 
+interface EventFeedResponseEnvelope {
+  error?: string;
+  code?: string;
+  [key: string]: unknown;
+}
+
+export type EventFeedReviewDecision = 'approved' | 'disabled';
+
+type EventFeedReviewInput = {
+  sourceId: string;
+  reason: string;
+} & ({
+  decision: 'approved';
+  enable: boolean;
+  fetchHosts: string[];
+  legalReviewStatus: 'approved';
+  robotsAllowed: true;
+  pollIntervalMinutes: number;
+  minPublishQuality: number;
+} | {
+  decision: 'disabled';
+});
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -67,6 +94,70 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function errorMessage(error: { message?: string } | null, fallback: string): string {
   return error?.message || fallback;
+}
+
+async function invokeEventFeed(
+  body: Record<string, unknown>,
+  operation: string,
+): Promise<EventFeedResponseEnvelope> {
+  const { data, error } = await supabase.functions.invoke<EventFeedResponseEnvelope>('event-feed-ingest', { body });
+  if (error) {
+    throw new ExternalEventsAdminRepositoryError(
+      errorMessage(error, 'A feed művelet nem hajtható végre.'),
+      operation,
+    );
+  }
+  if (!data || typeof data !== 'object') {
+    throw new ExternalEventsAdminRepositoryError('A feed szolgáltatás üres választ adott.', operation);
+  }
+  if (typeof data.error === 'string' && data.error) {
+    throw new ExternalEventsAdminRepositoryError(data.error, operation);
+  }
+  return data;
+}
+
+export async function loadEventFeedStatus(): Promise<AdminEventFeedStatusSnapshot> {
+  const data = await invokeEventFeed({ action: 'status', page: 1, limit: 20 }, 'event_feed_status');
+  return normalizeEventFeedStatus(data);
+}
+
+export async function probeEventFeedSource(sourceId: string): Promise<AdminEventFeedActionResult[]> {
+  const data = await invokeEventFeed(
+    { action: 'probe_source', source_id: sourceId },
+    'event_feed_probe',
+  );
+  return normalizeEventFeedActionResults(data);
+}
+
+export async function syncEventFeedSource(sourceId: string): Promise<AdminEventFeedActionResult[]> {
+  const data = await invokeEventFeed(
+    { action: 'sync_source', source_id: sourceId },
+    'event_feed_sync',
+  );
+  return normalizeEventFeedActionResults(data);
+}
+
+export async function reviewEventFeedSource(input: EventFeedReviewInput): Promise<void> {
+  const requestId = crypto.randomUUID();
+  const body: Record<string, unknown> = {
+    action: 'review_source',
+    source_id: input.sourceId,
+    decision: input.decision,
+    reason: input.reason.trim(),
+    request_id: requestId,
+    idempotency_key: `feed-review:${input.sourceId}:${input.decision}:${requestId}`.slice(0, 100),
+  };
+  if (input.decision === 'approved') {
+    Object.assign(body, {
+      enable: input.enable,
+      fetch_hosts: input.fetchHosts,
+      legal_review_status: input.legalReviewStatus,
+      robots_allowed: input.robotsAllowed,
+      poll_interval_minutes: input.pollIntervalMinutes,
+      min_publish_quality: input.minPublishQuality,
+    });
+  }
+  await invokeEventFeed(body, 'event_feed_review');
 }
 
 export async function searchEventbriteAdmin(keyword: string): Promise<AdminExternalEventDto[]> {

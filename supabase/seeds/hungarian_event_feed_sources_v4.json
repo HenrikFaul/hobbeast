@@ -1,0 +1,1788 @@
+{
+  "schema_version": 1,
+  "registry_version": "v4",
+  "source_workbook": "Magyar_Program_RSS_Master_Lista_V4.xlsx",
+  "source_sheet": "RSS Source Master List V4",
+  "activation_policy": "candidate_only_pending_review_disabled",
+  "source_count": 185,
+  "sources": [
+    {
+      "source_id": "src_2dca3e1d",
+      "publisher_name": "Kölcsey Központ",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "https://kolcseykozpont.hu/",
+      "format": "HTML eseménylista",
+      "categories": "Konferencia, kiállítás, koncert",
+      "legal_basis": "Szervező publikus oldala",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Eseménylink- és structured-data extractor"
+    },
+    {
+      "source_id": "src_0978bd58",
+      "publisher_name": "Programturizmus",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/",
+      "format": "Országos eseménynaptár",
+      "categories": "Turizmus, kultúra, fesztivál",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Partneri kapcsolat / link attribution"
+    },
+    {
+      "source_id": "src_417d69ae",
+      "publisher_name": "Liget Budapest",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://ligetbudapest.hu/varosligeti-programok",
+      "format": "Szűrhető naptár",
+      "categories": "Teljes helyszínportfólió",
+      "legal_basis": "Szervező publikus oldala",
+      "dedupe_priority": "P1",
+      "parser_strategy": "API/JSON endpoint discovery"
+    },
+    {
+      "source_id": "src_d3cadf7d",
+      "publisher_name": "Kultúra.hu",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "https://kultura.hu/",
+      "format": "Tartalmi és eseményoldalak",
+      "categories": "Művészet, film, irodalom, zene",
+      "legal_basis": "Tartalomszolgáltató",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Schema.org + site discovery"
+    },
+    {
+      "source_id": "src_2d0b9ff5",
+      "publisher_name": "Szallas.hu",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://szallas.hu/programok/budapest/kulturalis-programok",
+      "format": "Kereshető programlista",
+      "categories": "Kulturális programok",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Partner/API preferált"
+    },
+    {
+      "source_id": "src_e272881c",
+      "publisher_name": "Programturizmus",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-budapest-fovaros.html",
+      "format": "Eseménynaptár",
+      "categories": "Általános programok",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Változásfigyelés"
+    },
+    {
+      "source_id": "src_b4d09dec",
+      "publisher_name": "Programturizmus",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/tema-kultura-program.html",
+      "format": "Eseménynaptár",
+      "categories": "Kulturális programok",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Változásfigyelés"
+    },
+    {
+      "source_id": "src_59e47bbc",
+      "publisher_name": "Budapest Főváros",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://budapest.hu/kultura-es-orokseg",
+      "format": "HTML intézménygráf",
+      "categories": "Kulturális intézmény-katalógus",
+      "legal_basis": "Hivatalos publikus oldal",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Intézményi domain discovery"
+    },
+    {
+      "source_id": "src_d89b7968",
+      "publisher_name": "Programturizmus",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/helykategoria-kulturalis-program.budapest-fovaros.html",
+      "format": "Eseménynaptár",
+      "categories": "Kulturális programok",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Canonical source + attribúció"
+    },
+    {
+      "source_id": "src_a5321f0c",
+      "publisher_name": "Eventland",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://eventland.eu/hu/budapest-hu/",
+      "format": "HTML eseménylista",
+      "categories": "Koncertek, fesztiválok, szabadidő",
+      "legal_basis": "Aggregátor; feltételek auditja szükséges",
+      "dedupe_priority": "P1",
+      "parser_strategy": "Canonical URL discovery"
+    },
+    {
+      "source_id": "src_6c793edf",
+      "publisher_name": "Liget Budapest",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://ligetbudapest.hu/varosligeti-programok?category=kulturalis",
+      "format": "Szűrhető HTML/JS naptár",
+      "categories": "Múzeum, kultúra, családi program",
+      "legal_basis": "Szervező publikus oldala",
+      "dedupe_priority": "P0",
+      "parser_strategy": "API/JSON endpoint discovery"
+    },
+    {
+      "source_id": "src_91b3cc7a",
+      "publisher_name": "Szeged Megyei Jogú Város",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "https://www.szegedvaros.hu/kulturalis-esemenyek",
+      "format": "HTML eseménylista",
+      "categories": "Kulturális események",
+      "legal_basis": "Hivatalos publikus oldal",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Lista parser + Event Schema"
+    },
+    {
+      "source_id": "src_62f7cac4",
+      "publisher_name": "Szeged Megyei Jogú Város",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "https://www.szegedvaros.hu/esemeny-naptar",
+      "format": "HTML eseménynaptár",
+      "categories": "Városi programok",
+      "legal_basis": "Hivatalos publikus oldal",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Naptár- és sitemap-felderítés"
+    },
+    {
+      "source_id": "src_366ab8d1",
+      "publisher_name": "Budapest Főváros Önkormányzata",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://budapest.hu/kultura-es-orokseg/kultura",
+      "format": "HTML + külső intézményi linkek",
+      "categories": "Városi kultúra, fesztivál",
+      "legal_basis": "Hivatalos publikus oldal",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Link discovery, Event Schema extractor"
+    },
+    {
+      "source_id": "src_d4c70b03",
+      "publisher_name": "WeLoveBudapest",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://welovebudapest.com/programok/",
+      "format": "Magazin + programlista",
+      "categories": "Városi programok",
+      "legal_basis": "Szerkesztett aggregátor",
+      "dedupe_priority": "P0",
+      "parser_strategy": "Feltételek auditja, canonical source linkage"
+    },
+    {
+      "source_id": "src_0c75db8c",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/programok/pecs-varosi-majalis/",
+      "format": "HTML részletes eseményoldal",
+      "categories": "Városi fesztivál, közösségi program",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Event-page minta"
+    },
+    {
+      "source_id": "src_c928d6eb",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/programok/epiteszet-unnepe-es-ejszakaja/",
+      "format": "HTML részletes eseményoldal",
+      "categories": "Építészet, városi séta, kiállítás",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Event-page minta"
+    },
+    {
+      "source_id": "src_912b2578",
+      "publisher_name": "Budapest Portál archívum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://archiv.budapest.hu/Lapok/Programajanlo.aspx",
+      "format": "HTML naptár",
+      "categories": "Városi eseménynaptár",
+      "legal_basis": "Hivatalos archív oldal",
+      "audit_status": "Archív / alacsony prioritás"
+    },
+    {
+      "source_id": "src_97bba47a",
+      "publisher_name": "Debrecen Megyei Jogú Város",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "https://www.debrecen.hu/hu/turista/esemenyek-a-heten/",
+      "format": "HTML heti programlista",
+      "categories": "Heti programok",
+      "legal_basis": "Hivatalos publikus oldal; robots/ÁSZF audit szükséges",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_a8a373bf",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/programok/kertvarosi-majalis-pecs/",
+      "format": "HTML részletes eseményoldal",
+      "categories": "Közösségi, koncert, családi",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Event-page minta"
+    },
+    {
+      "source_id": "src_792f3a87",
+      "publisher_name": "Debrecen Megyei Jogú Város",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "https://www.debrecen.hu/hu/turista/rendezvenyek/",
+      "format": "HTML rendezvénylista",
+      "categories": "Városi rendezvények",
+      "legal_basis": "Hivatalos publikus oldal; robots/ÁSZF audit szükséges",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_f93c1399",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/turista-vagyok/",
+      "format": "HTML program- és turisztikai hub",
+      "categories": "Turisztikai programok",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_f1387c74",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/pecs-programkinalata-2026/",
+      "format": "HTML éves programlista",
+      "categories": "Városi programnaptár",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_63d51b38",
+      "publisher_name": "Budapest Főváros Önkormányzata",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://budapest.hu/szabadido/aktiv-budapest/sportnaptar",
+      "format": "HTML eseménynaptár",
+      "categories": "Sport, szabadidő",
+      "legal_basis": "Hivatalos publikus oldal; ÁSZF/robots audit szükséges",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_f9cab7ae",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/tavaszi-szunet-es-husvet-pecsen/",
+      "format": "HTML eseményválogatás",
+      "categories": "Családi, ünnepi program",
+      "legal_basis": "Hivatalos publikus oldal",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_b5e5ede7",
+      "publisher_name": "Pécs Megyei Jogú Város",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "https://pecs.hu/programok/",
+      "format": "HTML eseménynaptár",
+      "categories": "Városi programok",
+      "legal_basis": "Hivatalos publikus oldal; robots/ÁSZF audit szükséges",
+      "audit_status": "Seedelve"
+    },
+    {
+      "source_id": "src_bb1ca793",
+      "publisher_name": "Analog Music Hall",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "analogmusichall.com/events",
+      "format": "HTML",
+      "categories": "Koncert"
+    },
+    {
+      "source_id": "src_7970a828",
+      "publisher_name": "Czakó Kert",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "czakokert.hu",
+      "format": "HTML",
+      "categories": "Gasztronómia / Piac"
+    },
+    {
+      "source_id": "src_2a926698",
+      "publisher_name": "Fény utcai piac",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "fenyutcaipiac.hu",
+      "format": "HTML",
+      "categories": "Gasztronómia / Közösség"
+    },
+    {
+      "source_id": "src_a2124206",
+      "publisher_name": "Salgótarján.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Salgótarján",
+      "country_code": "HU",
+      "endpoint_url": "salgotarjan.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_1a185a11",
+      "publisher_name": "Művészetek Völgye",
+      "publisher_type": "Fesztivál",
+      "city": "Kapolcs",
+      "country_code": "HU",
+      "endpoint_url": "muveszetekvolgye.hu",
+      "format": "HTML/JSON",
+      "categories": "Fesztivál / Kultúra"
+    },
+    {
+      "source_id": "src_34d18403",
+      "publisher_name": "Bánkitó Fesztivál",
+      "publisher_type": "Fesztivál",
+      "city": "Bánk",
+      "country_code": "HU",
+      "endpoint_url": "bankitofesztival.hu/programok/",
+      "format": "HTML",
+      "categories": "Fesztivál / Underground"
+    },
+    {
+      "source_id": "src_b9718f7f",
+      "publisher_name": "Gyermekvasút",
+      "publisher_type": "Szabadidő",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "gyermekvasut.hu/programok",
+      "format": "HTML/RSS",
+      "categories": "Családi / Kirándulás"
+    },
+    {
+      "source_id": "src_27913019",
+      "publisher_name": "SZIN",
+      "publisher_type": "Fesztivál",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "szin.org/programok",
+      "format": "HTML",
+      "categories": "Fesztivál"
+    },
+    {
+      "source_id": "src_501f181f",
+      "publisher_name": "Vígszínház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "vigszinhaz.hu/musor",
+      "format": "HTML/JSON",
+      "categories": "Színház"
+    },
+    {
+      "source_id": "src_aa161bf1",
+      "publisher_name": "Nagykanizsa.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Nagykanizsa",
+      "country_code": "HU",
+      "endpoint_url": "nagykanizsa.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_edd4a00b",
+      "publisher_name": "Dunaújváros.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Dunaújváros",
+      "country_code": "HU",
+      "endpoint_url": "dunaujvaros.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_217af345",
+      "publisher_name": "Szépművészeti Múzeum",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "szepmuveszeti.hu/programok/",
+      "format": "HTML",
+      "categories": "Kiállítás"
+    },
+    {
+      "source_id": "src_c2ccdc83",
+      "publisher_name": "Nemzeti Színház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "nemzetiszinhaz.hu/musor",
+      "format": "HTML",
+      "categories": "Színház"
+    },
+    {
+      "source_id": "src_39718132",
+      "publisher_name": "Trafó",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "trafo.hu/programok",
+      "format": "HTML",
+      "categories": "Kultúra / Kortárs"
+    },
+    {
+      "source_id": "src_0a22a2e6",
+      "publisher_name": "Katona József Színház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "katonajozsefszinhaz.hu/musor",
+      "format": "HTML",
+      "categories": "Színház"
+    },
+    {
+      "source_id": "src_3c3be043",
+      "publisher_name": "Magyar Zene Háza",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "magyarzenehaza.com/programok",
+      "format": "HTML",
+      "categories": "Koncert / Kiállítás"
+    },
+    {
+      "source_id": "src_cb90a995",
+      "publisher_name": "Magyar Állami Operaház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "opera.hu/hu/musor/",
+      "format": "HTML",
+      "categories": "Opera / Balett"
+    },
+    {
+      "source_id": "src_8bc79427",
+      "publisher_name": "Fonó Budai Zeneház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "fono.hu/hu/programok",
+      "format": "HTML",
+      "categories": "Koncert / Népzene"
+    },
+    {
+      "source_id": "src_c0d4655d",
+      "publisher_name": "Jegy.hu",
+      "publisher_type": "Jegyrendszer",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "jegy.hu/programok",
+      "format": "HTML/JSON",
+      "categories": "Színház / Koncert / Kiemelt"
+    },
+    {
+      "source_id": "src_c378c486",
+      "publisher_name": "Campus Fesztivál",
+      "publisher_type": "Fesztivál",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "campusfesztival.hu/hu/program",
+      "format": "HTML",
+      "categories": "Fesztivál"
+    },
+    {
+      "source_id": "src_97ba2b81",
+      "publisher_name": "EFOTT",
+      "publisher_type": "Fesztivál",
+      "city": "Velence",
+      "country_code": "HU",
+      "endpoint_url": "efott.hu/programok",
+      "format": "HTML",
+      "categories": "Fesztivál / Egyetemi"
+    },
+    {
+      "source_id": "src_41ffdc21",
+      "publisher_name": "Balaton Sound",
+      "publisher_type": "Fesztivál",
+      "city": "Zamárdi",
+      "country_code": "HU",
+      "endpoint_url": "balatonsound.com/hu/programs",
+      "format": "HTML/JSON",
+      "categories": "Fesztivál / Elektronikus"
+    },
+    {
+      "source_id": "src_35a545c6",
+      "publisher_name": "Sziget Fesztivál",
+      "publisher_type": "Fesztivál",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "szigetfestival.com/hu/programs",
+      "format": "HTML/JSON",
+      "categories": "Fesztivál"
+    },
+    {
+      "source_id": "src_eb03955f",
+      "publisher_name": "Kobuci Kert",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "kobuci.hu/programok",
+      "format": "HTML",
+      "categories": "Koncert / Buli"
+    },
+    {
+      "source_id": "src_77ff44d9",
+      "publisher_name": "Instant-Fogas",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "instant-fogas.com/events/",
+      "format": "HTML",
+      "categories": "Buli / Klub"
+    },
+    {
+      "source_id": "src_b3a054a1",
+      "publisher_name": "Országos Kéktúra",
+      "publisher_type": "Szervezet",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "kektura.hu/hirek",
+      "format": "HTML",
+      "categories": "Túra"
+    },
+    {
+      "source_id": "src_f99da2e4",
+      "publisher_name": "Ludwig Múzeum",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "ludwigmuseum.hu/programok",
+      "format": "HTML",
+      "categories": "Kortárs Kiállítás"
+    },
+    {
+      "source_id": "src_0a192d7c",
+      "publisher_name": "Szekszárd.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Szekszárd",
+      "country_code": "HU",
+      "endpoint_url": "szekszard.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_46860d98",
+      "publisher_name": "Marczi Közösségi Tér",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "marczi.hu/Content/programok",
+      "format": "HTML",
+      "categories": "Kultúra / Családi"
+    },
+    {
+      "source_id": "src_06d2fe3a",
+      "publisher_name": "Eger.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Eger",
+      "country_code": "HU",
+      "endpoint_url": "eger.hu/programok",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_bb970548",
+      "publisher_name": "Szolnok.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Szolnok",
+      "country_code": "HU",
+      "endpoint_url": "szolnok.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_1f9b64c7",
+      "publisher_name": "Nyíregyháza.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Nyíregyháza",
+      "country_code": "HU",
+      "endpoint_url": "nyiregyhaza.hu/programok",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_221035c9",
+      "publisher_name": "Székesfehérvár.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Székesfehérvár",
+      "country_code": "HU",
+      "endpoint_url": "szekesfehervar.hu/programok",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_9945eb66",
+      "publisher_name": "Szombathely.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Szombathely",
+      "country_code": "HU",
+      "endpoint_url": "szombathely.hu/programok",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_8947fcc6",
+      "publisher_name": "Zalaegerszeg.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Zalaegerszeg",
+      "country_code": "HU",
+      "endpoint_url": "zalaegerszeg.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_c53f8e12",
+      "publisher_name": "Kaposvár.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Kaposvár",
+      "country_code": "HU",
+      "endpoint_url": "kaposvar.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_28f4a67c",
+      "publisher_name": "Békéscsaba.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Békéscsaba",
+      "country_code": "HU",
+      "endpoint_url": "bekescsaba.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_e5ab681d",
+      "publisher_name": "Kecskemét.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Kecskemét",
+      "country_code": "HU",
+      "endpoint_url": "kecskemet.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_3205c0f8",
+      "publisher_name": "Tatabánya.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Tatabánya",
+      "country_code": "HU",
+      "endpoint_url": "tatabanya.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_15904ee5",
+      "publisher_name": "Kolorádó",
+      "publisher_type": "Fesztivál",
+      "city": "Nagykovácsi",
+      "country_code": "HU",
+      "endpoint_url": "kolorado.hu/program",
+      "format": "HTML",
+      "categories": "Fesztivál / Underground"
+    },
+    {
+      "source_id": "src_2a2dca8e",
+      "publisher_name": "Néprajzi Múzeum",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "neprajz.hu/programok",
+      "format": "HTML",
+      "categories": "Kiállítás"
+    },
+    {
+      "source_id": "src_44c4238d",
+      "publisher_name": "Ticketportal",
+      "publisher_type": "Jegyrendszer",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "ticketportal.hu",
+      "format": "HTML",
+      "categories": "Sport / Koncert"
+    },
+    {
+      "source_id": "src_76b532f3",
+      "publisher_name": "Pilisi Parkerdő",
+      "publisher_type": "Szervezet",
+      "city": "Pilis",
+      "country_code": "HU",
+      "endpoint_url": "parkerdo.hu/esemenyek",
+      "format": "HTML",
+      "categories": "Túra / Családi"
+    },
+    {
+      "source_id": "src_b68c0935",
+      "publisher_name": "Bükki Nemzeti Park",
+      "publisher_type": "Nemzeti Park",
+      "city": "Bükk",
+      "country_code": "HU",
+      "endpoint_url": "bnpi.hu/hu/programok",
+      "format": "HTML",
+      "categories": "Túra / Természet"
+    },
+    {
+      "source_id": "src_a34d846c",
+      "publisher_name": "Balaton-felvidéki NP",
+      "publisher_type": "Nemzeti Park",
+      "city": "Balaton",
+      "country_code": "HU",
+      "endpoint_url": "bfnp.hu/hu/programok",
+      "format": "HTML",
+      "categories": "Túra / Természet"
+    },
+    {
+      "source_id": "src_bd1f4d4e",
+      "publisher_name": "Duna-Ipoly NP",
+      "publisher_type": "Nemzeti Park",
+      "city": "Duna-Ipoly",
+      "country_code": "HU",
+      "endpoint_url": "dunaipoly.hu/hu/programok",
+      "format": "HTML",
+      "categories": "Túra / Természet"
+    },
+    {
+      "source_id": "src_ea40bac8",
+      "publisher_name": "Fővárosi Állatkert",
+      "publisher_type": "Szabadidő",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "zoobudapest.com/tervezz-velunk/programok",
+      "format": "HTML",
+      "categories": "Családi / Állatkert"
+    },
+    {
+      "source_id": "src_c9a3df99",
+      "publisher_name": "Tropicarium",
+      "publisher_type": "Szabadidő",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "tropicarium.hu",
+      "format": "HTML",
+      "categories": "Családi"
+    },
+    {
+      "source_id": "src_5339455d",
+      "publisher_name": "Csodák Palotája",
+      "publisher_type": "Szabadidő",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "csopa.hu",
+      "format": "HTML",
+      "categories": "Családi / Tudomány"
+    },
+    {
+      "source_id": "src_f404ea65",
+      "publisher_name": "Fishing on Orfű",
+      "publisher_type": "Fesztivál",
+      "city": "Orfű",
+      "country_code": "HU",
+      "endpoint_url": "fishingonorfu.hu",
+      "format": "HTML",
+      "categories": "Fesztivál / Alter"
+    },
+    {
+      "source_id": "src_5fcb7997",
+      "publisher_name": "Magyar Nemzeti Múzeum",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "mnm.hu/hu/programok",
+      "format": "HTML",
+      "categories": "Kiállítás"
+    },
+    {
+      "source_id": "src_0a88a33d",
+      "publisher_name": "Magyar Nemzeti Galéria",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "mng.hu/programok/",
+      "format": "HTML",
+      "categories": "Kiállítás"
+    },
+    {
+      "source_id": "src_6edf173b",
+      "publisher_name": "Örkény Színház",
+      "publisher_type": "Kultúra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "orkenyszinhaz.hu/hu/musor",
+      "format": "HTML",
+      "categories": "Színház"
+    },
+    {
+      "source_id": "src_dd89901d",
+      "publisher_name": "Sopron.hu",
+      "publisher_type": "Önkormányzat",
+      "city": "Sopron",
+      "country_code": "HU",
+      "endpoint_url": "sopron.hu",
+      "format": "HTML",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_7c42d344",
+      "publisher_name": "Eventim",
+      "publisher_type": "Jegyrendszer",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "eventim.hu",
+      "format": "HTML",
+      "categories": "Nagykoncert / Fesztivál"
+    },
+    {
+      "source_id": "src_80c1150a",
+      "publisher_name": "Valyo - Város és Folyó",
+      "publisher_type": "Civil Szervezet",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "valyo.hu/programok/",
+      "format": "HTML",
+      "categories": "Közösség / Duna / Part"
+    },
+    {
+      "source_id": "src_7853f4e5",
+      "publisher_name": "Budapestimami",
+      "publisher_type": "Gyűjtőportál",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "budapestimami.hu/programok",
+      "format": "HTML",
+      "categories": "Családi / Közösség"
+    },
+    {
+      "source_id": "src_8b02ea7c",
+      "publisher_name": "Futanet (BSI)",
+      "publisher_type": "Versenyszervező",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "futanet.hu/cikk/esemenynaptar",
+      "format": "HTML/RSS",
+      "categories": "Futás / Úszás / Tömegsport"
+    },
+    {
+      "source_id": "src_b0bd23bd",
+      "publisher_name": "Magyar Kerékpárosklub",
+      "publisher_type": "Civil Szervezet",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "kerekparosklub.hu/esemenyek",
+      "format": "HTML/RSS",
+      "categories": "Bicikli / Közösség"
+    },
+    {
+      "source_id": "src_451a1147",
+      "publisher_name": "Vízitúra.hu",
+      "publisher_type": "Túraszervező",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "vizitura.hu/programok/",
+      "format": "HTML",
+      "categories": "Kajak / Kenu / Vízitúra"
+    },
+    {
+      "source_id": "src_208f75dd",
+      "publisher_name": "Budapest Garden",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "budapestgarden.com/programok",
+      "format": "HTML",
+      "categories": "Szabadidő / Sport / Közösség"
+    },
+    {
+      "source_id": "src_82fa94a6",
+      "publisher_name": "Sportnaptár",
+      "publisher_type": "Gyűjtőportál",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "sportnaptar.hu",
+      "format": "HTML",
+      "categories": "Sport / Közösség"
+    },
+    {
+      "source_id": "src_7ad8491c",
+      "publisher_name": "Fellini Római Kultúrbisztró",
+      "publisher_type": "Kultúrtér / Kocsma",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "felliniromaikultura.hu/programok",
+      "format": "HTML",
+      "categories": "Közösség / Kultúra / Sütögetés"
+    },
+    {
+      "source_id": "src_7bcb4ba9",
+      "publisher_name": "Balaton-átúszás hivatalos",
+      "publisher_type": "Versenyszervező",
+      "city": "Balatonboglár",
+      "country_code": "HU",
+      "endpoint_url": "balaton-atuszas.hu/hirek/",
+      "format": "HTML",
+      "categories": "Úszás / Tömegsport"
+    },
+    {
+      "source_id": "src_a5b1e926",
+      "publisher_name": "Koncert.hu",
+      "publisher_type": "Gyűjtőportál",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "koncert.hu/esemenyek",
+      "format": "HTML",
+      "categories": "Koncert / Zene"
+    },
+    {
+      "source_id": "src_11362629",
+      "publisher_name": "We Love Balaton",
+      "publisher_type": "Gyűjtőportál",
+      "city": "Balaton",
+      "country_code": "HU",
+      "endpoint_url": "welovebalaton.hu/programok",
+      "format": "HTML/RSS",
+      "categories": "Program / Balaton / Közösség"
+    },
+    {
+      "source_id": "src_c1f0b571",
+      "publisher_name": "Meetup Budapest",
+      "publisher_type": "Közösségi Platform",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "meetup.com/find/?location=hu--Budapest&source=EVENTS",
+      "format": "HTML/API",
+      "categories": "Közösség / Társas / Szakmai"
+    },
+    {
+      "source_id": "src_785a9205",
+      "publisher_name": "Aktív Magyarország",
+      "publisher_type": "Állami / Turisztika",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "aktivmagyarorszag.hu/esemenyek/",
+      "format": "HTML",
+      "categories": "Túra / Szabadidő / Sport"
+    },
+    {
+      "source_id": "src_afd34988",
+      "publisher_name": "Tekerj.hu",
+      "publisher_type": "Közösség",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "tekerj.hu/esemenyek",
+      "format": "HTML",
+      "categories": "Bicikli / Közösség"
+    },
+    {
+      "source_id": "src_249654e4",
+      "publisher_name": "Mozgásvilág",
+      "publisher_type": "Gyűjtőportál",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "mozgasvilag.hu/esemenynaptar",
+      "format": "HTML/API",
+      "categories": "Sport / Outdoor / Túra"
+    },
+    {
+      "source_id": "src_bf0d4d40",
+      "publisher_name": "Két Rombusz (Római-part)",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "ketrombusz.hu",
+      "format": "HTML",
+      "categories": "Közösség / Sütögetés / Kocsma"
+    },
+    {
+      "source_id": "src_af8ba4a4",
+      "publisher_name": "Jegy.hu Budapest",
+      "country_code": "HU",
+      "endpoint_url": "https://www.jegy.hu/city/budapest",
+      "format": "HTML városoldal",
+      "categories": "Budapesti ticketed események",
+      "parser_strategy": "Városi event URL discovery"
+    },
+    {
+      "source_id": "src_36c0c003",
+      "publisher_name": "TTT hike plans",
+      "country_code": "HU",
+      "endpoint_url": "https://tturak.hu/hikePlans/",
+      "format": "HTML túralista",
+      "categories": "Tervezett túrák",
+      "parser_strategy": "Túraadatlap- és szervezőparser. tturak"
+    },
+    {
+      "source_id": "src_84ce47ce",
+      "publisher_name": "Koncert.hu helyszín endpoint-minta",
+      "country_code": "HU",
+      "endpoint_url": "https://www.koncert.hu/helyszin/kertem",
+      "format": "HTML venue oldal",
+      "categories": "Venue programok",
+      "parser_strategy": "Venue graph + eseménylink-felderítés. koncert"
+    },
+    {
+      "source_id": "src_d033f93f",
+      "publisher_name": "Jegy.hu fő kereső",
+      "country_code": "HU",
+      "endpoint_url": "https://www.jegy.hu/",
+      "format": "HTML eseménykereső",
+      "categories": "Ticketed események",
+      "parser_strategy": "Kategória- és városi event URL discovery"
+    },
+    {
+      "source_id": "src_81feea59",
+      "publisher_name": "Túratárs",
+      "country_code": "HU",
+      "endpoint_url": "http://www.turatars.com/",
+      "format": "Közösségi HTML platform",
+      "categories": "Túrák, túratárs, outdoor közösség",
+      "parser_strategy": "Csak publikus listák; feed/API discovery és feltételek auditja szükséges. turatars"
+    },
+    {
+      "source_id": "src_a7edd456",
+      "publisher_name": "HetiProgram",
+      "country_code": "HU",
+      "endpoint_url": "https://hetiprogram.hu/",
+      "format": "HTML programaggregátor",
+      "categories": "Vegyes programok",
+      "parser_strategy": "Esemény-link discovery, canonical forrás megőrzése. hetiprogram"
+    },
+    {
+      "source_id": "src_e863d577",
+      "publisher_name": "Koncert.hu koncertlista",
+      "country_code": "HU",
+      "endpoint_url": "https://www.koncert.hu/lista/koncertek",
+      "format": "HTML eseménylista",
+      "categories": "Koncert, fesztivál, klub",
+      "parser_strategy": "Dátum-, helyszín- és fellépőparser; a portál saját koncertfeltöltést is támogat. koncert+1"
+    },
+    {
+      "source_id": "src_3e8626e9",
+      "publisher_name": "Jegy.hu koncert kategória",
+      "country_code": "HU",
+      "endpoint_url": "https://www.jegy.hu/event/category/koncert-zene-3",
+      "format": "HTML kategóriaoldal",
+      "categories": "Zene, koncert",
+      "parser_strategy": "Esemény-lista parser"
+    },
+    {
+      "source_id": "src_92c7970a",
+      "publisher_name": "Programturizmus Szeged",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-szeged.html",
+      "format": "HTML települési naptár",
+      "categories": "Városi programok",
+      "parser_strategy": "HTML + canonical origin extraction"
+    },
+    {
+      "source_id": "src_8f5540fa",
+      "publisher_name": "Programturizmus",
+      "city": "Szombathely",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-szombathely.html",
+      "format": "Települési programkatalógus",
+      "notes": "Szombathelyi programok és látnivalók. programturizmus"
+    },
+    {
+      "source_id": "src_16101029",
+      "publisher_name": "Magyar Gamer Szövetség",
+      "country_code": "HU",
+      "endpoint_url": "https://gamerszovetseg.hu/hu/events",
+      "format": "HTML eseménylista",
+      "categories": "E-sport, gamer meetup, verseny",
+      "parser_strategy": "Verseny-, nevezés- és offline event parser. gamerszovetseg"
+    },
+    {
+      "source_id": "src_b87dd038",
+      "publisher_name": "Meetup",
+      "country_code": "HU",
+      "endpoint_url": "https://www.meetup.com/",
+      "format": "Hivatalos GraphQL API / HTML",
+      "categories": "Tech, társasjáték, hobbi, nyelv, közösség",
+      "parser_strategy": "A hivatalos Meetup GraphQL API és dokumentált eseményobjektumok használata. meetup+1"
+    },
+    {
+      "source_id": "src_2e0f5384",
+      "publisher_name": "Programturizmus",
+      "city": "Mohács",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-mohacs.html",
+      "format": "Települési programkatalógus",
+      "notes": "Városi és fesztiváljellegű programok. programturizmus"
+    },
+    {
+      "source_id": "src_f939bc7c",
+      "publisher_name": "Programturizmus holnapi naptár",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/naptar-holnap.html",
+      "format": "HTML eseménynaptár",
+      "categories": "Napi országos események",
+      "parser_strategy": "Dátumlista parser, event-detail URL-ek"
+    },
+    {
+      "source_id": "src_bf229714",
+      "publisher_name": "Szeged MJV",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "https://www.szegedvaros.hu/esemenynaptar",
+      "format": "Hivatalos eseménynaptár",
+      "notes": "Városi események. szegedvaros"
+    },
+    {
+      "source_id": "src_5b3d969c",
+      "publisher_name": "TTT / TTurak fő naptár",
+      "country_code": "HU",
+      "endpoint_url": "https://tturak.hu/turanaptar",
+      "format": "HTML túranaptár",
+      "categories": "Teljesítménytúra, túra",
+      "parser_strategy": "Túra-dátum, táv, szint, szervező, rajt/cél parser. tturak"
+    },
+    {
+      "source_id": "src_7af0e756",
+      "publisher_name": "Programturizmus",
+      "city": "Győr",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-gyor.html?f=10",
+      "format": "Települési programkatalógus",
+      "notes": "Győri szabadidős, kulturális és rendezvényprogramok. programturizmus"
+    },
+    {
+      "source_id": "src_e44d96c2",
+      "publisher_name": "Szeged Tourinform",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "http://szegedtourism.szegedvaros.hu/hu/esemenyek/",
+      "format": "Turisztikai eseményarchívum",
+      "notes": "Turisztikai és helyi rendezvények. szegedtourism.szegedvaros"
+    },
+    {
+      "source_id": "src_d6b747b4",
+      "publisher_name": "Programturizmus",
+      "city": "Kistelek",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-kistelek.html",
+      "format": "Települési programkatalógus",
+      "notes": "Városi programok és rendezvények. programturizmus"
+    },
+    {
+      "source_id": "src_2c6920cd",
+      "publisher_name": "Programturizmus",
+      "city": "Zamárdi",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-zamardi.html",
+      "format": "Települési programkatalógus",
+      "notes": "Balatoni, nyári, kulturális és szabadidős események. programturizmus"
+    },
+    {
+      "source_id": "src_46cd5bf0",
+      "publisher_name": "Programturizmus",
+      "city": "Hollókő",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-holloko.html",
+      "format": "Települési programkatalógus",
+      "notes": "Hagyományőrző, turisztikai és kulturális programok. programturizmus"
+    },
+    {
+      "source_id": "src_6dca6faf",
+      "publisher_name": "Programturizmus",
+      "city": "Hegykő",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-hegyko.html",
+      "format": "Települési programkatalógus",
+      "notes": "Helyi turisztikai és rendezvényprogramok. programturizmus"
+    },
+    {
+      "source_id": "src_415bd6a5",
+      "publisher_name": "Programturizmus",
+      "city": "Szentendre",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-szentendre.html",
+      "format": "Települési programkatalógus",
+      "notes": "Kulturális, turisztikai és városi programok. programturizmus"
+    },
+    {
+      "source_id": "src_d7efd21e",
+      "publisher_name": "Programturizmus",
+      "city": "Kisbér",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-kisber.html",
+      "format": "Települési programkatalógus",
+      "notes": "Városi és térségi programok. programturizmus"
+    },
+    {
+      "source_id": "src_7dcea710",
+      "publisher_name": "Museum.hu",
+      "country_code": "HU",
+      "endpoint_url": "https://www.museum.hu/esemenynaptar",
+      "format": "HTML országos eseménynaptár",
+      "categories": "Múzeum, kiállítás, családi program",
+      "parser_strategy": "Dátum- és intézményoldal parser. museum"
+    },
+    {
+      "source_id": "src_cf37fa6c",
+      "publisher_name": "Programturizmus",
+      "city": "Kőröshegy",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-koroshegy.html",
+      "format": "Települési programkatalógus",
+      "notes": "Balaton-környéki programok és rendezvények. programturizmus"
+    },
+    {
+      "source_id": "src_920c800c",
+      "publisher_name": "Programturizmus",
+      "city": "Mátrafüred",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-matrafured.html",
+      "format": "Települési programkatalógus",
+      "notes": "Túra-, hegyvidéki és turisztikai események. programturizmus"
+    },
+    {
+      "source_id": "src_48a04904",
+      "publisher_name": "Programturizmus éves naptár",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/naptar-2026.html",
+      "format": "HTML eseménynaptár",
+      "categories": "Éves országos események",
+      "parser_strategy": "Dátumlista parser, event-detail URL-ek"
+    },
+    {
+      "source_id": "src_4cd16a73",
+      "publisher_name": "Koncert.hu archívum",
+      "country_code": "HU",
+      "endpoint_url": "https://www.koncert.hu/lista/koncert-archivum",
+      "format": "HTML archívum",
+      "categories": "Zenei eseménytörténet",
+      "parser_strategy": "Csak történeti indexhez; nem „közelgő” ingesthez. koncert"
+    },
+    {
+      "source_id": "src_8416f530",
+      "publisher_name": "Jegy.hu dátumnaptár",
+      "country_code": "HU",
+      "endpoint_url": "https://www.jegy.hu/calendar",
+      "format": "HTML kereső/naptár",
+      "categories": "Színház, koncert, fesztivál, sport",
+      "parser_strategy": "Hivatalos partner/API vizsgálata, HTML csak feltételek szerint"
+    },
+    {
+      "source_id": "src_9d580d31",
+      "publisher_name": "Programturizmus",
+      "city": "Békésszentandrás",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-bekesszentandras.html",
+      "format": "Települési programkatalógus",
+      "notes": "Helyi és térségi szabadidős programok. programturizmus"
+    },
+    {
+      "source_id": "src_ed32da64",
+      "publisher_name": "Teljesítménytúrázók Társasága",
+      "country_code": "HU",
+      "endpoint_url": "https://www.teljesitmenyturazoktarsasaga.hu/naptar",
+      "format": "HTML eseménynaptár",
+      "categories": "Túranaptár",
+      "parser_strategy": "Másodlagos túra-validáció. teljesitmenyturazoktarsasaga"
+    },
+    {
+      "source_id": "src_71ce7db5",
+      "publisher_name": "Programturizmus",
+      "city": "Kőszeg",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-koszeg.html",
+      "format": "Települési programkatalógus",
+      "notes": "Városi programok, rendezvények, szolgáltatások. programturizmus"
+    },
+    {
+      "source_id": "src_b00f110e",
+      "publisher_name": "Programturizmus",
+      "city": "Mór",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-mor.html",
+      "format": "Települési programkatalógus",
+      "notes": "Helyi, turisztikai és borvidéki események. programturizmus"
+    },
+    {
+      "source_id": "src_f3634a6a",
+      "publisher_name": "Programturizmus",
+      "city": "Százhalombatta",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-szazhalombatta.html",
+      "format": "Települési programkatalógus",
+      "notes": "Városi programok és rendezvényajánlók. programturizmus"
+    },
+    {
+      "source_id": "src_5ffcd5ab",
+      "publisher_name": "Programturizmus",
+      "city": "Hortobágy",
+      "country_code": "HU",
+      "endpoint_url": "https://www.programturizmus.hu/telepules-hortobagy-telepules.html",
+      "format": "Települési programkatalógus",
+      "notes": "Természeti, hagyományőrző és turisztikai programok. programturizmus"
+    },
+    {
+      "source_id": "src_1227a997",
+      "publisher_name": "Vault 51 Gamer Bar",
+      "publisher_type": "Kocsma",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "vault51gamerbar.hu",
+      "format": "HTML",
+      "categories": "Gamer / Társasjáték / Esport"
+    },
+    {
+      "source_id": "src_4353f107",
+      "publisher_name": "Természetjáró.hu",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "termeszetjaro.hu/hu/tours/",
+      "categories": "Túra / Outdoor"
+    },
+    {
+      "source_id": "src_b31adae8",
+      "publisher_name": "Pécs Program",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "pecsprogram.hu",
+      "categories": "Városi rendezvények"
+    },
+    {
+      "source_id": "src_71f9c9bc",
+      "publisher_name": "Akvárium Klub",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "akvariumklub.hu/programok",
+      "categories": "Koncert / Buli"
+    },
+    {
+      "source_id": "src_fb405ca3",
+      "publisher_name": "A38 Hajó",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "a38.hu/hu/programok",
+      "categories": "Koncert"
+    },
+    {
+      "source_id": "src_524f4899",
+      "publisher_name": "Metagame Kártyabolt",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "metagames.hu/esemenyek",
+      "format": "HTML",
+      "categories": "Kártyajáték / MTG / Verseny"
+    },
+    {
+      "source_id": "src_e1ba950d",
+      "publisher_name": "Infinity Esport Bar",
+      "publisher_type": "Kocsma",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "infinity-esport.hu",
+      "format": "HTML",
+      "categories": "Gamer / Esport / Kocsma"
+    },
+    {
+      "source_id": "src_ae944a44",
+      "publisher_name": "InGame Esport Lounge",
+      "publisher_type": "Kocsma",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "ingame.hu",
+      "format": "HTML",
+      "categories": "Gamer / Esport / VR"
+    },
+    {
+      "source_id": "src_fb849d0a",
+      "publisher_name": "Gamerland",
+      "publisher_type": "E-sport Központ",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "gamerland.hu/programok",
+      "format": "HTML",
+      "categories": "Esport / VR / Gamer"
+    },
+    {
+      "source_id": "src_3fe2c2d2",
+      "publisher_name": "HammerTime Cafe",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "hammertimecafe.hu",
+      "format": "HTML",
+      "categories": "Társasjáték / Wargame / Geek"
+    },
+    {
+      "source_id": "src_85c0876e",
+      "publisher_name": "Szellemlovas",
+      "publisher_type": "Közösségi tér",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "szellemlovas.hu",
+      "format": "HTML",
+      "categories": "Társasjáték / Kártyajáték"
+    },
+    {
+      "source_id": "src_53d996f2",
+      "publisher_name": "Game Up Pub",
+      "publisher_type": "Kocsma",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "gameup.hu",
+      "format": "HTML",
+      "categories": "Társasjáték / Kocsma"
+    },
+    {
+      "source_id": "src_ccfdc8d0",
+      "publisher_name": "Flippermúzeum",
+      "publisher_type": "Múzeum",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "flippermuzeum.hu",
+      "format": "HTML",
+      "categories": "Retro Gamer / Játékterem"
+    },
+    {
+      "source_id": "src_5f6c5bb8",
+      "publisher_name": "Arcadia Játékterem",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "arcadiajatekterem.hu",
+      "format": "HTML",
+      "categories": "Retro Gamer / Játékterem"
+    },
+    {
+      "source_id": "src_451a6bb4",
+      "publisher_name": "Sugár Bowling & Billiárd",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "sugarbowling.hu",
+      "format": "HTML",
+      "categories": "Bowling / Billiárd"
+    },
+    {
+      "source_id": "src_38cf5f2e",
+      "publisher_name": "Noiret Billiárd & Darts",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "noiret.hu",
+      "format": "HTML",
+      "categories": "Billiárd / Darts / Kocsma"
+    },
+    {
+      "source_id": "src_86b64a5f",
+      "publisher_name": "Gold Billiárd",
+      "publisher_type": "Szórakozóhely",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "goldbilliard.hu",
+      "format": "HTML",
+      "categories": "Billiárd / Darts"
+    },
+    {
+      "source_id": "src_f67a25dd",
+      "publisher_name": "PlayIT Show",
+      "publisher_type": "Fesztivál",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "playit.hu",
+      "format": "HTML",
+      "categories": "Gamer / Esport / Fesztivál"
+    },
+    {
+      "source_id": "src_eeeab057",
+      "publisher_name": "KockaPark",
+      "publisher_type": "Szabadidő",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "kockapark.com/programok",
+      "format": "HTML",
+      "categories": "LEGO / Családi / Kocka"
+    },
+    {
+      "source_id": "src_f5a4dc19",
+      "publisher_name": "MondoCon",
+      "publisher_type": "Fesztivál",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "mondocon.hu/programok",
+      "format": "HTML",
+      "categories": "Anime / Manga / Geek Fesztivál"
+    },
+    {
+      "source_id": "src_88b12e15",
+      "publisher_name": "Énbudapestem.hu",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "enbudapestem.hu/programok",
+      "categories": "Városi rendezvények"
+    },
+    {
+      "source_id": "src_22a2e1f1",
+      "publisher_name": "Dürer Kert",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "durerkert.com/events",
+      "categories": "Koncert / Buli"
+    },
+    {
+      "source_id": "src_f7f014da",
+      "publisher_name": "Zsolnay Negyed",
+      "city": "Pécs",
+      "country_code": "HU",
+      "endpoint_url": "zsolnaynegyed.hu/programok",
+      "categories": "Kultúra / Koncert"
+    },
+    {
+      "source_id": "src_02d7a7ba",
+      "publisher_name": "Board Game Café",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "boardgamecafe.hu/esemenyek",
+      "categories": "Társasjáték"
+    },
+    {
+      "source_id": "src_27efab8a",
+      "publisher_name": "Müpa",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "mupa.hu/programok",
+      "categories": "Kultúra / Koncert"
+    },
+    {
+      "source_id": "src_45da1543",
+      "publisher_name": "Gólya Presszó",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "golyapresszo.hu/events",
+      "categories": "Underground"
+    },
+    {
+      "source_id": "src_6ff2d7c3",
+      "publisher_name": "Szimpla Kert",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "szimpla.hu/programok",
+      "categories": "Kocsma / Kultúra"
+    },
+    {
+      "source_id": "src_21b7e873",
+      "publisher_name": "Budapest Park",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "budapestpark.hu/programok",
+      "categories": "Koncert"
+    },
+    {
+      "source_id": "src_c2f90a94",
+      "publisher_name": "Miskolc.hu",
+      "city": "Miskolc",
+      "country_code": "HU",
+      "endpoint_url": "miskolc.hu/programok",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_cae2ee46",
+      "publisher_name": "Szeged365.hu",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "szeged365.hu/feed/",
+      "categories": "Lokálpatrióta hírportál"
+    },
+    {
+      "source_id": "src_778d0d5f",
+      "publisher_name": "Szeged.hu",
+      "city": "Szeged",
+      "country_code": "HU",
+      "endpoint_url": "szeged.hu/rss",
+      "categories": "Hírek és Programok"
+    },
+    {
+      "source_id": "src_5e496690",
+      "publisher_name": "Debrecen.hu",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "debrecen.hu/hu/debreceni/programok",
+      "categories": "Önkormányzati"
+    },
+    {
+      "source_id": "src_b9c8e37d",
+      "publisher_name": "Teljesítménytúrázók T.",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "ttura.hu/naptar",
+      "categories": "Túra / Verseny"
+    },
+    {
+      "source_id": "src_268fb37f",
+      "publisher_name": "Túratárs.com",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "turatars.com/blog/main/",
+      "categories": "Túra / Közösség"
+    },
+    {
+      "source_id": "src_c6493f46",
+      "publisher_name": "Barcraft",
+      "city": "Bp, Szeged, Pécs",
+      "country_code": "HU",
+      "endpoint_url": "barcraft.hu",
+      "categories": "E-sport / Társas"
+    },
+    {
+      "source_id": "src_51b82b5a",
+      "publisher_name": "Cooltix",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "cooltix.hu/events",
+      "categories": "Party / Fesztivál"
+    },
+    {
+      "source_id": "src_b2170eca",
+      "publisher_name": "Játszóház Projekt",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "jatszohazprojekt.hu/esemenyek",
+      "categories": "Társasjáték"
+    },
+    {
+      "source_id": "src_4a70293e",
+      "publisher_name": "Barba Negra",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "barbanegra.hu",
+      "categories": "Koncert"
+    },
+    {
+      "source_id": "src_19ea459a",
+      "publisher_name": "Veszprém-Balaton",
+      "city": "Veszprém",
+      "country_code": "HU",
+      "endpoint_url": "veszprembalaton2023.hu/programok",
+      "categories": "Fesztivál / Kultúra"
+    },
+    {
+      "source_id": "src_7787c6f7",
+      "publisher_name": "Győri Művészeti K.",
+      "city": "Győr",
+      "country_code": "HU",
+      "endpoint_url": "mufegyor.hu/programok",
+      "categories": "Kultúra"
+    },
+    {
+      "source_id": "src_bb279db2",
+      "publisher_name": "Kölcsey Központ",
+      "city": "Debrecen",
+      "country_code": "HU",
+      "endpoint_url": "kolcseykozpont.hu/programok/",
+      "categories": "Koncert / Színház"
+    },
+    {
+      "source_id": "src_f9c4ceeb",
+      "publisher_name": "Három Holló",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "haromhollo.hu/programok",
+      "categories": "Kultúra"
+    },
+    {
+      "source_id": "src_d99af603",
+      "publisher_name": "Tixa",
+      "city": "Országos",
+      "country_code": "HU",
+      "endpoint_url": "tixa.hu/esemenyek",
+      "categories": "Underground koncertek"
+    },
+    {
+      "source_id": "src_db369f83",
+      "publisher_name": "Turbina",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "turbinabudapest.hu",
+      "categories": "Koncert / Buli"
+    },
+    {
+      "source_id": "src_86f4a830",
+      "publisher_name": "Társasjátékok Ünnepe",
+      "publisher_type": "Fesztivál",
+      "city": "Budapest",
+      "country_code": "HU",
+      "endpoint_url": "tarsasjatekokunnepe.hu",
+      "format": "HTML",
+      "categories": "Társasjáték / Fesztivál"
+    },
+    {
+      "source_id": "src_83ae5017",
+      "publisher_name": "Szegedi Borfesztivál / Szeged Napja",
+      "country_code": "HU",
+      "endpoint_url": "https://www.szegedvaros.hu/30-szegedi-borfesztival-szeged-napja-unnepsegsorozat-2026",
+      "categories": "Fesztivál, koncert, városi rendezvény"
+    },
+    {
+      "source_id": "src_4e73d5ef",
+      "publisher_name": "TTT Teljesítménytúra Naptár",
+      "country_code": "HU",
+      "endpoint_url": "https://tturak.hu/",
+      "categories": "Teljesítménytúra, gyalogtúra, túramozgalom"
+    },
+    {
+      "source_id": "src_86b6ea25",
+      "publisher_name": "BMC / Jegy.hu eseménykereső",
+      "country_code": "HU",
+      "endpoint_url": "https://bmc.jegy.hu/",
+      "categories": "Jazz, klasszikus, kortárs zene"
+    },
+    {
+      "source_id": "src_168e39c9",
+      "publisher_name": "OSZMI Színházi Adattár",
+      "country_code": "HU",
+      "endpoint_url": "https://oszmi.hu/hu/szinhazi-adattar",
+      "categories": "Színházi intézmények és adatbázis"
+    },
+    {
+      "source_id": "src_92b1d18a",
+      "publisher_name": "Miskolci Nemzeti Színház műsor",
+      "country_code": "HU",
+      "endpoint_url": "https://mnsz.hu/hu/musor",
+      "categories": "Színház, gyermekelőadás, koncert, vendégjáték"
+    },
+    {
+      "source_id": "src_a2664300",
+      "publisher_name": "Koncert.hu",
+      "country_code": "HU",
+      "endpoint_url": "https://www.koncert.hu/",
+      "categories": "Koncert, klubprogram, fesztivál"
+    },
+    {
+      "source_id": "src_2ebc6e57",
+      "publisher_name": "MU Színház műsornaptár",
+      "country_code": "HU",
+      "endpoint_url": "https://www.mu.hu/musornaptar/",
+      "categories": "Kortárs színház, élő és online előadás"
+    }
+  ]
+}

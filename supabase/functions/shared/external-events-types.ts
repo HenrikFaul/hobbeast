@@ -1,4 +1,4 @@
-export type ExternalEventSource = 'ticketmaster' | 'universe' | 'tickettailor' | 'seatgeek';
+export type ExternalEventSource = 'ticketmaster' | 'universe' | 'tickettailor' | 'seatgeek' | 'feed';
 
 export interface ExternalEventNormalized {
   external_source: ExternalEventSource;

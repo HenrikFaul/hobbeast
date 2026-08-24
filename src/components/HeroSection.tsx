@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import HeroMotionMedia from "@/components/HeroMotionMedia";
 import HeroSideStories from "@/components/HeroSideStories";
 import { getSessionHeroVariant, HERO_MEDIA_VARIANTS, type HeroVariantKey } from "@/lib/heroMedia";
+import { HOME_MARKETING_CONTRACT } from "@/content/marketingCopy";
 
 const quickStarts = [
   {
@@ -96,14 +97,14 @@ const HeroSection = () => {
             </motion.div>
 
             <motion.h1
-              aria-label="A város tele van közös történetekkel."
+              aria-label={HOME_MARKETING_CONTRACT.hero.accessibleHeading}
               initial={reduceMotion ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="max-w-4xl font-display text-[2.7rem] font-extrabold leading-[0.9] tracking-[-0.065em] text-white min-[360px]:text-[3.15rem] sm:text-[4.5rem] lg:text-[5.85rem] xl:text-[6.8rem]"
             >
-              A város tele van
-              <span className="block text-[#dfff62]">közös történetekkel.</span>
+              {HOME_MARKETING_CONTRACT.hero.headingLead}
+              <span className="block text-[#dfff62]">{HOME_MARKETING_CONTRACT.hero.headingAccent}</span>
             </motion.h1>
 
             <motion.p

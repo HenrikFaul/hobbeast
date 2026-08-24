@@ -18,21 +18,27 @@ import {
   INITIAL_TICKETMASTER_PARAMS,
   buildProviderOptions,
   enrichMapperRow,
+  eventFeedApprovalDraft,
   filterDbRows,
   getErrorMessage,
+  isEventFeedApprovalDraftReady,
   isAdminExternalProviderTab,
   normalizeDbQueryResult,
+  normalizeEventFeedStatus,
   rankDiscoveredCategoryMatches,
   resolveMappedCategory,
   deriveCategoryAliasInfo,
   type AdminExternalEventDto,
   type AdminExternalProviderTab,
+  type AdminEventFeedApprovalDraft,
   type DbConfigFormState,
   type ProviderRunState,
 } from './domain';
 import {
   discoverDbProviderFacets,
+  loadEventFeedStatus,
   loadProviderConfiguration,
+  probeEventFeedSource,
   previewSeatGeekAdmin,
   previewTicketmasterAdmin,
   pullEventbriteOrganizationEvents,
@@ -41,6 +47,8 @@ import {
   saveDbProviderConfigs,
   saveFunctionGroupProvider,
   searchEventbriteAdmin,
+  reviewEventFeedSource,
+  syncEventFeedSource,
   syncSeatGeekAdmin,
   syncTicketmasterAdmin,
   testAddressProvider,
@@ -65,6 +73,13 @@ export function useExternalEventsAdminController() {
   const [seatGeekEvents, setSeatGeekEvents] = useState<AdminExternalEventDto[]>([]);
   const [seatGeekLoading, setSeatGeekLoading] = useState(false);
   const [seatGeekInfo, setSeatGeekInfo] = useState<string | null>(null);
+
+  const [feedSnapshot, setFeedSnapshot] = useState(() => normalizeEventFeedStatus({}));
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedLoaded, setFeedLoaded] = useState(false);
+  const [feedActionSourceId, setFeedActionSourceId] = useState<string | null>(null);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedApprovalDrafts, setFeedApprovalDrafts] = useState<Record<string, AdminEventFeedApprovalDraft>>({});
 
   const [functionGroupProviders, setFunctionGroupProviders] = useState(INITIAL_FUNCTION_GROUP_PROVIDERS);
   const [providerLoading, setProviderLoading] = useState(true);
@@ -165,6 +180,35 @@ export function useExternalEventsAdminController() {
     }
   }, []);
 
+  const refreshFeedStatus = useCallback(async () => {
+    setFeedLoading(true);
+    setFeedError(null);
+    try {
+      const snapshot = await loadEventFeedStatus();
+      setFeedSnapshot(snapshot);
+      setFeedApprovalDrafts((current) => Object.fromEntries(snapshot.sources.map((source) => [
+        source.sourceId,
+        current[source.sourceId] ?? eventFeedApprovalDraft(source),
+      ])));
+      setFeedLoaded(true);
+    } catch (error) {
+      setFeedError(getErrorMessage(error, 'Nem sikerült betölteni a feed registry állapotát.'));
+    } finally {
+      setFeedLoading(false);
+    }
+  }, []);
+
+  const updateFeedApprovalDraft = useCallback((
+    sourceId: string,
+    patch: Partial<AdminEventFeedApprovalDraft>,
+  ) => {
+    setFeedApprovalDrafts((current) => {
+      const existing = current[sourceId];
+      if (!existing) return current;
+      return { ...current, [sourceId]: { ...existing, ...patch } };
+    });
+  }, []);
+
   useEffect(() => {
     void loadProviderState();
   }, [loadProviderState]);
@@ -172,6 +216,10 @@ export function useExternalEventsAdminController() {
   useEffect(() => {
     if (providerTab === 'places') void loadDbDiscovery(dbForm.table, dbForm.label);
   }, [dbForm.label, dbForm.table, loadDbDiscovery, providerTab]);
+
+  useEffect(() => {
+    if (providerTab === 'feeds' && !feedLoaded) void refreshFeedStatus();
+  }, [feedLoaded, providerTab, refreshFeedStatus]);
 
   const selectProviderTab = useCallback((value: string) => {
     if (isAdminExternalProviderTab(value)) setProviderTab(value);
@@ -294,6 +342,98 @@ export function useExternalEventsAdminController() {
       setSeatGeekLoading(false);
     }
   }, [previewSeatGeek, seatGeekParams]);
+
+  const probeFeed = useCallback(async (sourceId: string) => {
+    setFeedActionSourceId(sourceId);
+    setFeedError(null);
+    try {
+      const [result] = await probeEventFeedSource(sourceId);
+      toast.success(result
+        ? `Feed próba kész: ${result.discovered} észlelt, ${result.quarantined} karanténban.`
+        : 'Feed próba sikeresen lefutott.');
+      await refreshFeedStatus();
+    } catch (error) {
+      const message = getErrorMessage(error, 'A feed próbája nem sikerült.');
+      setFeedError(message);
+      toast.error(message);
+    } finally {
+      setFeedActionSourceId(null);
+    }
+  }, [refreshFeedStatus]);
+
+  const syncFeed = useCallback(async (sourceId: string) => {
+    setFeedActionSourceId(sourceId);
+    setFeedError(null);
+    try {
+      const [result] = await syncEventFeedSource(sourceId);
+      toast.success(result
+        ? `Feed szinkron kész: ${result.published} publikált, ${result.quarantined} karanténban.`
+        : 'Feed szinkron sikeresen lefutott.');
+      await refreshFeedStatus();
+    } catch (error) {
+      const message = getErrorMessage(error, 'A feed szinkronja nem sikerült.');
+      setFeedError(message);
+      toast.error(message);
+    } finally {
+      setFeedActionSourceId(null);
+    }
+  }, [refreshFeedStatus]);
+
+  const reviewFeed = useCallback(async (sourceId: string, decision: 'approved' | 'disabled') => {
+    const draft = feedApprovalDrafts[sourceId];
+    const reason = draft?.reason.trim() || '';
+    if (reason.length < 8) {
+      const message = 'A jóváhagyáshoz vagy kikapcsoláshoz legalább 8 karakteres indoklás szükséges.';
+      setFeedError(message);
+      toast.error(message);
+      return;
+    }
+    if (decision === 'approved' && !isEventFeedApprovalDraftReady(draft)) {
+      const message = 'A jóváhagyáshoz pontos fetch host, jóváhagyott jogi review, robots engedély és érvényes poll/minőség szükséges.';
+      setFeedError(message);
+      toast.error(message);
+      return;
+    }
+
+    setFeedActionSourceId(sourceId);
+    setFeedError(null);
+    try {
+      if (decision === 'approved' && draft) {
+        await reviewEventFeedSource({
+          sourceId,
+          decision,
+          reason,
+          enable: draft.enable,
+          fetchHosts: [draft.fetchHost.trim().toLocaleLowerCase('en-US')],
+          legalReviewStatus: 'approved',
+          robotsAllowed: true,
+          pollIntervalMinutes: draft.pollIntervalMinutes,
+          minPublishQuality: draft.minPublishQuality,
+        });
+      } else {
+        await reviewEventFeedSource({ sourceId, decision: 'disabled', reason });
+      }
+      setFeedApprovalDrafts((current) => current[sourceId]
+        ? {
+          ...current,
+          [sourceId]: {
+            ...current[sourceId],
+            legalReviewApproved: false,
+            robotsAllowed: false,
+            reason: '',
+          },
+        }
+        : current);
+      toast.success(decision === 'approved' ? 'Feed forrás jóváhagyva.' : 'Feed forrás kikapcsolva.');
+      await refreshFeedStatus();
+    } catch (error) {
+      const message = getErrorMessage(error, 'A feed felülvizsgálata nem sikerült.');
+      setFeedError(message);
+      toast.error(message);
+    } finally {
+      setFeedActionSourceId(null);
+    }
+  }, [feedApprovalDrafts, refreshFeedStatus]);
 
   const saveProvider = useCallback(async (group: AddressSearchFunctionGroup) => {
     setProviderSaving(true);
@@ -507,6 +647,21 @@ export function useExternalEventsAdminController() {
       setParams: setSeatGeekParams,
       preview: previewSeatGeek,
       sync: syncSeatGeek,
+    },
+    feeds: {
+      summary: feedSnapshot.summary,
+      sources: feedSnapshot.sources,
+      runs: feedSnapshot.runs,
+      loading: feedLoading,
+      actionSourceId: feedActionSourceId,
+      error: feedError,
+      approvalDrafts: feedApprovalDrafts,
+      updateApprovalDraft: updateFeedApprovalDraft,
+      refresh: refreshFeedStatus,
+      probe: probeFeed,
+      sync: syncFeed,
+      approve: (sourceId: string) => reviewFeed(sourceId, 'approved'),
+      disable: (sourceId: string) => reviewFeed(sourceId, 'disabled'),
     },
     providerConfig: {
       providers: functionGroupProviders,

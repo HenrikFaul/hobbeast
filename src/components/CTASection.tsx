@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { HOME_CTA_COPY, HOME_MARKETING_CONTRACT } from "@/content/marketingCopy";
 
 const CTASection = () => {
   const navigate = useNavigate();
@@ -28,15 +29,14 @@ const CTASection = () => {
             <div>
               <div className="inline-flex rotate-[-1deg] items-center gap-2 rounded-full border border-[#2f1711]/10 bg-[#fffdf7]/55 px-4 py-2 text-sm font-extrabold">
                 <Sparkles size={14} aria-hidden="true" />
-                Egy közös élménnyel kezdődik
+                {HOME_CTA_COPY.eyebrow}
               </div>
 
               <h2 className="mt-6 max-w-3xl text-balance font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-                Kezdjük egy közös délutánnal.
+                {HOME_CTA_COPY.heading}
               </h2>
               <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-[#2f1711]/[0.84] sm:text-lg">
-                Hozd, amit szeretsz. Találj valakit, aki kíváncsi rá. Tanuljatok,
-                mozogjatok, alkossatok vagy segítsetek együtt — a saját tempótokban.
+                {HOME_CTA_COPY.body}
               </p>
             </div>
 
@@ -44,18 +44,18 @@ const CTASection = () => {
               <Button
                 size="lg"
                 className="h-12 rounded-full border-[#183124] bg-[#183124] px-7 text-base font-bold text-white shadow-lg hover:bg-[#214c35] sm:px-8"
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate(HOME_MARKETING_CONTRACT.cta.primaryAction.route)}
               >
-                Ingyenes regisztráció
+                {HOME_MARKETING_CONTRACT.cta.primaryAction.accessibleName}
                 <ArrowRight size={18} aria-hidden="true" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="h-12 rounded-full border-[#2f1711]/20 bg-[#fffdf7]/35 px-7 text-base font-semibold text-[#2f1711] hover:bg-[#fffdf7]/60 hover:text-[#2f1711] sm:px-8"
-                onClick={() => navigate("/about")}
+                onClick={() => navigate(HOME_MARKETING_CONTRACT.cta.secondaryAction.route)}
               >
-                Tudj meg többet
+                {HOME_MARKETING_CONTRACT.cta.secondaryAction.accessibleName}
               </Button>
             </div>
           </div>
