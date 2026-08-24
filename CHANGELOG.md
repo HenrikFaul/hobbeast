@@ -39,6 +39,10 @@ release gates that previously stopped v1.9.6.
   formerly tracked `.env` had silently supplied it before repository hygiene was fixed.
 - Kept the full OrganizerDashboard characterization contract intact while giving its
   multi-tab async scenario a CI-safe 15-second timeout instead of the flaky 5-second default.
+- Repaired the duplicate `hobbeast-un8i` Vercel Git integration whose sensitive
+  Supabase variables existed with empty values. Production/Preview config was
+  synchronized and the failed deployment was rebuilt to READY; canonical domains
+  remain assigned to the `hobbeast` project.
 - Updated the release runbook from the retired Lovable publication path to the actual
   GitHub `main` → Vercel production path.
 
@@ -54,6 +58,8 @@ release gates that previously stopped v1.9.6.
   fixture was supplied.
 - GitHub Actions initially exposed the missing unit-test runtime config; the failure
   was fixed in the workflow rather than hidden or reclassified.
+- The canonical and duplicate Vercel commit-status contexts both completed
+  successfully after configuration repair.
 
 ### Operational boundary
 - AWS Location and Mapy browser keys remain public client configuration. Provider-side

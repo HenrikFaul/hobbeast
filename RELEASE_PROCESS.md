@@ -19,8 +19,10 @@ Hobbeast keeps release history in a **single** canonical file: [`CHANGELOG.md`](
 4. Commit with message `chore(release): X.Y.Z`.
 5. Push the reviewed commit to GitHub `main`. The linked Vercel project builds and
    assigns the production domains automatically.
-6. Verify the GitHub Actions run, the Vercel deployment state and a live browser smoke
-   on `https://expericentre.com` before declaring the release complete.
+6. Verify the GitHub Actions run, every Vercel context attached to the commit, the
+   canonical deployment state and a live browser smoke on `https://expericentre.com`
+   before declaring the release complete. A green canonical deployment does not hide
+   a failed duplicate/stale integration context.
 
 ## Archiving historical release docs
 

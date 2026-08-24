@@ -212,9 +212,12 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   Playwright imported a package that had never existed in the manifest.
 - **Root cause**: Visual delivery evidence was treated as release evidence while hosted CI
   configuration and inherited template tooling drifted independently. The tracked `.env`
-  also masked the fact that Vitest had no explicit CI runtime configuration.
+  also masked the fact that Vitest had no explicit CI runtime configuration. A second
+  Vercel Git integration existed with empty sensitive values and independently marked the
+  same commit failed even while the canonical deployment was READY.
 - **Fix**: Prove the Git index state directly, synchronize CI and GitHub Actions secrets to the
   current project, replace unavailable template tooling with the native runner, and require a
   zero-high dependency audit before publication.
 - **Prevention**: A production release must prove the same target and lockfile from local gates,
-  CI and hosting. Never infer deployability from a successful UI build alone.
+  CI and hosting. Inspect every commit-status context, not only the canonical deployment;
+  never infer deployability from a successful UI build alone.
