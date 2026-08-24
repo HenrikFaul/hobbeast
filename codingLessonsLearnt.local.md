@@ -211,7 +211,8 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   repository tracked `.env`, the dependency audit stopped on high/critical advisories, and
   Playwright imported a package that had never existed in the manifest.
 - **Root cause**: Visual delivery evidence was treated as release evidence while hosted CI
-  configuration and inherited template tooling drifted independently.
+  configuration and inherited template tooling drifted independently. The tracked `.env`
+  also masked the fact that Vitest had no explicit CI runtime configuration.
 - **Fix**: Prove the Git index state directly, synchronize CI and GitHub Actions secrets to the
   current project, replace unavailable template tooling with the native runner, and require a
   zero-high dependency audit before publication.

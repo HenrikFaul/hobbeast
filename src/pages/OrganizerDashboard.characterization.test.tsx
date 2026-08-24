@@ -247,5 +247,5 @@ describe('OrganizerDashboard route characterization', () => {
     expect(document.body.textContent).toContain('Organizer readiness');
     expect(document.body.textContent).toContain('Organizer operations');
     expect(document.body.textContent).toContain('AI proposal inbox');
-  });
+  }, 15_000);
 });

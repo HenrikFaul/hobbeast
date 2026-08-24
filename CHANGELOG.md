@@ -35,6 +35,10 @@ release gates that previously stopped v1.9.6.
 ### Fixed
 - Replaced the unavailable `lovable-agent-playwright-config` template import with a
   native Playwright configuration and retained a compatibility fixture entrypoint.
+- Gave the GitHub Actions unit-test step explicit public Supabase runtime config; the
+  formerly tracked `.env` had silently supplied it before repository hygiene was fixed.
+- Kept the full OrganizerDashboard characterization contract intact while giving its
+  multi-tab async scenario a CI-safe 15-second timeout instead of the flaky 5-second default.
 - Updated the release runbook from the retired Lovable publication path to the actual
   GitHub `main` → Vercel production path.
 
@@ -48,6 +52,8 @@ release gates that previously stopped v1.9.6.
 - Playwright — PASS: 6 unauthenticated/runtime checks passed; the single mutating,
   authenticated staging scenario was intentionally skipped because no disposable
   fixture was supplied.
+- GitHub Actions initially exposed the missing unit-test runtime config; the failure
+  was fixed in the workflow rather than hidden or reclassified.
 
 ### Operational boundary
 - AWS Location and Mapy browser keys remain public client configuration. Provider-side

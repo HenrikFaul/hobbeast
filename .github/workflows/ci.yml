@@ -38,6 +38,10 @@ jobs:
 
       - name: Unit tests (Vitest)
         run: bun run test
+        env:
+          VITE_SUPABASE_URL: https://bqdvqmpwccsxumzijspj.supabase.co
+          VITE_SUPABASE_PROJECT_ID: bqdvqmpwccsxumzijspj
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Lint
         run: bun run lint
