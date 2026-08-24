@@ -45,6 +45,8 @@ const RESPONSE_HEADER_CAP = 64 * 1024;
 const RESPONSE_HEADER_COUNT_CAP = 200;
 const RESPONSE_LINE_CAP = 8 * 1024;
 const RESPONSE_TRAILER_CAP = 16 * 1024;
+const RESPONSE_CHUNK_COUNT_CAP = 4_096;
+const RESPONSE_CHUNK_FRAMING_CAP = 256 * 1024;
 const REQUEST_HEADER_CAP = 32 * 1024;
 const READ_CHUNK_BYTES = 16 * 1024;
 const CRLF = new Uint8Array([13, 10]);
@@ -104,6 +106,14 @@ function joinedBytes(chunks: Uint8Array[], total: number) {
     offset += chunk.byteLength;
   }
   return result;
+}
+
+function hasUnsafeHeaderValue(value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === 127 || code <= 8 || (code >= 10 && code <= 31)) return true;
+  }
+  return false;
 }
 
 class BoundedConnectionReader {
@@ -201,7 +211,7 @@ function parseResponseHead(value: Uint8Array) {
     if (separator <= 0) throw transportError('Invalid HTTP response header', 'invalid_response');
     const name = line.slice(0, separator).trim().toLowerCase();
     const headerValue = line.slice(separator + 1).trim();
-    if (!/^[A-Za-z0-9!#$%&'*+.^_|~-]+$/.test(name) || /[\u0000-\u0008\u000a-\u001f\u007f]/.test(headerValue)) {
+    if (!/^[A-Za-z0-9!#$%&'*+.^_|~-]+$/.test(name) || hasUnsafeHeaderValue(headerValue)) {
       throw transportError('Unsafe HTTP response header', 'invalid_response');
     }
     headers.append(name, headerValue);
@@ -246,8 +256,23 @@ function isChunked(raw: Map<string, string[]>) {
 async function readChunkedBody(reader: BoundedConnectionReader, maxBodyBytes: number) {
   const chunks: Uint8Array[] = [];
   let total = 0;
+  let chunkCount = 0;
+  let framingBytes = 0;
+  const assertWireCap = () => {
+    if (framingBytes > RESPONSE_CHUNK_FRAMING_CAP
+      || total + framingBytes > maxBodyBytes + RESPONSE_CHUNK_FRAMING_CAP) {
+      throw transportError('HTTP chunked response framing exceeds its cap', 'body_too_large');
+    }
+  };
   while (true) {
-    const line = headerDecoder.decode(await reader.readLine());
+    chunkCount += 1;
+    if (chunkCount > RESPONSE_CHUNK_COUNT_CAP) {
+      throw transportError('HTTP chunked response contains too many chunks', 'invalid_response');
+    }
+    const rawLine = await reader.readLine();
+    framingBytes += rawLine.byteLength + CRLF.byteLength;
+    assertWireCap();
+    const line = headerDecoder.decode(rawLine);
     const sizeToken = line.split(';', 1)[0].trim();
     if (!/^[0-9a-f]+$/i.test(sizeToken)) throw transportError('Invalid HTTP chunk size', 'invalid_response');
     const sizeBigInt = BigInt('0x' + sizeToken);
@@ -260,6 +285,8 @@ async function readChunkedBody(reader: BoundedConnectionReader, maxBodyBytes: nu
       while (true) {
         const trailer = await reader.readLine();
         trailerBytes += trailer.byteLength + CRLF.byteLength;
+        framingBytes += trailer.byteLength + CRLF.byteLength;
+        assertWireCap();
         if (trailerBytes > RESPONSE_TRAILER_CAP) {
           throw transportError('HTTP response trailers exceed their cap', 'headers_too_large');
         }
@@ -273,6 +300,8 @@ async function readChunkedBody(reader: BoundedConnectionReader, maxBodyBytes: nu
 
     const chunk = await reader.readExact(size);
     const ending = await reader.readExact(CRLF.byteLength);
+    framingBytes += CRLF.byteLength;
+    assertWireCap();
     if (ending[0] !== CRLF[0] || ending[1] !== CRLF[1]) {
       throw transportError('Invalid HTTP chunk terminator', 'invalid_response');
     }
@@ -413,7 +442,13 @@ export const pinnedHttpsFetch: PinnedHttpsFetch = async (
       body = await reader.readToEof(maxBodyBytes);
     }
     head.headers.delete('connection');
-    return new Response(body, { status: head.status, statusText: head.statusText, headers: head.headers });
+    const responseBody = new Uint8Array(body.byteLength);
+    responseBody.set(body);
+    return new Response(responseBody.buffer, {
+      status: head.status,
+      statusText: head.statusText,
+      headers: head.headers,
+    });
   } catch (error) {
     if (signal?.aborted && !(error instanceof PinnedHttpsTransportError && error.code === 'body_too_large')) {
       throw abortError();

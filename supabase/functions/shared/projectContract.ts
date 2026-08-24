@@ -49,7 +49,7 @@ export function isTrustedLocalSupabaseUrl(value?: string | null) {
 
 export function assertProjectRole(
   value: string | null | undefined,
-  expectedRef = TARGET_SUPABASE_PROJECT_REF,
+  expectedRef: string = TARGET_SUPABASE_PROJECT_REF,
   options: { allowLocal?: boolean } = {},
 ) {
   const normalized = normalizeProjectUrl(value);

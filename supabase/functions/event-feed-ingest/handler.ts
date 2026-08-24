@@ -1,5 +1,9 @@
 import { verifyEventFeedCronRequest } from './cronAuth.ts';
-import { parseEventFeedRequest, EventFeedRequestError } from './requestContract.ts';
+import {
+  EventFeedRequestError,
+  parseEventFeedRawBody,
+  readEventFeedRequestBody,
+} from './requestContract.ts';
 import { EventFeedRepositoryError, type EventFeedRepository } from './repository.ts';
 import { processEventFeedClaim, type EventFeedClaim } from './processor.ts';
 
@@ -46,22 +50,42 @@ export interface EventFeedHandlerDependencies {
   syncDueBudgetMs?: number;
 }
 
-const SYNC_DUE_MAX_BATCHES = 3;
+const SYNC_DUE_MAX_BATCHES = 15;
 const SYNC_DUE_MAX_CLAIMS = 30;
+const SYNC_DUE_CLAIM_UNIT = 2;
 const SYNC_DUE_DEFAULT_BUDGET_MS = 60_000;
 const SYNC_DUE_BATCH_START_HEADROOM_MS = 15_000;
+const SYNC_DUE_FINALIZATION_HEADROOM_MS = 5_000;
 
 async function processClaims(
   claims: EventFeedClaim[],
   dependencies: EventFeedHandlerDependencies,
+  deadlineAt?: number,
 ) {
   const processClaim = dependencies.processClaim ?? processEventFeedClaim;
+  const nowMs = dependencies.nowMs ?? Date.now;
   const results: Array<Record<string, unknown>> = [];
   for (let index = 0; index < claims.length; index += 2) {
     const batch = claims.slice(index, index + 2);
-    const settled = await Promise.allSettled(batch.map((claim) => processClaim(
-      claim, dependencies.repository.processor, { resolveHost: dependencies.resolveHost },
-    )));
+    const settled = await Promise.allSettled(batch.map(async (claim) => {
+      const controller = deadlineAt === undefined ? null : new AbortController();
+      const remaining = deadlineAt === undefined
+        ? 0
+        : Math.max(1, deadlineAt - nowMs() - SYNC_DUE_FINALIZATION_HEADROOM_MS);
+      const timeout = controller ? setTimeout(() => controller.abort(), remaining) : null;
+      try {
+        return await processClaim(
+          claim,
+          dependencies.repository.processor,
+          {
+            resolveHost: dependencies.resolveHost,
+            ...(controller ? { signal: controller.signal } : {}),
+          },
+        );
+      } finally {
+        if (timeout !== null) clearTimeout(timeout);
+      }
+    }));
     settled.forEach((result, resultIndex) => {
       const claim = batch[resultIndex];
       if (result.status === 'fulfilled') results.push(result.value);
@@ -98,7 +122,10 @@ async function drainDueClaims(
     }
 
     const remaining = SYNC_DUE_MAX_CLAIMS - claimedCount;
-    const claimLimit = Math.min(batchSize, remaining);
+    // Claim only one concurrency unit at a time. This avoids leasing ten
+    // sources that cannot all reach their bounded network work before the
+    // invocation deadline; fast feeds can still drain up to 30 per call.
+    const claimLimit = Math.min(batchSize, remaining, SYNC_DUE_CLAIM_UNIT);
     const batchNumber = batchCount + 1;
     const claims = await dependencies.repository.claimDue(
       claimLimit,
@@ -113,7 +140,7 @@ async function drainDueClaims(
       break;
     }
 
-    results.push(...await processClaims(claims, dependencies));
+    results.push(...await processClaims(claims, dependencies, startedAt + budgetMs));
     if (claims.length < claimLimit) {
       exhausted = true;
       stopReason = 'exhausted';
@@ -131,6 +158,7 @@ async function drainDueClaims(
     failures,
     drain: {
       batch_size: batchSize,
+      claim_unit: Math.min(batchSize, SYNC_DUE_CLAIM_UNIT),
       batch_count: batchCount,
       claimed_count: claimedCount,
       processed_count: results.length,
@@ -185,8 +213,8 @@ export function createEventFeedHandler(dependencies: EventFeedHandlerDependencie
 
     let action = 'unknown';
     try {
-      const rawBody = await request.clone().text();
-      const body = await parseEventFeedRequest(request);
+      const rawBody = await readEventFeedRequestBody(request);
+      const body = parseEventFeedRawBody(rawBody);
       action = body.action;
 
       if (body.action === 'sync_due') {

@@ -122,6 +122,10 @@ export interface EventFeedParseResult {
   events: ParsedEventFeedItem[];
   discoveredFeedUrls: string[];
   warnings: string[];
+  /** True when the body implements a supported event or event-discovery contract. */
+  recognizedEventContract?: boolean;
+  /** True only when the parser recognized a complete structured event collection contract. */
+  recognizedCollection?: boolean;
 }
 
 export class EventFeedParseError extends Error {
@@ -130,6 +134,7 @@ export class EventFeedParseError extends Error {
     readonly code:
       | 'body_too_large'
       | 'unsafe_xml'
+      | 'malformed_xml'
       | 'unsupported_format'
       | 'malformed_payload',
   ) {

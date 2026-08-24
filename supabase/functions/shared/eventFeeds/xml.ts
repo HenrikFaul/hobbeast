@@ -1,4 +1,4 @@
-import { asIsoDate, cleanXmlText, decodeHtmlEntities, escapeRegExp } from './text.ts';
+import { asIsoDate, cleanXmlText, decodeHtmlEntities, escapeRegExp, parseEventDate } from './text.ts';
 import { EVENT_FEED_LIMITS, EventFeedParseError, type EventFeedCandidate } from './types.ts';
 
 const UNSAFE_XML_PATTERN = /<!\s*(?:DOCTYPE|ENTITY)\b/i;
@@ -96,8 +96,8 @@ const START_FIELDS = [
 ];
 const END_FIELDS = ['end', 'enddate', 'end_date', 'eventend', 'event_end', 'dtend', 'endtime', 'end_time'];
 
-function explicitEventDate(xml: string, fields: string[]) {
-  return asIsoDate(firstText(xml, fields, 128));
+function explicitEventDate(xml: string, fields: string[], sourceTimezone: string | null) {
+  return parseEventDate(firstText(xml, fields, 128), sourceTimezone);
 }
 
 function locationFromXml(xml: string) {
@@ -115,13 +115,19 @@ function statusFromXml(xml: string) {
   return status.includes('cancel') || status.includes('torolve') ? 'cancelled' as const : 'scheduled' as const;
 }
 
-export function parseRssCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.maxItems): EventFeedCandidate[] {
+export function parseRssCandidates(
+  xml: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+): EventFeedCandidate[] {
   assertSafeXml(xml);
   return elementBodies(xml, 'item', maxItems).map((item) => {
     const authorBody = firstElementBody(item, ['author']);
     const categories = allText(item, ['category', 'keywords']);
     const publishedAt = asIsoDate(firstText(item, ['pubDate', 'published', 'updated'], 128));
     const externalId = firstText(item, ['guid', 'id'], 512) || rssLink(item);
+    const start = explicitEventDate(item, START_FIELDS, sourceTimezone);
+    const end = explicitEventDate(item, END_FIELDS, sourceTimezone);
 
     return {
       format: 'rss',
@@ -130,8 +136,8 @@ export function parseRssCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.max
       description: firstText(item, ['description', 'summary', 'content'], EVENT_FEED_LIMITS.maxDescriptionChars),
       url: rssLink(item),
       imageUrl: imageUrl(item),
-      startAt: explicitEventDate(item, START_FIELDS),
-      endAt: explicitEventDate(item, END_FIELDS),
+      startAt: start.value,
+      endAt: end.value,
       // pubDate is publication metadata. It is deliberately never promoted to startAt.
       publishedAt,
       status: statusFromXml(item),
@@ -139,11 +145,16 @@ export function parseRssCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.max
       location: locationFromXml(item),
       sourceCategories: categories,
       classificationText: categories,
+      qualityBlockers: start.unresolvedTimezone ? ['missing_timezone'] : [],
     };
   });
 }
 
-export function parseAtomCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.maxItems): EventFeedCandidate[] {
+export function parseAtomCandidates(
+  xml: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+): EventFeedCandidate[] {
   assertSafeXml(xml);
   return elementBodies(xml, 'entry', maxItems).map((entry) => {
     const authorBody = firstElementBody(entry, ['author']);
@@ -151,6 +162,8 @@ export function parseAtomCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.ma
       .map((attributes) => attributes.get('term') ?? attributes.get('label') ?? '')
       .filter(Boolean)
       .slice(0, EVENT_FEED_LIMITS.maxTags);
+    const start = explicitEventDate(entry, START_FIELDS, sourceTimezone);
+    const end = explicitEventDate(entry, END_FIELDS, sourceTimezone);
 
     return {
       format: 'atom',
@@ -159,8 +172,8 @@ export function parseAtomCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.ma
       description: firstText(entry, ['summary', 'content'], EVENT_FEED_LIMITS.maxDescriptionChars),
       url: atomLink(entry),
       imageUrl: imageUrl(entry),
-      startAt: explicitEventDate(entry, START_FIELDS),
-      endAt: explicitEventDate(entry, END_FIELDS),
+      startAt: start.value,
+      endAt: end.value,
       // Atom published/updated are entry lifecycle timestamps, not event start times.
       publishedAt: asIsoDate(firstText(entry, ['published', 'updated'], 128)),
       status: statusFromXml(entry),
@@ -168,6 +181,7 @@ export function parseAtomCandidates(xml: string, maxItems = EVENT_FEED_LIMITS.ma
       location: locationFromXml(entry),
       sourceCategories: categories,
       classificationText: categories,
+      qualityBlockers: start.unresolvedTimezone ? ['missing_timezone'] : [],
     };
   });
 }

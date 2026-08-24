@@ -163,6 +163,282 @@ GRANT EXECUTE ON FUNCTION public.store_external_event_feed_raw_payload(
 -- Source policy transitions and complete-snapshot disappearance tracking.
 -- ---------------------------------------------------------------------------
 
+ALTER TABLE public.external_event_feed_sources
+  ADD COLUMN IF NOT EXISTS timezone text;
+
+ALTER TABLE public.external_event_feed_sources
+  DROP CONSTRAINT IF EXISTS external_event_feed_sources_timezone_check;
+ALTER TABLE public.external_event_feed_sources
+  ADD CONSTRAINT external_event_feed_sources_timezone_check CHECK (
+    timezone IS NULL
+    OR timezone ~ '^[A-Za-z][A-Za-z0-9._+-]{0,63}/[A-Za-z][A-Za-z0-9._+-]{0,63}(/[A-Za-z][A-Za-z0-9._+-]{0,63})?$'
+  );
+
+-- The workbook seed is deliberately still pending_review + disabled. This
+-- backfill adds parsing context only and never changes legal/review activation.
+UPDATE public.external_event_feed_sources
+SET timezone = 'Europe/Budapest',
+    updated_at = now()
+WHERE country_code = 'HU'
+  AND review_state = 'pending_review'
+  AND enabled = false
+  AND timezone IS NULL;
+
+-- PostgreSQL cannot change a RETURNS TABLE shape through CREATE OR REPLACE.
+-- Recreate both service-only claims with the same lease semantics plus timezone.
+DROP FUNCTION IF EXISTS public.claim_external_event_feed_sources(integer, text, integer);
+
+CREATE FUNCTION public.claim_external_event_feed_sources(
+  p_limit integer DEFAULT 10,
+  p_worker_id text DEFAULT 'event-feed-worker',
+  p_lease_seconds integer DEFAULT 600
+)
+RETURNS TABLE (
+  run_id uuid,
+  source_id text,
+  run_action text,
+  endpoint_url text,
+  endpoint_kind text,
+  format text,
+  parser_strategy text,
+  publisher_name text,
+  city text,
+  timezone text,
+  categories text[],
+  review_state text,
+  enabled boolean,
+  legal_review_status text,
+  robots_allowed boolean,
+  min_publish_quality numeric,
+  fetch_hosts text[],
+  etag text,
+  last_modified text,
+  poll_interval_minutes integer,
+  max_response_bytes integer,
+  lease_token uuid,
+  lease_expires_at timestamptz,
+  attribution_required boolean
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 10), 1), 50);
+  v_lease_seconds integer := LEAST(GREATEST(COALESCE(p_lease_seconds, 600), 60), 1800);
+  v_worker text := left(trim(COALESCE(p_worker_id, '')), 120);
+BEGIN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SERVICE_ROLE_REQUIRED' USING ERRCODE = '42501';
+  END IF;
+  IF length(v_worker) < 3 THEN
+    RAISE EXCEPTION 'INVALID_WORKER_ID' USING ERRCODE = '22023';
+  END IF;
+
+  RETURN QUERY
+  WITH candidates AS MATERIALIZED (
+    SELECT s.source_id
+    FROM public.external_event_feed_sources s
+    WHERE s.enabled = true
+      AND s.review_state = 'approved'
+      AND s.legal_review_status = 'approved'
+      AND s.robots_allowed IS TRUE
+      AND public.event_feed_url_host(s.endpoint_url) = ANY(s.fetch_hosts)
+      AND s.next_poll_at <= now()
+      AND COALESCE(s.next_retry_at, '-infinity'::timestamptz) <= now()
+      AND (s.lease_expires_at IS NULL OR s.lease_expires_at <= now())
+      AND EXISTS (
+        SELECT 1
+        FROM public.external_provider_state ps
+        WHERE ps.provider = 'event_feed'
+          AND ps.enabled = true
+          AND ps.circuit_state IN ('closed', 'half_open')
+      )
+    ORDER BY s.next_poll_at, s.source_id
+    FOR UPDATE OF s SKIP LOCKED
+    LIMIT v_limit
+  ), claimed AS (
+    UPDATE public.external_event_feed_sources s
+    SET lease_token = gen_random_uuid(),
+        lease_worker = v_worker,
+        lease_expires_at = now() + make_interval(secs => v_lease_seconds),
+        updated_at = now()
+    FROM candidates c
+    WHERE s.source_id = c.source_id
+    RETURNING s.*
+  ), created_runs AS (
+    INSERT INTO public.external_event_feed_runs (
+      source_id, lease_token, worker_id, action, status
+    )
+    SELECT c.source_id, c.lease_token, v_worker, 'sync', 'running'
+    FROM claimed c
+    RETURNING id, external_event_feed_runs.source_id,
+      external_event_feed_runs.lease_token
+  )
+  SELECT
+    r.id,
+    c.source_id,
+    'sync'::text,
+    c.endpoint_url,
+    c.endpoint_kind,
+    c.format,
+    c.parser_strategy,
+    c.publisher_name,
+    c.city,
+    c.timezone,
+    c.categories,
+    c.review_state,
+    c.enabled,
+    c.legal_review_status,
+    c.robots_allowed,
+    c.min_publish_quality,
+    c.fetch_hosts,
+    c.etag,
+    c.last_modified,
+    c.poll_interval_minutes,
+    c.max_response_bytes,
+    c.lease_token,
+    c.lease_expires_at,
+    c.attribution_required
+  FROM claimed c
+  JOIN created_runs r USING (source_id, lease_token)
+  ORDER BY c.next_poll_at, c.source_id;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.claim_external_event_feed_source(text, text, integer, boolean);
+
+CREATE FUNCTION public.claim_external_event_feed_source(
+  p_source_id text,
+  p_worker_id text,
+  p_lease_seconds integer,
+  p_probe boolean DEFAULT false
+)
+RETURNS TABLE (
+  run_id uuid,
+  source_id text,
+  run_action text,
+  endpoint_url text,
+  endpoint_kind text,
+  format text,
+  parser_strategy text,
+  publisher_name text,
+  city text,
+  timezone text,
+  categories text[],
+  review_state text,
+  enabled boolean,
+  legal_review_status text,
+  robots_allowed boolean,
+  min_publish_quality numeric,
+  fetch_hosts text[],
+  etag text,
+  last_modified text,
+  poll_interval_minutes integer,
+  max_response_bytes integer,
+  lease_token uuid,
+  lease_expires_at timestamptz,
+  attribution_required boolean
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_source public.external_event_feed_sources%ROWTYPE;
+  v_run_id uuid;
+  v_token uuid := gen_random_uuid();
+  v_worker text := left(trim(COALESCE(p_worker_id, '')), 120);
+  v_lease_seconds integer := LEAST(GREATEST(COALESCE(p_lease_seconds, 600), 60), 1800);
+BEGIN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'SERVICE_ROLE_REQUIRED' USING ERRCODE = '42501';
+  END IF;
+  IF length(v_worker) < 3 OR length(trim(COALESCE(p_source_id, ''))) < 3 THEN
+    RAISE EXCEPTION 'INVALID_CLAIM_REQUEST' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_source
+  FROM public.external_event_feed_sources s
+  WHERE s.source_id = p_source_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FEED_SOURCE_NOT_FOUND' USING ERRCODE = 'P0002';
+  END IF;
+  IF v_source.lease_expires_at IS NOT NULL AND v_source.lease_expires_at > now() THEN
+    RAISE EXCEPTION 'FEED_SOURCE_ALREADY_LEASED' USING ERRCODE = '55P03';
+  END IF;
+  IF public.event_feed_url_host(v_source.endpoint_url) IS NULL
+     OR public.event_feed_url_host(v_source.endpoint_url) <> ALL(v_source.fetch_hosts) THEN
+    RAISE EXCEPTION 'FEED_SOURCE_HOST_NOT_APPROVED' USING ERRCODE = '42501';
+  END IF;
+  IF NOT p_probe AND (
+    NOT v_source.enabled
+    OR v_source.review_state <> 'approved'
+    OR v_source.legal_review_status <> 'approved'
+    OR v_source.robots_allowed IS NOT TRUE
+    OR NOT EXISTS (
+      SELECT 1 FROM public.external_provider_state ps
+      WHERE ps.provider = 'event_feed'
+        AND ps.enabled = true
+        AND ps.circuit_state IN ('closed', 'half_open')
+    )
+  ) THEN
+    RAISE EXCEPTION 'FEED_SOURCE_NOT_SYNCABLE' USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE public.external_event_feed_sources
+  SET lease_token = v_token,
+      lease_worker = v_worker,
+      lease_expires_at = now() + make_interval(secs => v_lease_seconds),
+      updated_at = now()
+  WHERE external_event_feed_sources.source_id = p_source_id;
+
+  INSERT INTO public.external_event_feed_runs (
+    source_id, lease_token, worker_id, action, status
+  ) VALUES (
+    p_source_id, v_token, v_worker,
+    CASE WHEN p_probe THEN 'probe' ELSE 'sync' END, 'running'
+  ) RETURNING id INTO v_run_id;
+
+  RETURN QUERY SELECT
+    v_run_id,
+    v_source.source_id,
+    CASE WHEN p_probe THEN 'probe' ELSE 'sync' END,
+    v_source.endpoint_url,
+    v_source.endpoint_kind,
+    v_source.format,
+    v_source.parser_strategy,
+    v_source.publisher_name,
+    v_source.city,
+    v_source.timezone,
+    v_source.categories,
+    v_source.review_state,
+    v_source.enabled,
+    v_source.legal_review_status,
+    v_source.robots_allowed,
+    v_source.min_publish_quality,
+    v_source.fetch_hosts,
+    v_source.etag,
+    v_source.last_modified,
+    v_source.poll_interval_minutes,
+    v_source.max_response_bytes,
+    v_token,
+    now() + make_interval(secs => v_lease_seconds),
+    v_source.attribution_required;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_external_event_feed_sources(integer, text, integer)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.claim_external_event_feed_source(text, text, integer, boolean)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_external_event_feed_sources(integer, text, integer)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.claim_external_event_feed_source(text, text, integer, boolean)
+  TO service_role;
+
 ALTER TABLE public.external_event_feed_runs
   ADD COLUMN IF NOT EXISTS snapshot_complete boolean NOT NULL DEFAULT false;
 
@@ -892,7 +1168,11 @@ BEGIN
       'X-Hobbeast-Nonce', v_nonce::text,
       'X-Hobbeast-Signature', 'v1=' || v_signature
     ),
-    body := v_body
+    body := v_body,
+    -- The worker has a 60-second soft budget. Allow bounded finalization and
+    -- response delivery without falling back to pg_net's 5-second default,
+    -- while remaining below the Edge Function wall-clock ceiling.
+    timeout_milliseconds := 90000
   ) INTO v_request_id;
 
   UPDATE public.external_event_feed_cron_dispatches

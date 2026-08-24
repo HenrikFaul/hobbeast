@@ -5,7 +5,10 @@ import {
   type EventFeedClaim,
   type EventFeedProcessorRepository,
 } from '../../../supabase/functions/event-feed-ingest/processor';
-import type { ParsedEventFeedItem } from '../../../supabase/functions/shared/eventFeeds';
+import {
+  parseEventDocument,
+  type ParsedEventFeedItem,
+} from '../../../supabase/functions/shared/eventFeeds';
 
 const claim: EventFeedClaim = {
   run_id: 'run-1', source_id: 'src_12345678', endpoint_url: 'https://events.example/feed.xml',
@@ -43,6 +46,21 @@ describe('event feed processor', () => {
 
   it('keeps all-day dates without an event_time in the database payload', () => {
     expect(eventFeedItemPayload({ ...event, startAt: '2027-09-10' }, claim)).toMatchObject({
+      event_date: '2027-09-10', event_time: null,
+    });
+  });
+
+  it('keeps a parsed JSON-LD date-only start as event_time NULL', () => {
+    const parsed = parseEventDocument(JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'Event', name: 'Egész napos közösségi futás',
+      url: 'https://events.example/all-day', startDate: '2027-09-10',
+      location: { '@type': 'Place', name: 'Városliget' }, keywords: 'futás',
+    }), {
+      sourceId: claim.source_id, sourceUrl: claim.endpoint_url,
+      contentType: 'application/ld+json', now: new Date('2026-08-25T08:00:00Z'),
+    });
+
+    expect(eventFeedItemPayload(parsed.events[0], claim)).toMatchObject({
       event_date: '2027-09-10', event_time: null,
     });
   });
@@ -87,7 +105,9 @@ describe('event feed processor', () => {
     const result = await processEventFeedClaim(claim, repo, {
       resolveHost: async () => ['93.184.216.34'],
       safeFetch,
-      parseDocument: vi.fn(() => ({ format: 'rss', events: [event], discoveredFeedUrls: [], warnings: [] })),
+      parseDocument: vi.fn(() => ({
+        format: 'rss', events: [event], discoveredFeedUrls: [], warnings: [], recognizedCollection: true,
+      })),
       now: () => new Date('2026-08-25T08:00:00Z'),
     });
 
@@ -148,13 +168,36 @@ describe('event feed processor', () => {
             body: '<rss><channel /></rss>', bodyBytes: 22,
           };
       }),
-      parseDocument: vi.fn(() => ({
-        format: 'rss', events: [], discoveredFeedUrls: [], warnings: [],
-      })),
+      now: () => new Date('2026-08-25T08:00:00Z'),
     });
 
     expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
       status: 'succeeded', discoveredCount: 0, snapshotComplete: true,
+    }));
+  });
+
+  it('does not treat an arbitrary JSON API error as a complete absence snapshot', async () => {
+    const repo = repository();
+    await processEventFeedClaim(claim, repo, {
+      safeFetch: vi.fn(async (_sourceId, registry: Record<string, { endpointUrl: string }>) => {
+        const endpointUrl = registry[claim.source_id].endpointUrl;
+        return endpointUrl.endsWith('/robots.txt')
+          ? {
+            status: 'ok' as const, finalUrl: endpointUrl, httpStatus: 404, contentType: 'text/plain',
+            etag: null, lastModified: null, body: '', bodyBytes: 0,
+          }
+          : {
+            status: 'ok' as const, finalUrl: claim.endpoint_url, httpStatus: 200,
+            contentType: 'application/json', etag: null, lastModified: null,
+            body: '{"error":"rate limited"}', bodyBytes: 24,
+          };
+      }),
+      now: () => new Date('2026-08-25T08:00:00Z'),
+    });
+
+    expect(repo.commitItem).not.toHaveBeenCalled();
+    expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'partial', discoveredCount: 0, snapshotComplete: false,
     }));
   });
 
@@ -286,6 +329,131 @@ describe('event feed processor', () => {
     expect(redirectedRequestIssued).toBe(false);
     expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
       status: 'failed', errorCode: 'ROBOTS_DISALLOWED',
+    }));
+  });
+
+  it('clears a discovered feed validator and never reuses it for the HTML landing URL', async () => {
+    const htmlClaim = {
+      ...claim,
+      format: 'html',
+      etag: '"stale-discovered"',
+      last_modified: 'Tue, 25 Aug 2026 07:00:00 GMT',
+    };
+    const seenLandingValidators: Array<string | null | undefined> = [];
+    const controller = new AbortController();
+    const safeFetch = vi.fn(async (
+      _sourceId,
+      registry: Record<string, { endpointUrl: string; etag?: string | null }>,
+      _dependencies,
+      options,
+    ) => {
+      expect(options.signal).toBe(controller.signal);
+      const source = registry[claim.source_id];
+      if (source.endpointUrl.endsWith('/robots.txt')) {
+        return {
+          status: 'ok' as const, finalUrl: source.endpointUrl, httpStatus: 404, contentType: 'text/plain',
+          etag: null, lastModified: null, body: '', bodyBytes: 0,
+        };
+      }
+      if (source.endpointUrl === claim.endpoint_url) {
+        seenLandingValidators.push(source.etag);
+        return {
+          status: 'ok' as const, finalUrl: source.endpointUrl, httpStatus: 200, contentType: 'text/html',
+          etag: '"landing"', lastModified: null,
+          body: '<html><head><link rel="alternate" type="application/rss+xml" href="/canonical.xml"></head></html>',
+          bodyBytes: 99,
+        };
+      }
+      expect(source.etag).toBeNull();
+      return {
+        status: 'ok' as const, finalUrl: source.endpointUrl, httpStatus: 200, contentType: 'application/rss+xml',
+        etag: '"discovered"', lastModified: 'Tue, 25 Aug 2026 08:00:00 GMT',
+        body: '<rss><channel /></rss>', bodyBytes: 23,
+      };
+    });
+
+    const firstRepo = repository();
+    await processEventFeedClaim(htmlClaim, firstRepo, { safeFetch, signal: controller.signal });
+    expect(firstRepo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'succeeded', etag: '', lastModified: '',
+    }));
+
+    const nextRepo = repository();
+    await processEventFeedClaim({ ...htmlClaim, etag: '', last_modified: '' }, nextRepo, {
+      safeFetch,
+      signal: controller.signal,
+    });
+    expect(seenLandingValidators).toEqual([null, null]);
+  });
+
+  it('clears validators received from a same-host redirected resource', async () => {
+    const repo = repository();
+    await processEventFeedClaim({ ...claim, format: 'rss' }, repo, {
+      safeFetch: vi.fn(async (_sourceId, registry: Record<string, { endpointUrl: string }>) => {
+        const endpointUrl = registry[claim.source_id].endpointUrl;
+        return endpointUrl.endsWith('/robots.txt')
+          ? {
+            status: 'ok' as const, finalUrl: endpointUrl, httpStatus: 404, contentType: 'text/plain',
+            etag: null, lastModified: null, body: '', bodyBytes: 0,
+          }
+          : {
+            status: 'ok' as const, finalUrl: 'https://events.example/canonical.xml', httpStatus: 200,
+            contentType: 'application/rss+xml', etag: '"redirected"',
+            lastModified: 'Tue, 25 Aug 2026 08:00:00 GMT',
+            body: '<rss><channel /></rss>', bodyBytes: 23,
+          };
+      }),
+    });
+
+    expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'succeeded', etag: '', lastModified: '',
+    }));
+  });
+
+  it('treats a redirected 304 as a partial validator-resource mismatch', async () => {
+    const repo = repository();
+    const result = await processEventFeedClaim({ ...claim, format: 'rss' }, repo, {
+      safeFetch: vi.fn(async (_sourceId, registry: Record<string, { endpointUrl: string }>) => {
+        const endpointUrl = registry[claim.source_id].endpointUrl;
+        return endpointUrl.endsWith('/robots.txt')
+          ? {
+            status: 'ok' as const, finalUrl: endpointUrl, httpStatus: 404, contentType: 'text/plain',
+            etag: null, lastModified: null, body: '', bodyBytes: 0,
+          }
+          : {
+            status: 'not_modified' as const, finalUrl: 'https://events.example/canonical.xml', httpStatus: 304,
+            contentType: null, etag: '"redirected"', lastModified: null, body: null, bodyBytes: 0,
+          };
+      }),
+    });
+
+    expect(result.status).toBe('partial');
+    expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'partial', etag: '', lastModified: '', errorCode: 'VALIDATOR_RESOURCE_MISMATCH',
+      snapshotComplete: false,
+    }));
+  });
+
+  it('fails malformed structured XML without producing a complete snapshot', async () => {
+    const repo = repository();
+    await expect(processEventFeedClaim({ ...claim, format: 'rss' }, repo, {
+      safeFetch: vi.fn(async (_sourceId, registry: Record<string, { endpointUrl: string }>) => {
+        const endpointUrl = registry[claim.source_id].endpointUrl;
+        return endpointUrl.endsWith('/robots.txt')
+          ? {
+            status: 'ok' as const, finalUrl: endpointUrl, httpStatus: 404, contentType: 'text/plain',
+            etag: null, lastModified: null, body: '', bodyBytes: 0,
+          }
+          : {
+            status: 'ok' as const, finalUrl: endpointUrl, httpStatus: 200,
+            contentType: 'application/rss+xml', etag: null, lastModified: null,
+            body: '<rss><channel><item></channel></rss>', bodyBytes: 38,
+          };
+      }),
+    })).rejects.toMatchObject({ code: 'malformed_xml' });
+
+    expect(repo.completeRun).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed', errorCode: 'malformed_xml', snapshotComplete: false,
     }));
   });
 });

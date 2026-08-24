@@ -18,6 +18,18 @@ function evaluateQuality(
 
   if (!item.startAt) {
     reasons.push('missing_start');
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(item.startAt)) {
+    const date = new Date(`${item.startAt}T00:00:00Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== item.startAt) {
+      reasons.push('invalid_start');
+    } else {
+      const todayParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Budapest', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(now);
+      const part = (type: Intl.DateTimeFormatPartTypes) => todayParts.find((entry) => entry.type === type)?.value || '';
+      const today = `${part('year')}-${part('month')}-${part('day')}`;
+      if (item.startAt < today) reasons.push('not_future');
+    }
   } else {
     const start = new Date(item.startAt);
     if (Number.isNaN(start.getTime())) reasons.push('invalid_start');

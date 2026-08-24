@@ -75,11 +75,12 @@ export interface EventFeedProcessorRepository {
   }): Promise<unknown>;
 }
 
-interface EventFeedProcessorDependencies {
+export interface EventFeedProcessorDependencies {
   safeFetch?: typeof safeFetchRegisteredFeed;
   parseDocument?: typeof parseEventDocument;
   now?: () => Date;
   resolveHost?: (hostname: string) => Promise<string[]>;
+  signal?: AbortSignal;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -168,13 +169,15 @@ function registryFor(claim: EventFeedClaim, endpointUrl = claim.endpoint_url, in
   const endpoint = new URL(endpointUrl);
   const allowedHosts = new Set((claim.fetch_hosts || []).map((host) => host.toLowerCase()));
   if (!allowedHosts.has(endpoint.hostname.toLowerCase())) throw new Error('FEED_SOURCE_HOST_NOT_APPROVED');
+  const validatorsBelongToCanonicalStructuredResource = includeValidators
+    && (claim.format || '').toLowerCase() !== 'html';
   return {
     [claim.source_id]: {
       sourceId: claim.source_id,
       endpointUrl: endpoint.toString(),
       allowedHost: endpoint.hostname,
-      etag: includeValidators ? claim.etag : null,
-      lastModified: includeValidators ? claim.last_modified : null,
+      etag: validatorsBelongToCanonicalStructuredResource ? claim.etag : null,
+      lastModified: validatorsBelongToCanonicalStructuredResource ? claim.last_modified : null,
     },
   };
 }
@@ -200,6 +203,7 @@ async function fetchAndParse(
     maxBodyBytes: claim.max_response_bytes,
     maxRedirects: 3,
     timeoutMs: 12_000,
+    signal: dependencies.signal,
   });
   if (fetched.status === 'not_modified' || fetched.body === null) return { fetched, parsed: null };
 
@@ -232,9 +236,10 @@ async function fetchAndParse(
         registryFor(claim, discoveredUrl, false),
         fetchDependenciesFor(discoveredUrl),
         {
-        maxBodyBytes: claim.max_response_bytes,
-        maxRedirects: 3,
-        timeoutMs: 12_000,
+          maxBodyBytes: claim.max_response_bytes,
+          maxRedirects: 3,
+          timeoutMs: 12_000,
+          signal: dependencies.signal,
         },
       );
       if (fetched.status === 'ok' && fetched.body !== null) {
@@ -278,6 +283,7 @@ async function assertRobotsAllowsFetch(
       userAgent: EVENT_FEED_USER_AGENT,
       returnHttpErrors: true,
       acceptEmptySuccess: true,
+      signal: dependencies.signal,
     },
   );
   const decision = evaluateRobotsResponse(
@@ -311,16 +317,34 @@ export async function processEventFeedClaim(
     await assertRobotsAllowsFetch(claim, dependencies);
     const { fetched, parsed } = await fetchAndParse(claim, dependencies);
     httpStatus = fetched.httpStatus;
-    etag = fetched.etag;
-    lastModified = fetched.lastModified;
     if (fetched.status === 'not_modified') {
+      const exactCanonicalResource = fetched.finalUrl === new URL(claim.endpoint_url).toString()
+        && (claim.format || '').toLowerCase() !== 'html';
+      etag = exactCanonicalResource ? fetched.etag : '';
+      lastModified = exactCanonicalResource ? fetched.lastModified : '';
       await repository.completeRun({
-        claim, status: 'not_modified', httpStatus, etag, lastModified,
+        claim,
+        status: exactCanonicalResource ? 'not_modified' : 'partial',
+        httpStatus,
+        etag,
+        lastModified,
+        errorKind: exactCanonicalResource ? null : 'validator_resource_mismatch',
+        errorCode: exactCanonicalResource ? null : 'VALIDATOR_RESOURCE_MISMATCH',
         snapshotComplete: false,
       });
-      return { source_id: claim.source_id, status: 'not_modified', discovered, quarantined, published, duplicates };
+      return {
+        source_id: claim.source_id,
+        status: exactCanonicalResource ? 'not_modified' : 'partial',
+        discovered, quarantined, published, duplicates,
+      };
     }
     if (!fetched.body || !parsed) throw new Error('EMPTY_FEED_RESPONSE');
+
+    const validatorsMatchCanonicalResource = fetched.finalUrl === new URL(claim.endpoint_url).toString()
+      && parsed.format !== 'html'
+      && parsed.recognizedEventContract !== false;
+    etag = validatorsMatchCanonicalResource ? fetched.etag : '';
+    lastModified = validatorsMatchCanonicalResource ? fetched.lastModified : '';
 
     const rawPayloadId = await repository.storeRawPayload({
       claim,
@@ -344,19 +368,22 @@ export async function processEventFeedClaim(
       else quarantined += 1;
     }
 
+    const completionStatus = parsed.recognizedEventContract === false ? 'partial' : 'succeeded';
     await repository.completeRun({
       claim,
-      status: 'succeeded',
+      status: completionStatus,
       httpStatus, etag, lastModified,
       discoveredCount: discovered,
       quarantinedCount: quarantined,
       publishedCount: published,
       duplicateCount: duplicates,
-      snapshotComplete: claim.run_action === 'sync'
+      snapshotComplete: completionStatus === 'succeeded'
+        && claim.run_action === 'sync'
         && parsed.format !== 'html'
+        && parsed.recognizedCollection === true
         && parsed.events.length < EVENT_FEED_LIMITS.maxItems,
     });
-    return { source_id: claim.source_id, status: 'succeeded', discovered, quarantined, published, duplicates };
+    return { source_id: claim.source_id, status: completionStatus, discovered, quarantined, published, duplicates };
   } catch (error) {
     const errorCode = error instanceof Error
       ? ('code' in error && typeof error.code === 'string' ? error.code : error.message)

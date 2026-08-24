@@ -1,4 +1,4 @@
-import { cleanXmlText } from './text.ts';
+import { cleanXmlText, parseEventDate } from './text.ts';
 import { EVENT_FEED_LIMITS, EventFeedParseError, type EventFeedCandidate } from './types.ts';
 
 interface IcsProperty {
@@ -47,60 +47,6 @@ function unescapeIcsText(value: string) {
     .replace(/\\\\/g, '\\');
 }
 
-function isoFromParts(parts: RegExpMatchArray, timezone: string | null) {
-  const year = Number(parts[1]);
-  const month = Number(parts[2]);
-  const day = Number(parts[3]);
-  const hour = Number(parts[4] ?? 0);
-  const minute = Number(parts[5] ?? 0);
-  const second = Number(parts[6] ?? 0);
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
-
-  if (!timezone) return new Date(utcGuess).toISOString();
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hourCycle: 'h23',
-    });
-    const zonedParts = Object.fromEntries(
-      formatter.formatToParts(new Date(utcGuess))
-        .filter((part) => part.type !== 'literal')
-        .map((part) => [part.type, Number(part.value)]),
-    );
-    const displayedAsUtc = Date.UTC(
-      zonedParts.year,
-      zonedParts.month - 1,
-      zonedParts.day,
-      zonedParts.hour,
-      zonedParts.minute,
-      zonedParts.second,
-    );
-    let result = utcGuess - (displayedAsUtc - utcGuess);
-
-    // Re-evaluate once at the candidate instant so DST transitions do not use
-    // the offset at the initial UTC guess.
-    const correctedParts = Object.fromEntries(
-      formatter.formatToParts(new Date(result))
-        .filter((part) => part.type !== 'literal')
-        .map((part) => [part.type, Number(part.value)]),
-    );
-    const correctedAsUtc = Date.UTC(
-      correctedParts.year,
-      correctedParts.month - 1,
-      correctedParts.day,
-      correctedParts.hour,
-      correctedParts.minute,
-      correctedParts.second,
-    );
-    result -= correctedAsUtc - utcGuess;
-    return new Date(result).toISOString();
-  } catch {
-    return null;
-  }
-}
-
 interface ParsedIcsDate {
   value: string | null;
   unresolvedTimezone: boolean;
@@ -113,17 +59,14 @@ function parseIcsDate(property: IcsProperty | null, defaultTimezone: string | nu
   if (dateOnly) {
     // Preserve all-day values as calendar dates. Converting them to midnight
     // UTC would manufacture a local event time (and can shift the date).
-    return { value: `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`, unresolvedTimezone: false };
+    return parseEventDate(`${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`);
   }
 
   const dateTime = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/i);
   if (!dateTime) return { value: null, unresolvedTimezone: false };
-  if (dateTime[7]) return { value: isoFromParts(dateTime, null), unresolvedTimezone: false };
-
   const timezone = property.params.get('TZID') || defaultTimezone;
-  if (!timezone) return { value: null, unresolvedTimezone: true };
-  const parsed = isoFromParts(dateTime, timezone);
-  return { value: parsed, unresolvedTimezone: parsed === null };
+  const normalized = `${dateTime[1]}-${dateTime[2]}-${dateTime[3]}T${dateTime[4]}:${dateTime[5]}:${dateTime[6]}${dateTime[7] ? 'Z' : ''}`;
+  return parseEventDate(normalized, dateTime[7] ? null : timezone);
 }
 
 function first(properties: IcsProperty[], name: string) {

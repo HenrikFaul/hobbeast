@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EVENT_FEED_REQUEST_MAX_BYTES,
   EventFeedRequestError,
   parseEventFeedRequest,
 } from '../../../supabase/functions/event-feed-ingest/requestContract';
@@ -38,6 +39,34 @@ describe('event feed request boundary', () => {
     await expect(parseEventFeedRequest(post({
       action: 'review_source', source_id: 'src_2dca3e1d', decision: 'approved', reason: 'short',
     }))).rejects.toMatchObject<EventFeedRequestError>({ code: 'REVIEW_REASON_REQUIRED' });
+  });
+
+  it('stops an undeclared streaming body as soon as the byte cap is crossed', async () => {
+    const encoder = new TextEncoder();
+    let cancelled = false;
+    let pulls = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(encoder.encode('x'.repeat(EVENT_FEED_REQUEST_MAX_BYTES / 2 + 1)));
+        if (pulls > 3) controller.close();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request = new Request('https://example.test/functions/v1/event-feed-ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    await expect(parseEventFeedRequest(request)).rejects.toMatchObject<EventFeedRequestError>({
+      code: 'REQUEST_TOO_LARGE', status: 413,
+    });
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThanOrEqual(3);
   });
 
   it('authenticates fresh HMAC scheduler requests and rejects replay/tampering', async () => {

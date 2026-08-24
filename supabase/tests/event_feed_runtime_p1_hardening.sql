@@ -18,17 +18,32 @@ VALUES (
 ON CONFLICT (user_id, role_key) DO NOTHING;
 
 INSERT INTO public.external_event_feed_sources (
-  source_id, publisher_name, country_code, endpoint_url,
+  source_id, publisher_name, country_code, timezone, endpoint_url,
   original_endpoint_url, endpoint_kind, format, categories, fetch_hosts,
   review_state, legal_review_status, robots_allowed, enabled,
   poll_interval_minutes, min_publish_quality, next_poll_at, etag, last_modified
 ) VALUES (
-  'p1_runtime_source', 'P1 Runtime Events', 'HU',
+  'p1_runtime_source', 'P1 Runtime Events', 'HU', 'Europe/Budapest',
   'https://p1-runtime.example.org/feed.xml',
   'p1-runtime.example.org/feed.xml', 'feed', 'RSS', ARRAY['community'],
   ARRAY['p1-runtime.example.org'], 'pending_review', 'pending', NULL, false,
   60, 80, now(), '"probe-validator"', 'Mon, 24 Aug 2026 08:00:00 GMT'
 );
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.external_event_feed_sources
+    WHERE country_code = 'HU'
+      AND review_state = 'pending_review'
+      AND enabled = false
+      AND timezone IS DISTINCT FROM 'Europe/Budapest'
+  ) THEN
+    RAISE EXCEPTION 'HU pending candidate timezone backfill is incomplete';
+  END IF;
+END;
+$$;
 
 -- Pending/disabled sources may only be probed. Even if a caller incorrectly
 -- marks the response as a complete snapshot, DB action semantics keep it from
@@ -69,12 +84,14 @@ SELECT public.complete_external_event_feed_run(
 );
 
 SELECT set_config('fixture.p1_probe_run_action', :'p1_probe_run_action', true);
+SELECT set_config('fixture.p1_probe_timezone', :'p1_probe_timezone', true);
 SELECT set_config('fixture.p1_probe_item_state', :'p1_probe_item_item_state', true);
 SELECT set_config('fixture.p1_probe_published', :'p1_probe_item_published', true);
 SELECT set_config('fixture.p1_probe_run_id', :'p1_probe_run_id', true);
 DO $$
 BEGIN
   IF current_setting('fixture.p1_probe_run_action') <> 'probe'
+     OR current_setting('fixture.p1_probe_timezone') <> 'Europe/Budapest'
      OR current_setting('fixture.p1_probe_item_state') <> 'quarantined'
      OR current_setting('fixture.p1_probe_published')::boolean THEN
     RAISE EXCEPTION 'probe escaped the quarantine boundary';
@@ -327,7 +344,7 @@ INSERT INTO public.external_event_feed_items (
 )
 SELECT
   'p1_runtime_source', guard.source_item_id, :'p1_sync1_run_id',
-  encode(digest('p1_runtime_source' || E'\n' || guard.source_item_id, 'sha256'), 'hex'),
+  encode(extensions.digest('p1_runtime_source' || E'\n' || guard.source_item_id, 'sha256'), 'hex'),
   '{}'::jsonb, 0, guard.item_state, e.id
 FROM (VALUES
   ('p1-guard-quarantined', 'quarantined'),
@@ -859,6 +876,53 @@ BEGIN
   IF v_dispatch_def !~ '''limit''[[:space:]]*,[[:space:]]*10'
      OR v_dispatch_def NOT LIKE '%external_event_feed_raw_retention_internal(1000)%' THEN
     RAISE EXCEPTION 'dispatcher lost limit=10 or automatic bounded retention';
+  END IF;
+END;
+$$;
+
+-- Runtime proof for the pg_net contract: the dispatcher must actually pass the
+-- 90-second timeout, not merely contain a matching source-code fragment. These
+-- local extension tables and the fixture-only Vault secret roll back below.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets
+    WHERE name = 'event_feed_cron_hmac_secret'
+  ) THEN
+    IF to_regclass('vault.secrets') IS NOT NULL THEN
+      EXECUTE
+        'INSERT INTO vault.secrets (secret, name, description) VALUES ($1, $2, $3)'
+      USING repeat('f', 64), 'event_feed_cron_hmac_secret',
+        'P1 dispatcher timeout fixture only';
+    ELSE
+      -- Compatibility with the minimal isolated-PostgreSQL Vault stand-in.
+      INSERT INTO vault.decrypted_secrets (name, decrypted_secret)
+      VALUES ('event_feed_cron_hmac_secret', repeat('f', 64));
+    END IF;
+  END IF;
+END;
+$$;
+DELETE FROM net.stub_calls;
+
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SET LOCAL ROLE service_role;
+SELECT public.dispatch_external_event_feed_due() AS request_id \gset p1_dispatch_
+RESET ROLE;
+
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM net.stub_calls) <> 1 THEN
+    RAISE EXCEPTION 'dispatcher did not emit exactly one stubbed HTTP request';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM net.stub_calls call
+    WHERE call.method = 'POST'
+      AND call.timeout_milliseconds = 90000
+      AND call.body ->> 'action' = 'sync_due'
+      AND (call.body ->> 'limit')::integer = 10
+  ) THEN
+    RAISE EXCEPTION 'dispatcher runtime timeout is not 90000 milliseconds';
   END IF;
 END;
 $$;

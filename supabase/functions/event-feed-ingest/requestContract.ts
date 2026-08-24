@@ -43,16 +43,45 @@ function boundedString(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-export async function parseEventFeedRequest(request: Request): Promise<EventFeedRequest> {
+export async function readEventFeedRequestBody(request: Request): Promise<string> {
   if (request.method !== 'POST') throw new EventFeedRequestError('METHOD_NOT_ALLOWED', 405);
   const declaredLength = Number(request.headers.get('content-length') || 0);
   if (declaredLength > EVENT_FEED_REQUEST_MAX_BYTES) throw new EventFeedRequestError('REQUEST_TOO_LARGE', 413);
 
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > EVENT_FEED_REQUEST_MAX_BYTES) {
-    throw new EventFeedRequestError('REQUEST_TOO_LARGE', 413);
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > EVENT_FEED_REQUEST_MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new EventFeedRequestError('REQUEST_TOO_LARGE', 413);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
   }
 
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new EventFeedRequestError('INVALID_JSON');
+  }
+}
+
+export function parseEventFeedRawBody(raw: string): EventFeedRequest {
   let body: Record<string, unknown>;
   try {
     const parsed = JSON.parse(raw || '{}');
@@ -134,4 +163,8 @@ export async function parseEventFeedRequest(request: Request): Promise<EventFeed
       ? undefined
       : Math.max(50, Math.min(100, Number(body.min_publish_quality) || 0)),
   };
+}
+
+export async function parseEventFeedRequest(request: Request): Promise<EventFeedRequest> {
+  return parseEventFeedRawBody(await readEventFeedRequestBody(request));
 }

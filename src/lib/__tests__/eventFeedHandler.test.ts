@@ -5,6 +5,7 @@ import {
   createEventFeedHandler,
   type EventFeedHandlerDependencies,
 } from '../../../supabase/functions/event-feed-ingest/handler';
+import { EVENT_FEED_REQUEST_MAX_BYTES } from '../../../supabase/functions/event-feed-ingest/requestContract';
 import {
   createEventFeedRepository,
   EventFeedRepositoryError,
@@ -83,6 +84,22 @@ describe('event feed handler boundary', () => {
     expect(response.headers.get('access-control-allow-methods')).toBe('POST, OPTIONS');
     expect(deps.requireAuthenticatedUser).not.toHaveBeenCalled();
     expect(deps.repository.status).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized undeclared body before auth, HMAC or repository work', async () => {
+    const repo = repository();
+    const deps = dependencies(repo);
+    const request = postRaw('x'.repeat(EVENT_FEED_REQUEST_MAX_BYTES + 1));
+    expect(request.headers.has('content-length')).toBe(false);
+
+    const response = await createEventFeedHandler(deps)(request);
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: 'REQUEST_TOO_LARGE' });
+    expect(deps.requireAuthenticatedUser).not.toHaveBeenCalled();
+    expect(deps.cronSecret).not.toHaveBeenCalled();
+    expect(repo.status).not.toHaveBeenCalled();
+    expect(repo.claimDue).not.toHaveBeenCalled();
   });
 
   it('requires authentication before returning source status', async () => {
@@ -176,7 +193,7 @@ describe('event feed handler boundary', () => {
       issuedAt: Math.trunc(NOW_MS / 1000),
       bodySha256: await sha256(rawBody),
     });
-    expect(repo.claimDue).toHaveBeenCalledWith(4, `cron:${nonce}:batch-1`);
+    expect(repo.claimDue).toHaveBeenCalledWith(2, `cron:${nonce}:batch-1`);
   });
 
   it('drains more than one due batch while keeping claims bounded and fully processed', async () => {
@@ -203,16 +220,18 @@ describe('event feed handler boundary', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(claimDue).toHaveBeenCalledTimes(3);
-    expect(claimDue.mock.calls.map((call) => call[0])).toEqual([10, 10, 10]);
-    expect(claimDue.mock.calls.map((call) => call[1])).toEqual([
-      `cron:${nonce}:batch-1`, `cron:${nonce}:batch-2`, `cron:${nonce}:batch-3`,
+    expect(claimDue).toHaveBeenCalledTimes(13);
+    expect(claimDue.mock.calls.map((call) => call[0])).toEqual([
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     ]);
+    expect(claimDue.mock.calls.map((call) => call[1])).toEqual(
+      Array.from({ length: 13 }, (_, index) => `cron:${nonce}:batch-${index + 1}`),
+    );
     expect(deps.processClaim).toHaveBeenCalledTimes(25);
     expect(body).toMatchObject({
       ok: true,
       drain: {
-        batch_size: 10, batch_count: 3, claimed_count: 25, processed_count: 25,
+        batch_size: 10, claim_unit: 2, batch_count: 13, claimed_count: 25, processed_count: 25,
         exhausted: true, continuation_required: false, stop_reason: 'exhausted',
       },
     });
@@ -225,7 +244,7 @@ describe('event feed handler boundary', () => {
       action: 'sync_due', issued_at: Math.trunc(NOW_MS / 1000), nonce, limit: 10,
     });
     let clock = NOW_MS;
-    const claimDue = vi.fn(async () => Array.from({ length: 10 }, (_, index) => ({
+    const claimDue = vi.fn(async (limit: number) => Array.from({ length: limit }, (_, index) => ({
       source_id: `src_${index.toString(16).padStart(8, '0')}`,
     })));
     const repo = repository({ claimDue });
@@ -242,7 +261,7 @@ describe('event feed handler boundary', () => {
 
     expect(response.status).toBe(202);
     expect(claimDue).toHaveBeenCalledTimes(1);
-    expect(deps.processClaim).toHaveBeenCalledTimes(10);
+    expect(deps.processClaim).toHaveBeenCalledTimes(2);
     expect(body.drain).toMatchObject({
       exhausted: false,
       continuation_required: true,
@@ -250,6 +269,30 @@ describe('event feed handler boundary', () => {
       continuation: {
         action: 'sync_due', limit: 10, requires_fresh_signed_dispatch: true,
       },
+    });
+  });
+
+  it('aborts in-flight scheduled fetch work before the invocation deadline', async () => {
+    const nonce = '77777777-7777-4777-8777-777777777777';
+    const rawBody = JSON.stringify({
+      action: 'sync_due', issued_at: Math.trunc(NOW_MS / 1000), nonce, limit: 10,
+    });
+    const repo = repository({
+      claimDue: vi.fn(async () => [{ source_id: 'src_00000001' }]),
+    });
+    const deps = dependencies(repo);
+    deps.processClaim.mockImplementation(async (_claim, _repository, options) => new Promise((_, reject) => {
+      options.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    const boundedDeps = { ...deps, syncDueBudgetMs: 20 } satisfies EventFeedHandlerDependencies;
+
+    const response = await createEventFeedHandler(boundedDeps)(await signedCronRequest(rawBody, nonce));
+    const body = await response.json();
+
+    expect(response.status).toBe(207);
+    expect(body).toMatchObject({
+      ok: false,
+      drain: { processed_count: 1, failure_count: 1, claim_unit: 2 },
     });
   });
 

@@ -3,13 +3,20 @@
 Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.11.0 Hungarian event-feed ingestion is implemented and locally release-gated, with every imported source pending, disabled and subject to explicit legal + robots review before activation.**
 
 v1.11.0 (2026-08-25): imported the 185-row Hungarian source workbook as a deterministic,
-fail-closed candidate registry; added RSS, Atom, ICS, Schema.org Event and bounded HTML
-normalization; exact-host SSRF and live robots controls; quarantine, quality, deduplication and
-cancellation handling; HMAC/replay-safe scheduling contracts; and an auditable Admin Feedek
-surface. The existing event providers, native events, routes, search taxonomy and strong
-marketing copy remain intact. Local release evidence passes 68 Vitest files / 376 tests, all 16
-fresh-database fixtures, production build, performance budget and 14 Playwright scenarios. No
-source is bulk-approved or scheduled by the release.
+fail-closed candidate registry; added RSS 2.0, RSS 1.0/RDF, Atom, ICS, structured Schema.org Event
+and bounded HTML normalization; exact-host SSRF/live robots controls; quarantine, quality,
+deduplication and cancellation handling; HMAC/replay-safe scheduling contracts; and an auditable
+Admin Feedek surface. Runtime P1 hardening adds a single-pass 16 KiB request contract, Deno-pinned
+TLS with abortable DNS and bounded chunk framing, source timezone evidence, endpoint-bound
+validators, format-specific complete-snapshot semantics, and a two-at-a-time / maximum-30 /
+60-second due worker behind a 90-second `pg_net` timeout. The existing event providers, native
+events, routes, search taxonomy and strong marketing copy remain intact. Local evidence passes
+the 893-path secret scan, the 233-function / 44-migration security audit, 71 Vitest files / 428
+tests, all 97 migrations / 17 fresh-database fixtures, a 3,222-module production build, the CSS
+122,585 raw / 20,467 gzip and landing JS 157,778 raw / 49,213 gzip budgets, plus 14 isolated
+Playwright scenarios. The credential-gated E2E fixture is `NOT_RUN`. All 185 sources remain
+pending and disabled; no source is bulk-approved, no cron is created, and hosted migration,
+function deployment and live production smoke remain `NOT_RUN`.
 
 v1.9.7 (2026-08-24): removed `.env` from tracking while preserving it locally; verified the
 historically exposed GeoData server credential is rejected; moved the deployed Edge integration

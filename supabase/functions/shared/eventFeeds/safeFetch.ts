@@ -1,5 +1,9 @@
 import { EVENT_FEED_LIMITS } from './types.ts';
-import { pinnedHttpsFetch, type PinnedHttpsFetch } from './pinnedHttps.ts';
+import {
+  PinnedHttpsTransportError,
+  pinnedHttpsFetch,
+  type PinnedHttpsFetch,
+} from './pinnedHttps.ts';
 
 export interface RegisteredFeedSource {
   sourceId: string;
@@ -26,6 +30,7 @@ export interface SafeFeedFetchOptions {
   userAgent?: string;
   returnHttpErrors?: boolean;
   acceptEmptySuccess?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface SafeFeedFetchResult {
@@ -54,6 +59,7 @@ export type SafeFeedFetchErrorCode =
   | 'unsupported_content_encoding'
   | 'body_too_large'
   | 'timeout'
+  | 'aborted'
   | 'network_error';
 
 export class SafeFeedFetchError extends Error {
@@ -197,6 +203,31 @@ async function verifiedAddresses(hostname: string, resolver: (hostname: string) 
   return addresses;
 }
 
+function withAbort<T>(promise: Promise<T>, signal?: AbortSignal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new SafeFeedFetchError('Feed request aborted', 'aborted'));
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      reject(new SafeFeedFetchError('Feed request aborted', 'aborted'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then((value) => {
+      signal.removeEventListener('abort', onAbort);
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    }, (error) => {
+      signal.removeEventListener('abort', onAbort);
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+  });
+}
+
 function safeConditionalHeader(value: string | null | undefined) {
   const trimmed = value?.trim() ?? '';
   return trimmed && trimmed.length <= 512 && /^[\x20-\x7e]+$/.test(trimmed) ? trimmed : null;
@@ -276,13 +307,25 @@ export async function safeFetchRegisteredFeed(
   if (lastModified) headers.set('If-Modified-Since', lastModified);
 
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    if (options.signal?.aborted) throw new SafeFeedFetchError('Feed request aborted', 'aborted');
     // Callers can add a policy layer (for example, robots.txt) that must be
     // re-evaluated before every redirected request. URL/host validation has
     // already happened, and a defensive copy prevents callback mutation.
     await dependencies.authorizeRequest?.(new URL(currentUrl.toString()), redirectCount);
-    const addresses = await verifiedAddresses(currentUrl.hostname, resolveHost);
+    const addresses = await withAbort(
+      verifiedAddresses(currentUrl.hostname, resolveHost),
+      options.signal,
+    );
+    if (options.signal?.aborted) throw new SafeFeedFetchError('Feed request aborted', 'aborted');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    let timedOut = false;
+    const abortFromCaller = () => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (options.signal?.aborted) abortFromCaller();
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
     let response: Response;
     try {
       const requestInit: RequestInit = {
@@ -293,11 +336,18 @@ export async function safeFetchRegisteredFeed(
       };
       response = testFetchImpl
         ? await testFetchImpl(currentUrl.toString(), requestInit)
-        : await pinnedFetchImpl(currentUrl, requestInit, addresses[0]);
+        : await pinnedFetchImpl(currentUrl, requestInit, addresses[0], maxBodyBytes);
     } catch (error) {
       clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
       if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
-        throw new SafeFeedFetchError('Feed request timed out', 'timeout');
+        throw new SafeFeedFetchError(
+          timedOut ? 'Feed request timed out' : 'Feed request aborted',
+          timedOut ? 'timeout' : 'aborted',
+        );
+      }
+      if (error instanceof PinnedHttpsTransportError && error.code === 'body_too_large') {
+        throw new SafeFeedFetchError(`Feed response exceeds ${maxBodyBytes} bytes`, 'body_too_large');
       }
       throw new SafeFeedFetchError('Feed request failed', 'network_error');
     }
@@ -313,12 +363,17 @@ export async function safeFetchRegisteredFeed(
         } catch {
           throw new SafeFeedFetchError('Feed redirect URL is invalid', 'invalid_url');
         }
+        headers.delete('If-None-Match');
+        headers.delete('If-Modified-Since');
         currentUrl = validateRequestUrl(redirected.toString(), allowedHost);
         continue;
       }
 
       if (response.status === 304) {
         await response.body?.cancel().catch(() => undefined);
+        if (redirectCount > 0) {
+          throw new SafeFeedFetchError('Redirect target returned an unbound 304 response', 'http_error');
+        }
         return {
           status: 'not_modified',
           finalUrl: currentUrl.toString(),
@@ -395,6 +450,7 @@ export async function safeFetchRegisteredFeed(
       };
     } finally {
       clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
     }
   }
 

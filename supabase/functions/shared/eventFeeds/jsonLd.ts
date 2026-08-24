@@ -1,4 +1,4 @@
-import { asIsoDate, cleanXmlText, decodeHtmlEntities } from './text.ts';
+import { asIsoDate, cleanXmlText, decodeHtmlEntities, parseEventDate } from './text.ts';
 import { EVENT_FEED_LIMITS, EventFeedParseError, type EventFeedCandidate } from './types.ts';
 
 type JsonRecord = Record<string, unknown>;
@@ -20,11 +20,35 @@ function stringValue(value: unknown) {
   return '';
 }
 
+const SCHEMA_EVENT_TYPES = new Set([
+  'event', 'businessevent', 'broadcastevent', 'childrensevent',
+  'comedyevent', 'courseinstance', 'danceevent', 'deliveryevent', 'educationevent', 'eventseries',
+  'exhibitionevent', 'festival', 'foodevent', 'hackathon', 'literaryevent', 'musicevent',
+  'ondemandevent', 'publicationevent', 'saleevent', 'screeningevent', 'socialevent',
+  'sportsevent', 'theaterevent', 'visualartsevent',
+]);
+
+function schemaLocalType(value: unknown) {
+  const raw = stringValue(value).trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      if (!/^(?:www\.)?schema\.org$/i.test(url.hostname)) return '';
+      return url.pathname.split('/').filter(Boolean).pop()?.toLowerCase() ?? '';
+    } catch {
+      return '';
+    }
+  }
+  if (raw.includes(':')) {
+    const [prefix, local] = raw.split(':', 2);
+    return prefix.toLowerCase() === 'schema' ? local.toLowerCase() : '';
+  }
+  return raw.toLowerCase();
+}
+
 function isEventNode(node: JsonRecord) {
-  return values(node['@type']).some((type) => {
-    const normalized = stringValue(type).toLowerCase().split(/[/#:]/).pop() ?? '';
-    return normalized === 'event' || normalized.endsWith('event');
-  });
+  return values(node['@type']).some((type) => SCHEMA_EVENT_TYPES.has(schemaLocalType(type)));
 }
 
 function collectEventNodes(root: unknown, maxNodes = 5_000) {
@@ -42,9 +66,45 @@ function collectEventNodes(root: unknown, maxNodes = 5_000) {
     if (isEventNode(value)) events.push(value);
     if (value['@graph']) queue.push(value['@graph']);
     if (value.itemListElement) queue.push(value.itemListElement);
+    if (value.subEvent) queue.push(value.subEvent);
     if (isRecord(value.item) || Array.isArray(value.item)) queue.push(value.item);
   }
   return events;
+}
+
+function normalizedTypes(node: JsonRecord) {
+  return values(node['@type'])
+    .map(schemaLocalType)
+    .filter(Boolean);
+}
+
+function contextUsesSchemaOrg(value: unknown, depth = 0): boolean {
+  if (depth > 6) return false;
+  if (typeof value === 'string') return /^https?:\/\/(?:www\.)?schema\.org\/?(?:#.*)?$/i.test(value.trim());
+  if (Array.isArray(value)) return value.some((entry) => contextUsesSchemaOrg(entry, depth + 1));
+  if (!isRecord(value)) return false;
+  if (contextUsesSchemaOrg(value['@context'], depth + 1)) return true;
+  if (values(value['@type']).some((entry) => /^https?:\/\/(?:www\.)?schema\.org\//i.test(stringValue(entry)))) return true;
+  if (isRecord(value['@context'])) {
+    if (Object.values(value['@context']).some((entry) => contextUsesSchemaOrg(entry, depth + 1))) return true;
+  }
+  return ['@graph', 'itemListElement', 'subEvent']
+    .some((key) => contextUsesSchemaOrg(value[key], depth + 1));
+}
+
+function isExplicitEventCollection(root: unknown, eventNodes: JsonRecord[]) {
+  if (!contextUsesSchemaOrg(root)) return false;
+  if (Array.isArray(root)) return root.length > 0 && eventNodes.length > 0;
+  if (!isRecord(root)) return false;
+  if (Array.isArray(root['@graph'])) return eventNodes.length > 0;
+
+  const types = normalizedTypes(root);
+  if (types.includes('eventseries') && Array.isArray(root.subEvent)) return true;
+  if (types.includes('itemlist') && Array.isArray(root.itemListElement)) {
+    if (eventNodes.length > 0) return true;
+    return values(root.about).some((entry) => isRecord(entry) && isEventNode(entry));
+  }
+  return false;
 }
 
 function postalAddress(value: unknown) {
@@ -125,9 +185,11 @@ function identifierValue(node: JsonRecord) {
   return stringValue(node.identifier) || stringValue(node['@id']) || eventUrl(node);
 }
 
-function candidateFromNode(node: JsonRecord): EventFeedCandidate {
+function candidateFromNode(node: JsonRecord, sourceTimezone: string | null): EventFeedCandidate {
   const categories = categoryValues(node);
   const eventStatus = stringValue(node.eventStatus).toLowerCase();
+  const start = parseEventDate(stringValue(node.startDate), sourceTimezone);
+  const end = parseEventDate(stringValue(node.endDate), sourceTimezone);
   return {
     format: 'json-ld',
     externalId: identifierValue(node),
@@ -135,14 +197,15 @@ function candidateFromNode(node: JsonRecord): EventFeedCandidate {
     description: stringValue(node.description),
     url: eventUrl(node),
     imageUrl: imageValue(node.image),
-    startAt: asIsoDate(stringValue(node.startDate)),
-    endAt: asIsoDate(stringValue(node.endDate)),
+    startAt: start.value,
+    endAt: end.value,
     publishedAt: asIsoDate(stringValue(node.datePublished) || stringValue(node.dateModified)),
     status: eventStatus.includes('cancelled') || eventStatus.includes('canceled') ? 'cancelled' : 'scheduled',
     organizerName: organizerValue(node.organizer),
     location: parseLocation(node.location, node.eventAttendanceMode),
     sourceCategories: categories,
     classificationText: categories,
+    qualityBlockers: start.unresolvedTimezone ? ['missing_timezone'] : [],
   };
 }
 
@@ -154,11 +217,36 @@ function parseJson(text: string) {
   }
 }
 
-export function parseJsonLdCandidates(jsonText: string, maxItems = EVENT_FEED_LIMITS.maxItems): EventFeedCandidate[] {
-  return collectEventNodes(parseJson(jsonText)).slice(0, maxItems).map(candidateFromNode);
+export function parseJsonLdDocument(
+  jsonText: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+) {
+  const root = parseJson(jsonText);
+  const nodes = collectEventNodes(root);
+  const recognizedCollection = isExplicitEventCollection(root, nodes);
+  return {
+    candidates: nodes.slice(0, maxItems).map((node) => candidateFromNode(node, sourceTimezone)),
+    recognizedEventContract: contextUsesSchemaOrg(root) && (nodes.length > 0 || recognizedCollection),
+    // A standalone Event document does not prove that the source is a complete
+    // collection. Only an explicit Event graph/list/series can age absent rows.
+    recognizedCollection,
+  };
 }
 
-export function parseHtmlJsonLdCandidates(html: string, maxItems = EVENT_FEED_LIMITS.maxItems) {
+export function parseJsonLdCandidates(
+  jsonText: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+): EventFeedCandidate[] {
+  return parseJsonLdDocument(jsonText, maxItems, sourceTimezone).candidates;
+}
+
+export function parseHtmlJsonLdCandidates(
+  html: string,
+  maxItems = EVENT_FEED_LIMITS.maxItems,
+  sourceTimezone: string | null = null,
+) {
   const candidates: EventFeedCandidate[] = [];
   const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
   let match: RegExpExecArray | null;
@@ -169,7 +257,7 @@ export function parseHtmlJsonLdCandidates(html: string, maxItems = EVENT_FEED_LI
     const payload = decodeHtmlEntities(match[2]).trim();
     if (!payload) continue;
     try {
-      candidates.push(...parseJsonLdCandidates(payload, maxItems - candidates.length));
+      candidates.push(...parseJsonLdCandidates(payload, maxItems - candidates.length, sourceTimezone));
     } catch (error) {
       if (!(error instanceof EventFeedParseError)) throw error;
       // One broken JSON-LD script must not hide valid Event scripts later on the page.

@@ -24,21 +24,27 @@ approval: all 185 sources start pending and disabled.
 - Added a deterministic 185-source registry snapshot and generated data-only seed migration.
   Sixty-seven candidates have a probeable strict HTTPS URL; 118 remain URL-review HOLD. The
   generator and validator enforce both counts and never approve or enable a row.
-- Added a pure TypeScript parser/normalizer for RSS 2.0, Atom, ICS recurrence/cancellation,
-  Schema.org Event graphs and same-host HTML feed discovery. Article publication dates never
-  become event dates, and normalized items map into the existing 17-category Hobbeast search
-  taxonomy.
+- Added a pure TypeScript parser/normalizer for RSS 2.0, RSS 1.0/RDF, Atom, ICS
+  recurrence/cancellation, Schema.org Event graphs and same-host HTML feed discovery. Article
+  publication dates never become event dates, and normalized items map into the existing
+  17-category Hobbeast search taxonomy.
 - Added an SSRF-hardened fetcher with exact registered-host enforcement, global-address DNS
-  validation on every hop, HTTPS/443 only, bounded redirects, ETag/Last-Modified, 304 support,
-  time/body/item/string limits and a fresh robots.txt decision before every fetched path.
+  validation on every hop, abortable DNS work, a Deno-native direct connection to the validated
+  IP, connected-peer verification and TLS certificate/SNI validation against the original FQDN.
+  HTTPS/443 only, bounded redirects, ETag/Last-Modified, 304 support, header/time/body/item/string
+  limits, at most 4,096 response chunks / 256 KiB of chunk framing and a fresh robots.txt decision
+  apply before every fetched path.
 - Added a lease-based source registry, run ledger, service-only raw quarantine with 14-day TTL,
   normalized item quarantine, quality/dedupe gates, cancellation deactivation and safe public
   external-event projection.
 - Added the `event-feed-ingest` Edge function with admin-only manual actions and raw-body HMAC,
-  timestamp, nonce/header matching and one-time replay protection for scheduled batches.
-- Added an Admin → External events → **Feedek** surface for source/run visibility, probe, sync
-  and fail-closed approval. Approval requires an exact FQDN, explicit legal and robots evidence,
-  poll interval, quality threshold, reason and audited idempotency data.
+  timestamp, nonce/header matching and one-time replay protection for scheduled batches. Its JSON
+  request body is consumed once, rejects invalid UTF-8 and is capped at 16 KiB before auth/HMAC
+  processing.
+- Added an Admin → External events → **Feedek** surface with complete server-side pagination and
+  publisher search for source/run visibility, probe, sync and fail-closed approval. Approval
+  requires an exact FQDN, explicit legal and robots evidence, poll interval, quality threshold,
+  reason and audited idempotency data.
 - Added `docs/EVENT_FEED_INGESTION.md` with activation, monitoring, incident and rollback
   boundaries.
 
@@ -52,8 +58,26 @@ approval: all 185 sources start pending and disabled.
 - A pending probe can touch only a pre-registered exact HTTPS host, writes only quarantine/audit
   state and cannot publish. Normal sync additionally requires approved legal/robots evidence and
   an enabled source in both claim and commit transactions.
+- Manual actions require a valid user JWT plus `providers.manage` before any service-role status
+  or claim. Normal 304 responses narrowly refresh only still-published active records; probe 304
+  responses never extend public freshness.
 - Parser blockers quarantine even a high-scoring item. Only safe HTTPS image URLs survive, and
   upstream cancellations make the corresponding public event invisible.
+- Date-only items remain all-day records without an invented local time. Floating date-times use
+  only the audited per-source timezone; missing timezone evidence quarantines the item. RSS/Atom,
+  ICS and explicitly structured Schema.org collections have format-specific complete-snapshot
+  semantics. Standalone/generic JSON, soft-error envelopes, HTML discovery and parser-capped
+  responses cannot age published records out; disappearance requires three successful,
+  parser-proven complete snapshots.
+- Conditional validators are resource-bound: they are sent and persisted only for the exact
+  canonical structured endpoint, never carried across a redirect or HTML-discovered feed, and a
+  mismatched 304 fails closed.
+- Raw bodies deduplicate safely across runs through per-run observation evidence and renewable
+  14-day TTL. Retention is bounded and automatic from the explicit dispatcher.
+- Scheduled due-sync claims two sources at a time, processes at most 30 claims across at most 15
+  claim rounds, stops on a 60-second budget and aborts in-flight work at the deadline. The
+  database dispatcher grants the Edge request a 90-second `pg_net` timeout, so unclaimed backlog
+  is left for a later invocation instead of being pre-leased and stranded.
 
 ### Copy preservation and non-regression
 - Added a marketing-copy registry with canonical, eligible, archived and blocked lifecycle
@@ -65,18 +89,23 @@ approval: all 185 sources start pending and disabled.
   established responsive utilities in the new admin panel rather than raising the budget.
 
 ### Verified
-- Frozen Bun install, high-severity dependency audit, secret scan, TypeScript and ESLint pass;
-  lint retains the 14 pre-existing warnings and zero errors.
-- Vitest full suite passes 68 files / 376 tests.
-- Fresh database verification applies 96 migrations and passes all 16 self-rolling-back SQL
+- Frozen Bun install, high-severity dependency audit, 893-path secret scan, TypeScript and ESLint
+  pass; lint retains the 14 pre-existing warnings and zero errors.
+- Security audit passes 233 `SECURITY DEFINER` functions across 44 migrations.
+- Vitest full suite passes 71 files / 428 tests.
+- Fresh database verification applies 97 migrations and passes all 17 self-rolling-back SQL
   fixtures, including feed probe quarantine, positive/idempotent publish, cancellation,
   client raw denial, lease and cron replay cases.
-- Production build and performance budget pass. Global CSS is 122,585 raw / 20,467 gzip bytes;
-  landing JavaScript is 157,735 raw / 49,184 gzip bytes.
+- Production build transforms 3,222 modules and the performance budget passes. Global CSS is
+  122,585 raw / 20,467 gzip bytes; landing JavaScript is 157,778 raw / 49,213 gzip bytes.
+- Isolated Playwright E2E passes 14 scenarios; the single credential-gated authenticated fixture
+  remains `NOT_RUN` and is not counted as production proof.
 
 ### Activation boundary
 - Repository implementation and local verification do not approve any source and do not create
-  a cron schedule. Production activation additionally requires hosted migration/function proof,
+  a cron schedule. All 185 sources remain `pending_review` and disabled; there is no bulk
+  approval. Hosted migration, Edge deployment and live production smoke remain `NOT_RUN`.
+  Production activation additionally requires hosted migration/function proof,
   matching Edge/Vault HMAC secrets, explicit per-source legal and robots review, and observed
   probe/quarantine results. These states must not be inferred from a successful local build.
 
