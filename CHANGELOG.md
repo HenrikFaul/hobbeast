@@ -12,6 +12,64 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.10.0] — 2026-08-24
+
+**Connected City visual release.** Hobbeast now presents hobbies and human connection through
+real activity photography, genuine short-form motion and a stronger ownable community story.
+The release is additive: no route, discovery filter, category identifier, event lifecycle,
+authentication boundary, organizer/admin capability, trust control or privacy behavior was
+removed or replaced.
+
+### Added
+- Added a locally hosted, Pexels-licensed WebP scene for every one of the 17 top-level hobby
+  categories. Each card keeps its native button, accessible name and existing
+  category → subcategory → activity state machine while gaining a restrained photographic
+  background, tone wash and readable glass panel.
+- Added real, audio-free day and night hero clips with stable daily selection, season-aware
+  daylight windows and a small editorial cross-variation. The previous day and night stills
+  remain available as eager poster fallbacks.
+- Added wide-screen climbing and shared-gaming side stories that occupy otherwise empty hero
+  gutters only above 1820 px and route into the existing event search.
+- Added the “Nyerjük vissza egymást.” manifesto around shared learning, development and mutual
+  support, including a restrained peace motif and a clear boundary that Hobbeast creates
+  opportunities while people build the relationships.
+- Added deterministic hero-selection unit coverage and Playwright characterization for all
+  17 photographic category cards plus the complete drill-down/back flow.
+- Added a configurable Playwright base URL so local regression runs can target an isolated
+  development port without colliding with another service.
+
+### Changed
+- Strengthened the existing “A hétvégéd nem egy feed. Menj, és éld meg.” direction across the
+  feature and closing CTA copy without changing their links or handlers.
+- Replaced the former still-image pan/zoom derivatives with genuine subject-motion footage;
+  eligible desktop clients load exactly one dynamic MP4, while mobile, reduced-motion,
+  Save-Data and constrained-network clients remain on static posters.
+- Reframed the research area around cautious, source-linked evidence on relationship quality,
+  social support and well-being. The referenced book is explicitly labelled as inspiration,
+  not scientific proof, and the product makes no happiness or health guarantee.
+- Kept the existing 120 KiB raw / 20 KiB gzip CSS gate by consolidating the new visual styles
+  without reducing the design. The measured release CSS is 122,458 raw / 20,454 gzip bytes,
+  and landing JavaScript remains below its existing 50 KiB gzip ceiling.
+
+### Media, accessibility and release evidence
+- Recorded source page, creator, license, transform metadata, byte size and SHA-256 evidence for
+  the 17 photographs and both clips, plus the provable local parent/derivative lineage for the
+  new day mobile poster. Its legacy parent's missing upstream provenance remains explicitly
+  documented rather than invented. Production serves local derivatives instead of hotlinks.
+- Preserved the visible keyboard-operable motion toggle, offscreen/tab-hidden pause behavior,
+  user-paused state, muted playback, mobile static delivery and `prefers-reduced-motion` block.
+- `bun run typecheck`, `bun run lint`, `bun run test`, `bun run build` and
+  `bun run quality:performance` pass. Vitest reports 60 files / 325 tests; Playwright reports
+  14 passed and one intentionally skipped authenticated production-like fixture.
+- Frozen install, high-severity dependency audit, secret scan, security-definer audit and
+  release-version validation pass. Fresh database verification applies 94 migrations and
+  passes all 15 self-rolling-back fixtures in an isolated local PostgreSQL cluster.
+- Performance budgets pass with 2,444,885 raw bytes across exactly two hero videos; each video
+  remains below 1.5 MB, every image remains below 256 KB and the main landing bundle remains
+  below 50 KiB gzip.
+
+---
+
 ## [1.9.9] — 2026-08-24
 
 **Budapest Social Stories visual release.** The existing Hobbeast product now carries a

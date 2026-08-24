@@ -87,11 +87,12 @@ test('home hero motion control is accessible and its media assets load cleanly o
 
   await page.goto('/', { waitUntil: 'load' });
   await expect(page.getByTestId('hero-poster')).toBeVisible();
+  await expect(page.getByTestId('hero-poster')).toHaveAttribute('data-hero-variant', /^(day|night)$/);
 
   const video = page.getByTestId('hero-motion-video');
   const toggle = page.getByTestId('hero-motion-toggle');
   const videoAvailable = await video
-    .waitFor({ state: 'attached', timeout: 3_000 })
+    .waitFor({ state: 'attached', timeout: 8_000 })
     .then(() => true)
     .catch(() => false);
   const videoCount = videoAvailable ? await video.count() : 0;
@@ -100,6 +101,7 @@ test('home hero motion control is accessible and its media assets load cleanly o
   }
   const toggleCount = await toggle.count();
 
+  expect(videoCount, 'An eligible desktop hero must load one real motion clip').toBe(1);
   expect(toggleCount, 'The motion video and its control must be rendered together').toBe(videoCount);
 
   if (videoCount > 0) {
@@ -107,6 +109,9 @@ test('home hero motion control is accessible and its media assets load cleanly o
     await expect(video).toBeVisible();
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-label', /\S/);
+    const source = await video.locator('source').getAttribute('src');
+    expect(source).toMatch(/hero-together-(day|night)\.mp4/);
+    expect(source).not.toContain('hero-budapest-night-motion');
 
     const controlBounds = await toggle.boundingBox();
     expect(controlBounds, 'The motion control must have a rendered hit target').not.toBeNull();
@@ -130,9 +135,58 @@ test('home hero motion control is accessible and its media assets load cleanly o
 
     await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(initiallyPaused);
     await expect.poll(() => toggle.getAttribute('aria-label')).not.toBe(toggledLabel);
+
+    if (await video.evaluate((element: HTMLVideoElement) => element.paused)) {
+      await toggle.click();
+    }
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false);
+
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true);
+
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false);
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true);
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false);
   }
 
   expect(assetRequestErrors).toEqual([]);
+});
+
+test('photographic hobby cards preserve the full category drill-down state machine', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/explore', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByTestId('category-visual')).toHaveCount(17);
+  await expect(page.locator('[data-testid="category-visual"] img')).toHaveCount(17);
+  expect(await page.locator('[data-testid="category-visual"] img').evaluateAll((images) =>
+    images.every((image) => Boolean((image as HTMLImageElement).getAttribute('src'))),
+  )).toBe(true);
+  expect(await page.locator('[data-testid="category-visual"] img').evaluateAll((images) =>
+    images.slice(0, 4).every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0),
+  )).toBe(true);
+
+  await page.getByRole('button', { name: 'Sport & Mozgás kategória megnyitása' }).click();
+  await expect(page.getByRole('heading', { name: 'Válassz egy közelebbi irányt' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Labdajátékok alkategória megnyitása' }).click();
+  await expect(page.getByRole('heading', { name: 'Találd meg a neked való tevékenységet' })).toBeVisible();
+
+  await page.getByRole('button', { name: /Vissza/ }).click();
+  await expect(page.getByRole('heading', { name: 'Válassz egy közelebbi irányt' })).toBeVisible();
+  await page.getByRole('button', { name: /Vissza/ }).click();
+  await expect(page.getByRole('heading', { name: 'Milyen élményre vágysz?' })).toBeVisible();
+  await expect(page.getByTestId('category-visual')).toHaveCount(17);
 });
 
 test('mobile navigation and additive home discovery entry points preserve routing', async ({ page }) => {

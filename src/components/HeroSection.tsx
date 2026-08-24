@@ -100,7 +100,7 @@ const HeroSection = () => {
               initial={reduceMotion ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-4xl font-display text-[3.15rem] font-extrabold leading-[0.9] tracking-[-0.065em] text-white sm:text-[4.5rem] lg:text-[5.85rem] xl:text-[6.8rem]"
+              className="max-w-4xl font-display text-[2.7rem] font-extrabold leading-[0.9] tracking-[-0.065em] text-white min-[360px]:text-[3.15rem] sm:text-[4.5rem] lg:text-[5.85rem] xl:text-[6.8rem]"
             >
               A város tele van
               <span className="block text-[#dfff62]">közös történetekkel.</span>

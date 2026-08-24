@@ -99,7 +99,7 @@ const HeroMotionMedia = ({ reduceMotion, variant }: HeroMotionMediaProps) => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [eligible, playWhenAllowed]);
+  }, [eligible, playWhenAllowed, source]);
 
   const togglePlayback = () => {
     const video = videoRef.current;

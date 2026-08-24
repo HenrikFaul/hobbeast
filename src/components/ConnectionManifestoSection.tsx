@@ -28,11 +28,11 @@ const ConnectionManifestoSection = () => {
 
   return (
     <section className="relative overflow-hidden bg-[#183124] py-20 text-white sm:py-24 lg:py-28">
-      <div aria-hidden="true" className="absolute -left-28 -top-36 h-80 w-80 rounded-full border-[44px] border-[#dfff62]/10" />
-      <div aria-hidden="true" className="absolute -bottom-48 right-0 h-96 w-96 rounded-full bg-[#c9b7ff]/10 blur-3xl" />
+      <div aria-hidden="true" className="absolute -left-28 -top-36 h-80 w-80 rounded-full" style={{ borderWidth: 44, borderColor: "rgba(223,255,98,0.1)" }} />
+      <div aria-hidden="true" className="absolute -bottom-48 right-0 h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: "rgba(201,183,255,0.1)" }} />
 
       <div className="container relative mx-auto px-4">
-        <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-16">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -40,7 +40,7 @@ const ConnectionManifestoSection = () => {
             transition={{ duration: 0.58 }}
             className="relative mx-auto w-full max-w-2xl pb-12 sm:pb-16"
           >
-            <figure className="relative ml-auto aspect-[4/3] w-[88%] overflow-hidden rounded-[2.5rem_1.5rem_3.75rem_2rem] border border-white/15 shadow-2xl">
+            <figure className="relative ml-auto aspect-[4/3] overflow-hidden border border-white/20 shadow-2xl" style={{ width: "88%", borderRadius: "2.5rem 1.5rem 3.75rem 2rem" }}>
               <img
                 src={learningFriends}
                 alt="Barátok közösen olvasnak és beszélgetnek"
@@ -50,10 +50,10 @@ const ConnectionManifestoSection = () => {
                 decoding="async"
                 className="h-full w-full object-cover"
               />
-              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#183124]/45 via-transparent to-transparent" />
+              <div aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(24,49,36,0.45), transparent 62%)" }} />
             </figure>
 
-            <figure className="absolute -bottom-2 left-0 aspect-[4/3] w-[48%] -rotate-3 overflow-hidden rounded-[1.75rem] border-[6px] border-[#183124] shadow-xl">
+            <figure className="absolute -bottom-2 left-0 aspect-[4/3] -rotate-3 overflow-hidden border-[#183124] shadow-xl" style={{ width: "48%", borderRadius: "1.75rem", borderWidth: 6 }}>
               <img
                 src={volunteeringFriends}
                 alt="Önkéntes csapat együtt tesz a környezetéért"
@@ -65,7 +65,7 @@ const ConnectionManifestoSection = () => {
               />
             </figure>
 
-            <figure className="absolute -bottom-8 right-3 aspect-square w-[35%] rotate-3 overflow-hidden rounded-full border-[6px] border-[#dfff62] shadow-xl">
+            <figure className="absolute -bottom-8 right-3 aspect-square rotate-3 overflow-hidden rounded-full border-[#dfff62] shadow-xl" style={{ width: "35%", borderWidth: 6 }}>
               <img
                 src={boardGameFriends}
                 alt="Barátok együtt örülnek egy társasjáték közben"
@@ -88,11 +88,11 @@ const ConnectionManifestoSection = () => {
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.58 }}
           >
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#dfff62]">Amiért itt vagyunk</p>
-            <h2 className="mt-5 max-w-3xl font-display text-4xl font-extrabold leading-[0.96] tracking-[-0.055em] sm:text-5xl lg:text-[4.2rem]">
+            <p className="text-xs font-extrabold uppercase text-[#dfff62]" style={{ letterSpacing: "0.18em" }}>Amiért itt vagyunk</p>
+            <h2 className="mt-5 max-w-3xl font-display text-4xl font-extrabold sm:text-5xl lg:text-[4.2rem]" style={{ lineHeight: 0.96, letterSpacing: "-0.055em" }}>
               Nyerjük vissza <span className="text-[#dfff62]">egymást.</span>
             </h2>
-            <p className="mt-6 max-w-2xl text-base font-medium leading-relaxed text-white/[0.72] sm:text-lg">
+            <p className="mt-6 max-w-2xl text-base font-medium leading-relaxed text-white/70 sm:text-lg">
               Nem követőszámokat gyűjtünk. Olyan helyzeteket nyitunk, ahol lehet
               kérdezni, tanulni, segíteni, nevetni — és együtt megélni azt, ami a
               képernyőn kívül történik.
@@ -100,13 +100,13 @@ const ConnectionManifestoSection = () => {
 
             <div className="mt-8 grid gap-3">
               {values.map((value) => (
-                <article key={value.title} className="grid grid-cols-[auto_1fr] gap-4 rounded-[1.4rem] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm sm:p-5">
+                <article key={value.title} className="flex gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm sm:p-5">
                   <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dfff62] text-[#183124]">
                     <value.icon size={20} aria-hidden="true" />
                   </span>
                   <div>
                     <h3 className="font-display text-lg font-extrabold">{value.title}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-white/[0.66]">{value.copy}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-white/70">{value.copy}</p>
                   </div>
                 </article>
               ))}

@@ -107,7 +107,7 @@ configuration remain separate, explicitly verified deployment steps.
 
 ## Versioning & release process
 
-- Semantic versioning (`MAJOR.MINOR.PATCH`). Current repository release: **1.9.8**.
+- Semantic versioning (`MAJOR.MINOR.PATCH`). Current repository release: **1.10.0**.
 - Single source of truth: `CHANGELOG.md` (Keep a Changelog format).
 - Historical append snippets and upload READMEs are archived under `docs/releases/`.
 - Full release protocol: [`RELEASE_PROCESS.md`](./RELEASE_PROCESS.md).

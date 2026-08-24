@@ -28,15 +28,15 @@ const CTASection = () => {
             <div>
               <div className="inline-flex rotate-[-1deg] items-center gap-2 rounded-full border border-[#2f1711]/10 bg-[#fffdf7]/55 px-4 py-2 text-sm font-extrabold">
                 <Sparkles size={14} aria-hidden="true" />
-                Csatlakozz a közösséghez
+                Egy közös élménnyel kezdődik
               </div>
 
               <h2 className="mt-6 max-w-3xl text-balance font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-                Készen állsz, hogy új embereket és közös élményeket találj?
+                Kezdjük egy közös délutánnal.
               </h2>
               <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-[#2f1711]/[0.84] sm:text-lg">
-                Lépj be a Hobbeast világába, ahol a közös hobbi, a programok és
-                az új barátságok egyetlen, jól szervezett helyen találkoznak.
+                Hozd, amit szeretsz. Találj valakit, aki kíváncsi rá. Tanuljatok,
+                mozogjatok, alkossatok vagy segítsetek együtt — a saját tempótokban.
               </p>
             </div>
 

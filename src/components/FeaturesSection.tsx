@@ -15,8 +15,8 @@ const features = [
   {
     icon: Users,
     eyebrow: "01 · Találkozás",
-    title: "Ne csak kövess embereket. Találkozz velük.",
-    description: "Közös érdeklődés, hasonló ritmus és valódi programok alapján kapcsolódhatsz — kínos hidegüzenetek nélkül.",
+    title: "Ne csak kövess embereket. Legyetek ott egymásnak.",
+    description: "Közös érdeklődés, hasonló ritmus és valódi programok adnak természetes alkalmat a kapcsolódásra — kínos hidegüzenetek nélkül.",
     className: "bg-[#183124] text-white sm:col-span-2 lg:col-span-7",
     iconClassName: "bg-[#dfff62] text-[#183124]",
     copyClassName: "text-white/[0.68]",
@@ -34,7 +34,7 @@ const features = [
     icon: MapPin,
     eyebrow: "03 · Közel hozzád",
     title: "A városod legyen a közös nappali",
-    description: "Lokációalapú felfedezés, útvonaltervezés és helyszínjavaslat egyetlen folyamatban.",
+    description: "Lokációalapú felfedezés, útvonaltervezés és helyszínjavaslat segít, hogy a város ne háttér, hanem közös élmény legyen.",
     className: "bg-[#dfff62] text-[#183124] sm:col-span-1 lg:col-span-4",
     iconClassName: "bg-[#183124] text-[#dfff62]",
     copyClassName: "text-[#183124]/[0.82]",
@@ -52,7 +52,7 @@ const features = [
     icon: Sparkles,
     eyebrow: "05 · A te tempódban",
     title: "Hobbi minden hangulathoz",
-    description: "Túrától a társasig, koncerttől a kreatív workshopig — részletes hobbi-katalógusból indulhatsz.",
+    description: "Túrától a társasig, közös tanulástól az önkéntességig — részletes hobbi-katalógusból indulhatsz.",
     className: "bg-[#f5d46f] text-[#33250a] sm:col-span-1 lg:col-span-4",
     iconClassName: "bg-[#33250a] text-[#f5d46f]",
     copyClassName: "text-[#33250a]/[0.82]",
@@ -102,8 +102,8 @@ const FeaturesSection = () => {
           <div className="lg:pb-1">
             <p className="max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-lg">
               A Hobbeast megtartja a részletes szűrést, a személyre szabást és a
-              szervezői eszközöket, de mindezt könnyebb, emberibb felfedezési
-              élménybe rendezi.
+              szervezői eszközöket. Az egész mégis egyetlen irányba mutat: legyen
+              könnyebb kilépni, találkozni és valami jót megélni együtt.
             </p>
             <Button asChild variant="ghost" className="mt-4 -ml-4 rounded-full text-primary">
               <Link to="/explore">
