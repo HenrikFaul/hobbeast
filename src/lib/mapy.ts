@@ -282,7 +282,9 @@ export async function enrichMapyElevation(plan: TripPlanDraft): Promise<TripPlan
 
   const params = new URLSearchParams({
     positions: points.map((p) => `${p.lon},${p.lat}`).join(';'),
-    lang: 'hu',
+    // The elevation API's lang enum has no 'hu' (422); 'en' is accepted and the
+    // response carries no localized text we surface anyway.
+    lang: 'en',
   });
 
   const rawPayload = await fetchJsonWithFallback<unknown>(ELEVATION_ENDPOINTS, params);
