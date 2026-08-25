@@ -12,6 +12,49 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.19.0] — 2026-08-25
+
+**Per-site deep recon, host adapters, and the editorial video library.** The owner's
+18 named aggregators were each investigated with a network-sniffing Playwright recon
+(`scraper-worker/recon.mjs`); every finding is marked on the source itself and shown
+on the admin Programgyűjtő tab.
+
+### Added
+- **`scrape_note` marking** (migration `20260826010000`): every recon-audited source
+  carries a human-readable note on WHY it needs its extraction method; the admin
+  destinations table now shows a strategy badge (böngészős / hírfolyam / esemény-API /
+  egyedi adapter) and the note (`admin_scraper_stats` + AdminScraper update,
+  migration `20260826011000`).
+- **'site' strategy + host adapter framework** (`src/sources/adapters.mjs`):
+  telekomspots.hu adapter (no schema.org; og: metadata + embedded Next.js `startsAt`;
+  scrolled listing) — first production run: 10 events.
+- **Generic extractor upgrades**: ItemList JSON-LD followed for curated detail URLs
+  (todayinbudapest, myguide); og:title + URL-date fallback for schema-less dated
+  links (erasmuslife); `--disable-http2` launch flag (eventim handshake failure).
+- **Editorial video library**: 56 hobby-themed Pexels videos (16 themes + the
+  reviewed backlog) under `media-library/videos/` (gitignored, 152MB) with a full
+  provenance manifest (`media-library/VIDEO_LIBRARY.md`) following the
+  MEDIA_PROVENANCE.md licence discipline. Fetcher: `scraper-worker/fetch-videos.mjs`
+  (fresh browser per search — Cloudflare allows ~one search per session).
+
+### Changed
+- Endpoint corrections from recon: fluxarcgames → /events/ (JSON-LD lives there),
+  budapest.com → list view, futanet → /valos-esemenyek; budapestbylocals → rss.
+- Recon-audited aggregators repriorityzed 100→30 (they are aggregator-class).
+- ra.co and 10times.com disabled: hard 403 bot-block even for a rendered browser
+  (stealth would be required); noted on the source rows.
+
+### Verified (validation run with the fixes)
+- **40 sources → 128 events extracted, +85 inserted, 13 cross-source duplicates
+  skipped, 5 failed** (vs 35 and 4 in the two prior sweeps).
+- Songkick 50 · Telekom Spots [site] 10 · Today in Budapest 10 · Erasmus Life 10
+  (URL-date fallback) · Csabai Kolbászfesztivál 9 (root-retry after 404) · Eventland
+  8+2 · Gödöllő RSS 7 · Kölcsey tribe 6.
+- Day total: **62 → 178 active scraped events (2.9×), 8 → 21 producing sources,
+  146/344 sources swept**.
+
+---
+
 ## [1.18.0] — 2026-08-25
 
 **Scraper yield overhaul: full-source audit, three root-cause fixes, multi-strategy
