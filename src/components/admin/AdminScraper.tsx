@@ -15,7 +15,16 @@ interface ScraperDestination {
   last_run_at: string | null;
   last_events: number;
   total_events: number;
+  scrape_strategy: string | null;
+  scrape_note: string | null;
 }
+
+const STRATEGY_LABELS: Record<string, string> = {
+  render: 'böngészős',
+  rss: 'hírfolyam',
+  tribe: 'esemény-API',
+  site: 'egyedi adapter',
+};
 
 interface ScraperDaily {
   day: string;
@@ -136,7 +145,7 @@ export function AdminScraper() {
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
-              <th className="py-2 pr-3">Forrás</th><th className="py-2 pr-3">Város</th><th className="py-2 pr-3">Prio</th>
+              <th className="py-2 pr-3">Forrás</th><th className="py-2 pr-3">Város</th><th className="py-2 pr-3">Módszer</th>
               <th className="py-2 pr-3">Utolsó futás</th><th className="py-2 pr-3">Utolsó · összes esemény</th><th className="py-2">Állapot</th>
             </tr></thead>
             <tbody>{visibleDestinations.map((d) => (
@@ -144,9 +153,18 @@ export function AdminScraper() {
                 <td className="py-2 pr-3">
                   <p className="font-medium">{d.publisher_name}</p>
                   <p className="max-w-[280px] truncate text-xs text-muted-foreground">{d.endpoint_url}</p>
+                  {d.scrape_note && (
+                    <p className="max-w-[320px] text-xs italic text-amber-700 dark:text-amber-500" title={d.scrape_note}>
+                      {d.scrape_note.length > 90 ? `${d.scrape_note.slice(0, 90)}…` : d.scrape_note}
+                    </p>
+                  )}
                 </td>
                 <td className="py-2 pr-3">{d.city || '—'}</td>
-                <td className="py-2 pr-3">{d.scrape_priority}</td>
+                <td className="py-2 pr-3">
+                  <Badge variant={d.scrape_strategy === 'render' || !d.scrape_strategy ? 'outline' : 'secondary'} className="text-[10px]">
+                    {STRATEGY_LABELS[d.scrape_strategy || 'render'] || d.scrape_strategy}
+                  </Badge>
+                </td>
                 <td className="py-2 pr-3">{formatWhen(d.last_run_at)}</td>
                 <td className="py-2 pr-3">{d.last_events} · {d.total_events}</td>
                 <td className="py-2">

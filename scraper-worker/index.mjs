@@ -18,6 +18,7 @@ import { fetchStatic, robotsAllows } from './src/fetch.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
+import { adapterForSource } from './src/sources/adapters.mjs';
 import { ingestEvents } from './src/ingest.mjs';
 import { listScraperTargets, logScraperRun } from './src/registry.mjs';
 
@@ -44,7 +45,8 @@ async function main() {
   const targets = await listScraperTargets({ supabaseUrl, serviceRoleKey, limit: sourcesPerRun });
   log(`Targets from registry: ${targets.length}`);
 
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  // --disable-http2: some sites (eventim.hu) abort Chromium's HTTP/2 handshake.
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-http2'] });
   const summary = { sources: 0, events: 0, inserted: 0, updated: 0, skipped: 0, duplicates: 0, failed: 0 };
   try {
     for (const source of targets) {
@@ -60,11 +62,14 @@ async function main() {
         if (!listing) throw new Error('invalid endpoint url');
         if (!(await robotsAllows(listing))) throw new Error('robots disallow on listing');
         const opts = { browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log };
-        ({ events, httpStatus } = strategy === 'tribe'
-          ? await scrapeTribeSource(source, opts)
-          : strategy === 'rss'
-            ? await scrapeRssSource(source, opts)
-            : await scrapeGenericSource(source, opts));
+        const adapter = strategy === 'site' ? adapterForSource(source) : null;
+        ({ events, httpStatus } = adapter
+          ? await adapter(source, opts)
+          : strategy === 'tribe'
+            ? await scrapeTribeSource(source, opts)
+            : strategy === 'rss'
+              ? await scrapeRssSource(source, opts)
+              : await scrapeGenericSource(source, opts));
         if (events.length > 150) events = events.slice(0, 150);
         log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
       } catch (e) {

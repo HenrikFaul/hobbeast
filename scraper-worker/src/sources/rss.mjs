@@ -62,7 +62,7 @@ export async function scrapeRssSource(source, { fetchStatic, maxDetails = 12, de
     let pushed = false;
     try {
       const html = await fetchStatic(item.link);
-      for (const ev of extractDetailEvents(html)) {
+      for (const ev of extractDetailEvents(html, item.link)) {
         if (!ev.image && item.image) ev.image = item.image;
         const row = buildEvent(source, ev, { listingUrl: feedUrl, detailUrl: item.link });
         if (row) { events.push(row); pushed = true; }

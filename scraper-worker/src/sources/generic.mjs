@@ -199,12 +199,31 @@ export function buildEvent(source, ev, { listingUrl, detailUrl }) {
   };
 }
 
-/** Detail-page parse shared by render and rss strategies: JSON-LD, then microdata. */
-export function extractDetailEvents(html) {
+/**
+ * Detail-page parse shared by render and rss strategies: JSON-LD, then
+ * microdata, then — when the page URL itself carries a full date (recon:
+ * erasmuslifebudapest-style "/events/{slug}-2026-09-06" links) — og:title
+ * plus that URL date as a last resort.
+ */
+export function extractDetailEvents(html, pageUrl = null) {
   const found = extractJsonLdEvents(html);
   if (!found.length) {
     const micro = extractMicrodataEvent(html);
     if (micro) found.push(micro);
+  }
+  if (!found.length && pageUrl) {
+    const urlDate = pageUrl.match(/(20\d{2})[-.](0[1-9]|1[0-2])[-.](0[1-9]|[12]\d|3[01])/);
+    const ogTitle = extractOg(html, 'title');
+    if (urlDate && ogTitle) {
+      found.push({
+        name: stripHtml(ogTitle),
+        startDate: `${urlDate[1]}-${urlDate[2]}-${urlDate[3]}`,
+        url: pageUrl,
+        image: null,
+        description: null,
+        offers: { price_min: null, currency: null, ticket_url: null },
+      });
+    }
   }
   const ogImage = extractOg(html, 'image');
   const ogDesc = extractOg(html, 'description');
@@ -213,6 +232,26 @@ export function extractDetailEvents(html) {
     if (!ev.description && ogDesc) ev.description = stripHtml(ogDesc).slice(0, 500);
   }
   return found;
+}
+
+/** Listing-level ItemList JSON-LD (todayinbudapest, myguide): follow its URLs. */
+export function extractItemListUrls(html, baseUrl) {
+  const urls = [];
+  for (const b of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    let parsed;
+    try { parsed = JSON.parse(b[1].trim()); } catch { continue; }
+    const arr = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+    for (const it of arr) {
+      if (!it || String(it['@type']) !== 'ItemList' || !Array.isArray(it.itemListElement)) continue;
+      for (const el of it.itemListElement) {
+        const u = typeof el?.url === 'string' ? el.url : typeof el?.item === 'string' ? el.item : el?.item?.url;
+        if (typeof u === 'string') {
+          try { urls.push(new URL(u, baseUrl).toString()); } catch { /* ignore */ }
+        }
+      }
+    }
+  }
+  return urls;
 }
 
 async function renderPage(browser, url) {
@@ -263,6 +302,9 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     }
   }
 
+  // ItemList JSON-LD on the listing supplies curated detail URLs first.
+  detailUrls = [...new Set([...extractItemListUrls(listingHtml, listingUrl), ...detailUrls])];
+
   // Same-host event-looking links (path keywords OR a date in the URL);
   // never re-fetch the listing itself.
   detailUrls = detailUrls.filter((u) => {
@@ -286,7 +328,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   for (const url of detailUrls) {
     try {
       const html = await fetchStatic(url);
-      for (const ev of extractDetailEvents(html)) push(ev, url);
+      for (const ev of extractDetailEvents(html, url)) push(ev, url);
     } catch (e) {
       log(`    detail failed ${url}: ${e.message.slice(0, 60)}`);
     }

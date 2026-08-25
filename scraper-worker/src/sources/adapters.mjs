@@ -1,0 +1,79 @@
+// Host-specific adapters (scrape_strategy = 'site'). Each adapter receives the
+// same options as the generic strategies and returns { events, httpStatus }.
+// Registered per hostname; the recon notes in external_event_feed_sources
+// explain WHY each site needs its own logic.
+
+import { buildEvent, extractOg, normalizeEndpointUrl, stripHtml } from './generic.mjs';
+
+/**
+ * telekomspots.hu — Next.js app, no schema.org markup. The listing renders
+ * /events/{id}/{slug} cards after scrolling; each detail page embeds ISO
+ * "startsAt" values in the framework payload and full og: metadata.
+ */
+async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 12, delayMs = 600, log = () => {} }) {
+  const listingUrl = normalizeEndpointUrl(source.endpoint_url) || 'https://telekomspots.hu/events';
+  const page = await browser.newPage({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+    ignoreHTTPSErrors: true,
+  });
+  let links = [];
+  let status = null;
+  try {
+    const resp = await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 45000 });
+    status = resp ? resp.status() : null;
+    for (let i = 0; i < 4; i += 1) {
+      await page.mouse.wheel(0, 2600);
+      await page.waitForTimeout(1200);
+    }
+    links = await page.evaluate(() => [...new Set(
+      [...document.querySelectorAll('a[href^="/events/"], a[href*="telekomspots.hu/events/"]')]
+        .map((a) => new URL(a.getAttribute('href'), location.origin).toString()),
+    )]);
+  } finally {
+    await page.close().catch(() => {});
+  }
+
+  links = links.filter((u) => /\/events\/[a-z0-9]{10,}\//.test(u)).slice(0, maxDetails);
+  const events = [];
+  for (const url of links) {
+    try {
+      const html = await fetchStatic(url);
+      const name = extractOg(html, 'title');
+      // Document order: the page's own event payload precedes sidebar items.
+      const starts = [...html.matchAll(/"startsAt"\s*:\s*"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}[^"]*)"/g)]
+        .map((m) => m[1])
+        .filter((iso) => new Date(iso).getTime() > Date.now() - 86400000);
+      if (!name || !starts.length) continue;
+      const cleanName = stripHtml(name)
+        .replace(/&amp;/g, '&').replace(/&#0?39;/g, "'").replace(/&quot;/g, '"')
+        .replace(/^Telekom Spots\s*[-|]\s*/i, '')
+        .replace(/\s*\|\s*Telekom.*$/i, '');
+      const row = buildEvent(source, {
+        name: cleanName,
+        startDate: starts[0],
+        url,
+        image: extractOg(html, 'image'),
+        description: extractOg(html, 'description') ? stripHtml(extractOg(html, 'description')).slice(0, 500) : null,
+        offers: { price_min: null, currency: null, ticket_url: url },
+      }, { listingUrl, detailUrl: url });
+      if (row) events.push(row);
+    } catch (e) {
+      log(`    detail failed ${url}: ${String(e.message).slice(0, 50)}`);
+    }
+    if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return { events, httpStatus: status };
+}
+
+const ADAPTERS = {
+  'telekomspots.hu': scrapeTelekomSpots,
+};
+
+export function adapterForSource(source) {
+  try {
+    const host = new URL(normalizeEndpointUrl(source.endpoint_url)).host.replace(/^www\./, '');
+    return ADAPTERS[host] || null;
+  } catch {
+    return null;
+  }
+}
