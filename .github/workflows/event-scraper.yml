@@ -1,0 +1,45 @@
+name: Event scraper
+
+# Renders JS-heavy Hungarian event sites with Playwright and upserts dated events
+# into Hobbeast via the controlled service-role ingest RPC. Free on GitHub Actions.
+# Runs 3x/day (well within free-tier minutes) plus manual dispatch.
+
+on:
+  schedule:
+    - cron: '17 4,12,20 * * *' # 06:17 / 14:17 / 22:17 Europe/Budapest (UTC+2)
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max events per listing'
+        required: false
+        default: '60'
+
+concurrency:
+  group: event-scraper
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: scraper-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node index.mjs --limit ${{ github.event.inputs.limit || '60' }}

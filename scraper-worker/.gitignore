@@ -1,0 +1,4 @@
+node_modules/
+*.log
+events_feed.xml
+.env

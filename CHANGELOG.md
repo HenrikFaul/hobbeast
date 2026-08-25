@@ -12,6 +12,53 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.15.0] — 2026-08-25
+
+**Real Hungarian events now flow in — via an offline Playwright scraper worker.** The
+v1.11.0 feed pipeline is deliberately no-JavaScript, so it could not read the
+client-rendered Hungarian event sites (documented in v1.14.0). This release adds a
+separate, scheduled Playwright worker that renders those sites offline and pushes clean,
+dated events into Hobbeast through one controlled service-role RPC — leaving the hardened
+Edge pipeline untouched. Reuses the browser-automation approach from the operator's
+`searchforge` crawler project.
+
+### Added
+- **`scraper-worker/`** (Node + Playwright, ES modules): renders a source's client-side
+  LISTING page to collect event detail URLs, then static-fetches each DETAIL page and
+  parses its server-side Event JSON-LD. First source: `src/sources/jegyhu.mjs` (jegy.hu
+  concert category — listing is React-rendered, detail pages carry `MusicEventMarkup`
+  JSON-LD that the no-JS pipeline could not see). Robots-gated, HTTPS-only, polite
+  sequential detail fetches.
+- **`ingest_scraped_external_events(jsonb)`** RPC (migration `20260825140000`):
+  service-role-only, controlled ingest boundary. Requires a non-empty title and a
+  **future** date, idempotent upsert on `(external_source, external_id)`, marks rows
+  active/fresh so the existing `list_external_events_safe_page` surfaces them under
+  "Külső programok". A dedicated `scraper` value was added to the `external_source`
+  CHECK so scraper rows never mix with provider-API or feed-pipeline rows.
+- **`.github/workflows/event-scraper.yml`**: scheduled GitHub Actions job (3×/day —
+  06:17 / 14:17 / 22:17 Europe/Budapest, plus manual dispatch) that installs Playwright
+  Chromium and runs the worker. Free-tier; secrets `SUPABASE_URL` +
+  `SUPABASE_SERVICE_ROLE_KEY` set on the repo.
+
+### Verified (end-to-end, live)
+- Dry run extracted 20 real dated concerts with venues (André Rieu @ MVM Dome, Budapest
+  Bár @ Margitszigeti Szabadtéri Színpad, Demjén 80 @ Papp László Aréna, …).
+- Real run: `+20 inserted, 0 skipped`. The public anon read
+  (`list_external_events_safe_page`, the exact call the /events page makes) returns all
+  20 scraper events with dates and venues — they render under "Külső programok".
+- `bun run db:verify --mode=fresh` re-run after the new migrations.
+
+### Architecture note
+- The scraper does the "dirty" JS rendering offline in a sandboxed CI runner and hands
+  Hobbeast only validated, dated events. The Supabase Edge feed pipeline
+  (`event-feed-ingest`) is unchanged and still handles true static feeds. This is the
+  no-regression way to reconcile "we need JS-rendered events" with "the fetcher must
+  stay no-JS/SSRF-hardened".
+- Next: add more `src/sources/*` extractors (welovebudapest, venue calendars) — each is
+  a small module; no schema or pipeline change needed.
+
+---
+
 ## [1.14.0] — 2026-08-25
 
 **Event-feed ingestion activated and scheduled (hosted operations).** The v1.11.0 pipeline

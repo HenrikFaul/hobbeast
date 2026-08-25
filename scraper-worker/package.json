@@ -1,0 +1,14 @@
+{
+  "name": "hobbeast-event-scraper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline Playwright event-scraper worker that renders JS-heavy Hungarian event sites and upserts dated events into Hobbeast via a controlled service-role ingest RPC. Runs from GitHub Actions on a schedule.",
+  "scripts": {
+    "scrape": "node index.mjs",
+    "scrape:dry": "node index.mjs --dry-run"
+  },
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}
