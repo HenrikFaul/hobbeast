@@ -218,9 +218,18 @@ export function extractDetailEvents(html) {
 async function renderPage(browser, url) {
   const page = await browser.newPage({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+    // Municipal/venue sites often serve mismatched certs; we only read public data.
+    ignoreHTTPSErrors: true,
   });
   try {
-    const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 40000 });
+    let response;
+    try {
+      response = await page.goto(url, { waitUntil: 'networkidle', timeout: 40000 });
+    } catch (e) {
+      if (!/Timeout/i.test(String(e.message))) throw e;
+      // Slow sites: settle for DOM-ready instead of failing the whole source.
+      response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    }
     const status = response ? response.status() : null;
     const html = await page.content();
     const links = await page.evaluate(() => {
