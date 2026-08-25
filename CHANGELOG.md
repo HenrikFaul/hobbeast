@@ -12,6 +12,21 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.20.1] — 2026-08-25
+
+### Fixed
+- **The Programgyűjtő tab was unreachable**: clicking it set `?tab=scraper`, but
+  `'scraper'` was missing from the `allowedTabs` allowlist in `Admin.tsx`, so the
+  URL value was rejected and the page fell back to the Katalógus tab. The v1.20.0
+  dashboard was deployed and working — it simply could not be opened. Added
+  `'scraper'` to the allowlist.
+- **Regression test** (`src/pages/__tests__/adminTabs.test.ts`): asserts that every
+  rendered `TabsTrigger` is allowlisted, that every allowlisted tab has a
+  `TabsContent` panel, and that the Programgyűjtő tab specifically stays reachable.
+  A tab silently falling back to 'catalog' can no longer ship.
+
+---
+
 ## [1.20.0] — 2026-08-25
 
 **Branded Google sign-in + full Programgyűjtő dashboard with manual runs.**

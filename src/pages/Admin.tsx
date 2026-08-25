@@ -22,7 +22,7 @@ const Admin = () => {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const allowedTabs = ['catalog', 'users', 'auto-events', 'events', 'operations', 'moderation', 'metrics', 'outcomes', 'feature-flags', 'eventbrite', 'common-admin'] as const;
+  const allowedTabs = ['catalog', 'users', 'auto-events', 'events', 'operations', 'moderation', 'metrics', 'outcomes', 'feature-flags', 'eventbrite', 'common-admin', 'scraper'] as const;
   const searchTab = searchParams.get('tab');
   const activeTab = allowedTabs.includes(searchTab as (typeof allowedTabs)[number]) ? searchTab : 'catalog';
   useEffect(() => {
