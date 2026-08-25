@@ -24,7 +24,8 @@ toggle layout repaired, and the owner's admin access verified end to end.
 - **Interactive Explore activity tiles** (`ActivityTile`): every activity tile (search
   results and subcategory drill-down) now has a ❤️ favorite toggle writing to
   `profiles.hobbies` (optimistic, signed-out users are routed to sign-in), a
-  **Programok** button deep-linking to `/events?q=<activity>`, and two live count
+  **Programok** button deep-linking to `/events?mode=search&q=<activity>` (the `mode`
+  param is required for the Events page to apply the text filter), and two live count
   badges — 📅 upcoming programs and 👥 interested members.
 - **`explore_activity_stats(p_names)` RPC** (migration `20260825190000`): batched
   aggregate counts per activity — future-dated internal + active external events

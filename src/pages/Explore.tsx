@@ -76,7 +76,7 @@ const Explore = () => {
   };
 
   const searchPrograms = (name: string) => {
-    navigate(`/events?q=${encodeURIComponent(name)}`);
+    navigate(`/events?mode=search&q=${encodeURIComponent(name)}`);
   };
 
   const handleCategoryClick = (cat: HobbyCategory) => {
