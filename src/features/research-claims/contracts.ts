@@ -26,6 +26,24 @@ export interface RandomResearchClaimRequest {
   randomCursor: number;
 }
 
+export interface SavedCommunityResearchClaim extends CommunityResearchClaim {
+  isSaved: true;
+  savedAt: string;
+}
+
+export interface SavedResearchClaimsRequest {
+  locale: string;
+  limit: number;
+  offset: number;
+}
+
+export interface SavedResearchClaimsPage {
+  items: SavedCommunityResearchClaim[];
+  totalCount: number;
+  limit: number;
+  offset: number;
+}
+
 const localePattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/;
 
 export function resolveResearchLocale(

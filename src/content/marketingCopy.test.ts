@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   getCanonicalMarketingCopy,
   getEligibleMarketingCopy,
+  ABOUT_CTA_COPY,
+  ABOUT_VISION_COPY,
+  AUTH_INTRO_COPY,
   EXPLORE_HERO_COPY,
+  FEATURES_EXPLORE_COPY,
   HOME_MARKETING_CONTRACT,
   MARKETING_COPY_REGISTRY,
   type MarketingCopyStatus,
@@ -31,6 +35,21 @@ describe("marketing copy registry", () => {
       slot: "explore-hero",
       status: "eligible",
       heading: "Fedezd fel a hobbidat",
+    }));
+  });
+
+  it("carries the sharing-first direction through key fixed copy without deleting prior variants", () => {
+    expect(ABOUT_CTA_COPY.heading).toBe("Hozd közénk, amit szeretsz");
+    expect(ABOUT_VISION_COPY.body).toContain("megoszthatja, amit szeret");
+    expect(FEATURES_EXPLORE_COPY.heading).toBe("Mutasd meg, vagy próbáld ki együtt");
+    expect(AUTH_INTRO_COPY.body).toContain("Hozd magaddal, ami lelkesít");
+    expect(getEligibleMarketingCopy("about-cta")).toContainEqual(expect.objectContaining({
+      status: "eligible",
+      heading: "Találj egy hobbit",
+    }));
+    expect(getEligibleMarketingCopy("features-explore-link")).toContainEqual(expect.objectContaining({
+      status: "eligible",
+      heading: "Fedezd fel az összes hobbit",
     }));
   });
 

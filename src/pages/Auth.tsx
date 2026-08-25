@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { AUTH_INTRO_COPY } from '@/content/marketingCopy';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { Button } from '@/components/ui/button';
@@ -130,7 +131,7 @@ const Auth = () => {
             <div className="space-y-4">
               <p className="text-xs font-extrabold uppercase tracking-[0.16em]">Az új kedvenc társaságod itt kezdődik</p>
               <h1 aria-label="Találd meg a te embereidet." className="font-display text-6xl font-extrabold leading-[0.88] tracking-[-0.065em] xl:text-7xl">Találd meg<br />a te<br /><span className="text-[#ff6948]">embereidet.</span></h1>
-              <p className="max-w-md text-lg font-medium text-[#183124]/[0.68]">Fedezd fel a hobbi közösségeket a közeledben, szervezz programokat és találj barátokat.</p>
+              <p className="max-w-md text-lg font-medium text-[#183124]/[0.68]">{AUTH_INTRO_COPY.body}</p>
             </div>
             <div className="grid gap-3 xl:grid-cols-3">
               {features.map((feature, i) => (

@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { BookOpen, ExternalLink, TrendingUp } from "lucide-react";
 import ResearchClaimCard from "@/components/ResearchClaimCard";
+import { useResearchClaimSlot } from "@/features/research-claims/useResearchClaimSlot";
 
 const studies = [
   {
@@ -49,6 +50,7 @@ const studies = [
 
 const ResearchSection = () => {
   const reduceMotion = useReducedMotion();
+  const claimSlot = useResearchClaimSlot("home-research", 2);
 
   return (
     <section id="research" className="relative scroll-mt-24 overflow-hidden bg-background py-20 sm:py-24 lg:py-28">
@@ -147,7 +149,9 @@ const ResearchSection = () => {
           ))}
         </div>
 
-        <ResearchClaimCard placement="research_feature" className="mt-5" />
+        {claimSlot === 0 && (
+          <ResearchClaimCard placement="research_feature" className="mt-5" />
+        )}
 
         <motion.aside
           initial={reduceMotion ? false : { opacity: 0, y: 16 }}
@@ -176,6 +180,10 @@ const ResearchSection = () => {
             Könyv adatlapja <ExternalLink size={15} aria-hidden="true" />
           </a>
         </motion.aside>
+
+        {claimSlot === 1 && (
+          <ResearchClaimCard placement="research_feature" className="mt-5" />
+        )}
       </div>
     </section>
   );

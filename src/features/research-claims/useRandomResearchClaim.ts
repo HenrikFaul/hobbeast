@@ -7,7 +7,10 @@ import {
 } from './contracts';
 import { loadRandomResearchClaim } from './repository';
 
-export function useRandomResearchClaim(placement: ResearchClaimPlacement) {
+export function useRandomResearchClaim(
+  placement: ResearchClaimPlacement,
+  authScope = 'anonymous',
+) {
   const [randomCursor] = useState(createResearchRandomCursor);
   const locale = useMemo(() => resolveResearchLocale(
     typeof document === 'undefined' ? null : document.documentElement.lang,
@@ -15,7 +18,7 @@ export function useRandomResearchClaim(placement: ResearchClaimPlacement) {
   ), []);
 
   return useQuery({
-    queryKey: ['community-research-claim', placement, locale, randomCursor],
+    queryKey: ['community-research-claim', placement, locale, authScope, randomCursor],
     queryFn: () => loadRandomResearchClaim({ locale, placement, randomCursor }),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 10 * 60 * 1000,

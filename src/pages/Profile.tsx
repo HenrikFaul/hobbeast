@@ -23,6 +23,7 @@ import { UpcomingEventsReminder } from '@/components/UpcomingEventsReminder';
 import { HOBBY_OPTIONS } from '@/features/identity/hobbyOptions';
 import { SessionSecurityCard } from '@/components/SessionSecurityCard';
 import { FirstEventConfidenceCard } from '@/components/FirstEventConfidenceCard';
+import { SavedResearchClaimsCard } from '@/components/SavedResearchClaimsCard';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -358,6 +359,7 @@ const Profile = () => {
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="lg:w-80 xl:w-96 space-y-6 flex-shrink-0">
             <UpcomingEventsReminder />
+            <SavedResearchClaimsCard />
             <NotificationPreferencesCard />
             <FirstEventConfidenceCard />
             <SessionSecurityCard />

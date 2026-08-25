@@ -39,10 +39,15 @@ BEGIN
   END LOOP;
 
   IF EXISTS (
-    SELECT 1 FROM public.feature_flags
-    WHERE key = 'connections' AND (enabled OR rollout_percentage <> 0)
+    SELECT 1
+    FROM public.feature_flag_audit_log
+    WHERE flag_key = 'connections'
+      AND (
+        correlation_id = 'release-v1.12-community-general-availability'
+        OR idempotency_key = 'release-v1.12-community-general-availability:connections'
+      )
   ) THEN
-    RAISE EXCEPTION 'Circle/Hub activation unexpectedly changed the Connections rollout';
+    RAISE EXCEPTION 'The v1.12 Circle/Hub activation unexpectedly audited a Connections change';
   END IF;
 END;
 $release_state$;

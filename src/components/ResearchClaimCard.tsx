@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Check, ExternalLink, Heart, Plus, Quote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -19,18 +19,26 @@ interface ResearchClaimCardProps {
 const ResearchClaimCard = ({ placement, className = '' }: ResearchClaimCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const claimQuery = useRandomResearchClaim(placement);
+  const authScope = user?.id ?? 'anonymous';
+  const authScopeRef = useRef(authScope);
+  authScopeRef.current = authScope;
+  const claimQuery = useRandomResearchClaim(placement, authScope);
   const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
   const saveMutation = useMutation({
-    mutationFn: ({ claimId, saved }: { claimId: string; saved: boolean }) => (
+    mutationFn: ({ claimId, saved }: { claimId: string; saved: boolean; authScope: string }) => (
       setResearchClaimSaved(claimId, saved)
     ),
     onSuccess: (saved, variables) => {
+      if (variables.authScope !== authScopeRef.current) return;
       setSavedOverrides((current) => ({ ...current, [variables.claimId]: saved }));
       toast.success(saved ? 'Az idézetet elmentetted.' : 'Az idézetet eltávolítottad a mentéseid közül.');
     },
     onError: () => toast.error('Az idézet mentését most nem sikerült frissíteni.'),
   });
+
+  useEffect(() => {
+    setSavedOverrides({});
+  }, [authScope]);
 
   if (claimQuery.isLoading) {
     return (
@@ -51,7 +59,7 @@ const ResearchClaimCard = ({ placement, className = '' }: ResearchClaimCardProps
       navigate('/auth');
       return;
     }
-    saveMutation.mutate({ claimId: claim.id, saved: !saved });
+    saveMutation.mutate({ claimId: claim.id, saved: !saved, authScope });
   };
 
   return (

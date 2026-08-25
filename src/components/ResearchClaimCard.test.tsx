@@ -104,6 +104,23 @@ describe('ResearchClaimCard', () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith('Az idézetet elmentetted.');
   });
 
+  it('clears a local saved override when the authenticated identity changes', async () => {
+    renderCard();
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button')?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true');
+
+    mocks.user = { id: 'user-two' };
+    mocks.claim.isSaved = false;
+    renderCard();
+    await act(async () => Promise.resolve());
+
+    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('sends an anonymous visitor to authentication instead of pretending to save', () => {
     mocks.user = null;
     renderCard();

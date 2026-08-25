@@ -2,8 +2,13 @@ import { motion } from "framer-motion";
 import { ArrowRight, Heart, Target, Lightbulb, Users, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import dogwalkingFriends from "@/assets/editorial/about-nepsziget-dogwalk.webp";
+import ResearchClaimCard from "@/components/ResearchClaimCard";
+import { ABOUT_CTA_COPY, ABOUT_VISION_COPY } from "@/content/marketingCopy";
+import { useResearchClaimSlot } from "@/features/research-claims/useResearchClaimSlot";
 
 const About = () => {
+  const claimSlot = useResearchClaimSlot("about", 3);
+
   return (
     <main className="pt-24 pb-16 min-h-screen">
       <div className="container mx-auto px-4">
@@ -60,7 +65,7 @@ const About = () => {
                   to="/explore"
                   className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#dfff62] px-5 py-2.5 text-sm font-extrabold text-[#183124] transition-colors hover:bg-[#e7ff8b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#183124]"
                 >
-                  Találj egy hobbit <ArrowRight size={16} aria-hidden="true" />
+                  {ABOUT_CTA_COPY.heading} <ArrowRight size={16} aria-hidden="true" />
                 </Link>
                 <Link
                   to="/events"
@@ -72,6 +77,8 @@ const About = () => {
             </div>
           </div>
         </section>
+
+        {claimSlot === 0 && <ResearchClaimCard placement="about_mission" className="mb-20" />}
 
         {/* Mission cards */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8 mb-20">
@@ -85,7 +92,7 @@ const About = () => {
             {
               icon: Lightbulb,
               title: "Víziónk",
-              text: "Egy világ, ahol bárki könnyedén talál társat egy új hobbi kipróbálásához, legyen szó sportról, művészetről vagy kalandról.",
+              text: ABOUT_VISION_COPY.body,
               color: "bg-accent/10 text-accent",
             },
             {
@@ -111,6 +118,8 @@ const About = () => {
             </motion.div>
           ))}
         </div>
+
+        {claimSlot === 1 && <ResearchClaimCard placement="about_mission" className="mb-20" />}
 
         {/* Problem & Solution */}
         <motion.div
@@ -162,6 +171,8 @@ const About = () => {
             </div>
           </div>
         </motion.div>
+
+        {claimSlot === 2 && <ResearchClaimCard placement="about_mission" className="mb-20" />}
 
         {/* Survey data */}
         <motion.div

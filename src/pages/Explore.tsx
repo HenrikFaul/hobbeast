@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
 import { CATEGORY_VISUALS } from "@/lib/categoryVisuals";
 import { EXPLORE_HERO_COPY } from "@/content/marketingCopy";
+import ResearchClaimCard from "@/components/ResearchClaimCard";
+import { useResearchClaimSlot } from "@/features/research-claims/useResearchClaimSlot";
 import boardgameFriends from "@/assets/editorial/explore-boardgame.webp";
 import bookClubFriends from "@/assets/stock/categories/learning.webp";
 
@@ -24,6 +26,7 @@ const Explore = () => {
   const [view, setView] = useState<ViewLevel>('categories');
   const [selectedCategory, setSelectedCategory] = useState<HobbyCategory | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<HobbySubcategory | null>(null);
+  const claimSlot = useResearchClaimSlot("explore", 2);
 
   const stats = getCatalogStats();
   const searchResults = search.trim() ? searchActivities(search) : null;
@@ -155,6 +158,8 @@ const Explore = () => {
             </figure>
           </div>
         </motion.header>
+
+        {claimSlot === 0 && <ResearchClaimCard placement="explore_context" className="mb-12 sm:mb-16" />}
 
         {searchResults ? (
           <section aria-live="polite">
@@ -399,6 +404,8 @@ const Explore = () => {
             )}
           </>
         )}
+
+        {claimSlot === 1 && <ResearchClaimCard placement="explore_context" className="mt-12 sm:mt-16" />}
       </div>
     </main>
   );

@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { FEATURES_EXPLORE_COPY } from "@/content/marketingCopy";
 import { Button } from "@/components/ui/button";
 
 const features = [
@@ -107,7 +108,7 @@ const FeaturesSection = () => {
             </p>
             <Button asChild variant="ghost" className="mt-4 -ml-4 rounded-full text-primary">
               <Link to="/explore">
-                Fedezd fel az összes hobbit <ArrowUpRight aria-hidden="true" />
+                {FEATURES_EXPLORE_COPY.heading} <ArrowUpRight aria-hidden="true" />
               </Link>
             </Button>
           </div>

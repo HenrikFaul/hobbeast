@@ -1,6 +1,12 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import type { CommunityResearchClaim, RandomResearchClaimRequest } from './contracts';
+import type {
+  CommunityResearchClaim,
+  RandomResearchClaimRequest,
+  SavedCommunityResearchClaim,
+  SavedResearchClaimsPage,
+  SavedResearchClaimsRequest,
+} from './contracts';
 
 interface ResearchClaimRow {
   claim_id: string;
@@ -13,6 +19,11 @@ interface ResearchClaimRow {
   source_url: string | null;
   doi: string | null;
   is_saved: boolean;
+}
+
+interface SavedResearchClaimRow extends Omit<ResearchClaimRow, 'is_saved'> {
+  saved_at: string;
+  total_count: number | string;
 }
 
 interface ResearchClaimRpcClient {
@@ -62,4 +73,35 @@ export async function setResearchClaimSaved(claimId: string, saved: boolean): Pr
   );
   if (error) throw error;
   return data === true;
+}
+
+function mapSavedClaim(row: SavedResearchClaimRow): SavedCommunityResearchClaim {
+  return {
+    ...mapClaim({ ...row, is_saved: true }),
+    isSaved: true,
+    savedAt: row.saved_at,
+  };
+}
+
+export async function loadSavedResearchClaims(
+  request: SavedResearchClaimsRequest,
+): Promise<SavedResearchClaimsPage> {
+  const { data, error } = await researchClaimRpcClient.rpc<SavedResearchClaimRow[]>(
+    'list_saved_community_research_claims',
+    {
+      _locale: request.locale,
+      _limit: request.limit,
+      _offset: request.offset,
+    },
+  );
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const totalCount = rows.length > 0 ? Number(rows[0].total_count) : request.offset;
+  return {
+    items: rows.map(mapSavedClaim),
+    totalCount: Number.isSafeInteger(totalCount) && totalCount >= 0 ? totalCount : 0,
+    limit: request.limit,
+    offset: request.offset,
+  };
 }
