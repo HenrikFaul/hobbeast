@@ -39,6 +39,9 @@ export interface EventData {
   import_state?: 'active' | 'stale' | 'review' | 'cancelled' | 'rejected';
   canonical_identity?: string;
   external_event_id?: string;
+  /** Present on aggregated programs; the normalizer already supplies these. */
+  price_min?: number | null;
+  is_free?: boolean | null;
 }
 
 export interface ExternalSupplyRow {
@@ -207,6 +210,21 @@ export function getEventCategoryKeys(category: string) {
     }
   }
   return { categoryId, subcategoryId, activityId };
+}
+
+export type PriceFilter = 'all' | 'free' | 'paid';
+
+/**
+ * Free-vs-paid filter. The scraper captures ticket prices, so members can ask
+ * the question every comparable platform lets them ask. Programs whose price is
+ * unknown are treated as "not proven free": they stay out of the free view
+ * rather than promising something we did not verify.
+ */
+export function eventMatchesPrice(event: EventData, filter: PriceFilter) {
+  if (filter === 'all') return true;
+  const free = event.is_free === true || event.price_min === 0;
+  const paid = typeof event.price_min === 'number' && event.price_min > 0;
+  return filter === 'free' ? free : paid;
 }
 
 export function eventMatchesFavorites(event: EventData, favorites: string[]) {

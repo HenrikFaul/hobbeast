@@ -38,6 +38,16 @@ describe('event hub discovery (self-healing entry points)', () => {
     expect(findEventHubUrl(links, 'https://site.hu')).toBeNull();
   });
 
+  it('never picks an archive of past programs', () => {
+    // Seen live: amcham.hu offered "/events/past-events", which can only yield
+    // expired entries that the ingest then discards.
+    expect(findEventHubUrl(['https://site.hu/events/past-events'], 'https://site.hu')).toBeNull();
+    expect(findEventHubUrl(['https://site.hu/archiv-programok'], 'https://site.hu')).toBeNull();
+    expect(findEventHubUrl(['https://site.hu/korabbi-rendezvenyek'], 'https://site.hu')).toBeNull();
+    // A normal hub still passes.
+    expect(findEventHubUrl(['https://site.hu/programok'], 'https://site.hu')).toBe('https://site.hu/programok');
+  });
+
   it('survives malformed input', () => {
     expect(findEventHubUrl(['not-a-url', ''], home)).toBeNull();
     expect(findEventHubUrl(null, home)).toBeNull();

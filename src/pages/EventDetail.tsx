@@ -24,6 +24,7 @@ import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard
 import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
 import { resolveLocationPrecision, type ParticipantLifecycleStatus } from '@/lib/eventLifecycle';
 import { ExternalEventSocialIntentCard } from '@/components/events/ExternalEventSocialIntentCard';
+import { SaveAndCalendarActions } from '@/components/events/SaveAndCalendarActions';
 
 interface EventData {
   id: string;
@@ -573,6 +574,24 @@ const EventDetail = () => {
             }}>
               <Share2 className="h-4 w-4" />
             </Button>
+          </div>
+
+          <div className="mt-4">
+            <SaveAndCalendarActions
+              externalEventId={event.external_event_id ?? null}
+              eventId={isExternal ? null : id ?? null}
+              authenticated={Boolean(user)}
+              onRequestSignIn={() => navigate(`/auth?redirect=/events/${id}`)}
+              calendarEvent={{
+                id: event.external_event_id ?? id ?? 'program',
+                title: event.title,
+                eventDate: event.event_date,
+                eventTime: event.event_time,
+                description: event.description ?? null,
+                location: event.location_address || event.location_city || null,
+                url: externalUrl || (typeof window !== 'undefined' ? window.location.href : null),
+              }}
+            />
           </div>
 
           {isExternal && event.external_event_id && (

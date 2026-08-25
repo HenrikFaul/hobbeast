@@ -86,6 +86,9 @@ function isoOrNull(y, mo, d) {
 // prose slugs that merely end in a hub word, e.g.
 // "/letoltheto-tervek-koncepciok-kozep-es-hosszutavu-programok".
 const HUB_SEGMENT_RE = /(^|-)(programok|programjaink|esemenyek|esemenynaptar|rendezvenyek|rendezvenynaptar|programnaptar|naptar|kalendarium|events|programs)$/i;
+// An archive of past programs looks like a hub ("/events/past-events") but can
+// only ever yield expired entries, which the ingest then discards.
+const ARCHIVE_SEGMENT_RE = /(^|-)(past|previous|archiv|archive|korabbi|elmult|regi|volt)-/i;
 const HUB_SEGMENT_MAX_LEN = 30;
 const HUB_MAX_DEPTH = 3;
 
@@ -104,6 +107,7 @@ export function findEventHubUrl(links, listingUrl) {
     const last = segments[segments.length - 1];
     if (last.length > HUB_SEGMENT_MAX_LEN) continue;
     if (!HUB_SEGMENT_RE.test(last)) continue;
+    if (ARCHIVE_SEGMENT_RE.test(last) || segments.some((seg) => ARCHIVE_SEGMENT_RE.test(seg))) continue;
     seen.push(url.toString());
   }
   // Shortest path first: "/programok" beats "/hirek/programok".

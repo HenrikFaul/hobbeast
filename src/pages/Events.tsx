@@ -27,6 +27,7 @@ import {
 } from '@/lib/recommendationEngine';
 import { getDiscoveryBootstrap, setDiscoveryPreference } from '@/lib/discoveryFeedback';
 import { trackProductEvent } from '@/lib/productAnalyticsClient';
+import { SavedAndAlertsPanel } from '@/components/events/SavedAndAlertsPanel';
 import {
   getNativeRecommendationSignals,
   type NativeRecommendationSignal,
@@ -52,6 +53,8 @@ import {
   isUpcomingEventDate,
   normalizeText,
   type CapacityFilter,
+  eventMatchesPrice,
+  type PriceFilter,
   type DateFilter,
   type EventData,
   type EventRelation,
@@ -84,6 +87,10 @@ const Events = () => {
   const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>(
     requestedCapacity === 'available' || requestedCapacity === 'waitlist' ? requestedCapacity : 'all',
   );
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>(() => {
+    const requested = searchParams.get('price');
+    return requested === 'free' || requested === 'paid' ? requested : 'all';
+  });
   const [planningCircleId] = useState(() => searchParams.get('circle'));
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [dbEvents, setDbEvents] = useState<EventData[]>([]);
@@ -145,6 +152,7 @@ const Events = () => {
     if (primaryFilter !== 'all') next.set('mode', primaryFilter);
     if (dateFilter !== 'all') next.set('date', dateFilter);
     if (capacityFilter !== 'all') next.set('capacity', capacityFilter);
+    if (priceFilter !== 'all') next.set('price', priceFilter);
     if (distanceFilterEnabled) {
       next.set('distance', '1');
       next.set('km', String(distanceKm));
@@ -157,11 +165,11 @@ const Events = () => {
       next.set('create', '1');
     }
     setSearchParams(next, { replace: true });
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showCreate, planningCircleId, setSearchParams]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showCreate, planningCircleId, setSearchParams]);
 
   useEffect(() => {
     setVisibleCount(24);
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys]);
 
   const toggleSetValue = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
     setter((prev) => {
@@ -552,7 +560,9 @@ const Events = () => {
         activePrimaryFilter === 'categories' ? matchCategory :
         true;
 
-      return matchPrimary && matchSource && matchDistance && matchDate && matchCapacity && !suppressedIdentities.has(eventCanonicalIdentity(ev));
+      return matchPrimary && matchSource && matchDistance && matchDate && matchCapacity
+        && eventMatchesPrice(ev, priceFilter)
+        && !suppressedIdentities.has(eventCanonicalIdentity(ev));
     });
     if (activePrimaryFilter === 'personal') {
       rows.sort((a, b) =>
@@ -561,7 +571,7 @@ const Events = () => {
       );
     }
     return rows;
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, priceFilter, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
 
   const discoveryEntries = useMemo(() => {
     const organic = filtered.map((event) => ({ ...event, eventId: event.id }));
@@ -808,6 +818,19 @@ const Events = () => {
               <option value="waitlist">Betelt / várólistás</option>
             </select>
           </label>
+
+          <label className="block text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            Belépő
+            <select
+              className="mt-1.5 h-11 w-full rounded-[0.9rem] border border-input/80 bg-card px-3.5 shadow-[inset_0_1px_0_hsl(var(--card))] focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-ring/25"
+              value={priceFilter}
+              onChange={(event) => setPriceFilter(event.target.value as PriceFilter)}
+            >
+              <option value="all">Ingyenes és fizetős</option>
+              <option value="free">Csak ingyenes</option>
+              <option value="paid">Csak jegyes</option>
+            </select>
+          </label>
         </div>
 
         <div className="mb-5 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
@@ -982,6 +1005,8 @@ const Events = () => {
             {promotedContentError}
           </div>
         )}
+
+        <SavedAndAlertsPanel authenticated={Boolean(user)} />
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>

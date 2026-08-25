@@ -12,6 +12,44 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.24.0] — 2026-08-25
+
+**Competitor-benchmarked top 5: save, calendar, hobby alerts, price filter.**
+Full analysis of 20 candidate features:
+[docs/Hobbeast_Versenytars_Funkcioelemzes.md](./docs/Hobbeast_Versenytars_Funkcioelemzes.md).
+
+### Added
+- **Programok mentése** (Meetup/Eventbrite/Facebook „Save"): `saved_events` table
+  with RLS, `toggle_saved_event` / `list_saved_events` RPCs, a save button on the
+  program page and a „Mentett programjaid" panel on the events page. Until now an
+  interesting program was either acted on immediately or lost.
+- **Naptár-export** (Luma/Eventbrite/Dice): self-contained RFC 5545 iCalendar
+  generator plus a Google Calendar link — no dependency added. Correct CRLF line
+  endings, escaping of `,` `;` `\` and newlines, 75-octet line folding, and a
+  two-hour default block. This is the strongest driver of actual attendance.
+- **Hobbi-alapú program-riasztás** (Bandsintown „track artist" applied to
+  hobbies): `list_hobby_alerts` matches upcoming programs against the member's
+  favourite hobbies using accent-folded matching, hiding anything already saved.
+- **Ingyenes/fizetős szűrő** (Eventbrite/Fever): the scraper captures ticket
+  prices, so members can now filter for them. Programs with unknown price are
+  deliberately excluded from the „free" view rather than being promised as free.
+- Megosztás already existed on the program page (link copy), so it needed no work.
+
+### Fixed
+- **Hub discovery no longer selects archives**: the live run offered
+  `/events/past-events`, which can only yield expired entries. Archive segments
+  (`past-`, `archiv-`, `korabbi-`, …) are now rejected anywhere in the path.
+
+### Verified
+- Live: hobby matching returns 526 candidate programs for „Koncert"; the empty
+  result for niche hobbies is data coverage, not a defect — proven in a rolled-back
+  transaction that left no data behind.
+- Scraper run with self-healing active: 45 sources → 406 events, **+232 inserted**.
+- New tests: calendar export (7), hub discovery (7, incl. archive rejection),
+  price filter (4). Suite: 479 passed. Typecheck, build, perf budget clean.
+
+---
+
 ## [1.23.0] — 2026-08-25
 
 **Self-healing entry points: sources that point at a home page now find their own
