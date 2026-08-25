@@ -9,10 +9,14 @@ on:
     - cron: '17 4,12,20 * * *' # 06:17 / 14:17 / 22:17 Europe/Budapest (UTC+2)
   workflow_dispatch:
     inputs:
-      limit:
-        description: 'Max events per listing'
+      sources:
+        description: 'Registry sources per run'
         required: false
-        default: '60'
+        default: '30'
+      details:
+        description: 'Detail pages per source'
+        required: false
+        default: '12'
 
 concurrency:
   group: event-scraper
@@ -42,4 +46,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node index.mjs --limit ${{ github.event.inputs.limit || '60' }}
+        run: node index.mjs --sources ${{ github.event.inputs.sources || '30' }} --details ${{ github.event.inputs.details || '12' }}

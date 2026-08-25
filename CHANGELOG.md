@@ -12,6 +12,62 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.16.0] — 2026-08-25
+
+**Scraper platform: 354 registered destinations, event dedup, restored admin.** The V9
+master source list is registered into the database registry, the Playwright worker is now
+registry-driven with a generic structured-data extractor and rich fields (image,
+description, venue, ticket price + purchase link), cross-source event deduplication is
+live ("master source wins"), the owner's admin surface is restored with durable operator
+roles, and a new Admin → Scraper tab shows destinations and daily/total scrape output.
+
+### Added
+- **V9 source registry import**: all 354 unique sources from
+  `Magyar_Program_RSS_Master_Lista_V9.xlsx` upserted into
+  `external_event_feed_sources` with `ON CONFLICT (source_id)` — zero duplicates; the
+  existing 185 V4 rows kept their feed-pipeline review state and only gained
+  scrape flags/enrichment. Master-priority heuristic: jegy.hu = 10, national
+  aggregators (koncert.hu, programturizmus, welovebudapest, tixa, cooltix, eventland,
+  hetiprogram…) = 20, venues/municipalities = 100. All 354 are `scrape_enabled`.
+- **Registry-driven worker v2** (`scraper-worker/`): targets come from
+  `list_scraper_targets` (priority order, then least-recently-scraped → full rotation
+  across scheduled runs). One **generic extractor** (listing render → same-host event
+  links → robots-gated static detail fetch → JSON-LD `*Event` parse) replaces per-site
+  modules; og:image/og:description fallbacks; offers → `price_min`, `currency` and the
+  **ticket purchase link** as `external_url`; Hungarian keyword → Hobbeast category
+  mapping. Per-source outcomes logged via `log_scraper_run`.
+- **Event deduplication** (migration `20260825170000`):
+  `event_dedupe_fingerprint(title, date)` — Hungarian accent folding, noise-word
+  removal ("koncert", "live", …), order-preserving first six meaningful words + date,
+  md5. The ingest RPC computes it, stores `canonical_fingerprint`, and **skips an event
+  already active from any other source** (first/master source wins; run order is
+  priority order). Known limit: a title with a venue suffix ("… – MVM Dome") can evade
+  the match — dedup prefers false negatives over swallowing distinct events.
+- **Admin restored**: `content_ops` role now carries `providers.manage`,
+  `notifications.manage`, `users.manage_profile`, `feature_flags.manage`
+  (single-owner-operator model; `bulk.destructive` stays super_admin break-glass).
+  Durable grants for the owner: content_ops, moderator, organizer_ops, finance_ops
+  (no expiry) + security_admin (90-day, per system rule). `admin_has_capability`
+  verified: providers.manage TRUE, bulk.destructive FALSE.
+- **Admin → Scraper tab** (`AdminScraper.tsx`) on `admin_scraper_stats(p_days)`
+  (providers.manage-gated): destination list (priority, last run, last/total events,
+  state badge), 14-day daily breakdown (runs/sources/found/new/updated/duplicates)
+  and lifetime totals. `scraper_runs` table is RLS-locked, service-role write only.
+
+### Verified (live)
+- 5-source master run: 9 events extracted from overlapping jegy.hu listings →
+  **6 cross-source duplicates correctly skipped by fingerprint**, +1 new inserted,
+  run-log written. Fingerprint unit checks: accent/noise-word variants match, different
+  days differ.
+- Registry: 355 rows total, 354 scrape-enabled, in-file and cross-version dedup by
+  source_id confirmed.
+- typecheck, build and performance budget PASS (global CSS 127.3 KB within the 128 KB
+  ceiling); vitest 79 files / 449 tests PASS; secret scan 991 paths PASS.
+- Mid-rotation live measurement during the 35-source sweep: 30 run-log rows, 34 active
+  scraper events, 13 cross-source duplicates skipped, 0 failed sources.
+
+---
+
 ## [1.15.0] — 2026-08-25
 
 **Real Hungarian events now flow in — via an offline Playwright scraper worker.** The
