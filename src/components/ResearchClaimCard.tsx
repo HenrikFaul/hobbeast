@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, ExternalLink, Heart, Plus, Quote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ interface ResearchClaimCardProps {
 
 const ResearchClaimCard = ({ placement, className = '' }: ResearchClaimCardProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const authScope = user?.id ?? 'anonymous';
   const authScopeRef = useRef(authScope);
@@ -31,6 +32,9 @@ const ResearchClaimCard = ({ placement, className = '' }: ResearchClaimCardProps
     onSuccess: (saved, variables) => {
       if (variables.authScope !== authScopeRef.current) return;
       setSavedOverrides((current) => ({ ...current, [variables.claimId]: saved }));
+      void queryClient.invalidateQueries({
+        queryKey: ['saved-community-research-claims', variables.authScope],
+      });
       toast.success(saved ? 'Az idézetet elmentetted.' : 'Az idézetet eltávolítottad a mentéseid közül.');
     },
     onError: () => toast.error('Az idézet mentését most nem sikerült frissíteni.'),

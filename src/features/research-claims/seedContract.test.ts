@@ -13,6 +13,7 @@ interface AcceptedLiteratureRow {
   locale: string;
   sourceUrl: string | null;
   doi: string | null;
+  topics: string;
 }
 
 const quoteSql = (value: string | null): string => (
@@ -33,6 +34,17 @@ describe('reviewed literature seed contract', () => {
     expect(manifest.acceptedRows).toHaveLength(30);
     expect(new Set(manifest.acceptedRows.map((row) => row.sequence)).size).toBe(30);
 
+    const expectedTopicTuples = manifest.acceptedRows.flatMap((row) => (
+      row.topics.split(',').map((topic) => ({
+        canonicalKey: `literature-source-${row.sequence}`,
+        topicKey: topic.trim(),
+      }))
+    ));
+    expect(expectedTopicTuples).toHaveLength(96);
+    expect(new Set(expectedTopicTuples.map(({ canonicalKey, topicKey }) => (
+      `${canonicalKey}:${topicKey}`
+    ))).size).toBe(96);
+
     for (const row of manifest.acceptedRows) {
       expect(row.locale).toBe('hu-HU');
       expect(migration).toContain(
@@ -45,5 +57,16 @@ describe('reviewed literature seed contract', () => {
       );
       expect(migration).toContain(`"source_row":${row.sourceRow}`);
     }
+
+    const claimTopicSeed = migration.match(
+      /INSERT INTO public\.community_research_claim_topics[\s\S]*?FROM \(VALUES([\s\S]*?)\) AS seed\(canonical_key, topic_key\)/,
+    )?.[1];
+    expect(claimTopicSeed).toBeDefined();
+
+    for (const { canonicalKey, topicKey } of expectedTopicTuples) {
+      expect(claimTopicSeed).toContain(`('${canonicalKey}', '${topicKey}')`);
+    }
+
+    expect(claimTopicSeed?.match(/\('literature-source-\d+', '[a-z0-9_]+'\)/g)).toHaveLength(96);
   });
 });

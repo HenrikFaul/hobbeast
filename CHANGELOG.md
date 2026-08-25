@@ -12,6 +12,101 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.12.0] — 2026-08-25
+
+**Community identity, evidence and continuity release.** Hobbeast now presents itself as a
+three-person community rather than a two-person pairing, invites members to bring and share what
+they already love, activates the reviewed Circle and Hub surfaces, and adds a multilingual,
+publication-gated research-claim system with private saved-quote continuity. Existing routes,
+event discovery, profile behavior, organizer/admin tools and the complete hobby taxonomy remain
+intact.
+
+### Added
+- Reworked the Hobbeast mark around three people and a shared connecting arc, preserving the
+  existing wordmark, compact dimensions, accessible home link and established brand palette.
+- Added a sharing-first Explore story: **“Amit szeretsz, hozd közénk.”** The earlier approved
+  discovery wording remains in the marketing-copy registry as an eligible editorial variant
+  instead of being deleted.
+- Added an activity collage for tabletop games, role-playing and book-club conversation, while
+  keeping all 17 existing category IDs, drill-down behavior, search and real-photo category
+  cards unchanged.
+- Added a localized research-claim domain with separate stable source records, per-locale
+  display records, 22 stable topic keys, 96 exact claim-topic relationships and private
+  per-member saves. An edit to display text automatically returns that locale to draft and
+  pending review.
+- Added a conservative 30-claim Hungarian starter set from 12 independently checked sources.
+  The supplied 565-row workbook remains unchanged: 80 exact duplicates are reconciled, 30 rows
+  are approved for the starter set, and 455 unique rows are preserved in a separate human-review
+  workbook rather than rewritten or discarded.
+- Added a session-stable placement selector across Home, About and Explore. Eligible approved
+  slots are selected without layout jumping; the database chooses each eligible claim with
+  equal `1/N` probability rather than persistent random-key gap weighting.
+- Added the red heart-plus save control and a private, localized **Mentett idézetek** library on
+  Profile with attribution, source link, pagination and optimistic removal with rollback.
+- Enabled the existing `circles` and `hub2` capabilities at 100% general availability through an
+  audited migration. Their kill switches, membership/RLS, moderation, lifecycle and capability
+  checks remain active; the separate `connections` capability was not implicitly enabled.
+- Added accepted and human-review Excel deliverables with a visible processing ledger,
+  unchanged source text, formula reconciliation, localization/publication schema and rendered
+  verification previews.
+
+### Security, privacy and integrity
+- Research content tables remain service/editorial only. Public clients use bounded
+  `SECURITY DEFINER` RPCs; user saves are always resolved from `auth.uid()` and cannot expose
+  another member's library.
+- A public claim requires an active, approved and published parent plus an approved, published,
+  SHA-256-valid original translation. Locale fallback can select only an independently approved,
+  published and hash-valid translation.
+- Saving is allowed only for currently publishable evidence, while unsaving remains available
+  after a claim is later withdrawn so obsolete private references never become undeletable.
+- The saved-library RPC clamps pages to 1–25 rows and offset to 10,000, and returns only the
+  caller's still-publishable records. Save/unsave success invalidates only that authenticated
+  user's cache; late responses from a previous identity are ignored.
+- Seed writes are idempotent `ON CONFLICT DO NOTHING`: a rerun cannot resurrect a withdrawn
+  claim, overwrite an editorial decision or replace a human translation.
+
+### Copy preservation and non-regression
+- Strengthened community language on About, Auth, Features and Explore without removing the
+  already approved **“A hétvégéd nem egy feed. Menj, és éld meg.”**, **“Nyerjük vissza
+  egymást.”** and earlier hobby-discovery variants.
+- Preserved every existing route, event lifecycle, category key, recommendation/filter flow,
+  organizer/admin boundary, privacy control, media/reduced-motion behavior and external-event
+  integration.
+- Kept the established performance ceilings unchanged. New UI reuses existing visual utilities
+  instead of increasing the CSS budget.
+
+### Verified locally
+- Frozen Bun install passes with 439 installs / 498 packages and no changes; high-severity
+  dependency audit and the 957-path secret scan pass.
+- `bun run security:audit` passes 238 `SECURITY DEFINER` definitions across 50 migrations.
+- Fresh database verification applies 103 migrations and passes all 20 self-rolling-back SQL
+  fixtures, including general Circle/Hub availability, translation integrity, exact seed/topic
+  tuples, equal-probability selection, private saves and withdrawn-claim removal.
+- TypeScript and ESLint pass; lint retains 14 pre-existing warnings and zero errors.
+- Vitest passes 78 files / 447 tests. The seed contract verifies all 30 exact
+  statement/source/author/year/hash tuples and all 96 exact category relationships against the
+  reviewed manifest.
+- Production performance build passes with 3,230 transformed modules. Global CSS is 122,635 raw
+  / 20,477 gzip bytes against unchanged 122,880 / 20,480 limits; landing JavaScript is 162,050
+  raw / 50,546 gzip bytes.
+- Local desktop and 390 px mobile browser smoke passes for Home, Explore, About and the
+  unauthenticated Community boundary: no console errors, broken visible layout or horizontal
+  overflow. The three-person mark, sharing-first hero, book-club/RPG collage and photographic
+  category grid render as intended.
+- Isolated Playwright passes 14 scenarios; one credential-gated authenticated production-like
+  scenario is deliberately skipped and remains `NOT_RUN`.
+- Spreadsheet reconciliation is exact: `565 = 30 approved + 455 human review + 80 exact
+  duplicates`; both generated workbooks report zero formula-error matches and their key sheets
+  were rendered and visually inspected.
+
+### Deployment boundary
+- Integration checkpoints `a992e19` and `6dede85` are present on `main` and were already pushed
+  during the shared development session. This section records repository and local verification;
+  hosted Supabase migration, CI/Vercel completion and live production evidence are recorded only
+  after the release-closure commit is published and independently checked.
+
+---
+
 ## [1.11.0] — 2026-08-25
 
 **Audited Hungarian event-feed ingestion.** Hobbeast can now grow its existing event supply

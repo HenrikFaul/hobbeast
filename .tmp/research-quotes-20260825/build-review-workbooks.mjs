@@ -192,20 +192,25 @@ function addSources(workbook) {
 
 function addLocalizationSchema(workbook) {
   const sheet = workbook.worksheets.getItem("Lokalizációs séma");
-  styleTitle(sheet, "Lokalizációs adatmodell", "A stabil forrásrekord és a fordítható megjelenítési tartalom külön él; minden locale önálló review- és publikációs állapotot kaphat.", "D");
+  styleTitle(sheet, "Lokalizációs és publikációs adatmodell", "A stabil forrásrekord és a fordítható megjelenítési tartalom külön él. Nyilvánosan csak hash-egyező, locale-szinten is jóváhagyott és publikált fordítás jelenhet meg.", "D");
   const rows = [
     ["Tábla", "Mező", "Fordítható?", "Szerep"],
-    ["community_research_claims", "id, source_sequence_id, publication_year, source_url, doi, evidence_type, review_status, publication_status, is_active", "Nem", "Stabil forrás-, audit- és lifecycle-adatok"],
-    ["community_research_claim_translations", "claim_id, locale, statement_text, source_title, authors_display, translator_note", "Igen", "Locale-specifikus, változatlanul auditálható állítás és bibliográfiai megjelenítés"],
+    ["community_research_claims", "id, canonical_key, source_sequence_id, original_locale, publication_year, source_url, doi, original_statement_sha256, review_status, publication_status, is_active, eligible_placements, editorial_metadata, reviewed_by, reviewed_at", "Nem", "Stabil forrás-, audit-, elhelyezési és claim-szintű lifecycle-adatok"],
+    ["community_research_claim_translations", "claim_id, locale, statement_text, source_title, source_container, authors_display, statement_sha256, review_status, publication_status, translator_note, reviewed_by, reviewed_at, is_original", "Igen", "Locale-specifikus tartalom saját review/publikációs kapuval; szerkesztéskor automatikusan draft + pending_review"],
+    ["community_research_topics", "topic_key", "Nem", "Stabil, nyelvfüggetlen keresési és kategorizálási kulcs"],
+    ["community_research_topic_translations", "topic_key, locale, label", "Igen", "A tematikus címkék lokalizált megjelenítési neve"],
     ["community_research_claim_topics", "claim_id, topic_key", "Nem", "Nyelvfüggetlen tematikus címkék"],
     ["community_research_claim_saves", "user_id, claim_id, created_at", "Nem", "Felhasználónkénti szív + mentés; egyedi user/claim kulcs"],
-    ["RPC", "get_random_community_research_claim(locale, placement, exclude_ids)", "—", "Csak approved + published + aktív rekord, locale-fallback és korlátozott random választás"],
+    ["RPC", "get_random_community_research_claim(locale, placement, random_cursor)", "—", "Csak hash-hiteles, claim- és locale-szinten approved + published + aktív rekord; 1/N esélyű választás és biztonságos locale-fallback"],
+    ["RPC", "set_community_research_claim_saved(claim_id, saved)", "—", "Bejelentkezett felhasználó szív + mentés művelete; a visszavonás akkor is engedett, ha a claim később lekerül"],
+    ["RPC", "list_saved_community_research_claims(locale, limit, offset)", "—", "Privát, auth.uid()-hoz kötött, lapozott mentett könyvtár; maximum 25 rekord/kérés és csak publikálható tartalom"],
   ];
-  sheet.getRange("A4:D9").values = rows;
+  const endRow = rows.length + 3;
+  sheet.getRange(`A4:D${endRow}`).values = rows;
   styleHeader(sheet.getRange("A4:D4"), colors.lavender, colors.ink);
-  styleBody(sheet.getRange("A5:D9"));
+  styleBody(sheet.getRange(`A5:D${endRow}`));
   [42, 72, 16, 62].forEach((width, index) => sheet.getRangeByIndexes(3, index, rows.length, 1).format.columnWidth = width);
-  sheet.getRange("A5:D9").format.rowHeight = 58;
+  sheet.getRange(`A5:D${endRow}`).format.rowHeight = 74;
   sheet.freezePanes.freezeRows(4);
   return sheet;
 }

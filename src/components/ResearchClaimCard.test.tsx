@@ -84,6 +84,7 @@ function renderCard() {
 
 describe('ResearchClaimCard', () => {
   it('renders the exact claim and complete source attribution, then persists a heart/save', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
     renderCard();
 
     expect(container.querySelector('blockquote')?.textContent).toBe(mocks.claim.statement);
@@ -101,7 +102,29 @@ describe('ResearchClaimCard', () => {
 
     expect(mocks.save).toHaveBeenCalledWith('claim-one', true);
     expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['saved-community-research-claims', 'user-one'],
+    });
     expect(mocks.toastSuccess).toHaveBeenCalledWith('Az idézetet elmentetted.');
+  });
+
+  it('refreshes the same user-scoped saved library after unsaving', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    mocks.claim.isSaved = true;
+    mocks.save.mockResolvedValue(false);
+    renderCard();
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.save).toHaveBeenCalledWith('claim-one', false);
+    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('false');
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['saved-community-research-claims', 'user-one'],
+    });
   });
 
   it('clears a local saved override when the authenticated identity changes', async () => {
@@ -119,6 +142,26 @@ describe('ResearchClaimCard', () => {
     await act(async () => Promise.resolve());
 
     expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not invalidate a private cache when a save completes after identity changed', async () => {
+    let resolveSave: ((saved: boolean) => void) | undefined;
+    mocks.save.mockReturnValue(new Promise<boolean>((resolve) => { resolveSave = resolve; }));
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    renderCard();
+
+    act(() => container.querySelector<HTMLButtonElement>('button')?.click());
+    mocks.user = { id: 'user-two' };
+    renderCard();
+
+    await act(async () => {
+      resolveSave?.(true);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
   it('sends an anonymous visitor to authentication instead of pretending to save', () => {
