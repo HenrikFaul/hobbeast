@@ -16,6 +16,8 @@
 import { chromium } from 'playwright';
 import { fetchStatic, robotsAllows } from './src/fetch.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
+import { scrapeRssSource } from './src/sources/rss.mjs';
+import { scrapeTribeSource } from './src/sources/tribe.mjs';
 import { ingestEvents } from './src/ingest.mjs';
 import { listScraperTargets, logScraperRun } from './src/registry.mjs';
 
@@ -53,13 +55,18 @@ async function main() {
       let httpStatus = null;
       let status = 'succeeded';
       let error = null;
+      const strategy = source.scrape_strategy || 'render';
       try {
         if (!listing) throw new Error('invalid endpoint url');
         if (!(await robotsAllows(listing))) throw new Error('robots disallow on listing');
-        ({ events, httpStatus } = await scrapeGenericSource(source, {
-          browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log,
-        }));
-        log(`  ${label}: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
+        const opts = { browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log };
+        ({ events, httpStatus } = strategy === 'tribe'
+          ? await scrapeTribeSource(source, opts)
+          : strategy === 'rss'
+            ? await scrapeRssSource(source, opts)
+            : await scrapeGenericSource(source, opts));
+        if (events.length > 150) events = events.slice(0, 150);
+        log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
       } catch (e) {
         status = 'failed';
         error = e.message.slice(0, 200);

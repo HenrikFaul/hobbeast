@@ -12,6 +12,54 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.18.0] — 2026-08-25
+
+**Scraper yield overhaul: full-source audit, three root-cause fixes, multi-strategy
+extraction.** The owner reported that barely any events arrived from the 354 sources.
+A one-by-one audit (new `scraper-worker/audit.mjs`, 354 static probes) found the real
+reasons, and none of them was "the sites can't be scraped".
+
+### Fixed (three root causes)
+1. **Rotation never reached 317 sources**: `list_scraper_targets` ordered by priority
+   FIRST, so every run re-picked the same ~37 master/aggregator rows. Selection is now
+   least-recently-scraped (never-run first) with priority ordering only inside the
+   batch (migration `20260825230000`) — full 354-source sweep in ~3 days at 40×3/day.
+2. **118 sources had NULL endpoint_url**: the V9 import only used the Excel's
+   `endpoint_url` column; rows with only `homepage_url`/`canonical_url` (Müpa,
+   Szimpla, Akvárium, Dürer Kert, Trafó, Sziget…) were unscrapeable. Backfilled from
+   the Excel (migration `20260825231000`) — all 354 rows now have URLs.
+3. **One-size-fits-all extraction**: only ~17/354 sites expose schema.org Event
+   markup, so the JSON-LD-only pipeline yielded 0 on most sources.
+
+### Added
+- **Source audit tool** (`scraper-worker/audit.mjs`): probes every source for HTTP
+  status, JSON-LD/microdata, RSS/Atom autodiscovery, iCal, WordPress "The Events
+  Calendar" REST API, SPA signals, and event-link density; verdict distribution:
+  62 rss · 9 tribe_api · 17 schema-capable · 12 js_app · 59 links-no-schema ·
+  72 no-signal · 61 http_404 · 54 fetch_error · 6 http_403.
+- **Multi-strategy worker** (migration `20260825233000`, `scrape_strategy` +
+  `scrape_feed_url`, audit-derived backfill `20260825234000`):
+  - `tribe` (9 sources): WordPress Events Calendar REST API — clean JSON with venue,
+    image, cost. Live test: obuda.hu → 12 real events.
+  - `rss` (62 sources): feed items → detail-page JSON-LD/microdata enrich → Hungarian
+    free-text date fallback (month-name parser). Live test: dumaszinhaz.hu → 426
+    dated shows; koncert.hu titles now entity-decoded correctly.
+  - `render` (282 sources): the existing Playwright flow, upgraded — broadened
+    event-link keywords (naptár, fesztivál, workshop, kiállítás…), date-in-URL link
+    discovery, microdata fallback on detail pages, and a site-root retry when the
+    registered path 404s (61 sources had stale/guessed paths).
+- Per-source event cap (150/run) protects the ingest payload; parked-domain source
+  (meeple.hu → domainkirakat) disabled.
+- Workflow: 40 sources/run (was 30), 30-min timeout.
+
+### Verified
+- Strategy smoke tests against live sites: tribe 12 events (venue+image), RSS 426 +
+  2 + entity-decoding fix confirmed; all worker modules pass `node --check`.
+- Registry: 354/354 sources have endpoint URLs; strategy split 282 render / 62 rss /
+  9 tribe.
+
+---
+
 ## [1.17.0] — 2026-08-25
 
 **Measurement layer activated: connection funnel KPIs, soul-metric feedback, source
