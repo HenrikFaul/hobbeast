@@ -12,6 +12,56 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.14.0] — 2026-08-25
+
+**Event-feed ingestion activated and scheduled (hosted operations).** The v1.11.0 pipeline
+was installed but dormant. This release provisions the operator secrets, bootstraps the
+admin capability, schedules the daily dispatcher and proves the full cron path end-to-end
+against the canonical Supabase project. No application source changed — `event-feed-ingest`
+was redeployed unchanged to bind the new secret.
+
+### Activated (hosted state only — no secret value is in the repo)
+- Edge secret `EVENT_FEED_CRON_HMAC_SECRET` and matching Vault secret
+  `event_feed_cron_hmac_secret` provisioned with the same value; Vault `project_url` and
+  `service_role_key` seeded for the internal dispatcher.
+- Break-glass `super_admin` operator role granted to the owner account (4-hour expiry, per
+  the system's break-glass rule) to satisfy `providers.manage` — the empty
+  `admin_operator_roles` table was a bootstrap gap.
+- Daily dispatcher scheduled via `schedule_external_event_feed_daily('0 */3 * * *')`
+  (pg_cron job `event-feed-daily`, active, every 3 hours).
+
+### Verified (hosted, end-to-end)
+- `dispatch_external_event_feed_due()` issued a nonce, signed the envelope, `pg_net`-POSTed
+  to `event-feed-ingest`, which authenticated the HMAC, consumed the nonce and ran the
+  drain — HTTP **200** `{"ok":true, drain:{batch_count:1, claimed_count:0,
+  exhausted:true}}`. The full scheduled path works.
+- A non-publishing admin **probe** of `kultura.hu` discovered 20 items and of Kölcsey
+  Központ 2 items; both were correctly **quarantined** with `missing_start /
+  invalid_event_date` — the quality gate correctly refuses articles-as-events.
+
+### Honest finding — why no events publish yet
+- A source audit across ~18 endpoints (aggregators, ticketing portals, venues, museums,
+  hiking calendars, WordPress sites) found that none of the seeded V4 sources expose
+  static, machine-readable **dated** event data (RSS/Atom/ICS/server-side Event JSON-LD)
+  that the SSRF-hardened, no-JavaScript, no-arbitrary-selector fetcher can publish. Modern
+  Hungarian event sites render events client-side (e.g. tixa.hu embeds 64 events in
+  Next.js `__NEXT_DATA__`; jegy.hu category pages carry only a `BreadcrumbList`). This is a
+  data-sourcing reality, not a pipeline defect — the pipeline and schedule are live and
+  will publish the instant a yielding source is enabled.
+- **No source was approved or enabled**, so the daily job currently drains zero due
+  sources by design. Enabling a non-yielding source would only re-quarantine articles and
+  waste publisher bandwidth.
+
+### Recommended next step (own review, not rushed here to avoid regression)
+- Add a structured-JSON-island parser (Next.js `__NEXT_DATA__` / inline event JSON) to the
+  ingestion pipeline — this would unlock tixa.hu's 64 embedded dated events and similar
+  Next.js sources — OR curate real ICS/RSS feed URLs — OR key and schedule the
+  provider-API sync functions (Ticketmaster/SeatGeek/Eventbrite).
+- Replace the 4-hour break-glass grant with a durable operator role through the approval
+  flow before it expires, if ongoing Feedek-admin access is needed.
+
+---
+
 ## [1.13.0] — 2026-08-25
 
 **Legal center draft + community moments.** The Codex session that authored this work ran
