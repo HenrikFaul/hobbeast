@@ -149,5 +149,18 @@ The generated seed migration must remain byte-for-byte reproducible after a seco
   49,213 gzip bytes.
 - Isolated Playwright: PASS for 14 scenarios; the one credential-gated authenticated fixture is
   `NOT_RUN`.
-- Hosted migrations, Edge deployment, live production smoke and an approved scheduled source:
-  `NOT_RUN`. Local proof does not upgrade these states.
+- Release publication: PASS. Commits `cf39c86` and `a512842` are pushed on `main`; GitHub Actions
+  run `32791459453` is `SUCCESS` with every step green, and both Vercel commit-status contexts are
+  `SUCCESS`.
+- Hosted database: PASS for the deployment boundary. All three v1.11.0 migrations are applied to
+  canonical project `bqdvqmpwccsxumzijspj`, and a post-deployment dry run is up to date. Remote
+  state contains 185 `external_event_feed_sources` rows and zero feed runs, raw payloads and
+  normalized items, which is consistent with an installed but inactive registry.
+- Hosted Edge function: PASS for deployment and authorization-boundary reachability.
+  `event-feed-ingest` is `ACTIVE` version 1 with `verify_jwt=false`; an anonymous POST returns the
+  controlled `401 AUTHORIZATION_FAILED` response with Edge-runtime headers.
+- Live browser smoke: PASS on `https://expericentre.com/` and `/events`, with zero console errors,
+  zero broken images, no horizontal overflow, and the event search rendered.
+- Source activation and data production: `NOT_RUN / HOLD`. Every source remains pending and
+  disabled; no HMAC secret was provisioned, no cron was created, and no source was approved or
+  enabled. Consequently no approved-source poll or public feed output has been observed.

@@ -100,14 +100,27 @@ approval: all 185 sources start pending and disabled.
   122,585 raw / 20,467 gzip bytes; landing JavaScript is 157,778 raw / 49,213 gzip bytes.
 - Isolated Playwright E2E passes 14 scenarios; the single credential-gated authenticated fixture
   remains `NOT_RUN` and is not counted as production proof.
+- Release commits `cf39c86` and `a512842` are pushed on `main`. GitHub Actions run
+  `32791459453` completed `SUCCESS` with every step green, and both Vercel commit-status
+  contexts completed `SUCCESS`.
+- The three v1.11.0 migrations are applied to canonical Supabase project
+  `bqdvqmpwccsxumzijspj`; a post-deployment dry run reports the database up to date. Hosted
+  evidence shows 185 `external_event_feed_sources` rows and zero feed runs, raw payloads and
+  normalized items, matching the intentionally inactive seed state.
+- `event-feed-ingest` is deployed `ACTIVE` as version 1 with `verify_jwt=false`. An anonymous
+  POST reaches the Edge runtime and returns the controlled `401 AUTHORIZATION_FAILED` response
+  with Edge-runtime headers, proving reachability without bypassing application authorization.
+- Browser smoke passes on `https://expericentre.com/` and `/events`: zero console errors, zero
+  broken images, no horizontal overflow, and the event search renders.
 
 ### Activation boundary
-- Repository implementation and local verification do not approve any source and do not create
-  a cron schedule. All 185 sources remain `pending_review` and disabled; there is no bulk
-  approval. Hosted migration, Edge deployment and live production smoke remain `NOT_RUN`.
-  Production activation additionally requires hosted migration/function proof,
-  matching Edge/Vault HMAC secrets, explicit per-source legal and robots review, and observed
-  probe/quarantine results. These states must not be inferred from a successful local build.
+- Repository implementation, hosted migrations, Edge deployment, CI/Vercel publication and live
+  browser smoke are complete, but none of those actions approves or polls a source. All 185
+  sources remain `pending_review` and disabled; no bulk approval occurred, no matching Edge/Vault
+  HMAC secret was provisioned, and no cron was created. A real approved-source poll and public
+  feed output therefore remain `NOT_RUN / HOLD`. Activation still requires matching HMAC secrets,
+  explicit per-source legal and robots review, a quarantine-only probe, individual approval and
+  enablement, cron creation, and observation of a complete scheduled run.
 
 ---
 

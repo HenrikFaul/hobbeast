@@ -1,6 +1,6 @@
 # Sprint program status
 
-Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.11.0 Hungarian event-feed ingestion is implemented and locally release-gated, with every imported source pending, disabled and subject to explicit legal + robots review before activation.**
+Current ordered production-pack resume point: **Prompts 01–15 source complete; v1.11.0 Hungarian event-feed ingestion is implemented, release-gated and deployed, while every imported source remains pending, disabled and subject to explicit legal + robots review before activation.**
 
 v1.11.0 (2026-08-25): imported the 185-row Hungarian source workbook as a deterministic,
 fail-closed candidate registry; added RSS 2.0, RSS 1.0/RDF, Atom, ICS, structured Schema.org Event
@@ -15,8 +15,15 @@ the 893-path secret scan, the 233-function / 44-migration security audit, 71 Vit
 tests, all 97 migrations / 17 fresh-database fixtures, a 3,222-module production build, the CSS
 122,585 raw / 20,467 gzip and landing JS 157,778 raw / 49,213 gzip budgets, plus 14 isolated
 Playwright scenarios. The credential-gated E2E fixture is `NOT_RUN`. All 185 sources remain
-pending and disabled; no source is bulk-approved, no cron is created, and hosted migration,
-function deployment and live production smoke remain `NOT_RUN`.
+pending and disabled; no source is bulk-approved, no HMAC secret or cron is created, and no
+approved-source poll has run. Hosted delivery is independently proven: `main` commits `cf39c86`
+and `a512842` are pushed, GitHub Actions run `32791459453` and both Vercel commit contexts are
+`SUCCESS`; all three v1.11.0 migrations are applied to canonical Supabase
+`bqdvqmpwccsxumzijspj` with an up-to-date post-deploy dry run; and `event-feed-ingest` is `ACTIVE`
+version 1. Remote feed tables contain 185 sources and zero runs/raw/items. The anonymous Edge
+smoke returns the controlled `401 AUTHORIZATION_FAILED`, while browser smoke on the live home and
+events routes passes with zero console errors, broken images or horizontal overflow and renders
+the event search. Actual approved-source polling and public feed output remain `NOT_RUN / HOLD`.
 
 v1.9.7 (2026-08-24): removed `.env` from tracking while preserving it locally; verified the
 historically exposed GeoData server credential is rejected; moved the deployed Edge integration
