@@ -1,6 +1,6 @@
 export type MarketingCopyStatus = "canonical" | "eligible" | "archived" | "blocked";
 
-export type MarketingCopySlot = "home-cta";
+export type MarketingCopySlot = "home-cta" | "explore-hero";
 
 export interface MarketingCopyVariant {
   id: string;
@@ -8,6 +8,8 @@ export interface MarketingCopyVariant {
   status: MarketingCopyStatus;
   eyebrow: string;
   heading: string;
+  headingLead?: string;
+  headingAccent?: string;
   body: string;
   statusReason: string;
 }
@@ -20,6 +22,28 @@ export interface MarketingCopyVariant {
  * - blocked: retained for audit only and must never be rendered.
  */
 export const MARKETING_COPY_REGISTRY = [
+  {
+    id: "explore-hero-bring-it-to-us",
+    slot: "explore-hero",
+    status: "canonical",
+    eyebrow: "A hobbidból közös történet lesz",
+    heading: "Amit szeretsz, hozd közénk.",
+    headingLead: "Amit szeretsz,",
+    headingAccent: "hozd közénk.",
+    body: "Mutasd meg másoknak, miért lelkesít, vagy csatlakozz kíváncsian egy új élményhez. Tanuljunk, játsszunk, alkossunk és fejlődjünk együtt.",
+    statusReason: "A megosztást és a közös élményt teszi elsődlegessé az önismereti felfedezés helyett.",
+  },
+  {
+    id: "explore-hero-discover-your-hobby",
+    slot: "explore-hero",
+    status: "eligible",
+    eyebrow: "Közös érdeklődésből valódi élmény",
+    heading: "Fedezd fel a hobbidat",
+    headingLead: "Fedezd fel a",
+    headingAccent: "hobbidat",
+    body: "Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.",
+    statusReason: "Korábbi, márkahű Explore hero; megőrzendő későbbi szerkesztői döntéshez.",
+  },
   {
     id: "home-cta-shared-afternoon",
     slot: "home-cta",
@@ -95,3 +119,4 @@ export const HOME_MARKETING_CONTRACT = {
 } as const;
 
 export const HOME_CTA_COPY = getCanonicalMarketingCopy("home-cta");
+export const EXPLORE_HERO_COPY = getCanonicalMarketingCopy("explore-hero");

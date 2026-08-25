@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCanonicalMarketingCopy,
   getEligibleMarketingCopy,
+  EXPLORE_HERO_COPY,
   HOME_MARKETING_CONTRACT,
   MARKETING_COPY_REGISTRY,
   type MarketingCopyStatus,
@@ -14,7 +15,23 @@ describe("marketing copy registry", () => {
       eyebrow: "Egy közös élménnyel kezdődik",
       heading: "Kezdjük egy közös délutánnal.",
     });
-    expect(MARKETING_COPY_REGISTRY.filter((variant) => variant.status === "canonical")).toHaveLength(1);
+    expect(MARKETING_COPY_REGISTRY.filter(
+      (variant) => variant.slot === "home-cta" && variant.status === "canonical",
+    )).toHaveLength(1);
+  });
+
+  it("frames Explore around sharing while preserving the previous approved hero", () => {
+    expect(EXPLORE_HERO_COPY).toMatchObject({
+      id: "explore-hero-bring-it-to-us",
+      heading: "Amit szeretsz, hozd közénk.",
+      headingAccent: "hozd közénk.",
+    });
+    expect(MARKETING_COPY_REGISTRY).toContainEqual(expect.objectContaining({
+      id: "explore-hero-discover-your-hobby",
+      slot: "explore-hero",
+      status: "eligible",
+      heading: "Fedezd fel a hobbidat",
+    }));
   });
 
   it("preserves the previous approved CTA instead of overwriting it", () => {
@@ -31,6 +48,10 @@ describe("marketing copy registry", () => {
     const statuses = new Set<MarketingCopyStatus>(MARKETING_COPY_REGISTRY.map((variant) => variant.status));
     expect(statuses).toEqual(new Set<MarketingCopyStatus>(["canonical", "eligible", "archived", "blocked"]));
     expect(getEligibleMarketingCopy("home-cta").map((variant) => variant.status)).toEqual([
+      "canonical",
+      "eligible",
+    ]);
+    expect(getEligibleMarketingCopy("explore-hero").map((variant) => variant.status)).toEqual([
       "canonical",
       "eligible",
     ]);

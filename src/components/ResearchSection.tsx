@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { BookOpen, ExternalLink, TrendingUp } from "lucide-react";
+import ResearchClaimCard from "@/components/ResearchClaimCard";
 
 const studies = [
   {
@@ -145,6 +146,8 @@ const ResearchSection = () => {
             </motion.a>
           ))}
         </div>
+
+        <ResearchClaimCard placement="research_feature" className="mt-5" />
 
         <motion.aside
           initial={reduceMotion ? false : { opacity: 0, y: 16 }}

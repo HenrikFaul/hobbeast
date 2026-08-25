@@ -96,9 +96,7 @@ BEGIN
     WHERE key = ANY (ARRAY[
       'ai_proposals',
       'analytics',
-      'circles',
       'connections',
-      'hub2',
       'moderation',
       'new_recommender'
     ])
@@ -106,8 +104,33 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'A production-risk feature flag is not fail-closed by default';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.feature_flags
+    WHERE key IN ('circles', 'hub2')
+      AND NOT (
+        enabled
+        AND rollout_percentage = 100
+        AND cohorts = ARRAY[]::text[]
+        AND eligibility_rule = '{}'::jsonb
+        AND expires_at > now()
+      )
+  ) OR (
+    SELECT count(*) FROM public.feature_flags WHERE key IN ('circles', 'hub2')
+  ) <> 2 THEN
+    RAISE EXCEPTION 'Released Circle/Hub flags are not configured for general availability';
+  END IF;
 END
 $structural_checks$;
+
+-- The released default is ON. Disable these two flags inside this
+-- self-rolling-back fixture to keep proving the global kill-switch path before
+-- the controlled enable-path assertions below.
+UPDATE public.feature_flags
+SET enabled = false,
+    rollout_percentage = 0
+WHERE key IN ('circles', 'hub2');
 
 INSERT INTO auth.users (id)
 VALUES
@@ -380,7 +403,7 @@ $persona_b_checks$;
 RESET ROLE;
 
 -- Prove that the same server-side boundaries have a controlled enable path;
--- the surrounding transaction restores the default OFF/0% registry state.
+-- the surrounding transaction restores the released Circle/Hub ON state.
 UPDATE public.feature_flags
 SET enabled = true,
     rollout_percentage = 100,

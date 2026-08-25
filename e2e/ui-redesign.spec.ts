@@ -31,7 +31,7 @@ for (const viewport of viewports) {
     await expectNoHorizontalOverflow(page);
 
     await page.goto('/explore', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /Fedezd fel a hobbidat/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Amit szeretsz, hozd közénk/i })).toBeVisible();
     await expect(page.getByLabel('Hobbi keresése')).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
@@ -166,6 +166,8 @@ test('home hero motion control is accessible and its media assets load cleanly o
 test('photographic hobby cards preserve the full category drill-down state machine', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/explore', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.getByRole('img', { name: 'Baráti könyvklub közösen olvas és beszélget' })).toBeVisible();
 
   await expect(page.getByTestId('category-visual')).toHaveCount(17);
   await expect(page.locator('[data-testid="category-visual"] img')).toHaveCount(17);

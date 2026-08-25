@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
 import { CATEGORY_VISUALS } from "@/lib/categoryVisuals";
+import { EXPLORE_HERO_COPY } from "@/content/marketingCopy";
 import boardgameFriends from "@/assets/editorial/explore-boardgame.webp";
+import bookClubFriends from "@/assets/stock/categories/learning.webp";
 
 type ViewLevel = 'categories' | 'subcategories' | 'activities';
 
@@ -79,13 +81,16 @@ const Explore = () => {
           <div className="relative grid items-center gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.78fr)] lg:gap-12">
             <div>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#dfff62]">
-                <Sparkles aria-hidden="true" size={14} /> Közös érdeklődésből valódi élmény
+                <Sparkles aria-hidden="true" size={14} /> {EXPLORE_HERO_COPY.eyebrow}
               </div>
               <h1 className="mb-5 font-display text-4xl font-extrabold leading-[0.98] tracking-[-0.055em] sm:text-5xl lg:text-[4.5rem]">
-                Fedezd fel a <span className="text-[#ff8f72]">hobbidat</span>
+                {EXPLORE_HERO_COPY.headingLead ?? EXPLORE_HERO_COPY.heading}{" "}
+                {EXPLORE_HERO_COPY.headingAccent && (
+                  <span className="text-[#ff8f72]">{EXPLORE_HERO_COPY.headingAccent}</span>
+                )}
               </h1>
               <p className="mx-auto mb-7 max-w-2xl text-base font-medium leading-relaxed text-white/[0.68] sm:text-lg lg:mx-0">
-                Válassz kategóriát, és találd meg azokat az embereket, akikkel közös a szenvedélyed.
+                {EXPLORE_HERO_COPY.body}
               </p>
 
               <div className="relative mx-auto max-w-2xl lg:mx-0">
@@ -123,6 +128,30 @@ const Explore = () => {
               <span aria-hidden="true" className="absolute -right-2 top-5 rotate-6 rounded-full border-2 border-[#251b43] bg-[#c9b7ff] px-3 py-2 text-xs font-extrabold text-[#251b43] shadow-xl">
                 társas • új arcok
               </span>
+              <span
+                aria-hidden="true"
+                className="absolute rotate-3 rounded-full border-2 border-[#251b43] bg-[#fffdf7] px-3 py-2 text-xs font-extrabold text-[#251b43] shadow-xl"
+                style={{ right: "-0.25rem", top: "4rem" }}
+              >
+                szerepjáték • közös világok
+              </span>
+              <figure
+                className="absolute rotate-3 rounded-2xl border-2 border-[#251b43] bg-[#fffdf7] p-1.5 shadow-2xl"
+                style={{ bottom: "-1.25rem", right: 0, width: "42%" }}
+              >
+                <img
+                  src={bookClubFriends}
+                  alt="Baráti könyvklub közösen olvas és beszélget"
+                  width={720}
+                  height={480}
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-[4/3] w-full rounded-xl object-cover"
+                />
+                <figcaption className="px-1.5 py-1 text-center text-[10px] font-extrabold uppercase tracking-wide text-[#251b43]">
+                  könyvklub • közös gondolatok
+                </figcaption>
+              </figure>
             </figure>
           </div>
         </motion.header>

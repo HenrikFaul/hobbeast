@@ -1,0 +1,5365 @@
+[
+  {
+    "publication": "Politika",
+    "authors": "Arisztotelész",
+    "year": "kb. i. e. 4. század",
+    "sequences": [
+      1,
+      136
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": null,
+      "authorHit": false,
+      "doi": "10.2307/j.ctv62hgvm.13",
+      "url": "https://doi.org/10.2307/j.ctv62hgvm.13",
+      "title": "Politika",
+      "authors": [],
+      "year": null,
+      "type": "book-chapter",
+      "publisher": "Aarhus University Press",
+      "containerTitle": "Post-War Identification"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Nikomakhoszi etika VIII–IX. könyv",
+    "authors": "Arisztotelész",
+    "year": "kb. i. e. 4. század",
+    "sequences": [
+      2
+    ],
+    "best": {
+      "titleScore": 0.4,
+      "yearDelta": null,
+      "authorHit": false,
+      "doi": "10.1093/oseo/instance.00175740",
+      "url": "https://doi.org/10.1093/oseo/instance.00175740",
+      "title": "VIII–IX",
+      "authors": [
+        {
+          "given": "Fulke Greville, first Baron Brooke",
+          "family": "Court",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1967,
+      "type": "book-chapter",
+      "publisher": "Oxford University Press",
+      "containerTitle": "English Madrigal Verse: 1588–1632 (Third Edition)"
+    },
+    "verified": false
+  },
+  {
+    "publication": "A társadalmi szerződésről",
+    "authors": "Jean-Jacques Rousseau",
+    "year": 1762,
+    "sequences": [
+      3
+    ],
+    "best": {
+      "titleScore": 0.25,
+      "yearDelta": 259,
+      "authorHit": false,
+      "doi": "10.36250/00916_00",
+      "url": "https://doi.org/10.36250/00916_00",
+      "title": "Társadalmi innováció : társadalmi jólét",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0001-8220-8232",
+          "authenticated-orcid": false,
+          "given": "Mariann",
+          "family": "Veresné Somosi",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-6890-9227",
+          "authenticated-orcid": false,
+          "given": "Károly",
+          "family": "Balaton",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0003-1864-1351",
+          "authenticated-orcid": false,
+          "given": "György",
+          "family": "Kocziszky",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-8356-9785",
+          "authenticated-orcid": false,
+          "given": "Mária",
+          "family": "Illés",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-2915-4586",
+          "authenticated-orcid": false,
+          "given": "Tamás",
+          "family": "Bakó",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-1822-2619",
+          "authenticated-orcid": false,
+          "given": "Dóra Diána",
+          "family": "Andráskó",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Rita",
+          "family": "Szabó",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-1886-0848",
+          "authenticated-orcid": false,
+          "given": "Szabolcs",
+          "family": "Nagy",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-3760-1198",
+          "authenticated-orcid": false,
+          "given": "Gabriella",
+          "family": "Metszősy",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-4982-9325",
+          "authenticated-orcid": false,
+          "given": "Zsuzsanna",
+          "family": "Dabasi-Halász",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-6714-0858",
+          "authenticated-orcid": false,
+          "given": "Katalin",
+          "family": "Lipták",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0003-1605-2553",
+          "authenticated-orcid": false,
+          "given": "Zoltán",
+          "family": "Nagy",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-9233-1899",
+          "authenticated-orcid": false,
+          "given": "Géza",
+          "family": "Tóth",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-7112-8800",
+          "authenticated-orcid": false,
+          "given": "Krisztina",
+          "family": "Varga",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0003-0596-9315",
+          "authenticated-orcid": false,
+          "given": "László",
+          "family": "Berényi",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2021,
+      "type": "edited-book",
+      "publisher": "Ludovika Egyetemi Kiadó",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Strength of Weak Ties",
+    "authors": "Mark S. Granovetter",
+    "year": 1973,
+    "sequences": [
+      6,
+      205,
+      206,
+      316,
+      317,
+      435,
+      436
+    ],
+    "best": null,
+    "verified": false,
+    "error": "Error: Crossref retry budget exhausted"
+  },
+  {
+    "publication": "Bowling Alone",
+    "authors": "Robert D. Putnam",
+    "year": 2000,
+    "sequences": [
+      7,
+      147,
+      208
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 3,
+      "authorHit": false,
+      "doi": "10.18800/debatesensociologia.200301.012",
+      "url": "https://doi.org/10.18800/debatesensociologia.200301.012",
+      "title": "Bowling Alone",
+      "authors": [
+        {
+          "given": "Catalina",
+          "family": "Romero",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2003,
+      "type": "journal-article",
+      "publisher": "Sistema de Bibliotecas PUCP",
+      "containerTitle": "Debates en Sociología"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Need to Belong: Desire for Interpersonal Attachments as a Fundamental Human Motivation",
+    "authors": "Roy F. Baumeister, Mark R. Leary",
+    "year": 1995,
+    "sequences": [
+      8
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1037/0033-2909.117.3.497",
+      "url": "https://doi.org/10.1037/0033-2909.117.3.497",
+      "title": "The need to belong: Desire for interpersonal attachments as a fundamental human motivation.",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0003-1413-3296",
+          "authenticated-orcid": false,
+          "given": "Roy F.",
+          "family": "Baumeister",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mark R.",
+          "family": "Leary",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1995,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Psychological Bulletin"
+    },
+    "verified": true
+  },
+  {
+    "publication": "The Need to Belong",
+    "authors": "Roy F. Baumeister, Mark R. Leary",
+    "year": 1995,
+    "sequences": [
+      9,
+      126
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 12,
+      "authorHit": false,
+      "doi": "10.4135/9781412956253.n368",
+      "url": "https://doi.org/10.4135/9781412956253.n368",
+      "title": "Need to Belong",
+      "authors": [],
+      "year": 2007,
+      "type": "reference-entry",
+      "publisher": "SAGE Publications, Inc.",
+      "containerTitle": "Encyclopedia of Social Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Loneliness: Human Nature and the Need for Social Connection",
+    "authors": "John T. Cacioppo, William Patrick",
+    "year": 2008,
+    "sequences": [
+      21,
+      39,
+      142,
+      454
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.5860/choice.46-1765",
+      "url": "https://doi.org/10.5860/choice.46-1765",
+      "title": "Loneliness: human nature and the need for social connection",
+      "authors": [],
+      "year": 2008,
+      "type": "journal-article",
+      "publisher": "American Library Association",
+      "containerTitle": "Choice Reviews Online"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Relationships and Health: The Toxic Effects of Perceived Social Isolation",
+    "authors": "John T. Cacioppo, Stephanie Cacioppo",
+    "year": 2014,
+    "sequences": [
+      22,
+      381
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1111/spc3.12087",
+      "url": "https://doi.org/10.1111/spc3.12087",
+      "title": "Social Relationships and Health: The Toxic Effects of Perceived Social Isolation",
+      "authors": [
+        {
+          "given": "John T.",
+          "family": "Cacioppo",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of Chicago"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Stephanie",
+          "family": "Cacioppo",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Chicago"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2014,
+      "type": "journal-article",
+      "publisher": "Wiley",
+      "containerTitle": "Social and Personality Psychology Compass"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Social Regulation of Gene Expression in Human Leukocytes",
+    "authors": "Steven W. Cole, Louise C. Hawkley, Jesusa M. Arevalo, Caroline Y. Sung, Robert M. Rose, John T. Cacioppo",
+    "year": 2007,
+    "sequences": [
+      23,
+      341
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1186/gb-2007-8-9-r189",
+      "url": "https://doi.org/10.1186/gb-2007-8-9-r189",
+      "title": "Social regulation of gene expression in human leukocytes",
+      "authors": [
+        {
+          "given": "Steve W",
+          "family": "Cole",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Louise C",
+          "family": "Hawkley",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jesusa M",
+          "family": "Arevalo",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Caroline Y",
+          "family": "Sung",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Robert M",
+          "family": "Rose",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "John T",
+          "family": "Cacioppo",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2007,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Genome Biology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Stress, Social Support, and the Buffering Hypothesis",
+    "authors": "Sheldon Cohen, Thomas A. Wills",
+    "year": 1985,
+    "sequences": [
+      27,
+      28,
+      121,
+      185,
+      378
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1037/0033-2909.98.2.310",
+      "url": "https://doi.org/10.1037/0033-2909.98.2.310",
+      "title": "Stress, social support, and the buffering hypothesis.",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0003-2248-4600",
+          "authenticated-orcid": false,
+          "given": "Sheldon",
+          "family": "Cohen",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Thomas A.",
+          "family": "Wills",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1985,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Psychological Bulletin"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Social Support, Life Stress, and Psychological Adjustment: A Test of the Buffering Hypothesis",
+    "authors": "Brian Lakey, Sheldon Cohen?*",
+    "year": 1981,
+    "sequences": [
+      29,
+      30
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1007/bf00918169",
+      "url": "https://doi.org/10.1007/bf00918169",
+      "title": "Social support, life stress, and psychological adjustment: A test of the buffering hypothesis",
+      "authors": [
+        {
+          "given": "Brian L.",
+          "family": "Wilcox",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Department of Psychology, Gilmer Hall University of Virginia  22901 Charlottesville Virginia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1981,
+      "type": "journal-article",
+      "publisher": "Wiley",
+      "containerTitle": "American Journal of Community Psychology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Dynamic Role of Social Support in the Link Between Chronic Stress and Psychological Distress",
+    "authors": "Sheldon Cohen, Denise Janicki-Deverts?*",
+    "year": 1991,
+    "sequences": [
+      33,
+      34
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1037/0022-3514.61.6.899",
+      "url": "https://doi.org/10.1037/0022-3514.61.6.899",
+      "title": "Dynamic role of social support in the link between chronic stress and psychological distress.",
+      "authors": [
+        {
+          "given": "Stephen J.",
+          "family": "Lepore",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Gary W.",
+          "family": "Evans",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Margaret L.",
+          "family": "Schneider",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1991,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Journal of Personality and Social Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Why Social Relationships Are Important for Physical Health: A Systems Approach to Understanding and Modifying Risk and Protection",
+    "authors": "Julianne Holt-Lunstad",
+    "year": 2018,
+    "sequences": [
+      36
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1146/annurev-psych-122216-011902",
+      "url": "https://doi.org/10.1146/annurev-psych-122216-011902",
+      "title": "Why Social Relationships Are Important for Physical Health: A Systems Approach to Understanding and Modifying Risk and Protection",
+      "authors": [
+        {
+          "given": "Julianne",
+          "family": "Holt-Lunstad",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Departments of Psychology and Neuroscience, Brigham Young University, Provo, Utah 84602;"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2018,
+      "type": "journal-article",
+      "publisher": "Annual Reviews",
+      "containerTitle": "Annual Review of Psychology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Why Social Relationships Are Important for Physical Health",
+    "authors": "Julianne Holt-Lunstad",
+    "year": 2018,
+    "sequences": [
+      37,
+      38,
+      241,
+      393,
+      394,
+      404
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1146/annurev-psych-122216-011902",
+      "url": "https://doi.org/10.1146/annurev-psych-122216-011902",
+      "title": "Why Social Relationships Are Important for Physical Health: A Systems Approach to Understanding and Modifying Risk and Protection",
+      "authors": [
+        {
+          "given": "Julianne",
+          "family": "Holt-Lunstad",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Departments of Psychology and Neuroscience, Brigham Young University, Provo, Utah 84602;"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2018,
+      "type": "journal-article",
+      "publisher": "Annual Reviews",
+      "containerTitle": "Annual Review of Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Oxytocin Is Associated with Human Trustworthiness",
+    "authors": "Paul J. Zak, Robert Kurzban, William T. Matzner",
+    "year": 2005,
+    "sequences": [
+      45
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1016/j.yhbeh.2005.07.009",
+      "url": "https://doi.org/10.1016/j.yhbeh.2005.07.009",
+      "title": "Oxytocin is associated with human trustworthiness",
+      "authors": [
+        {
+          "given": "P",
+          "family": "ZAK",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "R",
+          "family": "KURZBAN",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "W",
+          "family": "MATZNER",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2005,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Hormones and Behavior"
+    },
+    "verified": true
+  },
+  {
+    "publication": "The Neurobiology of Trust",
+    "authors": "Paul J. Zak, Robert Kurzban, William T. Matzner",
+    "year": 2004,
+    "sequences": [
+      46,
+      223
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 4,
+      "authorHit": true,
+      "doi": "10.1038/scientificamerican0608-88",
+      "url": "https://doi.org/10.1038/scientificamerican0608-88",
+      "title": "The Neurobiology of Trust",
+      "authors": [
+        {
+          "given": "Paul J.",
+          "family": "Zak",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2008,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Scientific American"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Oxytocin Increases Trust in Humans",
+    "authors": "Michael Kosfeld, Markus Heinrichs, Paul J. Zak, Urs Fischbacher, Ernst Fehr",
+    "year": 2005,
+    "sequences": [
+      47,
+      225
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1038/nature03701",
+      "url": "https://doi.org/10.1038/nature03701",
+      "title": "Oxytocin increases trust in humans",
+      "authors": [
+        {
+          "given": "Michael",
+          "family": "Kosfeld",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Markus",
+          "family": "Heinrichs",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Paul J.",
+          "family": "Zak",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Urs",
+          "family": "Fischbacher",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ernst",
+          "family": "Fehr",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2005,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Nature"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Empathy Toward Strangers Triggers Oxytocin Release and Subsequent Generosity",
+    "authors": "Jorge A. Barraza, Paul J. Zak",
+    "year": 2009,
+    "sequences": [
+      48,
+      227
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1111/j.1749-6632.2009.04504.x",
+      "url": "https://doi.org/10.1111/j.1749-6632.2009.04504.x",
+      "title": "Empathy toward Strangers Triggers Oxytocin Release and Subsequent Generosity",
+      "authors": [
+        {
+          "given": "Jorge A.",
+          "family": "Barraza",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Paul J.",
+          "family": "Zak",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2009,
+      "type": "journal-article",
+      "publisher": "Wiley",
+      "containerTitle": "Annals of the New York Academy of Sciences"
+    },
+    "verified": true
+  },
+  {
+    "publication": "The Social Cure: Identity, Health and Well-Being",
+    "authors": "Jolanda Jetten, Catherine Haslam, S. Alexander Haslam, Tegan Cruwys, nyomán",
+    "year": 2012,
+    "sequences": [
+      97
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1080/09602011.2012.711658",
+      "url": "https://doi.org/10.1080/09602011.2012.711658",
+      "title": "The social cure: Identity, health and well-being",
+      "authors": [
+        {
+          "given": "Lorna",
+          "family": "Torrens",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2012,
+      "type": "journal-article",
+      "publisher": "Informa UK Limited",
+      "containerTitle": "Neuropsychological Rehabilitation"
+    },
+    "verified": false
+  },
+  {
+    "publication": "From Loneliness to Social Connection: Charting a Path to Healthier Societies",
+    "authors": "WHO Commission on Social Connection",
+    "year": 2025,
+    "sequences": [
+      113,
+      114,
+      115,
+      398
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.4067/s1726-569x2026000100173",
+      "url": "https://doi.org/10.4067/s1726-569x2026000100173",
+      "title": "World Health Organization. From Loneliness to Social Connection - Charting a Path to Healthier Societies: Report of the WHO Commission on Social Connection",
+      "authors": [
+        {
+          "given": "Fernando",
+          "family": "Lolas Stepke",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2026,
+      "type": "journal-article",
+      "publisher": "SciELO Agencia Nacional de Investigacion y Desarrollo (ANID)",
+      "containerTitle": "Acta bioethica"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Relationships and Health: A Flashpoint for Health Policy",
+    "authors": "Debra Umberson, Jennifer Karas Montez",
+    "year": 2010,
+    "sequences": [
+      116,
+      118,
+      395
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1177/0022146510383501",
+      "url": "https://doi.org/10.1177/0022146510383501",
+      "title": "Social Relationships and Health: A Flashpoint for Health Policy",
+      "authors": [
+        {
+          "given": "Debra",
+          "family": "Umberson",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of Texas at Austin, umberson@prc.utexas.edu"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jennifer",
+          "family": "Karas Montez",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Texas at Austin"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2010,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Journal of Health and Social Behavior"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Social Networks and Health: Models, Methods, and Applications",
+    "authors": "Thomas W. Valente",
+    "year": 2010,
+    "sequences": [
+      119,
+      120
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1177/0094306110396847eee",
+      "url": "https://doi.org/10.1177/0094306110396847eee",
+      "title": "Social Networks and Health: Models, Methods, and Applications",
+      "authors": [
+        {
+          "given": "Christopher Steven",
+          "family": "Marcum",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of California, Irvine"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2011,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Contemporary Sociology: A Journal of Reviews"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Support Measurement and Intervention: A Guide for Health and Social Scientists",
+    "authors": "Sheldon Cohen, Lynn G. Underwood, Benjamin H. Gottlieb (szerk.)",
+    "year": 2000,
+    "sequences": [
+      122
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1097/00005053-200111000-00015",
+      "url": "https://doi.org/10.1097/00005053-200111000-00015",
+      "title": "Social Support Measurement and Intervention: A Guide for Health and Social Scientists.",
+      "authors": [
+        {
+          "given": "Laurel J.",
+          "family": "Kiser",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2001,
+      "type": "journal-article",
+      "publisher": "Ovid Technologies (Wolters Kluwer Health)",
+      "containerTitle": "The Journal of Nervous and Mental Disease"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Capitalizing on Positive Events and Interpersonal Relationships",
+    "authors": "Shelly L. Gable, Harry T. Reis, Emily A. Impett, Evan R. Asher",
+    "year": 2004,
+    "sequences": [
+      124,
+      438
+    ],
+    "best": {
+      "titleScore": 0.714,
+      "yearDelta": 9,
+      "authorHit": true,
+      "doi": "10.1037/14042-012",
+      "url": "https://doi.org/10.1037/14042-012",
+      "title": "Relationships: Capitalizing on positive events.",
+      "authors": [
+        {
+          "given": "Shelly L.",
+          "family": "Gable",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2013,
+      "type": "book-chapter",
+      "publisher": "American Psychological Association",
+      "containerTitle": "Activities for teaching positive psychology: A guide for instructors."
+    },
+    "verified": false
+  },
+  {
+    "publication": "What Do You Do When Things Go Right? The Intrapersonal and Interpersonal Benefits of Sharing Positive Events",
+    "authors": "Shelly L. Gable, Gian C. Gonzaga, Amy Strachman",
+    "year": 2006,
+    "sequences": [
+      125
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 2,
+      "authorHit": true,
+      "doi": "10.1037/0022-3514.87.2.228",
+      "url": "https://doi.org/10.1037/0022-3514.87.2.228",
+      "title": "What Do You Do When Things Go Right? The Intrapersonal and Interpersonal Benefits of Sharing Positive Events.",
+      "authors": [
+        {
+          "given": "Shelly L.",
+          "family": "Gable",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Harry T.",
+          "family": "Reis",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Emily A.",
+          "family": "Impett",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Evan R.",
+          "family": "Asher",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2004,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Journal of Personality and Social Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Reconnection After Social Exclusion",
+    "authors": "Nathan DeWall, C. Nathan DeWall?*",
+    "year": 2011,
+    "sequences": [
+      127,
+      232
+    ],
+    "best": {
+      "titleScore": 0.375,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1037/e734282011-021",
+      "url": "https://doi.org/10.1037/e734282011-021",
+      "title": "Power motivates interpersonal reconnection following social exclusion",
+      "authors": [
+        {
+          "given": "Jayanth",
+          "family": "Narayanan",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Zoe",
+          "family": "Kinias",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Kenneth",
+          "family": "Tai",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2011,
+      "type": "dataset",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "PsycEXTRA Dataset"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The New Psychology of Health: Unlocking the Social Cure",
+    "authors": "Catherine Haslam, Jolanda Jetten, Tegan Cruwys, Genevieve Dingle, S. Alexander Haslam",
+    "year": 2018,
+    "sequences": [
+      129
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.53841/bpscpf.2018.1.311.50",
+      "url": "https://doi.org/10.53841/bpscpf.2018.1.311.50",
+      "title": "The New Psychology of Health: Unlocking the Social Cure",
+      "authors": [
+        {
+          "given": "Catherine",
+          "family": "Haslam",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Jolanda",
+          "family": "Jetten",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Tegan",
+          "family": "Cruwys",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Genevieve A.",
+          "family": "Dingle",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "S.",
+          "family": "Alexander Haslam",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Lynsey",
+          "family": "Mahmood",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2018,
+      "type": "journal-article",
+      "publisher": "British Psychological Society",
+      "containerTitle": "Clinical Psychology Forum"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Alapelvek (Kyriai Doxai)",
+    "authors": "Epikürosz",
+    "year": "i. e. 300 körül",
+    "sequences": [
+      137
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": null,
+      "authorHit": false,
+      "doi": "10.1007/978-3-476-05728-0_9548-1",
+      "url": "https://doi.org/10.1007/978-3-476-05728-0_9548-1",
+      "title": "Epikur: Kyriai doxai",
+      "authors": [
+        {
+          "given": "Malte",
+          "family": "Hossenfelder",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2020,
+      "type": "book-chapter",
+      "publisher": "J.B. Metzler",
+      "containerTitle": "Kindlers Literatur Lexikon (KLL)"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Áhítatok (Meditation 17)",
+    "authors": "John Donne",
+    "year": 1624,
+    "sequences": [
+      138
+    ],
+    "best": {
+      "titleScore": 0.25,
+      "yearDelta": 398,
+      "authorHit": false,
+      "doi": "10.1353/scs.2022.0018",
+      "url": "https://doi.org/10.1353/scs.2022.0018",
+      "title": "Subjects for Ignatian Meditation on Matthew 17",
+      "authors": [
+        {
+          "given": "Megan",
+          "family": "McDermott",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2022,
+      "type": "journal-article",
+      "publisher": "Project MUSE",
+      "containerTitle": "Spiritus: A Journal of Christian Spirituality"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Kötődés és veszteség",
+    "authors": "John Bowlby",
+    "year": 1969,
+    "sequences": [
+      140
+    ],
+    "best": {
+      "titleScore": 0.4,
+      "yearDelta": 53,
+      "authorHit": false,
+      "doi": "10.14232/iskkult.2022.11.142",
+      "url": "https://doi.org/10.14232/iskkult.2022.11.142",
+      "title": "Kötődés, iskolai és pedagógiai kötődés",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0003-1270-2926",
+          "authenticated-orcid": false,
+          "given": "Anikó",
+          "family": "Zsolnai",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "id": [
+                {
+                  "id": "https://ror.org/01jsq2704",
+                  "id-type": "ROR",
+                  "asserted-by": "publisher"
+                }
+              ],
+              "name": "Eötvös Loránd Tudományegyetem",
+              "department": [
+                "PPK Neveléstudományi Intézet"
+              ]
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2022,
+      "type": "journal-article",
+      "publisher": "University of Szeged",
+      "containerTitle": "Iskolakultúra"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Need to Belong (Psychological Bulletin)",
+    "authors": "Roy F. Baumeister & Mark R. Leary",
+    "year": 1995,
+    "sequences": [
+      141
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 12,
+      "authorHit": false,
+      "doi": "10.4135/9781412956253.n368",
+      "url": "https://doi.org/10.4135/9781412956253.n368",
+      "title": "Need to Belong",
+      "authors": [],
+      "year": 2007,
+      "type": "reference-entry",
+      "publisher": "SAGE Publications, Inc.",
+      "containerTitle": "Encyclopedia of Social Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Science (Does Rejection Hurt?)",
+    "authors": "Naomi I. Eisenberger",
+    "year": 2003,
+    "sequences": [
+      144
+    ],
+    "best": {
+      "titleScore": 0.4,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.4088/jcp.v63n0401",
+      "url": "https://doi.org/10.4088/jcp.v63n0401",
+      "title": "Does Depression Hurt?",
+      "authors": [
+        {
+          "given": "Stephen M.",
+          "family": "Stahl",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2002,
+      "type": "journal-article",
+      "publisher": "Physicians Postgraduate Press, Inc",
+      "containerTitle": "The Journal of Clinical Psychiatry"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Journal of Human Evolution",
+    "authors": "Robin Dunbar",
+    "year": 1992,
+    "sequences": [
+      145
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 4,
+      "authorHit": false,
+      "doi": "10.5860/choice.26-1585",
+      "url": "https://doi.org/10.5860/choice.26-1585",
+      "title": "Human evolution",
+      "authors": [],
+      "year": 1988,
+      "type": "journal-article",
+      "publisher": "American Library Association",
+      "containerTitle": "Choice Reviews Online"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social: Why Our Brains Are Wired to Connect",
+    "authors": "Matthew D. Lieberman",
+    "year": 2013,
+    "sequences": [
+      146
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.5860/choice.51-7036",
+      "url": "https://doi.org/10.5860/choice.51-7036",
+      "title": "Social: why our brains are wired to connect",
+      "authors": [],
+      "year": 2014,
+      "type": "journal-article",
+      "publisher": "American Library Association",
+      "containerTitle": "Choice Reviews Online"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Together: The Healing Power of Human Connection",
+    "authors": "Vivek H. Murthy (US Surgeon General)",
+    "year": 2020,
+    "sequences": [
+      149
+    ],
+    "best": {
+      "titleScore": 0.636,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.4103/ijsp.ijsp_342_20",
+      "url": "https://doi.org/10.4103/ijsp.ijsp_342_20",
+      "title": "Together: The healing power of human connection in a sometimes lonely world",
+      "authors": [
+        {
+          "given": "Nitin",
+          "family": "Gupta",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2020,
+      "type": "journal-article",
+      "publisher": "Ovid Technologies (Wolters Kluwer Health)",
+      "containerTitle": "Indian Journal of Social Psychiatry"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Good Life (Harvard Study of Adult Development)",
+    "authors": "Robert Waldinger & Marc Schulz",
+    "year": 2023,
+    "sequences": [
+      150
+    ],
+    "best": {
+      "titleScore": 0.438,
+      "yearDelta": 17,
+      "authorHit": false,
+      "doi": "10.1177/0969733006069704",
+      "url": "https://doi.org/10.1177/0969733006069704",
+      "title": "Book Review: Surprising guideposts to a happier life from the Landmark                 Harvard Study of Adult Development",
+      "authors": [
+        {
+          "given": "Leila",
+          "family": "Toiviainen",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of Tasmania, Australia, and Helsinki University, Finland,                         Nusring Ethics"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2006,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Nursing Ethics"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Harvard Study of Adult Development",
+    "authors": "George Vaillant",
+    "year": 2012,
+    "sequences": [
+      151
+    ],
+    "best": null,
+    "verified": false,
+    "error": "Error: Crossref retry budget exhausted"
+  },
+  {
+    "publication": "Cognitive Neuroscience of Loneliness",
+    "authors": "Cacioppo & Hawkley",
+    "year": 2009,
+    "sequences": [
+      152
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 6,
+      "authorHit": false,
+      "doi": "10.1016/s0959-4388(03)00049-7",
+      "url": "https://doi.org/10.1016/s0959-4388(03)00049-7",
+      "title": "Cognitive neuroscience",
+      "authors": [
+        {
+          "given": "Brian A",
+          "family": "Wandell",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "J Anthony",
+          "family": "Movshon",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2003,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Current Opinion in Neurobiology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Moral Molecule",
+    "authors": "Paul J. Zak",
+    "year": 2012,
+    "sequences": [
+      153
+    ],
+    "best": {
+      "titleScore": 0.375,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.22330/001c.89832",
+      "url": "https://doi.org/10.22330/001c.89832",
+      "title": "The Moral Molecule: The Source of Love and Prosperity",
+      "authors": [
+        {
+          "given": "Judith L.",
+          "family": "Hand",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "AFutureWithoutWar.org"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2013,
+      "type": "journal-article",
+      "publisher": "International Society for Human Ethology (ISHE)",
+      "containerTitle": "Human Ethology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Touch: The Science of Hand, Heart, and Mind",
+    "authors": "David J. Linden",
+    "year": 2015,
+    "sequences": [
+      154
+    ],
+    "best": {
+      "titleScore": 0.6,
+      "yearDelta": 7,
+      "authorHit": false,
+      "doi": "10.1197/j.jht.2007.10.012",
+      "url": "https://doi.org/10.1197/j.jht.2007.10.012",
+      "title": "The Mind, Body, and Science of Hand Therapy",
+      "authors": [
+        {
+          "given": "Donna E.",
+          "family": "Breger Stanton",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2008,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Journal of Hand Therapy"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Evolution and Human Behavior",
+    "authors": "Tarr, Launay, & Dunbar",
+    "year": 2014,
+    "sequences": [
+      155
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1002/9781119118206.ch4",
+      "url": "https://doi.org/10.1002/9781119118206.ch4",
+      "title": "Evolution and Human Behavior",
+      "authors": [],
+      "year": 2015,
+      "type": "other",
+      "publisher": "Wiley",
+      "containerTitle": "The Primate Origins of Human Nature"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Reclaiming Conversation",
+    "authors": "Sherry Turkle",
+    "year": 2015,
+    "sequences": [
+      159
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 28,
+      "authorHit": false,
+      "doi": "10.12987/9780300157635",
+      "url": "https://doi.org/10.12987/9780300157635",
+      "title": "Reclaiming a Conversation",
+      "authors": [
+        {
+          "given": "Jane",
+          "family": "Martin",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1987,
+      "type": "edited-book",
+      "publisher": "Yale University Press",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "Journal of Personality and Social Psychology",
+    "authors": "Cacioppo, Fowler, Christakis",
+    "year": 2009,
+    "sequences": [
+      160
+    ],
+    "best": {
+      "titleScore": 0.667,
+      "yearDelta": 3,
+      "authorHit": false,
+      "doi": "10.1093/oxfordhb/9780195398991.013.0001",
+      "url": "https://doi.org/10.1093/oxfordhb/9780195398991.013.0001",
+      "title": "Personality and Social Psychology",
+      "authors": [
+        {
+          "given": "Mark",
+          "family": "Snyder",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Kay",
+          "family": "Deaux",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2012,
+      "type": "reference-entry",
+      "publisher": "Oxford University Press",
+      "containerTitle": "The Oxford Handbook of Personality and Social Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Strength of Weak Ties (AJS)",
+    "authors": "Mark Granovetter",
+    "year": 1973,
+    "sequences": [
+      161
+    ],
+    "best": {
+      "titleScore": 0.667,
+      "yearDelta": 34,
+      "authorHit": false,
+      "doi": "10.1002/9781405165518.wbeosw004",
+      "url": "https://doi.org/10.1002/9781405165518.wbeosw004",
+      "title": "Weak Ties (Strength of)",
+      "authors": [
+        {
+          "given": "D. B.",
+          "family": "Tindall",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Todd E.",
+          "family": "Malinick",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2007,
+      "type": "other",
+      "publisher": "Wiley",
+      "containerTitle": "The Blackwell Encyclopedia of Sociology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Great Good Place",
+    "authors": "Ray Oldenburg",
+    "year": 1989,
+    "sequences": [
+      163,
+      246,
+      247,
+      248,
+      446
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 34,
+      "authorHit": true,
+      "doi": "10.2307/jj.9561417",
+      "url": "https://doi.org/10.2307/jj.9561417",
+      "title": "The Great Good Place",
+      "authors": [
+        {
+          "given": "RAY",
+          "family": "OLDENBURG",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2023,
+      "type": "monograph",
+      "publisher": "Berkshire Publishing Group",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "Survival of the Friendliest",
+    "authors": "Brian Hare & Vanessa Woods",
+    "year": 2020,
+    "sequences": [
+      164
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 4,
+      "authorHit": true,
+      "doi": "10.1038/scientificamerican0820-58",
+      "url": "https://doi.org/10.1038/scientificamerican0820-58",
+      "title": "Survival of the Friendliest",
+      "authors": [
+        {
+          "given": "Brian",
+          "family": "Hare",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Vanessa",
+          "family": "Woods",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2024,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Scientific American"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Tribe: On Homecoming and Belonging",
+    "authors": "Sebastian Junger",
+    "year": 2016,
+    "sequences": [
+      165
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1080/10530789.2017.1374499",
+      "url": "https://doi.org/10.1080/10530789.2017.1374499",
+      "title": "Tribe: on homecoming and belonging",
+      "authors": [
+        {
+          "given": "Erin Roark",
+          "family": "Murphy",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "School of Social Work, University of Texas at Arlington"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2017,
+      "type": "journal-article",
+      "publisher": "Informa UK Limited",
+      "containerTitle": "Journal of Social Distress and the Homeless"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Why Does Social Exclusion Hurt? The Relationship Between Social and Physical Pain",
+    "authors": "Naomi I. Eisenberger, Matthew D. Lieberman",
+    "year": 2005,
+    "sequences": [
+      166,
+      387
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1037/0033-2909.131.2.202",
+      "url": "https://doi.org/10.1037/0033-2909.131.2.202",
+      "title": "Why Does Social Exclusion Hurt? The Relationship Between Social and Physical Pain.",
+      "authors": [
+        {
+          "given": "Geoff",
+          "family": "MacDonald",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mark R.",
+          "family": "Leary",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2005,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Psychological Bulletin"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Exclusion and Pain Sensitivity",
+    "authors": "C. Nathan DeWall, Roy F. Baumeister",
+    "year": 2012,
+    "sequences": [
+      167,
+      169,
+      388,
+      390
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1177/0146167211422449",
+      "url": "https://doi.org/10.1177/0146167211422449",
+      "title": "Social Exclusion and Pain Sensitivity",
+      "authors": [
+        {
+          "given": "Michael J.",
+          "family": "Bernstein",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Penn State Abington, Abington, PA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Heather M.",
+          "family": "Claypool",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Miami University, Oxford, OH, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2011,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Personality and Social Psychology Bulletin"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Alone but Feeling No Pain: Effects of Social Exclusion on Physical Pain Tolerance, Affective Forecasting, and Interpersonal Empathy",
+    "authors": "C. Nathan DeWall, Roy F. Baumeister, Tyler F. Stillman, Matthew T. Gailliot, Jean M. Twenge",
+    "year": 2006,
+    "sequences": [
+      168
+    ],
+    "best": {
+      "titleScore": 0.944,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1037/0022-3514.91.1.1",
+      "url": "https://doi.org/10.1037/0022-3514.91.1.1",
+      "title": "Alone but feeling no pain: Effects of social exclusion on physical pain tolerance and pain threshold, affective forecasting, and interpersonal empathy.",
+      "authors": [
+        {
+          "given": "C. Nathan",
+          "family": "DeWall",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0003-1413-3296",
+          "authenticated-orcid": false,
+          "given": "Roy F.",
+          "family": "Baumeister",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2006,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Journal of Personality and Social Psychology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Loneliness Matters: A Theoretical and Empirical Review of Consequences and Mechanisms",
+    "authors": "John T. Cacioppo, Louise C. Hawkley",
+    "year": 2009,
+    "sequences": [
+      170
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1007/s12160-010-9210-8",
+      "url": "https://doi.org/10.1007/s12160-010-9210-8",
+      "title": "Loneliness Matters: A Theoretical and Empirical Review of Consequences and Mechanisms",
+      "authors": [
+        {
+          "given": "Louise C.",
+          "family": "Hawkley",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "John T.",
+          "family": "Cacioppo",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2010,
+      "type": "journal-article",
+      "publisher": "Oxford University Press (OUP)",
+      "containerTitle": "Annals of Behavioral Medicine"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Loneliness Matters",
+    "authors": "John T. Cacioppo, Louise C. Hawkley",
+    "year": 2009,
+    "sequences": [
+      171,
+      455
+    ],
+    "best": {
+      "titleScore": 0.4,
+      "yearDelta": 12,
+      "authorHit": false,
+      "doi": "10.3389/fpsyg.2021.741762",
+      "url": "https://doi.org/10.3389/fpsyg.2021.741762",
+      "title": "Loneliness in Bereavement: Measurement Matters",
+      "authors": [
+        {
+          "given": "Anneke",
+          "family": "Vedder",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Margeret S.",
+          "family": "Stroebe",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Henk A.W.",
+          "family": "Schut",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Kathrin",
+          "family": "Boerner",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jeffrey E.",
+          "family": "Stokes",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Paul A.",
+          "family": "Boelen",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2021,
+      "type": "journal-article",
+      "publisher": "Frontiers Media SA",
+      "containerTitle": "Frontiers in Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Loneliness and Health: Potential Mechanisms",
+    "authors": "Louise C. Hawkley, John T. Cacioppo",
+    "year": 2003,
+    "sequences": [
+      174,
+      175,
+      345
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1097/00006842-200205000-00005",
+      "url": "https://doi.org/10.1097/00006842-200205000-00005",
+      "title": "Loneliness and Health: Potential Mechanisms",
+      "authors": [
+        {
+          "given": "John T.",
+          "family": "Cacioppo",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Louise C.",
+          "family": "Hawkley",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "L. Elizabeth",
+          "family": "Crawford",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "John M.",
+          "family": "Ernst",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mary H.",
+          "family": "Burleson",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ray B.",
+          "family": "Kowalewski",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "William B.",
+          "family": "Malarkey",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Eve",
+          "family": "Van Cauter",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Gary G.",
+          "family": "Berntson",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2002,
+      "type": "journal-article",
+      "publisher": "Ovid Technologies (Wolters Kluwer Health)",
+      "containerTitle": "Psychosomatic Medicine"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Why Social Relationships Are Important for Physical Health: A Systems Approach",
+    "authors": "Julianne Holt-Lunstad",
+    "year": 2018,
+    "sequences": [
+      183
+    ],
+    "best": {
+      "titleScore": 0.625,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1146/annurev-psych-122216-011902",
+      "url": "https://doi.org/10.1146/annurev-psych-122216-011902",
+      "title": "Why Social Relationships Are Important for Physical Health: A Systems Approach to Understanding and Modifying Risk and Protection",
+      "authors": [
+        {
+          "given": "Julianne",
+          "family": "Holt-Lunstad",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Departments of Psychology and Neuroscience, Brigham Young University, Provo, Utah 84602;"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2018,
+      "type": "journal-article",
+      "publisher": "Annual Reviews",
+      "containerTitle": "Annual Review of Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Psychobiology of Social Support: The Social Dimension of Stress Buffering",
+    "authors": "Markus Heinrichs, G. Domes",
+    "year": 2008,
+    "sequences": [
+      184,
+      380
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 6,
+      "authorHit": true,
+      "doi": "10.3233/rnn-139008",
+      "url": "https://doi.org/10.3233/rnn-139008",
+      "title": "Psychobiology of social support: The social dimension of stress buffering",
+      "authors": [
+        {
+          "given": "Beate",
+          "family": "Ditzen",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Division of Clinical Psychology and Psychotherapy, Department of Psychology, University of Zurich, Zurich, Switzerland"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Markus",
+          "family": "Heinrichs",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Laboratory for Biological and Personality Psychology, Department of Psychology, University of Freiburg, Freiburg, Germany"
+            },
+            {
+              "name": "Freiburg Brain Imaging Center, University Medical Center, University of Freiburg, Freiburg, Germany"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2014,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Restorative Neurology and Neuroscience"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Support Measurement and Intervention",
+    "authors": "Sheldon Cohen, Lynn G. Underwood, Benjamin H. Gottlieb (szerk.)",
+    "year": 2000,
+    "sequences": [
+      186,
+      379
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1093/med:psych/9780195126709.001.0001",
+      "url": "https://doi.org/10.1093/med:psych/9780195126709.001.0001",
+      "title": "Social Support Measurement and Intervention",
+      "authors": [],
+      "year": 2000,
+      "type": "edited-book",
+      "publisher": "Oxford University Press",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "Oxytocin and Interpersonal Relationships",
+    "authors": "Simone Shamay-Tsoory, Ruth Abu-Akel",
+    "year": 2016,
+    "sequences": [
+      190
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1007/7854_2017_22",
+      "url": "https://doi.org/10.1007/7854_2017_22",
+      "title": "Oxytocin and Interpersonal Relationships",
+      "authors": [
+        {
+          "given": "Alexandra",
+          "family": "Patin",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Dirk",
+          "family": "Scheele",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Rene",
+          "family": "Hurlemann",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2017,
+      "type": "book-chapter",
+      "publisher": "Springer International Publishing",
+      "containerTitle": "Current Topics in Behavioral Neurosciences"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Singing Together or Apart: The Effect of Competitive and Cooperative Singing on Social Bonding",
+    "authors": "J. Pearce, L. Launay, R. I. M. Dunbar",
+    "year": 2015,
+    "sequences": [
+      197
+    ],
+    "best": {
+      "titleScore": 0.684,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1177/0305735616636208",
+      "url": "https://doi.org/10.1177/0305735616636208",
+      "title": "Singing together or apart: The effect of competitive and cooperative singing on social bonding within and between sub-groups of a university Fraternity",
+      "authors": [
+        {
+          "given": "Eiluned",
+          "family": "Pearce",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of Oxford, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jacques",
+          "family": "Launay",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Oxford, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Max",
+          "family": "van Duijn",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Leiden University, The Netherlands"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Anna",
+          "family": "Rotkirch",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Population Research Institute, Väestöliitto, Helsinki, Finland"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tamas",
+          "family": "David-Barrett",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Oxford, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Robin I. M.",
+          "family": "Dunbar",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Oxford, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2016,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Psychology of Music"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Music, Empathy and Cultural Understanding",
+    "authors": "I. Cross, nyomán",
+    "year": 2012,
+    "sequences": [
+      198
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 3,
+      "authorHit": false,
+      "doi": "10.1016/j.plrev.2015.09.001",
+      "url": "https://doi.org/10.1016/j.plrev.2015.09.001",
+      "title": "Music, empathy and cultural understanding",
+      "authors": [
+        {
+          "given": "Eric",
+          "family": "Clarke",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tia",
+          "family": "DeNora",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jonna",
+          "family": "Vuoskoski",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2015,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Physics of Life Reviews"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Functional Distance Approach to the Formation of Friendship",
+    "authors": "Leon Festinger, Stanley Schachter, Kurt Back",
+    "year": 1950,
+    "sequences": [
+      199,
+      303
+    ],
+    "best": {
+      "titleScore": 0.3,
+      "yearDelta": 20,
+      "authorHit": false,
+      "doi": "10.1111/j.1538-4632.1970.tb00146.x",
+      "url": "https://doi.org/10.1111/j.1538-4632.1970.tb00146.x",
+      "title": "Functional Distance: An Operational Approach*",
+      "authors": [
+        {
+          "given": "Lawrence A.",
+          "family": "Brown",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Frank E.",
+          "family": "Horton",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1970,
+      "type": "journal-article",
+      "publisher": "Wiley",
+      "containerTitle": "Geographical Analysis"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Pressures in Informal Groups",
+    "authors": "Leon Festinger, Stanley Schachter, Kurt Back",
+    "year": 1950,
+    "sequences": [
+      200,
+      201,
+      301,
+      302,
+      443,
+      444
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.2307/3707362",
+      "url": "https://doi.org/10.2307/3707362",
+      "title": "Social Pressures in Informal Groups",
+      "authors": [
+        {
+          "given": "Leon",
+          "family": "Festinger",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Stanley",
+          "family": "Schachter",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Kurt",
+          "family": "Back",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1950,
+      "type": "journal-article",
+      "publisher": "JSTOR",
+      "containerTitle": "The American Catholic Sociological Review"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Attitudinal Effects of Mere Exposure",
+    "authors": "Robert B. Zajonc",
+    "year": 1968,
+    "sequences": [
+      202,
+      322
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1037/h0025848",
+      "url": "https://doi.org/10.1037/h0025848",
+      "title": "Attitudinal effects of mere exposure.",
+      "authors": [
+        {
+          "given": "Robert B.",
+          "family": "Zajonc",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1968,
+      "type": "journal-article",
+      "publisher": "American Psychological Association (APA)",
+      "containerTitle": "Journal of Personality and Social Psychology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Structural Holes: The Social Structure of Competition",
+    "authors": "Ronald S. Burt",
+    "year": 1992,
+    "sequences": [
+      207
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 2,
+      "authorHit": true,
+      "doi": "10.2307/1252259",
+      "url": "https://doi.org/10.2307/1252259",
+      "title": "Structural Holes: The Social Structure of Competition",
+      "authors": [
+        {
+          "given": "Peter H.",
+          "family": "Reingen",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Ronald S.",
+          "family": "Burt",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1994,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Journal of Marketing"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Solitude: A Philosophical Encounter",
+    "authors": "Philip Koch",
+    "year": 1994,
+    "sequences": [
+      211
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 1,
+      "authorHit": false,
+      "doi": "10.1353/phl.1995.0020",
+      "url": "https://doi.org/10.1353/phl.1995.0020",
+      "title": "Solitude: A Philosophical Encounter (review)",
+      "authors": [
+        {
+          "given": "Robert D",
+          "family": "Cottrell",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1995,
+      "type": "journal-article",
+      "publisher": "Project MUSE",
+      "containerTitle": "Philosophy and Literature"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Solitude and Well-being: A Review",
+    "authors": "Virginia Thomas, Netta Weinstein",
+    "year": 2022,
+    "sequences": [
+      212,
+      213,
+      422,
+      423,
+      483
+    ],
+    "best": {
+      "titleScore": 0.667,
+      "yearDelta": 2,
+      "authorHit": false,
+      "doi": "10.5040/9781350345690.0011",
+      "url": "https://doi.org/10.5040/9781350345690.0011",
+      "title": "Solitude, Identity and Well-being",
+      "authors": [],
+      "year": 2024,
+      "type": "other",
+      "publisher": "Bloomsbury Publishing Plc",
+      "containerTitle": "Solitude, Silence and Loneliness in Adolescence"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Self-Expansion Model of Motivation and Cognition in Close Relationships",
+    "authors": "Arthur Aron, Elaine N. Aron",
+    "year": 1986,
+    "sequences": [
+      214,
+      439
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 27,
+      "authorHit": true,
+      "doi": "10.1093/oxfordhb/9780195398694.013.0005",
+      "url": "https://doi.org/10.1093/oxfordhb/9780195398694.013.0005",
+      "title": "The Self-Expansion Model of Motivation and Cognition in Close Relationships",
+      "authors": [
+        {
+          "given": "Arthur",
+          "family": "Aron",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Gary W.",
+          "family": "Lewandowski",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Debra",
+          "family": "Mashek",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Elaine N.",
+          "family": "Aron",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2013,
+      "type": "edited-book",
+      "publisher": "Oxford University Press",
+      "containerTitle": "Oxford Handbooks Online"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Self-Expansion Model",
+    "authors": "Arthur Aron, Elaine N. Aron",
+    "year": 1986,
+    "sequences": [
+      216,
+      440
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 23,
+      "authorHit": false,
+      "doi": "10.4135/9781412958479.n466",
+      "url": "https://doi.org/10.4135/9781412958479.n466",
+      "title": "Self-Expansion Model",
+      "authors": [],
+      "year": 2009,
+      "type": "reference-entry",
+      "publisher": "SAGE Publications, Inc.",
+      "containerTitle": "Encyclopedia of Human Relationships"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Oxytocin and Social Affiliation in Humans",
+    "authors": "Ruth Feldman",
+    "year": 2012,
+    "sequences": [
+      219,
+      220
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1016/j.yhbeh.2012.01.008",
+      "url": "https://doi.org/10.1016/j.yhbeh.2012.01.008",
+      "title": "Oxytocin and social affiliation in humans",
+      "authors": [
+        {
+          "given": "Ruth",
+          "family": "Feldman",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2012,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Hormones and Behavior"
+    },
+    "verified": true
+  },
+  {
+    "publication": "The Evolution of Cooperation",
+    "authors": "Robert Axelrod",
+    "year": 1984,
+    "sequences": [
+      221
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 37,
+      "authorHit": false,
+      "doi": "10.1007/978-3-319-19650-3_507",
+      "url": "https://doi.org/10.1007/978-3-319-19650-3_507",
+      "title": "Evolution of Cooperation",
+      "authors": [
+        {
+          "given": "Simon",
+          "family": "Reeve",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2021,
+      "type": "book-chapter",
+      "publisher": "Springer International Publishing",
+      "containerTitle": "Encyclopedia of Evolutionary Psychological Science"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Trust: The Social Virtues and the Creation of Prosperity",
+    "authors": "Francis Fukuyama",
+    "year": 1995,
+    "sequences": [
+      222
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.2307/1251846",
+      "url": "https://doi.org/10.2307/1251846",
+      "title": "Trust: The Social Virtues and the Creation of Prosperity",
+      "authors": [
+        {
+          "given": "Peter A.",
+          "family": "Schneider",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Francis",
+          "family": "Fukuyama",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1996,
+      "type": "journal-article",
+      "publisher": "SAGE Publications",
+      "containerTitle": "Journal of Marketing"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Why Good Things Happen to Good People",
+    "authors": "Stephen G. Post",
+    "year": 2005,
+    "sequences": [
+      229
+    ],
+    "best": {
+      "titleScore": 0.857,
+      "yearDelta": 14,
+      "authorHit": false,
+      "doi": "10.1016/j.gerinurse.2018.12.002",
+      "url": "https://doi.org/10.1016/j.gerinurse.2018.12.002",
+      "title": "Why bad things happen to good people?",
+      "authors": [
+        {
+          "given": "Richard G.",
+          "family": "Stefanacci",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Albert",
+          "family": "Riddle",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2019,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Geriatric Nursing"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Closure of ‘Third Places’? Exploring Potential Consequences for Older Adults’ Health and Well-being",
+    "authors": "Jessica M. Finlay, Lisa C. Kobayashi",
+    "year": 2019,
+    "sequences": [
+      249,
+      447
+    ],
+    "best": {
+      "titleScore": 0.625,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.1016/j.healthplace.2019.102225",
+      "url": "https://doi.org/10.1016/j.healthplace.2019.102225",
+      "title": "Closure of ‘third places’? Exploring potential consequences for collective health and wellbeing",
+      "authors": [
+        {
+          "given": "Jessica",
+          "family": "Finlay",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Michael",
+          "family": "Esposito",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Min Hee",
+          "family": "Kim",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Iris",
+          "family": "Gomez-Lopez",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Philippa",
+          "family": "Clarke",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2019,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Health &amp; Place"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Closure of ‘Third Places’?",
+    "authors": "Jessica M. Finlay, Lisa C. Kobayashi",
+    "year": 2019,
+    "sequences": [
+      250,
+      251,
+      307
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 5,
+      "authorHit": false,
+      "doi": "10.1007/978-3-658-45150-9_8",
+      "url": "https://doi.org/10.1007/978-3-658-45150-9_8",
+      "title": "Third Places",
+      "authors": [
+        {
+          "given": "Sina",
+          "family": "Niehues",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2024,
+      "type": "book-chapter",
+      "publisher": "Springer Fachmedien Wiesbaden",
+      "containerTitle": "The Future of Work"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Palaces for the People: How Social Infrastructure Can Help Fight Inequality, Polarization, and the Decline of Civic Life",
+    "authors": "Eric Klinenberg",
+    "year": 2018,
+    "sequences": [
+      252
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 4,
+      "authorHit": false,
+      "doi": "10.1080/15575330.2022.2118937",
+      "url": "https://doi.org/10.1080/15575330.2022.2118937",
+      "title": "Palaces for the people: How social infrastructure can help fight inequality, polarization, and the decline of civic life",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0002-7996-5555",
+          "authenticated-orcid": false,
+          "given": "Laura C.",
+          "family": "Atkins",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Department of Sociology, Jacksonville University, 2800 University Blvd N., Jacksonville, FL 32211, USA"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2022,
+      "type": "journal-article",
+      "publisher": "Informa UK Limited",
+      "containerTitle": "Community Development"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Palaces for the People",
+    "authors": "Eric Klinenberg",
+    "year": 2018,
+    "sequences": [
+      253,
+      314,
+      479
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 6,
+      "authorHit": false,
+      "doi": "10.1093/oso/9780197650974.003.0010",
+      "url": "https://doi.org/10.1093/oso/9780197650974.003.0010",
+      "title": "Palaces for the People",
+      "authors": [
+        {
+          "given": "Jan-Werner",
+          "family": "Müller",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2024,
+      "type": "book-chapter",
+      "publisher": "Oxford University PressNew York",
+      "containerTitle": "Populism, Demagoguery, and Rhetoric in Historical Perspective"
+    },
+    "verified": false
+  },
+  {
+    "publication": "More Green, Less Lonely? A Longitudinal Cohort Study",
+    "authors": "Thomas Astell-Burt, Xiaoqi Feng",
+    "year": 2022,
+    "sequences": [
+      272
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1093/ije/dyab089",
+      "url": "https://doi.org/10.1093/ije/dyab089",
+      "title": "More green, less lonely? A longitudinal cohort study",
+      "authors": [
+        {
+          "given": "Thomas",
+          "family": "Astell-Burt",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Population Wellbeing and Environment Research Lab (PowerLab), School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            },
+            {
+              "name": "Menzies Centre for Health Policy, School of Public Health, University of Sydney, Sydney, Australia"
+            },
+            {
+              "name": "National Institute of Environmental Health, China Center for Disease Control and Prevention (China CDC), Beijing, China"
+            },
+            {
+              "name": "School of Public Health, Peking Union Medical College and The Chinese Academy of Medical Sciences, Beijing, China"
+            },
+            {
+              "name": "Illawarra Health and Medical Research Institute (IHMRI), University of Wollongong, Wollongong, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Terry",
+          "family": "Hartig",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Institute for Housing and Urban Research, Uppsala University, Uppsala, Sweden"
+            },
+            {
+              "name": "Department of Psychology, Uppsala University, Uppsala, Sweden"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Simon",
+          "family": "Eckermann",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mark",
+          "family": "Nieuwenhuijsen",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "ISGlobal, Barcelona, Spain"
+            },
+            {
+              "name": "Universitat Pompeu Fabra (UPF), Barcelona, Spain"
+            },
+            {
+              "name": "CIBER Epidemiología y Salud Pública (CIBERESP), Madrid, Spain"
+            },
+            {
+              "name": "Mary MacKillop Institute for Health Research, Melbourne, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Anne",
+          "family": "McMunn",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "UCL Department of Epidemiology & Public Health, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Howard",
+          "family": "Frumkin",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Department of Environmental and Occupational Health Sciences, School of Public Health, University of Washington, Seattle, WA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xiaoqi",
+          "family": "Feng",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Population Wellbeing and Environment Research Lab (PowerLab), School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            },
+            {
+              "name": "Menzies Centre for Health Policy, School of Public Health, University of Sydney, Sydney, Australia"
+            },
+            {
+              "name": "National Institute of Environmental Health, China Center for Disease Control and Prevention (China CDC), Beijing, China"
+            },
+            {
+              "name": "School of Population Health, Faculty of Medicine and Health, The University of New South Wales, Sydney, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2021,
+      "type": "journal-article",
+      "publisher": "Oxford University Press (OUP)",
+      "containerTitle": "International Journal of Epidemiology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "More Green, Less Lonely?",
+    "authors": "Thomas Astell-Burt, Xiaoqi Feng",
+    "year": 2022,
+    "sequences": [
+      273,
+      274
+    ],
+    "best": {
+      "titleScore": 0.571,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1093/ije/dyab089",
+      "url": "https://doi.org/10.1093/ije/dyab089",
+      "title": "More green, less lonely? A longitudinal cohort study",
+      "authors": [
+        {
+          "given": "Thomas",
+          "family": "Astell-Burt",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Population Wellbeing and Environment Research Lab (PowerLab), School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            },
+            {
+              "name": "Menzies Centre for Health Policy, School of Public Health, University of Sydney, Sydney, Australia"
+            },
+            {
+              "name": "National Institute of Environmental Health, China Center for Disease Control and Prevention (China CDC), Beijing, China"
+            },
+            {
+              "name": "School of Public Health, Peking Union Medical College and The Chinese Academy of Medical Sciences, Beijing, China"
+            },
+            {
+              "name": "Illawarra Health and Medical Research Institute (IHMRI), University of Wollongong, Wollongong, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Terry",
+          "family": "Hartig",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Institute for Housing and Urban Research, Uppsala University, Uppsala, Sweden"
+            },
+            {
+              "name": "Department of Psychology, Uppsala University, Uppsala, Sweden"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Simon",
+          "family": "Eckermann",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mark",
+          "family": "Nieuwenhuijsen",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "ISGlobal, Barcelona, Spain"
+            },
+            {
+              "name": "Universitat Pompeu Fabra (UPF), Barcelona, Spain"
+            },
+            {
+              "name": "CIBER Epidemiología y Salud Pública (CIBERESP), Madrid, Spain"
+            },
+            {
+              "name": "Mary MacKillop Institute for Health Research, Melbourne, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Anne",
+          "family": "McMunn",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "UCL Department of Epidemiology & Public Health, UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Howard",
+          "family": "Frumkin",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Department of Environmental and Occupational Health Sciences, School of Public Health, University of Washington, Seattle, WA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xiaoqi",
+          "family": "Feng",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Population Wellbeing and Environment Research Lab (PowerLab), School of Health and Society, Faculty of Arts, Social Sciences and Humanities, University of Wollongong, Wollongong, Australia"
+            },
+            {
+              "name": "Menzies Centre for Health Policy, School of Public Health, University of Sydney, Sydney, Australia"
+            },
+            {
+              "name": "National Institute of Environmental Health, China Center for Disease Control and Prevention (China CDC), Beijing, China"
+            },
+            {
+              "name": "School of Population Health, Faculty of Medicine and Health, The University of New South Wales, Sydney, Australia"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2021,
+      "type": "journal-article",
+      "publisher": "Oxford University Press (OUP)",
+      "containerTitle": "International Journal of Epidemiology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "What Types of Green Space Disrupt a Lonelygenic Environment? A Cohort Study",
+    "authors": "Thomas Astell-Burt, Xiaoqi Feng",
+    "year": 2023,
+    "sequences": [
+      275
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1007/s00127-022-02381-0",
+      "url": "https://doi.org/10.1007/s00127-022-02381-0",
+      "title": "What types of green space disrupt a lonelygenic environment? A cohort study",
+      "authors": [
+        {
+          "given": "Thomas",
+          "family": "Astell-Burt",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ramya",
+          "family": "Walsan",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Walt",
+          "family": "Davis",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xiaoqi",
+          "family": "Feng",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2022,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Social Psychiatry and Psychiatric Epidemiology"
+    },
+    "verified": true
+  },
+  {
+    "publication": "What Types of Green Space Disrupt a Lonelygenic Environment?",
+    "authors": "Thomas Astell-Burt, Xiaoqi Feng",
+    "year": 2023,
+    "sequences": [
+      276
+    ],
+    "best": {
+      "titleScore": 0.8,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.1007/s00127-022-02381-0",
+      "url": "https://doi.org/10.1007/s00127-022-02381-0",
+      "title": "What types of green space disrupt a lonelygenic environment? A cohort study",
+      "authors": [
+        {
+          "given": "Thomas",
+          "family": "Astell-Burt",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ramya",
+          "family": "Walsan",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Walt",
+          "family": "Davis",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xiaoqi",
+          "family": "Feng",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2022,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Social Psychiatry and Psychiatric Epidemiology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "See and Be Seen: Public Space as an Environmental Resource for Loneliness",
+    "authors": "E. Andersson",
+    "year": 2023,
+    "sequences": [
+      294,
+      471
+    ],
+    "best": {
+      "titleScore": 0.333,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.4337/9781800884588.00011",
+      "url": "https://doi.org/10.4337/9781800884588.00011",
+      "title": "Public space as resource",
+      "authors": [
+        {
+          "given": "Ali",
+          "family": "Madanipour",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2023,
+      "type": "book-chapter",
+      "publisher": "Edward Elgar Publishing",
+      "containerTitle": "Rethinking Public Space"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Third Place Literature; Solitude and Well-being Review",
+    "authors": "Oldenburg; Thomas & Weinstein",
+    "year": "1989; 2022",
+    "sequences": [
+      305
+    ],
+    "best": {
+      "titleScore": 0.444,
+      "yearDelta": 35,
+      "authorHit": false,
+      "doi": "10.5040/9781350345690.0011",
+      "url": "https://doi.org/10.5040/9781350345690.0011",
+      "title": "Solitude, Identity and Well-being",
+      "authors": [],
+      "year": 2024,
+      "type": "other",
+      "publisher": "Bloomsbury Publishing Plc",
+      "containerTitle": "Solitude, Silence and Loneliness in Adolescence"
+    },
+    "verified": false
+  },
+  {
+    "publication": "WHO Commission on Social Connection Report",
+    "authors": "World Health Organization",
+    "year": 2025,
+    "sequences": [
+      308,
+      459,
+      480
+    ],
+    "best": {
+      "titleScore": 0.417,
+      "yearDelta": 16,
+      "authorHit": false,
+      "doi": "10.1093/eurpub/ckp025",
+      "url": "https://doi.org/10.1093/eurpub/ckp025",
+      "title": "Report of the WHO commission on social determinants of health: a French perspective",
+      "authors": [
+        {
+          "given": "T.",
+          "family": "Lang",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "M.",
+          "family": "Kaminski",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "A.",
+          "family": "Leclerc",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2009,
+      "type": "journal-article",
+      "publisher": "Oxford University Press (OUP)",
+      "containerTitle": "The European Journal of Public Health"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Bowling Alone; Structural Holes",
+    "authors": "Robert D. Putnam; Ronald S. Burt",
+    "year": "2000; 1992",
+    "sequences": [
+      315
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 3,
+      "authorHit": false,
+      "doi": "10.18800/debatesensociologia.200301.012",
+      "url": "https://doi.org/10.18800/debatesensociologia.200301.012",
+      "title": "Bowling Alone",
+      "authors": [
+        {
+          "given": "Catalina",
+          "family": "Romero",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2003,
+      "type": "journal-article",
+      "publisher": "Sistema de Bibliotecas PUCP",
+      "containerTitle": "Debates en Sociología"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Great Good Place; Mere Exposure Literature",
+    "authors": "Oldenburg; Zajonc nyomán",
+    "year": "1968; 1989",
+    "sequences": [
+      321
+    ],
+    "best": {
+      "titleScore": 0.571,
+      "yearDelta": 55,
+      "authorHit": true,
+      "doi": "10.2307/jj.9561417",
+      "url": "https://doi.org/10.2307/jj.9561417",
+      "title": "The Great Good Place",
+      "authors": [
+        {
+          "given": "RAY",
+          "family": "OLDENBURG",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2023,
+      "type": "monograph",
+      "publisher": "Berkshire Publishing Group",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Associations Between Loneliness, Social Exclusion and Pain: A Systematic Review",
+    "authors": "S. F. Allen, C. D. Hopkins",
+    "year": 2020,
+    "sequences": [
+      346
+    ],
+    "best": {
+      "titleScore": 0.583,
+      "yearDelta": 4,
+      "authorHit": false,
+      "doi": "10.1016/bs.atpp.2023.11.005",
+      "url": "https://doi.org/10.1016/bs.atpp.2023.11.005",
+      "title": "Systematic review of the associations between transport and loneliness",
+      "authors": [],
+      "year": 2024,
+      "type": "book-chapter",
+      "publisher": "Elsevier",
+      "containerTitle": "Advances in Transport Policy and Planning"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Associations Between Loneliness, Social Exclusion and Pain",
+    "authors": "Allen, Hopkins",
+    "year": 2020,
+    "sequences": [
+      347
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 30,
+      "authorHit": false,
+      "doi": "10.1521/jscp.1990.9.2.214",
+      "url": "https://doi.org/10.1521/jscp.1990.9.2.214",
+      "title": "Loneliness and Social Exclusion",
+      "authors": [
+        {
+          "given": "Warren H.",
+          "family": "Jones",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1990,
+      "type": "journal-article",
+      "publisher": "Guilford Publications",
+      "containerTitle": "Journal of Social and Clinical Psychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Alone but Feeling No Pain",
+    "authors": "C. Nathan DeWall, Roy F. Baumeister, Tyler F. Stillman, Matthew T. Gailliot, Jean M. Twenge",
+    "year": 2006,
+    "sequences": [
+      389
+    ],
+    "best": {
+      "titleScore": 0.4,
+      "yearDelta": 9,
+      "authorHit": false,
+      "doi": "10.1017/cbo9780511752919.008",
+      "url": "https://doi.org/10.1017/cbo9780511752919.008",
+      "title": "Feeling Alone",
+      "authors": [
+        {
+          "given": "James Edward",
+          "family": "Barrell",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1997,
+      "type": "book-chapter",
+      "publisher": "Cambridge University Press",
+      "containerTitle": "The Phenomenology of Everyday Life"
+    },
+    "verified": false
+  },
+  {
+    "publication": "From Loneliness to Social Connection",
+    "authors": "World Health Organization",
+    "year": 2025,
+    "sequences": [
+      399
+    ],
+    "best": {
+      "titleScore": 0.333,
+      "yearDelta": 6,
+      "authorHit": false,
+      "doi": "10.31525/ct1-nct04195620",
+      "url": "https://doi.org/10.31525/ct1-nct04195620",
+      "title": "Loneliness and Social Connection in Cardiovascular Disease",
+      "authors": [
+        {
+          "name": "Case Medical Research",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2019,
+      "type": "journal-article",
+      "publisher": "Case Journals",
+      "containerTitle": "Case Medical Research"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Attachment and Loss, Vol. 1: Attachment",
+    "authors": "John Bowlby",
+    "year": 1969,
+    "sequences": [
+      406
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.2307/2798963",
+      "url": "https://doi.org/10.2307/2798963",
+      "title": "Attachment and Loss. Vol. I. Attachment.",
+      "authors": [
+        {
+          "given": "N. Blurton",
+          "family": "Jones",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "John",
+          "family": "Bowlby",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1970,
+      "type": "journal-article",
+      "publisher": "JSTOR",
+      "containerTitle": "Man"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Attachment and Loss",
+    "authors": "John Bowlby",
+    "year": 1969,
+    "sequences": [
+      407
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 1,
+      "authorHit": true,
+      "doi": "10.2307/588279",
+      "url": "https://doi.org/10.2307/588279",
+      "title": "Attachment and Loss, Volume I: Attachment",
+      "authors": [
+        {
+          "given": "Anthony",
+          "family": "Giddens",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "John",
+          "family": "Bowlby",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 1970,
+      "type": "journal-article",
+      "publisher": "JSTOR",
+      "containerTitle": "The British Journal of Sociology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Patterns of Attachment",
+    "authors": "Mary D. S. Ainsworth, Mary C. Blehar, Everett Waters, Sally Wall",
+    "year": 1978,
+    "sequences": [
+      408
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 36,
+      "authorHit": true,
+      "doi": "10.4324/9781315802428",
+      "url": "https://doi.org/10.4324/9781315802428",
+      "title": "Patterns of Attachment",
+      "authors": [
+        {
+          "given": "M. D.S.",
+          "family": "Ainsworth",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "M. C.",
+          "family": "Blehar",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "E.",
+          "family": "Waters",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "S.",
+          "family": "Wall",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2014,
+      "type": "monograph",
+      "publisher": "Psychology Press",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "Handbook of Attachment",
+    "authors": "Jude Cassidy, Phillip R. Shaver (szerk.)",
+    "year": 2016,
+    "sequences": [
+      409,
+      430
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 16,
+      "authorHit": false,
+      "doi": "10.4088/jcp.v61n1011c",
+      "url": "https://doi.org/10.4088/jcp.v61n1011c",
+      "title": "Handbook of Attachment",
+      "authors": [
+        {
+          "given": "Judy",
+          "family": "Garber",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2000,
+      "type": "journal-article",
+      "publisher": "Physicians Postgraduate Press, Inc",
+      "containerTitle": "The Journal of Clinical Psychiatry"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Bucharest Early Intervention Project",
+    "authors": "Charles A. Nelson, Nathan A. Fox, Charles H. Zeanah",
+    "year": 2014,
+    "sequences": [
+      411
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 2,
+      "authorHit": true,
+      "doi": "10.1097/nmd.0b013e318247d275",
+      "url": "https://doi.org/10.1097/nmd.0b013e318247d275",
+      "title": "The Bucharest Early Intervention Project",
+      "authors": [
+        {
+          "given": "Charles H.",
+          "family": "Zeanah",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Nathan A.",
+          "family": "Fox",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Charles A.",
+          "family": "Nelson",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2012,
+      "type": "journal-article",
+      "publisher": "Ovid Technologies (Wolters Kluwer Health)",
+      "containerTitle": "Journal of Nervous &amp; Mental Disease"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Romania’s Abandoned Children",
+    "authors": "Charles A. Nelson, Nathan A. Fox, Charles H. Zeanah",
+    "year": 2014,
+    "sequences": [
+      412
+    ],
+    "best": null,
+    "verified": false,
+    "error": "Error: Crossref retry budget exhausted"
+  },
+  {
+    "publication": "Peer Relations and Social Competence During Childhood",
+    "authors": "Kenneth H. Rubin, William M. Bukowski, Brett Laursen",
+    "year": 2009,
+    "sequences": [
+      413,
+      460
+    ],
+    "best": {
+      "titleScore": 0.625,
+      "yearDelta": 8,
+      "authorHit": false,
+      "doi": "10.12987/9780300145854",
+      "url": "https://doi.org/10.12987/9780300145854",
+      "title": "Children’s Peer Relations and Social Competence",
+      "authors": [
+        {
+          "given": "Linda",
+          "family": "Colley",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2017,
+      "type": "edited-book",
+      "publisher": "Yale University Press",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "School Connectedness and the Health of Adolescents",
+    "authors": "Robert W. Blum",
+    "year": 2005,
+    "sequences": [
+      415,
+      416
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 18,
+      "authorHit": false,
+      "doi": "10.1007/s10964-023-01898-0",
+      "url": "https://doi.org/10.1007/s10964-023-01898-0",
+      "title": "School Connectedness and Mental Health Among Black Adolescents",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0000-0002-3165-3034",
+          "authenticated-orcid": false,
+          "given": "Adrian",
+          "family": "Gale",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Lenna",
+          "family": "Nepomnyaschy",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2023,
+      "type": "journal-article",
+      "publisher": "Springer Science and Business Media LLC",
+      "containerTitle": "Journal of Youth and Adolescence"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Handbook of Adolescent Psychology",
+    "authors": "Richard M. Lerner, Laurence Steinberg (szerk.)",
+    "year": 2009,
+    "sequences": [
+      429
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1002/9780470479193",
+      "url": "https://doi.org/10.1002/9780470479193",
+      "title": "Handbook of Adolescent Psychology",
+      "authors": [],
+      "year": 2009,
+      "type": "reference-book",
+      "publisher": "Wiley",
+      "containerTitle": null
+    },
+    "verified": false
+  },
+  {
+    "publication": "Social Convoy Model of Social Relations",
+    "authors": "Toni C. Antonucci, Kira S. Birditt, Kristine Ajrouch",
+    "year": 2011,
+    "sequences": [
+      433
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 2,
+      "authorHit": false,
+      "doi": "10.4135/9781412958479.n108",
+      "url": "https://doi.org/10.4135/9781412958479.n108",
+      "title": "Convoy Model of Social Relations",
+      "authors": [],
+      "year": 2009,
+      "type": "reference-entry",
+      "publisher": "SAGE Publications, Inc.",
+      "containerTitle": "Encyclopedia of Human Relationships"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Convoys of Social Relations",
+    "authors": "Toni C. Antonucci",
+    "year": 2001,
+    "sequences": [
+      434,
+      468
+    ],
+    "best": {
+      "titleScore": 0.667,
+      "yearDelta": 15,
+      "authorHit": false,
+      "doi": "10.1093/geront/gnw162.491",
+      "url": "https://doi.org/10.1093/geront/gnw162.491",
+      "title": "CONVOYS OF SOCIAL RELATIONS OVER TIME",
+      "authors": [],
+      "year": 2016,
+      "type": "journal-article",
+      "publisher": "Oxford University Press (OUP)",
+      "containerTitle": "The Gerontologist"
+    },
+    "verified": false
+  },
+  {
+    "publication": "What Do You Do When Things Go Right?",
+    "authors": "Shelly L. Gable, Gian C. Gonzaga, Amy Strachman",
+    "year": 2006,
+    "sequences": [
+      437
+    ],
+    "best": {
+      "titleScore": 0.625,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1016/j.injury.2006.01.017",
+      "url": "https://doi.org/10.1016/j.injury.2006.01.017",
+      "title": "When things do not go right",
+      "authors": [
+        {
+          "given": "A.P.",
+          "family": "Hudd",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "D.M.",
+          "family": "Ricketts",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2006,
+      "type": "journal-article",
+      "publisher": "Elsevier BV",
+      "containerTitle": "Injury"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Our Epidemic of Loneliness and Isolation",
+    "authors": "U.S. Surgeon General",
+    "year": 2023,
+    "sequences": [
+      448
+    ],
+    "best": {
+      "titleScore": 0.5,
+      "yearDelta": 0,
+      "authorHit": false,
+      "doi": "10.1002/csan.21156",
+      "url": "https://doi.org/10.1002/csan.21156",
+      "title": "The Loneliness and Social Isolation Epidemic",
+      "authors": [
+        {
+          "given": "Seth C.",
+          "family": "Murray",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2023,
+      "type": "journal-article",
+      "publisher": "Wiley",
+      "containerTitle": "CSA News"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Fearless Organization",
+    "authors": "Amy C. Edmondson",
+    "year": 2018,
+    "sequences": [
+      449
+    ],
+    "best": {
+      "titleScore": 0.333,
+      "yearDelta": 6,
+      "authorHit": false,
+      "doi": "10.5040/9781760625368.00000004",
+      "url": "https://doi.org/10.5040/9781760625368.00000004",
+      "title": "Fearless",
+      "authors": [
+        {
+          "given": "Mirra",
+          "family": "Todd",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2012,
+      "type": "other",
+      "publisher": "Currency Press Pty Ltd",
+      "containerTitle": "Fearless"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Psychological Safety and Learning Behavior in Work Teams",
+    "authors": "Amy C. Edmondson",
+    "year": 1999,
+    "sequences": [
+      450
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 0,
+      "authorHit": true,
+      "doi": "10.2307/2666999",
+      "url": "https://doi.org/10.2307/2666999",
+      "title": "Psychological Safety and Learning Behavior in Work Teams",
+      "authors": [
+        {
+          "given": "Amy",
+          "family": "Edmondson",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Harvard University"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 1999,
+      "type": "journal-article",
+      "publisher": "JSTOR",
+      "containerTitle": "Administrative Science Quarterly"
+    },
+    "verified": true
+  },
+  {
+    "publication": "Socioemotional Selectivity Theory",
+    "authors": "Laura L. Carstensen",
+    "year": 1992,
+    "sequences": [
+      451
+    ],
+    "best": {
+      "titleScore": 1,
+      "yearDelta": 24,
+      "authorHit": true,
+      "doi": "10.1007/978-981-287-080-3_110-1",
+      "url": "https://doi.org/10.1007/978-981-287-080-3_110-1",
+      "title": "Socioemotional Selectivity Theory",
+      "authors": [
+        {
+          "given": "Tammy",
+          "family": "English",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Laura L.",
+          "family": "Carstensen",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2016,
+      "type": "book-chapter",
+      "publisher": "Springer Singapore",
+      "containerTitle": "Encyclopedia of Geropsychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "A Theory of Socioemotional Selectivity",
+    "authors": "Laura L. Carstensen, Derek M. Isaacowitz, Susan T. Charles",
+    "year": 1999,
+    "sequences": [
+      452
+    ],
+    "best": {
+      "titleScore": 0.75,
+      "yearDelta": 17,
+      "authorHit": true,
+      "doi": "10.1007/978-981-287-080-3_110-1",
+      "url": "https://doi.org/10.1007/978-981-287-080-3_110-1",
+      "title": "Socioemotional Selectivity Theory",
+      "authors": [
+        {
+          "given": "Tammy",
+          "family": "English",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Laura L.",
+          "family": "Carstensen",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2016,
+      "type": "book-chapter",
+      "publisher": "Springer Singapore",
+      "containerTitle": "Encyclopedia of Geropsychology"
+    },
+    "verified": false
+  },
+  {
+    "publication": "WHO Social Isolation and Loneliness in Older People",
+    "authors": "World Health Organization",
+    "year": 2025,
+    "sequences": [
+      453
+    ],
+    "best": {
+      "titleScore": 0.875,
+      "yearDelta": 10,
+      "authorHit": false,
+      "doi": "10.7748/phc.25.6.16.s23",
+      "url": "https://doi.org/10.7748/phc.25.6.16.s23",
+      "title": "Loneliness and social isolation in older people",
+      "authors": [
+        {
+          "given": "Caroline",
+          "family": "McGraw",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2015,
+      "type": "journal-article",
+      "publisher": "RCN Publishing Ltd.",
+      "containerTitle": "Primary Health Care"
+    },
+    "verified": false
+  },
+  {
+    "publication": "Digital Technology and Social Connection",
+    "authors": "Hunt, Marx, Lipson, Young",
+    "year": 2018,
+    "sequences": [
+      467
+    ],
+    "best": {
+      "titleScore": 0.714,
+      "yearDelta": 7,
+      "authorHit": false,
+      "doi": "10.1080/00332747.2025.2580176",
+      "url": "https://doi.org/10.1080/00332747.2025.2580176",
+      "title": "Digital Social Technology and Social Connection in Youth",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0009-0006-3235-9407",
+          "authenticated-orcid": false,
+          "given": "Luke L.",
+          "family": "Sumberg",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-6264-0594",
+          "authenticated-orcid": false,
+          "given": "Christin M.",
+          "family": "Ogle",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-7682-7528",
+          "authenticated-orcid": false,
+          "given": "Joscelyn E.",
+          "family": "Fisher",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-9597-2758",
+          "authenticated-orcid": false,
+          "given": "Stephen J.",
+          "family": "Cozza",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "year": 2025,
+      "type": "journal-article",
+      "publisher": "Informa UK Limited",
+      "containerTitle": "Psychiatry"
+    },
+    "verified": false
+  },
+  {
+    "publication": "The Development of Social Understanding",
+    "authors": "Jeremy Carpendale, Charlie Lewis",
+    "year": 2006,
+    "sequences": [
+      481
+    ],
+    "best": {
+      "titleScore": 0.8,
+      "yearDelta": 18,
+      "authorHit": false,
+      "doi": "10.4324/9781003441168-16",
+      "url": "https://doi.org/10.4324/9781003441168-16",
+      "title": "Development of Social Understanding",
+      "authors": [
+        {
+          "ORCID": "https://orcid.org/0009-0000-2959-2730",
+          "authenticated-orcid": false,
+          "given": "Ashok K.",
+          "family": "Srivastava",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-8937-1411",
+          "authenticated-orcid": false,
+          "given": "Girishwar",
+          "family": "Misra",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "year": 2024,
+      "type": "book-chapter",
+      "publisher": "Routledge",
+      "containerTitle": "A Contextual Approach to Human Development"
+    },
+    "verified": false
+  }
+]
