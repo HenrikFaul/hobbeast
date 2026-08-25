@@ -113,11 +113,11 @@ intact.
   approved/published translations, 22 topics, 96 claim-topic relationships and one returned
   public random-RPC row. `anon` and `authenticated` retain no direct claim-table `SELECT`;
   anonymous saved-library execution is false and authenticated execution is true.
-- Direct custom-domain browser/HTTP smoke from this execution environment is `NOT_RUN / HOLD`:
-  `expericentre.com` resolves to the Vercel address but its port 443 connection timed out here.
-  This does not negate the two successful Vercel deployment statuses, but it is not evidence of
-  public custom-domain reachability. The authenticated Profile save/list flow also remains
-  `NOT_RUN` without reviewer credentials.
+- Direct custom-domain HTTP smoke is partial: `https://www.expericentre.com/` returns `200` and
+  serves the Hobbeast production shell, while apex `https://expericentre.com/` still times out
+  from this execution environment. The `www` host is `PASS`; apex reachability/redirect remains
+  `HOLD`. The authenticated Profile save/list flow also remains `NOT_RUN` without reviewer
+  credentials.
 
 ---
 
