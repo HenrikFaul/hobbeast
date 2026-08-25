@@ -68,14 +68,23 @@ function pickFile(candidates) {
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
-    viewport: { width: 1366, height: 900 },
-  });
-  const page = await context.newPage();
   const rows = [];
   const seenIds = new Set();
+
+  // Cloudflare tolerates roughly one search per browser session, so every theme
+  // gets a FRESH browser instance; downloads reuse that session's cookies.
+  let browser = null;
+  let context = null;
+  let page = null;
+  const freshBrowser = async () => {
+    if (browser) await browser.close().catch(() => {});
+    browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+    context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+      viewport: { width: 1366, height: 900 },
+    });
+    page = await context.newPage();
+  };
 
   // Cloudflare-aware page load: a challenge page is small — wait and retry once.
   const loadHtml = async (url, scrolls = 0) => {
@@ -120,12 +129,12 @@ async function main() {
   };
 
   try {
-    // Search pages embed the result videos' direct file URLs — one page load
-    // yields a whole theme. Slow pacing keeps Cloudflare happy.
+    // One search per fresh browser: the page embeds the results' direct file URLs.
     for (const [theme, query] of THEMES) {
       if (rows.length >= TARGET) break;
       let entries = [];
       try {
+        await freshBrowser();
         entries = mineVideos(await loadHtml(`https://www.pexels.com/search/videos/${encodeURIComponent(query)}/`, 1));
       } catch (e) { console.log(`search failed ${query}: ${String(e.message).slice(0, 60)}`); continue; }
       const byId = new Map();
@@ -140,7 +149,7 @@ async function main() {
         if (await downloadOne(theme, id, files, null)) taken += 1;
         await sleep(700);
       }
-      await sleep(3500);
+      await sleep(6000);
     }
     // Curated backlog pages fill any remaining slots (own-id file only).
     for (const pageUrl of BACKLOG_PAGES) {
@@ -148,13 +157,14 @@ async function main() {
       const pageId = pageUrl.match(/-(\d+)\/?$/)?.[1];
       const slug = pageUrl.split('/').filter(Boolean).pop().replace(/-\d+$/, '').slice(0, 34);
       try {
+        await freshBrowser();
         const own = mineVideos(await loadHtml(pageUrl)).filter((v) => v.id === pageId);
         if (own.length) await downloadOne(`backlog-${slug}`, pageId, own, pageUrl);
       } catch (e) { console.log(`backlog failed: ${String(e.message).slice(0, 50)}`); }
-      await sleep(3500);
+      await sleep(6000);
     }
   } finally {
-    await browser.close();
+    if (browser) await browser.close().catch(() => {});
   }
 
   const manifest = [
