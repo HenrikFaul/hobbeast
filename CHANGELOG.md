@@ -100,10 +100,24 @@ intact.
   were rendered and visually inspected.
 
 ### Deployment boundary
-- Integration checkpoints `a992e19` and `6dede85` are present on `main` and were already pushed
-  during the shared development session. This section records repository and local verification;
-  hosted Supabase migration, CI/Vercel completion and live production evidence are recorded only
-  after the release-closure commit is published and independently checked.
+- Integration checkpoints `a992e19` and `6dede85`, plus release-closure commit `7011a18`, are
+  pushed on `main`.
+- GitHub Actions run `32795360604` completed `SUCCESS` with every supply-chain, quality, build,
+  performance, Playwright, SBOM and release-validation step green. Both Vercel commit-status
+  contexts completed `SUCCESS` for `7011a18`.
+- All six v1.12.0 migrations are applied to canonical Supabase project
+  `bqdvqmpwccsxumzijspj`; a post-deployment dry run reports the remote database up to date.
+- Hosted evidence shows `circles = true/100`, `hub2 = true/100` and two matching activation audit
+  rows. The separate `connections` flag remains `false/0`.
+- Hosted evidence also shows 30 active approved/published claims, 30 original hash-valid
+  approved/published translations, 22 topics, 96 claim-topic relationships and one returned
+  public random-RPC row. `anon` and `authenticated` retain no direct claim-table `SELECT`;
+  anonymous saved-library execution is false and authenticated execution is true.
+- Direct custom-domain browser/HTTP smoke from this execution environment is `NOT_RUN / HOLD`:
+  `expericentre.com` resolves to the Vercel address but its port 443 connection timed out here.
+  This does not negate the two successful Vercel deployment statuses, but it is not evidence of
+  public custom-domain reachability. The authenticated Profile save/list flow also remains
+  `NOT_RUN` without reviewer credentials.
 
 ---
 

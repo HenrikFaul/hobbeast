@@ -421,6 +421,9 @@ story.extend([
         [p("Responsive browser / E2E", "CardBody"), p("PASS · 1440×1000 + 390×844 · 14 E2E pass / 1 auth NOT_RUN", "CardBody")],
         [p("Excel QA", "CardBody"), p("PASS · 565 exact reconciliation · 0 formula-error match", "CardBody")],
         [p("Release review", "CardBody"), p("PASS · nincs maradó P0/P1/P2 finding", "CardBody")],
+        [p("Hosted Supabase", "CardBody"), p("PASS · 6 migration · flags + 30 claim + 96 topic relation", "CardBody")],
+        [p("CI / Vercel", "CardBody"), p("PASS · Actions 32795360604 · 2 sikeres deployment context", "CardBody")],
+        [p("Custom domain smoke", "CardBody"), p("NOT_RUN / HOLD · HTTPS timeout ebből a verifier környezetből", "CardBody")],
     ], colWidths=[61 * mm, 103 * mm], style=TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), LIME),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, CREAM]),
@@ -435,10 +438,10 @@ story.extend([
     KeepTogether([
         p("Mi számít még külön bizonyítéknak?", "H2x"),
         p(
-            "A repository és local PASS nem automatikusan hosted PASS. A kanonikus Supabase "
-            "migráció, a 30 rekordos remote seed, a Circle/Hub flag, a GitHub Actions, a Vercel "
-            "és a live böngészős smoke külön megfigyelendő. Authenticated Profile mentés/listázás "
-            "reviewer credential nélkül <b>NOT_RUN</b> marad.",
+            "A Supabase migráció, a 30 rekordos remote seed, a Circle/Hub flag, a GitHub Actions "
+            "és mindkét Vercel context PASS. A custom domain HTTPS elérése ebből a verifier "
+            "környezetből timeoutolt, ezért a live smoke <b>NOT_RUN / HOLD</b>. Authenticated "
+            "Profile mentés/listázás reviewer credential nélkül szintén <b>NOT_RUN</b> marad.",
         ),
     ]),
     PageBreak(),
