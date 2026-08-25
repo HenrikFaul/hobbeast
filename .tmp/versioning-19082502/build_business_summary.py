@@ -452,7 +452,7 @@ story.extend([
     section_label("05 · Rollback és folytatás"),
     Spacer(1, 5 * mm),
     p("Biztonságosan visszafordítható", "H1x"),
-    bullet("Circle vagy Hub visszakapcsolható a meglévő feature-flag/kill-switch úton, adatvesztés nélkül."),
+    bullet("Circle vagy Hub kikapcsolható a meglévő feature-flag/kill-switch úton, adatvesztés nélkül."),
     bullet("Hibás állítást withdraw/deactivate státuszba kell tenni; az audit és a privát unsave maradjon."),
     bullet("Hibás locale legyen draft/pending; egy fordítás miatt az eredeti magyar tuple nem írható át."),
     bullet("Sémakorrekció forward migrationnel történjen; bizonyíték- és mentéstáblát ne dobjunk el."),
