@@ -103,7 +103,7 @@ function hobbeastCategory(sourceCategories) {
 
 export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 12, delayMs = 700, log = () => {} }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
-  if (!listingUrl) return [];
+  if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
 
   const page = await browser.newPage({
@@ -111,8 +111,10 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   });
   let detailUrls = [];
   let listingHtml = '';
+  let listingStatus = null;
   try {
-    await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 40000 });
+    const response = await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 40000 });
+    listingStatus = response ? response.status() : null;
     listingHtml = await page.content();
     detailUrls = await page.evaluate(() => {
       const set = new Set();
@@ -180,5 +182,5 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     }
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
   }
-  return events;
+  return { events, httpStatus: listingStatus };
 }

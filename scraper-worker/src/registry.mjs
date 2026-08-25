@@ -15,13 +15,14 @@ export async function listScraperTargets({ supabaseUrl, serviceRoleKey, limit = 
   return res.json();
 }
 
-export async function logScraperRun({ supabaseUrl, serviceRoleKey, sourceId, discovered, inserted, updated, skipped, duplicates, status, error, durationMs }) {
+export async function logScraperRun({ supabaseUrl, serviceRoleKey, sourceId, discovered, inserted, updated, skipped, duplicates, status, error, durationMs, httpStatus }) {
   const res = await fetch(`${supabaseUrl}/rest/v1/rpc/log_scraper_run`, {
     method: 'POST', headers: headers(serviceRoleKey),
     body: JSON.stringify({
       p_source_id: sourceId, p_discovered: discovered, p_inserted: inserted,
       p_updated: updated, p_skipped: skipped, p_duplicates: duplicates,
       p_status: status, p_error: error || null, p_duration_ms: durationMs,
+      p_http_status: Number.isInteger(httpStatus) ? httpStatus : null,
     }),
   });
   if (!res.ok) console.warn(`log_scraper_run ${sourceId} failed: ${res.status}`);

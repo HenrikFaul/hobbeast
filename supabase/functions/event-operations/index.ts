@@ -31,6 +31,9 @@ interface EventOperationBody {
   felt_safe?: boolean | null;
   would_return?: boolean | null;
   private_note?: string | null;
+  mood_score?: number | null;
+  met_new_people?: boolean | null;
+  want_to_meet_again?: boolean | null;
   arriving_alone?: boolean | null;
   first_hobbeast_event?: boolean | null;
   arrival_visibility?: string;
@@ -193,8 +196,12 @@ serve(async (req) => {
     if (body.action === 'submit_feedback') {
       const eventId = requireUuid(body.event_id, 'event_id');
       const accuracy = body.description_accuracy;
+      const moodScore = body.mood_score;
       const privateNote = safeText(body.private_note, 1000) || null;
       if (accuracy !== null && accuracy !== undefined && (!Number.isInteger(accuracy) || accuracy < 1 || accuracy > 5)) {
+        throw new Error('FEEDBACK_VALIDATION_FAILED');
+      }
+      if (moodScore !== null && moodScore !== undefined && (!Number.isInteger(moodScore) || moodScore < 1 || moodScore > 5)) {
         throw new Error('FEEDBACK_VALIDATION_FAILED');
       }
       const { error } = await client.from('post_event_feedback').upsert({
@@ -204,6 +211,9 @@ serve(async (req) => {
         felt_safe: typeof body.felt_safe === 'boolean' ? body.felt_safe : null,
         would_return: typeof body.would_return === 'boolean' ? body.would_return : null,
         private_note: privateNote,
+        mood_score: moodScore ?? null,
+        met_new_people: typeof body.met_new_people === 'boolean' ? body.met_new_people : null,
+        want_to_meet_again: typeof body.want_to_meet_again === 'boolean' ? body.want_to_meet_again : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'event_id,user_id' });
       if (error) throw new Error(error.message);

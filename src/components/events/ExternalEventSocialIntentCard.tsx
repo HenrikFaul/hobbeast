@@ -7,6 +7,7 @@ import {
   setExternalEventSocialIntent,
   type ExternalEventSocialSummary,
 } from '@/lib/eventOperations';
+import { trackProductEvent } from '@/lib/productAnalyticsClient';
 
 interface ExternalEventSocialIntentCardProps {
   externalEventId: string;
@@ -50,6 +51,12 @@ export function ExternalEventSocialIntentCard({
     setError(null);
     try {
       await setExternalEventSocialIntent({ externalEventId, intent, active });
+      void trackProductEvent('external_social_intent', {
+        event_id: externalEventId,
+        variant: intent,
+        status: active ? 'set' : 'cleared',
+        surface: 'external_event_detail',
+      });
       await refresh();
     } catch (intentError) {
       const code = intentError instanceof Error ? intentError.message : '';

@@ -50,15 +50,16 @@ async function main() {
       const label = `${source.publisher_name} (${source.source_id})`;
       const listing = normalizeEndpointUrl(source.endpoint_url);
       let events = [];
+      let httpStatus = null;
       let status = 'succeeded';
       let error = null;
       try {
         if (!listing) throw new Error('invalid endpoint url');
         if (!(await robotsAllows(listing))) throw new Error('robots disallow on listing');
-        events = await scrapeGenericSource(source, {
+        ({ events, httpStatus } = await scrapeGenericSource(source, {
           browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log,
-        });
-        log(`  ${label}: ${events.length} dated events`);
+        }));
+        log(`  ${label}: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
       } catch (e) {
         status = 'failed';
         error = e.message.slice(0, 200);
@@ -81,7 +82,7 @@ async function main() {
           supabaseUrl, serviceRoleKey, sourceId: source.source_id,
           discovered: events.length, inserted: totals.inserted || 0, updated: totals.updated || 0,
           skipped: totals.skipped || 0, duplicates: totals.duplicates || 0,
-          status, error, durationMs: Date.now() - t0,
+          status, error, durationMs: Date.now() - t0, httpStatus,
         }).catch(() => {});
       }
 

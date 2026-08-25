@@ -8,6 +8,7 @@ const EVENTS = new Set([
   'post_event_feedback', 'reconnection_sent', 'reconnection_mutual', 'circle_created',
   'circle_joined', 'organizer_event_created', 'organizer_event_completed', 'hub_qualified',
   'auto_event_proposed', 'auto_event_published', 'verified_or_confirmed_real_world_participation',
+  'external_social_intent', 'explore_search',
 ]);
 const SAFE_KEYS = new Set([
   'event_id', 'category', 'source', 'surface', 'status', 'city_bucket', 'cohort',

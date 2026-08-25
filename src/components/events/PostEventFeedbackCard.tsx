@@ -23,10 +23,15 @@ function OptionalChoice({ label, value, onChange }: {
   );
 }
 
+const MOOD_EMOJI = ['😞', '😕', '😐', '🙂', '😄'] as const;
+
 export function PostEventFeedbackCard({ eventId }: { eventId: string }) {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [feltSafe, setFeltSafe] = useState<boolean | null>(null);
   const [wouldReturn, setWouldReturn] = useState<boolean | null>(null);
+  const [moodScore, setMoodScore] = useState<number | null>(null);
+  const [metNewPeople, setMetNewPeople] = useState<boolean | null>(null);
+  const [wantToMeetAgain, setWantToMeetAgain] = useState<boolean | null>(null);
   const [privateNote, setPrivateNote] = useState('');
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -41,6 +46,9 @@ export function PostEventFeedbackCard({ eventId }: { eventId: string }) {
         feltSafe,
         wouldReturn,
         privateNote,
+        moodScore,
+        metNewPeople,
+        wantToMeetAgain,
       });
       setSaved(true);
       toast.success('Köszönjük, a privát esemény-visszajelzésedet elmentettük.');
@@ -61,6 +69,29 @@ export function PostEventFeedbackCard({ eventId }: { eventId: string }) {
           <legend className="text-sm font-medium">Mennyire felelt meg az esemény a leírásnak?</legend>
           <div className="flex flex-wrap gap-2">{[1, 2, 3, 4, 5].map((value) => <Button key={value} type="button" size="sm" aria-label={`${value} az 5-ből`} variant={accuracy === value ? 'default' : 'outline'} onClick={() => setAccuracy(value)}>{value}</Button>)}</div>
         </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Milyen hangulatban távoztál?</legend>
+          <div className="flex flex-wrap gap-2">
+            {MOOD_EMOJI.map((emoji, index) => {
+              const value = index + 1;
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  aria-label={`Hangulat: ${value} az 5-ből`}
+                  variant={moodScore === value ? 'default' : 'outline'}
+                  onClick={() => setMoodScore(value)}
+                  className="text-base"
+                >
+                  {emoji}
+                </Button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <OptionalChoice label="Ismertél meg új embereket?" value={metNewPeople} onChange={setMetNewPeople} />
+        <OptionalChoice label="Találkoznál velük újra?" value={wantToMeetAgain} onChange={setWantToMeetAgain} />
         <OptionalChoice label="Biztonságosnak érezted az eseményt?" value={feltSafe} onChange={setFeltSafe} />
         <OptionalChoice label="Visszatérnél hasonló programra?" value={wouldReturn} onChange={setWouldReturn} />
         <div><Label htmlFor={`post-event-note-${eventId}`}>Privát megjegyzés (opcionális)</Label><Textarea id={`post-event-note-${eventId}`} value={privateNote} onChange={(event) => setPrivateNote(event.target.value)} maxLength={1000} className="mt-2" /></div>

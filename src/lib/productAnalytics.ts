@@ -19,6 +19,8 @@ export const PRODUCT_ANALYTICS_EVENTS = [
   'auto_event_proposed',
   'auto_event_published',
   'verified_or_confirmed_real_world_participation',
+  'external_social_intent',
+  'explore_search',
 ] as const;
 
 export type ProductAnalyticsEventName = (typeof PRODUCT_ANALYTICS_EVENTS)[number];

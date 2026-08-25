@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AdminEngagementFunnel } from '@/components/admin/AdminEngagementFunnel';
 
 interface OutcomeRow {
   outcome_day: string;
@@ -74,6 +75,8 @@ export function AdminProductOutcomes() {
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Frissítés
         </Button>
       </div>
+
+      <AdminEngagementFunnel />
 
       {error && (
         <Alert variant="destructive" role="alert">

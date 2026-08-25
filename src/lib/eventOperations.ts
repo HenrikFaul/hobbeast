@@ -378,6 +378,9 @@ export async function submitPostEventFeedback(input: {
   feltSafe?: boolean | null;
   wouldReturn?: boolean | null;
   privateNote?: string | null;
+  moodScore?: number | null;
+  metNewPeople?: boolean | null;
+  wantToMeetAgain?: boolean | null;
 }) {
   const result = await invokeEventOperation<{ saved: boolean }>({
     action: 'submit_feedback',
@@ -386,6 +389,9 @@ export async function submitPostEventFeedback(input: {
     felt_safe: input.feltSafe ?? null,
     would_return: input.wouldReturn ?? null,
     private_note: input.privateNote?.trim() || null,
+    mood_score: input.moodScore ?? null,
+    met_new_people: input.metNewPeople ?? null,
+    want_to_meet_again: input.wantToMeetAgain ?? null,
     idempotency_key: idempotencyKey(),
   });
   void trackProductEvent('post_event_feedback', {

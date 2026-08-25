@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { trackProductEvent } from "@/lib/productAnalyticsClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useExploreActivityStats } from "@/hooks/useExploreActivityStats";
 import { ActivityTile } from "@/components/explore/ActivityTile";
@@ -47,6 +48,18 @@ const Explore = () => {
   }, [searchResults, view, selectedSubcategory]);
   const activityStats = useExploreActivityStats(visibleActivityNames);
 
+  const searchResultCount = searchResults?.length ?? null;
+  useEffect(() => {
+    if (searchResultCount === null) return;
+    const timer = window.setTimeout(() => {
+      void trackProductEvent('explore_search', {
+        surface: 'explore',
+        count_bucket: searchResultCount === 0 ? '0' : searchResultCount <= 5 ? '1-5' : searchResultCount <= 20 ? '6-20' : '20+',
+      });
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [searchResultCount]);
+
   useEffect(() => {
     if (!user) { setFavoriteHobbies([]); return; }
     let cancelled = false;
@@ -72,6 +85,11 @@ const Explore = () => {
       toast.error('Nem sikerült elmenteni a kedvencet. Próbáld újra.');
     } else {
       toast.success(wasFavorite ? 'Eltávolítva a kedvenceid közül.' : `„${name}" mostantól a kedvenceid között van!`);
+      void trackProductEvent('interest_selected', {
+        surface: 'explore',
+        category: name,
+        status: wasFavorite ? 'removed' : 'added',
+      });
     }
   };
 

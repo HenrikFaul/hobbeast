@@ -12,6 +12,67 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.17.0] — 2026-08-25
+
+**Measurement layer activated: connection funnel KPIs, soul-metric feedback, source
+health.** The audit against the owner's data-collection master plan found that 3 of the
+4 proposed tables already existed (better, GDPR-grade versions) but sat empty behind a
+disabled flag. This release turns the pipeline on and fills only the true gaps — no
+duplicated tables.
+
+### Changed
+- **Product analytics pipeline is LIVE**: the `analytics` feature flag turned on at
+  100%. The full chain already existed — consent opt-in (profile privacy card, purpose
+  `analytics`), `trackProductEvent` client, `analytics-ingest` edge function
+  (pseudonymized actor, event/property allowlists, idempotency), and instrumented
+  call sites (event_impression, event_detail, event_join, onboarding, feedback…).
+  Verified live: the ingest probe passes the salt-config check, so accepted events
+  will flow into `product_analytics_events` for consented members. GA-free, in-house.
+- `analytics-ingest` (v7) + client allowlist: two new event names —
+  `external_social_intent` (the piggyback click, with variant/status/surface) and
+  `explore_search` (bucketed result count only, no query text by design).
+
+### Added
+- **Connection funnel KPI RPC** `admin_engagement_stats(p_days)` (migration
+  `20260825210000`, health.view-gated): new members → first participation (median days
+  from signup, the "First-Meet" KPI) → returning members with 2+ events in 30 days (the
+  North Star retention); piggyback totals from `external_event_social_intents`; hub
+  activation stages from `virtual_hub_activation_events`; per-event-name analytics
+  counts; scraper-run source health. Feedback aggregates are k-anonymity-protected
+  (hidden below 3 responses).
+- **Admin → Outcome: "Kapcsolódási tölcsér" card** (`AdminEngagementFunnel`) rendering
+  the funnel, piggyback, feedback quality, hub stages, and source health.
+- **Soul-metric fields** on `post_event_feedback`: `mood_score` (1–5),
+  `met_new_people`, `want_to_meet_again` — surfaced in the post-event feedback card
+  (emoji mood scale + two questions) and saved via `event-operations` (v7).
+- **Piggyback instrumentation**: "Menjünk együtt?" intent buttons now emit
+  `external_social_intent`; Explore favorites emit `interest_selected`
+  (surface=explore), searches emit debounced `explore_search`.
+- **Source health**: `scraper_runs.http_status` — the worker records the listing
+  page's HTTP status per run (`log_scraper_run` gained optional `p_http_status`).
+
+### Audit notes (what was NOT built, deliberately)
+- `user_activity_logs` → already covered by `product_analytics_events` (+ consent +
+  pseudonymization + retention/redaction columns) — proposed table would have been a
+  privacy downgrade.
+- `ai_hubs_metrics` → covered by `virtual_hubs` + `virtual_hub_activation_events`
+  (stage funnel); aggregated in the new KPI RPC.
+- `source_health_logs` → covered by `scraper_runs` (+ new http_status) and
+  `external_event_feed_runs`.
+- `connection_feedback` → extended the existing `post_event_feedback` instead.
+- Metabase: recommended as optional next step (read-only DB role); documented in the
+  versioning note, not installed.
+
+### Verified
+- Anonymous `event-operations counts` still 200 after redeploy (no regression).
+- `analytics-ingest` rejects non-user tokens with 401 *after* the salt check —
+  ANALYTICS_HASH_SALT confirmed configured.
+- `admin_engagement_stats(30)` live smoke: funnel/piggyback/hubs/feedback/source_health
+  all present; source_health shows 40 real runs, 0 failed.
+- typecheck clean, eslint clean, vitest 449/449, build + performance budget PASS.
+
+---
+
 ## [1.16.1] — 2026-08-25
 
 **Owner-requested UX round: live Explore tiles, "Menjünk együtt?" activated, admin polish.**
