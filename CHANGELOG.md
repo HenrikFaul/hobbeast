@@ -12,6 +12,43 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.20.2] — 2026-08-25
+
+**Real event photos instead of shared banners, logos and "no image" fillers.**
+Reported case: eventland.eu events all showed the same Heroes' Square picture even
+though each event page has its own photo.
+
+### Fixed
+- **Root cause**: eventland.eu (and sites like it) put a single site-wide banner in
+  every event's JSON-LD `image` field, while `og:image` carries the real per-event
+  photo. The extractor trusted JSON-LD first and stopped there — so 18 different
+  events inherited one banner.
+- **Generic fix — ranked image candidates + site-wide banner detection**
+  (`resolveEventImages`): every event now collects candidates (JSON-LD image,
+  og:image, twitter:image, first content `<img>`), and once a source is fully
+  scraped, any candidate claimed as first choice by **3+ distinct event titles** is
+  treated as a site banner and skipped in favour of the next candidate. Repeats of
+  the *same* title (a recurring series) still keep their shared image.
+- **Junk-image filter** (`isUsableImage`): rejects "no image" fillers
+  (`noimage474.jpg`), logos (`logo-1-blue.png`, `logo.webp`), placeholders, tracking
+  pixels and SVG marks. Matching is anchored to path-segment boundaries so genuine
+  photos survive — Songkick's `.../artists/123/huge_avatar` performer pictures are
+  explicitly preserved.
+- **Hero-image fallback**: when a page has no structured image at all, the first
+  content-looking `<img>` (jpg/png/webp, junk-filtered, absolutised) is used.
+- Applied to **all four strategies** (render, rss, tribe, site adapters).
+- **Existing data cleaned**: 30 rows whose image was a shared banner, logo or filler
+  had `image_url` cleared, so a wrong photo is never shown; the next run fills in
+  the real one.
+
+### Verified
+- Live eventland scrape after the fix: 8 events → **8 distinct, correct photos**
+  (previously all 18 shared one banner).
+- 6 new unit tests cover banner detection, series-image preservation, junk
+  rejection and performer-photo preservation. Suite: 458 passed.
+
+---
+
 ## [1.20.1] — 2026-08-25
 
 ### Fixed

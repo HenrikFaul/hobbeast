@@ -5,7 +5,8 @@
 // the item title/description — items without any future date are skipped.
 
 import {
-  buildEvent, extractDetailEvents, normalizeEndpointUrl, parseHuTextDate, stripHtml,
+  buildEvent, extractDetailEvents, normalizeEndpointUrl, parseHuTextDate,
+  resolveEventImages, stripHtml,
 } from './generic.mjs';
 
 function decodeEntities(s) {
@@ -85,5 +86,5 @@ export async function scrapeRssSource(source, { fetchStatic, maxDetails = 40, de
     }
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
   }
-  return { events, httpStatus: 200 };
+  return { events: resolveEventImages(events), httpStatus: 200 };
 }

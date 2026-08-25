@@ -3,7 +3,9 @@
 // Registered per hostname; the recon notes in external_event_feed_sources
 // explain WHY each site needs its own logic.
 
-import { buildEvent, extractOg, normalizeEndpointUrl, shuffled, stripHtml } from './generic.mjs';
+import {
+  buildEvent, extractOg, normalizeEndpointUrl, resolveEventImages, shuffled, stripHtml,
+} from './generic.mjs';
 
 /**
  * telekomspots.hu — Next.js app, no schema.org markup. The listing renders
@@ -65,7 +67,7 @@ async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 4
     }
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
   }
-  return { events, httpStatus: status };
+  return { events: resolveEventImages(events), httpStatus: status };
 }
 
 const ADAPTERS = {

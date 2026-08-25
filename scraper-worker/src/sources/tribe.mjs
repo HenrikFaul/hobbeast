@@ -2,7 +2,7 @@
 // expose the standard tribe REST API, which returns clean JSON events — no
 // rendering or HTML parsing needed.
 
-import { buildEvent, normalizeEndpointUrl, stripHtml } from './generic.mjs';
+import { buildEvent, normalizeEndpointUrl, resolveEventImages, stripHtml } from './generic.mjs';
 
 export async function scrapeTribeSource(source, { fetchStatic, maxDetails = 12, log = () => {} }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
@@ -42,5 +42,5 @@ export async function scrapeTribeSource(source, { fetchStatic, maxDetails = 12, 
     if (row) events.push(row);
     if (events.length >= maxDetails * 2) break;
   }
-  return { events, httpStatus: 200 };
+  return { events: resolveEventImages(events), httpStatus: 200 };
 }

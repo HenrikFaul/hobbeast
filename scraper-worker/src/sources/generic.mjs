@@ -130,6 +130,73 @@ export function extractOg(html, prop) {
   return m ? m[1] : null;
 }
 
+export function extractMeta(html, name) {
+  const m = html.match(new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i'))
+    || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${name}["']`, 'i'));
+  return m ? m[1] : null;
+}
+
+// Source sites routinely serve a "no image" filler, a logo or a tracking pixel
+// where a photo belongs; those must never become an event image. Matching is
+// anchored to path-segment boundaries so real photos are not caught by a
+// substring — Songkick's ".../profile_images/artists/123/huge_avatar" is a
+// genuine performer photo and must survive.
+const JUNK_IMAGE_RE = /(^|[/_-])(no[-_]?image|placeholder|blank|spacer|pixel|1x1|transparent|sprite|favicon|logo|default[-_]?(img|image|thumb|avatar|photo))\d*([/_.-]|$)/i;
+
+export function isUsableImage(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (JUNK_IMAGE_RE.test(url)) return false;
+  // SVGs on event pages are almost always logos/icons, never photos.
+  return !/\.svg(\?|#|$)/i.test(url);
+}
+
+/** Last-resort photo: the first content-looking <img> on the detail page. */
+export function extractHeroImage(html, baseUrl) {
+  for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
+    const raw = tag[0].match(/\ssrc=["']([^"']+)["']/i)?.[1]
+      || tag[0].match(/\sdata-src=["']([^"']+)["']/i)?.[1];
+    if (!raw) continue;
+    let absolute;
+    try { absolute = new URL(raw, baseUrl).toString(); } catch { continue; }
+    if (!isUsableImage(absolute)) continue;
+    if (!/\.(jpe?g|png|webp)(\?|#|$)/i.test(absolute)) continue;
+    return absolute;
+  }
+  return null;
+}
+
+/**
+ * Decide each event's final image once the whole source is scraped.
+ *
+ * Some sites (eventland.eu is the proven case) put a single site-wide banner in
+ * every event's JSON-LD `image`, while og:image carries the real per-event
+ * photo. A candidate that many DIFFERENT event titles claim as their first
+ * choice is therefore a site banner, not a photo — drop it and fall through to
+ * the next candidate. Repeats of the SAME title (a recurring series) are
+ * counted once, so a genuinely shared series image survives.
+ */
+export function resolveEventImages(events, { genericThreshold = 3 } = {}) {
+  const titlesByUrl = new Map();
+  for (const event of events) {
+    const first = (event.image_candidates || [])[0];
+    if (!first) continue;
+    if (!titlesByUrl.has(first)) titlesByUrl.set(first, new Set());
+    titlesByUrl.get(first).add(event.title);
+  }
+  const siteWide = new Set(
+    [...titlesByUrl.entries()]
+      .filter(([, titles]) => titles.size >= genericThreshold)
+      .map(([url]) => url),
+  );
+  for (const event of events) {
+    const candidates = event.image_candidates || [];
+    event.image_url = candidates.find((url) => !siteWide.has(url)) || null;
+    delete event.image_candidates;
+  }
+  return events;
+}
+
 /** Microdata fallback: a detail page marked up with itemtype schema.org/*Event. */
 export function extractMicrodataEvent(html) {
   if (!/itemtype\s*=\s*["'][^"']*schema\.org\/[a-z]*event/i.test(html)) return null;
@@ -193,7 +260,10 @@ export function buildEvent(source, ev, { listingUrl, detailUrl }) {
     location_address: ev.location || ev.address || null,
     price_min: ticket.price_min,
     currency: ticket.currency,
-    image_url: ev.image || null,
+    // Ranked candidates; resolveEventImages() picks the final one per source
+    // once site-wide banners can be detected across the whole batch.
+    image_candidates: [...new Set([ev.image, ...(ev.imageCandidates || [])].filter(isUsableImage))],
+    image_url: [ev.image, ...(ev.imageCandidates || [])].find(isUsableImage) || null,
     organizer_name: source.publisher_name,
     source_payload: { source_id: source.source_id, listing: listingUrl, detail: detailUrl || null, jsonld: ev },
   };
@@ -227,7 +297,12 @@ export function extractDetailEvents(html, pageUrl = null) {
   }
   const ogImage = extractOg(html, 'image');
   const ogDesc = extractOg(html, 'description');
+  const twitterImage = extractMeta(html, 'twitter:image');
+  const heroImage = pageUrl ? extractHeroImage(html, pageUrl) : null;
   for (const ev of found) {
+    // og:image is generated per page by most CMSs, so it is the strongest
+    // fallback when a site's JSON-LD image turns out to be a shared banner.
+    ev.imageCandidates = [ogImage, twitterImage, heroImage].filter(Boolean);
     if (!ev.image && ogImage) ev.image = ogImage;
     if (!ev.description && ogDesc) ev.description = stripHtml(ogDesc).slice(0, 500);
   }
@@ -348,5 +423,5 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     }
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
   }
-  return { events, httpStatus: listingStatus };
+  return { events: resolveEventImages(events), httpStatus: listingStatus };
 }
