@@ -16,6 +16,7 @@ import Index from "./pages/Index";
 // cache-friendly initial payload.
 const Explore = lazy(() => import("./pages/Explore"));
 const Events = lazy(() => import("./pages/Events"));
+const EventsMap = lazy(() => import("@/pages/EventsMap"));
 const About = lazy(() => import("./pages/About"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -84,6 +85,7 @@ const App = () => (
                         <Route path="/" element={<Index />} />
                         <Route path="/explore" element={<Explore />} />
                         <Route path="/events" element={<Events />} />
+                        <Route path="/events/map" element={<EventsMap />} />
                         <Route path="/events/:id" element={<EventDetail />} />
                         <Route path="/events/:id/organize" element={<OrganizeEventRedirect />} />
                         <Route path="/about" element={<About />} />

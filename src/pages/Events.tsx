@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, CalendarDays, Filter, MapPin, Plus, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Filter, MapPin, MapPinned, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
@@ -1013,8 +1013,15 @@ const Events = () => {
             <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">Felfedezhető programok</p>
             <h2 className="mt-1 font-display text-2xl font-extrabold">Válassz egy következő élményt</h2>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-3.5 py-2 text-xs font-semibold text-muted-foreground">
-            <CalendarDays size={14} className="text-accent" aria-hidden="true" /> Közelgő események
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="rounded-full">
+              <Link to="/events/map">
+                <MapPinned className="mr-1 h-4 w-4" aria-hidden="true" /> Térképes nézet
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card px-3.5 py-2 text-xs font-semibold text-muted-foreground">
+              <CalendarDays size={14} className="text-accent" aria-hidden="true" /> Közelgő események
+            </div>
           </div>
         </div>
 

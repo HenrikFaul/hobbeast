@@ -365,3 +365,75 @@
     color: hsl(var(--muted-foreground));
   }
 }
+
+/* Map search markers — Hobbeast-styled Leaflet divIcons.
+   Kept outside @layer so Leaflet's own positioning rules cannot override them. */
+.hb-marker-wrap {
+  background: none;
+  border: 0;
+}
+
+.hb-marker {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  border: 3px solid hsl(var(--card));
+  color: hsl(var(--primary-foreground));
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  cursor: pointer;
+}
+
+.hb-marker:hover {
+  transform: scale(1.08);
+}
+
+.hb-marker__count {
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hb-marker__label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 6px);
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: hsl(var(--card) / 0.92);
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+
+/* Round the Leaflet canvas with the container and soften its controls. */
+.hb-map .leaflet-container {
+  background: hsl(var(--muted));
+  font-family: inherit;
+}
+
+.hb-map .leaflet-control-zoom a {
+  border-radius: 0.6rem;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+.hb-map .leaflet-control-attribution {
+  background: hsl(var(--card) / 0.85);
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  border-radius: 0.5rem 0 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-marker { transition: none; }
+  .hb-marker:hover { transform: none; }
+}
