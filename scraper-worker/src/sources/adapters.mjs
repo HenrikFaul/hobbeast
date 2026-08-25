@@ -3,14 +3,14 @@
 // Registered per hostname; the recon notes in external_event_feed_sources
 // explain WHY each site needs its own logic.
 
-import { buildEvent, extractOg, normalizeEndpointUrl, stripHtml } from './generic.mjs';
+import { buildEvent, extractOg, normalizeEndpointUrl, shuffled, stripHtml } from './generic.mjs';
 
 /**
  * telekomspots.hu — Next.js app, no schema.org markup. The listing renders
  * /events/{id}/{slug} cards after scrolling; each detail page embeds ISO
  * "startsAt" values in the framework payload and full og: metadata.
  */
-async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 12, delayMs = 600, log = () => {} }) {
+async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {} }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url) || 'https://telekomspots.hu/events';
   const page = await browser.newPage({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
@@ -21,9 +21,9 @@ async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 1
   try {
     const resp = await page.goto(listingUrl, { waitUntil: 'networkidle', timeout: 45000 });
     status = resp ? resp.status() : null;
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 8; i += 1) {
       await page.mouse.wheel(0, 2600);
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(1000);
     }
     links = await page.evaluate(() => [...new Set(
       [...document.querySelectorAll('a[href^="/events/"], a[href*="telekomspots.hu/events/"]')]
@@ -33,7 +33,10 @@ async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 1
     await page.close().catch(() => {});
   }
 
-  links = links.filter((u) => /\/events\/[a-z0-9]{10,}\//.test(u)).slice(0, maxDetails);
+  // /events/{id}/{slug} OR the numeric legacy form /events/{num}/{slug}.
+  links = links.filter((u) => /\/events\/([a-z0-9]{10,}|\d{3,})\//.test(u));
+  if (links.length > maxDetails) links = shuffled(links).slice(0, maxDetails);
+  log(`    telekomspots: ${links.length} detail links this run`);
   const events = [];
   for (const url of links) {
     try {

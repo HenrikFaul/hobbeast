@@ -26,7 +26,7 @@ const args = process.argv.slice(2);
 const flag = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? Number(args[i + 1]) || dflt : dflt; };
 const dryRun = args.includes('--dry-run');
 const sourcesPerRun = flag('--sources', 25);
-const detailsPerSource = flag('--details', 12);
+const detailsPerSource = flag('--details', 40);
 const log = (...m) => console.log(...m);
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -70,7 +70,7 @@ async function main() {
             : strategy === 'rss'
               ? await scrapeRssSource(source, opts)
               : await scrapeGenericSource(source, opts));
-        if (events.length > 150) events = events.slice(0, 150);
+        if (events.length > 300) events = events.slice(0, 300);
         log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
       } catch (e) {
         status = 'failed';

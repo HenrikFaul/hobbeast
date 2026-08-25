@@ -12,6 +12,26 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.19.1] — 2026-08-25
+
+**Removed the artificial per-source caps that throttled EVERY source.** The owner
+spotted that telekomspots yielded 10 events while the site lists hundreds — the cause
+was systemic, not site-specific:
+
+### Fixed
+- **`maxDetails` 10-12 → 40**: only the first 10-12 detail pages were fetched per
+  source per run, across ALL strategies (render, rss, site adapters).
+- **Same-first-N bug**: over-budget link lists were sliced from the top, so every run
+  re-read the SAME first pages and never reached the rest. Now the subset is shuffled
+  per run (Fisher–Yates), so repeated runs converge to full coverage.
+- telekomspots adapter: 8 scroll rounds (was 4), legacy numeric `/events/{id}/` links
+  also accepted; live proof: **10 → 40 events in one run (54s)**, different 40 next
+  run.
+- Budget rebalance: per-source event cap 150 → 300, detail delay 700 → 350-400 ms,
+  workflow timeout 30 → 50 min (public-repo minutes are free).
+
+---
+
 ## [1.19.0] — 2026-08-25
 
 **Per-site deep recon, host adapters, and the editorial video library.** The owner's

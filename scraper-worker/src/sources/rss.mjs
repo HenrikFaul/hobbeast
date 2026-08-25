@@ -44,7 +44,7 @@ export function parseFeedItems(xml) {
   return items;
 }
 
-export async function scrapeRssSource(source, { fetchStatic, maxDetails = 12, delayMs = 500, log = () => {} }) {
+export async function scrapeRssSource(source, { fetchStatic, maxDetails = 40, delayMs = 350, log = () => {} }) {
   const feedUrl = normalizeEndpointUrl(source.scrape_feed_url || source.endpoint_url);
   if (!feedUrl) return { events: [], httpStatus: null };
   let xml;

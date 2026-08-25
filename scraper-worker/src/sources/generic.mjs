@@ -284,7 +284,19 @@ async function renderPage(browser, url) {
   }
 }
 
-export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 12, delayMs = 700, log = () => {} }) {
+/** Fisher-Yates: rotate WHICH details we fetch when a listing has more links
+ * than the per-run budget, so repeated runs converge to full coverage instead
+ * of re-reading the same first N. */
+export function shuffled(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {} }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
   if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
@@ -315,7 +327,9 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       if (url.pathname.length <= 6) return false;
       return EVENT_LINK_RE.test(url.pathname) || DATED_LINK_RE.test(url.pathname);
     } catch { return false; }
-  }).slice(0, maxDetails);
+  });
+  // Over-budget listings: shuffle so each run samples a DIFFERENT subset.
+  if (detailUrls.length > maxDetails) detailUrls = shuffled(detailUrls).slice(0, maxDetails);
 
   const events = [];
   const push = (ev, detailUrl) => {
