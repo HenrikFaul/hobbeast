@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Play, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { AdminScraperSchedules } from '@/components/admin/AdminScraperSchedules';
 
 interface ScraperDestination {
   source_id: string;
@@ -253,6 +254,8 @@ export function AdminScraper() {
           )}
         </CardContent>
       </Card>
+
+      <AdminScraperSchedules selectedSourceIds={[...selected]} />
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Napi begyűjtés (14 nap)</CardTitle></CardHeader>

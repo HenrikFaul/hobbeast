@@ -11,7 +11,9 @@
 
 import crypto from 'node:crypto';
 
-const EVENT_LINK_RE = /\/(program(?:ok|ajanlo)?|event(?:s)?|esemeny(?:ek)?|koncert(?:ek)?|musor|eloadas(?:ok)?|rendezveny(?:ek)?|tura(?:k)?|hikeplans|show|naptar|kalendarium|fesztival(?:ok)?|workshop(?:ok)?|kiallitas(?:ok)?|kviz|quiz|tanfolyam(?:ok)?|kurzus(?:ok)?|seta(?:k)?|buli(?:k)?|party)(?:[/\-_?#]|$)/i;
+// Hungarian event-page URL vocabulary. "ajanlat" matters: programturizmus.hu
+// (22 registered sources) publishes every event as /ajanlat-{slug}.html.
+const EVENT_LINK_RE = /\/(program(?:ok|ajanlo)?|ajanlat|event(?:s)?|esemeny(?:ek)?|koncert(?:ek)?|musor|eloadas(?:ok)?|rendezveny(?:ek)?|tura(?:k)?|hikeplans|show|naptar|kalendarium|fesztival(?:ok)?|workshop(?:ok)?|kiallitas(?:ok)?|kviz|quiz|tanfolyam(?:ok)?|kurzus(?:ok)?|seta(?:k)?|buli(?:k)?|party)(?:[/\-_?#]|$)/i;
 const DATED_LINK_RE = /20(2[5-9])[/\-.]?(0[1-9]|1[0-2])[/\-.]?(0[1-9]|[12]\d|3[01])?/;
 
 export function md5(s) { return crypto.createHash('md5').update(s).digest('hex'); }
@@ -71,6 +73,18 @@ function monthOf(word) {
 function isoOrNull(y, mo, d) {
   if (!y || !mo || !d || mo > 12 || d > 31) return null;
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+/**
+ * Calendar day-links, pagers and "show all" controls carry a date and a title,
+ * so they look exactly like event cards. A title that spells out a full date is
+ * a "jump to this day" link, never an event name.
+ */
+export function isNavigationTitle(title) {
+  const folded = foldHu(title);
+  if (folded.length < 10) return true;
+  if (/^(esemenynaptar|napta|kalendarium|kovetkezo|elozo|tovabb|osszes|vissza|kezdolap|fooldal|tobb|mutasd|betolt|reszletek)/.test(folded)) return true;
+  return /20\d{2}\.?\s*(januar|februar|marcius|aprilis|majus|junius|julius|augusztus|szeptember|oktober|november|december)\.?\s*\d{1,2}/.test(folded);
 }
 
 function firstString(v) {
@@ -240,13 +254,13 @@ export function hobbeastCategory(sourceCategories) {
 }
 
 /** Shared normalized-event builder used by every strategy (render/rss/tribe). */
-export function buildEvent(source, ev, { listingUrl, detailUrl }) {
+export function buildEvent(source, ev, { listingUrl, detailUrl, idSeed = null }) {
   const { date, time } = parseEventDate(ev.startDate);
   if (!date || !ev.name) return null;
   const ticket = ev.offers || {};
   return {
     external_source: 'scraper',
-    external_id: `${source.source_id}:${md5(ev.url || detailUrl || ev.name + date).slice(0, 12)}`,
+    external_id: `${source.source_id}:${md5(idSeed || ev.url || detailUrl || `${ev.name}|${date}`).slice(0, 12)}`,
     external_url: ticket.ticket_url || ev.url || detailUrl,
     title: String(ev.name).slice(0, 200),
     category: hobbeastCategory(source.categories),
@@ -329,6 +343,50 @@ export function extractItemListUrls(html, baseUrl) {
   return urls;
 }
 
+/**
+ * Read event cards straight off the rendered listing.
+ *
+ * Many Hungarian sites (koncert.hu is the proven case: 1265 cards, 665 dates)
+ * put the title and date on the listing and navigate via JavaScript, so every
+ * card shares one href and the detail-page pipeline finds nothing. Here we walk
+ * each link, climb at most a few ancestors to find the smallest block that also
+ * contains a date, and return title + date text + link.
+ */
+function collectListingCards(page) {
+  return page.evaluate(() => {
+    const MONTH = '(janu[aá]r|febru[aá]r|m[aá]rcius|[aá]prilis|m[aá]jus|j[uú]nius|j[uú]lius|augusztus|szeptember|okt[oó]ber|november|december|jan|feb|m[aá]rc|[aá]pr|m[aá]j|j[uú]n|j[uú]l|aug|szept|okt|nov|dec)';
+    const DATE_RE = new RegExp(
+      `(20\\d{2}[.\\-/]\\s?\\d{1,2}[.\\-/]\\s?\\d{1,2})|(20\\d{2}\\.?\\s*${MONTH}\\.?\\s*\\d{1,2})|(${MONTH}\\.?\\s*\\d{1,2}\\.?)`,
+      'i',
+    );
+    const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
+    const cards = [];
+    const seen = new Set();
+
+    for (const anchor of document.querySelectorAll('a[href]')) {
+      const title = clean(anchor.innerText);
+      if (title.length < 6 || title.length > 160) continue;
+      // A date on the card, not somewhere far up the page: climb a few levels
+      // and stop at the first ancestor that is still small enough to be a card.
+      let node = anchor;
+      let dateText = '';
+      for (let depth = 0; depth < 4 && node; depth += 1) {
+        const text = clean(node.innerText);
+        if (text.length > 400) break;
+        if (DATE_RE.test(text)) { dateText = text; break; }
+        node = node.parentElement;
+      }
+      if (!dateText) continue;
+      const key = `${title}|${dateText.slice(0, 60)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cards.push({ title, dateText, href: anchor.href || null });
+      if (cards.length >= 200) break;
+    }
+    return cards;
+  });
+}
+
 async function renderPage(browser, url) {
   const page = await browser.newPage({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
@@ -345,6 +403,12 @@ async function renderPage(browser, url) {
       response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
     const status = response ? response.status() : null;
+    // Listings commonly lazy-load below the fold; a couple of scrolls is enough
+    // to materialise the cards without paying for a full auto-scroll pass.
+    for (let i = 0; i < 3; i += 1) {
+      await page.mouse.wheel(0, 2400);
+      await page.waitForTimeout(900);
+    }
     const html = await page.content();
     const links = await page.evaluate(() => {
       const set = new Set();
@@ -353,7 +417,8 @@ async function renderPage(browser, url) {
       }
       return [...set];
     });
-    return { status, html, links };
+    const cards = await collectListingCards(page).catch(() => []);
+    return { status, html, links, cards };
   } finally {
     await page.close().catch(() => {});
   }
@@ -376,7 +441,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
 
-  let { status: listingStatus, html: listingHtml, links: detailUrls } = await renderPage(browser, listingUrl);
+  let { status: listingStatus, html: listingHtml, links: detailUrls, cards: listingCards } = await renderPage(browser, listingUrl);
 
   // Many registry paths are guesses; a 4xx listing falls back to the site root,
   // where the broadened link heuristics can still find the real event pages.
@@ -385,7 +450,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     if (root !== listingUrl) {
       log(`    listing ${listingStatus}, retrying root ${root}`);
       const retry = await renderPage(browser, root);
-      if (!retry.status || retry.status < 400) ({ html: listingHtml, links: detailUrls } = retry);
+      if (!retry.status || retry.status < 400) ({ html: listingHtml, links: detailUrls, cards: listingCards } = retry);
     }
   }
 
@@ -408,6 +473,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
 
   const events = [];
   const push = (ev, detailUrl) => {
+    if (ev?.name && isNavigationTitle(ev.name)) return;
     const row = buildEvent(source, ev, { listingUrl, detailUrl });
     if (row) events.push(row);
   };
@@ -423,5 +489,36 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     }
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
   }
+
+  // Listing-level harvest: sites that navigate by JavaScript (koncert.hu and
+  // friends) expose title+date on the card only. Detail-page events win, so a
+  // card is kept only when its title+date is not already covered.
+  const identity = (title, date) => `${foldHu(title).replace(/[^a-z0-9]+/g, ' ').trim()}|${date}`;
+  const covered = new Set(events.map((e) => identity(e.title, e.event_date)));
+  for (const card of listingCards || []) {
+    if (isNavigationTitle(card.title)) continue;
+    // A card linking to a taxonomy page (/megye-, /kerulet-, /telepules-) is a
+    // filter, not an event. Cards with no usable href (JS navigation) are kept.
+    if (card.href) {
+      let path = null;
+      try { path = new URL(card.href).pathname; } catch { path = null; }
+      if (path && !EVENT_LINK_RE.test(path) && !DATED_LINK_RE.test(path)) continue;
+    }
+    const date = parseHuTextDate(card.dateText);
+    if (!date) continue;
+    const key = identity(card.title, date);
+    if (covered.has(key)) continue;
+    covered.add(key);
+    const row = buildEvent(source, {
+      name: card.title,
+      startDate: date,
+      url: card.href || listingUrl,
+      image: null,
+      description: null,
+      offers: { price_min: null, currency: null, ticket_url: null },
+    }, { listingUrl, detailUrl: card.href || listingUrl, idSeed: key });
+    if (row) events.push(row);
+  }
+
   return { events: resolveEventImages(events), httpStatus: listingStatus };
 }

@@ -12,6 +12,44 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.21.0] — 2026-08-25
+
+**Listing-level extraction for the 190 zero-yield sources + admin-configurable
+schedules.**
+
+### Added — listing-level event extraction
+Investigated the "nincs találat" sources with a dedicated Playwright recon
+(`scraper-worker/recon-zero.mjs`). Two root causes, both now fixed:
+- **koncert.hu-class sites** (1265 cards, 665 dates on one page) navigate by
+  JavaScript, so every card shares one `href` and the detail-page pipeline found
+  nothing. New `collectListingCards()` reads title + date straight off the rendered
+  listing: it walks each link, climbs at most four ancestors to the smallest block
+  that also contains a date, and returns the pair. Detail-page events still win;
+  a card is only kept when its title+date is not already covered.
+  **Live result: koncert.hu 0 → 181 events.**
+- **programturizmus.hu** (22 registered sources) publishes events as
+  `/ajanlat-{slug}.html`; `ajanlat` was missing from the event-URL vocabulary.
+  **Live result: 0 → 10 clean events.**
+- **Noise filters** so listings do not import junk: `isNavigationTitle()` drops
+  calendar day-links, pagers and titles that spell out a full date; cards linking
+  to taxonomy pages (`/megye-`, `/kerulet-`, `/telepules-`) are skipped as filters
+  rather than events. Listings are also scrolled before harvest for lazy content.
+
+### Added — admin-configurable schedules
+- `scraper_schedules` table + `pg_cron` hourly dispatcher
+  (`run_due_scraper_schedules`) that fires the GitHub workflow through `pg_net`.
+  Operators pick **hours and weekdays in the UI** instead of writing cron syntax;
+  `last_triggered_at` makes a double-fire inside one local hour impossible
+  (Europe/Budapest).
+- Schedules can target the **selected sources** or the automatic rotation, with
+  per-schedule source/detail budgets, enable switch and last-run status.
+- Admin RPCs (`admin_list_scraper_schedules`, `admin_upsert_scraper_schedule`,
+  `admin_delete_scraper_schedule`) are providers.manage-gated; the dispatcher is
+  service-role only. New `AdminScraperSchedules` panel on the Programgyűjtő tab.
+- The previously hard-coded 06/14/22 GitHub cron is seeded as an editable schedule.
+
+---
+
 ## [1.20.2] — 2026-08-25
 
 **Real event photos instead of shared banners, logos and "no image" fillers.**
