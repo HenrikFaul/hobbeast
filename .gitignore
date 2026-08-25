@@ -39,3 +39,6 @@ Hobbeast_Expericentre_15_step_production_prompt_pack/Loopie App _ Find Your Peop
 
 .vercel
 media-library/videos/
+
+# Playwright screenshot output (54MB of PNG/ZIP build artefacts).
+pw-shots/
