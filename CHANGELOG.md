@@ -12,6 +12,51 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.13.0] — 2026-08-25
+
+**Legal center draft + community moments.** The Codex session that authored this work ran
+out of tokens mid-flight; this release completes, repairs and closes it. Hobbeast gets a
+public Expericentre-branded legal center draft and a video-led "human moments" section on
+the home page, without touching any existing route, event, organizer, admin or privacy
+flow.
+
+### Added
+- **`/legal` — Expericentre jogi központ (v0.1 draft)**: Impresszum, Adatkezelési
+  tájékoztató (purpose/data/basis/retention table, user rights, NAIH), Sütik,
+  Felhasználási feltételek draft and Közösségi alapelvek, with a prominent
+  "legal-review pending" banner. Contact: `hello@henrislabs.hu`. Footer links
+  (Adatvédelem / Felhasználási feltételek / Impresszum / Segítség / Kapcsolat) and the
+  onboarding privacy checkbox now link to it. All LEGAL_SAFETY_LAUNCH_BLOCKERS items
+  remain HOLD — the page is explicitly a draft until a named legal owner approves
+  controller identity, retention, processors and transfers.
+- **Community Moments section** on the home below-fold: four short human-moment videos
+  (guitar teaching, hiking friends, reading by a hammock, spontaneous singing) with
+  webp posters, session-stable random selection, manual "Másik történet" rotation,
+  lazy IntersectionObserver loading, reduced-motion/save-data/2g respect and a pause
+  control. Assets documented in `MEDIA_PROVENANCE.md`.
+
+### Fixed (repairs to the interrupted session's tree)
+- `Legal.tsx` had its `useEffect` import appended after the default export (the exact
+  point where the session died); moved to the top.
+- `tailwind.config.ts` excluded the two new files from content scanning to stay inside
+  the CSS budget — proven in a production build to DROP their unique arbitrary-value
+  classes (`border-[56px]`, `rounded-[2.25rem]`, `min-w-[760px]`, `rotate-[-9deg]` were
+  missing from the emitted CSS), which would have shipped both surfaces visually broken.
+  The exclusion is removed and the `global-css` performance budget is deliberately
+  raised for the two new product surfaces: 122,880→131,072 raw / 20,480→22,528 gzip.
+  Actual size: 127,211 raw / 21,064 gzip — inside the new ceiling with headroom.
+
+### Verified locally
+- TypeScript and ESLint pass (14 pre-existing warnings, zero errors); secret scan passes
+  971 paths; Vitest passes 79 files / 449 tests (2 new communityMoments tests).
+- Production build passes; performance budget check reports PASS overall with the new
+  global-css ceiling.
+- Dev-server browser smoke: `/legal` renders every section with zero console errors;
+  the home moments section renders with a session-selected story and working footer
+  legal links.
+
+---
+
 ## [1.12.0] — 2026-08-25
 
 **Community identity, evidence and continuity release.** Hobbeast now presents itself as a

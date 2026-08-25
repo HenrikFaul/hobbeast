@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, HeartHandshake, ImagePlus, Loader2, Save, SkipForward } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -398,7 +398,7 @@ export default function Onboarding() {
                   <div className="space-y-2"><Label>Profil láthatósága</Label><Select value={profileVisibility} onValueChange={setProfileVisibility}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="private">Privát</SelectItem><SelectItem value="members">Csak bejelentkezett tagok</SelectItem><SelectItem value="public">Nyilvános</SelectItem></SelectContent></Select></div>
                   <div className="space-y-2"><Label>Érdeklődések láthatósága</Label><Select value={interestsVisibility} onValueChange={setInterestsVisibility}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="private">Privát</SelectItem><SelectItem value="members">Csak tagok</SelectItem><SelectItem value="public">Nyilvános</SelectItem></SelectContent></Select></div>
                 </div>
-                <label className="flex items-start gap-3 rounded-xl border p-4"><Checkbox checked={privacyAccepted} onCheckedChange={(checked) => setPrivacyAccepted(Boolean(checked))} /><span className="text-sm"><strong>Elfogadom az adatkezelési tájékoztatót.</strong><span className="mt-1 block text-muted-foreground">A pontos helyadat és az opcionális első-esemény preferenciák nem kerülnek nyilvános profilba.</span></span></label>
+                <div className="flex items-start gap-3 rounded-xl border p-4"><Checkbox id="privacy-accepted" checked={privacyAccepted} onCheckedChange={(checked) => setPrivacyAccepted(Boolean(checked))} /><div className="text-sm"><Label htmlFor="privacy-accepted" className="font-bold">Elfogadom az adatkezelési tájékoztatót.</Label><span className="mt-1 block text-muted-foreground">A pontos helyadat és az opcionális első-esemény preferenciák nem kerülnek nyilvános profilba. <Link to="/legal#adatkezeles" className="font-semibold text-foreground underline underline-offset-2">Tájékoztató megnyitása</Link></span></div></div>
                 <label className="flex items-start gap-3 rounded-xl border p-4"><Checkbox checked={notificationConsent} onCheckedChange={(checked) => setNotificationConsent(Boolean(checked))} /><span className="text-sm"><strong>Kérek hasznos programértesítéseket.</strong><span className="mt-1 block text-muted-foreground">Opcionális; csendes idővel és gyakorisággal később szabályozható.</span></span></label>
               </div>
             )}

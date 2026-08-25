@@ -39,17 +39,17 @@ const Footer = () => {
             <h4 className="mb-4 font-display text-sm font-bold text-primary-foreground">Közösség</h4>
             <div className="space-y-3.5 text-sm text-primary-foreground/[0.68]">
               <Link to="/community" className="block transition-colors hover:text-primary-foreground">Közösségi tér</Link>
-              <span className="block">Segítség</span>
-              <span className="block">Kapcsolat</span>
+              <a href="mailto:hello@henrislabs.hu" className="block transition-colors hover:text-primary-foreground">Segítség</a>
+              <a href="mailto:hello@henrislabs.hu" className="block transition-colors hover:text-primary-foreground">Kapcsolat</a>
             </div>
           </div>
 
           <div>
             <h4 className="mb-4 font-display text-sm font-bold text-primary-foreground">Jogi</h4>
             <div className="space-y-3.5 text-sm text-primary-foreground/[0.68]">
-              <span className="block">Adatvédelem</span>
-              <span className="block">Felhasználási feltételek</span>
-              <span className="block">ÁSZF</span>
+              <Link to="/legal#adatkezeles" className="block transition-colors hover:text-primary-foreground">Adatvédelem</Link>
+              <Link to="/legal#feltetelek" className="block transition-colors hover:text-primary-foreground">Felhasználási feltételek</Link>
+              <Link to="/legal#impresszum" className="block transition-colors hover:text-primary-foreground">Impresszum</Link>
             </div>
           </div>
         </div>
@@ -57,7 +57,7 @@ const Footer = () => {
         <div className="mb-7 h-px bg-primary-foreground/[0.14]" />
 
         <div className="flex flex-col items-center justify-between gap-3 text-xs text-primary-foreground/[0.62] sm:flex-row">
-          <span>© 2026 Hobbeast. Minden jog fenntartva.</span>
+          <span>© 2026 Expericentre · Hobbeast. Minden jog fenntartva.</span>
           <span className="flex items-center gap-1.5">
             Közösségre hangolva <Heart size={13} className="fill-accent text-accent" aria-hidden="true" />
           </span>

@@ -2,15 +2,80 @@
   "schemaVersion": 1,
   "distDirectory": "dist/assets",
   "budgets": [
-    { "id": "landing-main-js", "pattern": "^index-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 163840, "maxGzipBytes": 51200, "required": true },
-    { "id": "global-css", "pattern": "^index-[A-Za-z0-9_-]+\\.css$", "maxRawBytes": 122880, "maxGzipBytes": 20480, "required": true },
-    { "id": "events-route", "pattern": "^Events-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 122880, "maxGzipBytes": 40960, "required": true },
-    { "id": "event-detail-route", "pattern": "^EventDetail-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 81920, "maxGzipBytes": 30720, "required": true },
-    { "id": "admin-route", "pattern": "^Admin-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 225280, "maxGzipBytes": 71680, "required": true },
-    { "id": "organizer-route", "pattern": "^OrganizerDashboard-[A-Za-z0-9_-]+\\.js$", "maxRawBytes": 122880, "maxGzipBytes": 40960, "required": true },
-    { "id": "individual-images", "pattern": "\\.(png|jpg|jpeg|webp|avif)$", "maxRawBytes": 256000, "maxGzipBytes": 256000, "required": true, "perFile": true },
-    { "id": "individual-videos", "pattern": "\\.(mp4|webm)$", "maxRawBytes": 1500000, "maxGzipBytes": 1500000, "required": true, "perFile": true },
-    { "id": "hero-video-variants-total", "pattern": "^hero-together-(day|night)-[A-Za-z0-9_-]+\\.mp4$", "maxRawBytes": 2500000, "maxGzipBytes": 2500000, "required": true, "minMatches": 2, "maxMatches": 2 },
-    { "id": "individual-js-ceiling", "pattern": "\\.js$", "maxRawBytes": 921600, "maxGzipBytes": 307200, "required": true, "perFile": true }
+    {
+      "id": "landing-main-js",
+      "pattern": "^index-[A-Za-z0-9_-]+\\.js$",
+      "maxRawBytes": 163840,
+      "maxGzipBytes": 51200,
+      "required": true
+    },
+    {
+      "id": "global-css",
+      "pattern": "^index-[A-Za-z0-9_-]+\\.css$",
+      "maxRawBytes": 131072,
+      "maxGzipBytes": 22528,
+      "required": true
+    },
+    {
+      "id": "events-route",
+      "pattern": "^Events-[A-Za-z0-9_-]+\\.js$",
+      "maxRawBytes": 122880,
+      "maxGzipBytes": 40960,
+      "required": true
+    },
+    {
+      "id": "event-detail-route",
+      "pattern": "^EventDetail-[A-Za-z0-9_-]+\\.js$",
+      "maxRawBytes": 81920,
+      "maxGzipBytes": 30720,
+      "required": true
+    },
+    {
+      "id": "admin-route",
+      "pattern": "^Admin-[A-Za-z0-9_-]+\\.js$",
+      "maxRawBytes": 225280,
+      "maxGzipBytes": 71680,
+      "required": true
+    },
+    {
+      "id": "organizer-route",
+      "pattern": "^OrganizerDashboard-[A-Za-z0-9_-]+\\.js$",
+      "maxRawBytes": 122880,
+      "maxGzipBytes": 40960,
+      "required": true
+    },
+    {
+      "id": "individual-images",
+      "pattern": "\\.(png|jpg|jpeg|webp|avif)$",
+      "maxRawBytes": 256000,
+      "maxGzipBytes": 256000,
+      "required": true,
+      "perFile": true
+    },
+    {
+      "id": "individual-videos",
+      "pattern": "\\.(mp4|webm)$",
+      "maxRawBytes": 1500000,
+      "maxGzipBytes": 1500000,
+      "required": true,
+      "perFile": true
+    },
+    {
+      "id": "hero-video-variants-total",
+      "pattern": "^hero-together-(day|night)-[A-Za-z0-9_-]+\\.mp4$",
+      "maxRawBytes": 2500000,
+      "maxGzipBytes": 2500000,
+      "required": true,
+      "minMatches": 2,
+      "maxMatches": 2
+    },
+    {
+      "id": "individual-js-ceiling",
+      "pattern": "\\.js$",
+      "maxRawBytes": 921600,
+      "maxGzipBytes": 307200,
+      "required": true,
+      "perFile": true
+    }
   ]
 }

@@ -292,3 +292,65 @@ bun run quality:performance
 
 The current licensed-stock files total **3162183 bytes**: 668510 bytes of category
 WebPs, 2444885 bytes of real-motion MP4s and a 48788-byte day-mobile poster.
+
+## v1.13.0 community-moment video library
+
+The community-moment section serves exactly one session-stable editorial scene at
+a time. All four derivatives use real subject motion; no still image was animated
+or represented as video. The source pages and Pexels licence were checked on
+2026-08-25. The displayed people are stock-video models and are not represented as
+Hobbeast members, testimonials, or participants in a named Hungarian event.
+
+| Production file | Scene | Canonical source / creator | Source metadata | Production metadata | Bytes | SHA-256 |
+| --- | --- | --- | --- | --- | ---: | --- |
+| `src/assets/editorial/moments/moment-guitar-teaching.mp4` | Friends learning guitar | [Man teaching friend how to play the guitar](https://www.pexels.com/video/man-teaching-friend-how-to-play-the-guitar-7424219/) · Gustavo Fring | H.264 High, 3840×2160, 30000/1001 fps, 13.8138 s, 26308243 bytes, SHA-256 `0e064db2205aa7e5ab96ac79b729babb6e55dde9142f239e9e007e8f3ce687bb` | H.264 High, 960×540, CFR 24 fps, 7 s, 168 frames, video-only, faststart | 406098 | `c2e9cc2d84b8c1152964651c8c8cc316c458c64fc762ad94a1f3fa9c263008c7` |
+| `src/assets/editorial/moments/moment-reading-hammock.mp4` | Reading and talking beside a hammock | [Man reading a book while lying down on a hammock](https://www.pexels.com/video/man-reading-a-book-while-lying-down-on-a-hammock-6263352/) · Uriel Mont | H.264 High, 1920×1080, 25 fps, 10.005 s, 6442438 bytes, SHA-256 `612f5b70b87e5d45832b09fad19f2a3da207be62546ddc8c748c5dfde983d9d1` | H.264 High, 960×540, CFR 24 fps, 7 s, 168 frames, video-only, faststart | 822452 | `c1c715b4bd34057961dd56b8c8697a88eac7a60f9b42c3b55485eef140d3b92a` |
+| `src/assets/editorial/moments/moment-singing-together.mp4` | Friends singing together | [A group of friends singing and dancing](https://www.pexels.com/video/a-group-of-friends-singing-and-dancing-6760657/) · Kampus Production | H.264 High, 2560×1440, 25 fps, 15.486667 s, 15492311 bytes, SHA-256 `2eed872c5ea63bb7b62c3d7638fd929842325a2df297255afa89d95a30ba5a8a` | H.264 High, 960×540, CFR 24 fps, 7 s, 168 frames, video-only, faststart | 733748 | `6714fa23bd0d5398e80e80e73fe168c6660a2872685e18179b761a7b196c88cc` |
+| `src/assets/editorial/moments/moment-hiking-friends.mp4` | Friends hiking together | [Friends hiking together](https://www.pexels.com/video/friends-hiking-together-5061783/) · Kamaji Ogino | H.264 High, 3840×2160, 30000/1001 fps, 11.077733 s, 29807839 bytes, SHA-256 `91274e832978b39de06068f4bc636cab91d7e6fd2c06f8b43840a999a89a5030` | H.264 High, 960×540, CFR 24 fps, 7 s, 168 frames, video-only, faststart | 798708 | `13b2cee863f94da7b97af4db78b248e47aee73551ed882b653f4d46a309daf6b` |
+
+All production MP4s place `moov` before `mdat`. They were normalized with FFmpeg
+8.1.1 to H.264 High, `yuv420p`, 960×540, 24 fps, seven seconds, no audio,
+`-crf 27 -maxrate 900k -bufsize 1800k -movflags +faststart`. Editorial source
+in-points were 1.5 s (guitar), 1.5 s (hammock), 0.5 s (singing), and 1 s (hiking).
+
+| Poster derivative | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `moment-guitar-teaching.webp` | 45730 | `71d862fd474e0bfca2620e2f202817a0a8e41a6a5da3cb5301f793d775c82ff9` |
+| `moment-hiking-friends.webp` | 57828 | `a96ac1aadbf74c406e20c3db3203731c7779388de501f78f2d22198dd1f6f104` |
+| `moment-reading-hammock.webp` | 113376 | `30e937325ddc21e85984c7c15905b4056bb4af391d2032234d355b0ec0b8e714` |
+| `moment-singing-together.webp` | 31222 | `378ddf5c6277007a5f957cc966f014cb88dce7878759d81b504a34429b42c3c8` |
+
+Posters are single frames extracted 2.5 seconds into their normalized parent
+video, scaled to 960×540 and encoded as WebP quality 84. Each is below the
+256000-byte image ceiling; each MP4 is below the 1500000-byte video ceiling.
+
+### Editorial candidate backlog — not shipped and not runtime-referenced
+
+These canonical pages form a reviewed creative shortlist for future rounds. They
+are not downloaded production assets and must receive a fresh licence, model/property,
+scene, performance and visual review before any future use:
+
+- [Peaceful sunset by the lake with two friends](https://www.pexels.com/video/peaceful-sunset-by-the-lake-with-two-friends-35177979/)
+- [Group of friends at dusk by the lake](https://www.pexels.com/video/group-of-friends-at-dusk-by-the-lake-37082325/)
+- [Couple lying on a hammock](https://www.pexels.com/video/couple-lying-on-a-hammock-5364829/)
+- [Friends playing a board game](https://www.pexels.com/video/friends-playing-board-game-8058014/)
+- [Friends playing Connect Four](https://www.pexels.com/video/friends-playing-connect-four-8757837/)
+- [A group of people dancing in the street](https://www.pexels.com/video/a-group-of-people-dancing-in-the-street-27580032/)
+- [Friends walking in the street](https://www.pexels.com/video/friends-walking-in-the-street-6139250/)
+- [A group of friends admiring a mountain landscape](https://www.pexels.com/video/a-group-of-friends-admiring-a-mountain-landscape-11759805/)
+- [Group of friends dancing together while holding beer](https://www.pexels.com/video/group-of-friends-dancing-together-while-holding-beer-5935438/)
+- [A group of people hiking up a snowy mountain](https://www.pexels.com/video/a-group-of-people-hiking-up-a-snowy-mountain-20320769/)
+- [A woman teaching her partner how to play guitar](https://www.pexels.com/video/a-woman-teaching-her-partner-how-to-play-guitar-4647497/)
+- [A man and woman playing guitar in a room](https://www.pexels.com/video/a-man-and-woman-playing-guitar-in-a-room-17688623/)
+
+### Runtime boundary for community moments
+
+- Only the selected MP4 is dynamically imported after the section approaches the
+  viewport; the other three videos are not requested.
+- Reduced-motion, Save-Data and 2G-class connections receive the poster only.
+- The video is muted, decorative and loops without an audio stream; all meaning is
+  repeated in HTML.
+- Motion pauses when the document becomes hidden and exposes an accessible pause
+  control after playback is ready.
+- Selection is random once per browser session and stable during navigation. A
+  user-triggered “Másik történet” action changes it; there is no automatic carousel.

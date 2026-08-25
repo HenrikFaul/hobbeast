@@ -2,6 +2,12 @@
 
 This inventory describes intended product purpose and engineering retention. Legal basis and final retention require the approvals in `LEGAL_SAFETY_LAUNCH_BLOCKERS.md`.
 
+The public `/legal#adatkezeles` v0.1 experience summarizes this engineering
+inventory in plain Hungarian and links the verified contact
+`hello@henrislabs.hu`. It is explicitly marked as a legal-review draft; this
+inventory remains the technical source of truth until a named owner approves
+controller identity, legal bases, retention, processors and transfers.
+
 | Domain/field | Product purpose | Visibility/access | Engineering retention | Export/delete behavior | Downstream processor |
 |---|---|---|---|---|---|
 | `user_blocks` pair + reason | bilateral safety/discoverability exclusion | blocker; scoped safety reviewer | account lifetime unless removed | delete with user; user can unblock | Supabase target only |

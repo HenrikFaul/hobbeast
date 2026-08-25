@@ -27,6 +27,7 @@ const OrganizerDashboard = lazy(() => import("./pages/OrganizerDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const PublicMemberProfile = lazy(() => import("./pages/PublicMemberProfile"));
 const Community = lazy(() => import("./pages/Community"));
+const Legal = lazy(() => import("./pages/Legal"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +91,7 @@ const App = () => (
                         <Route path="/onboarding" element={<Onboarding />} />
                         <Route path="/members/:userId" element={<PublicMemberProfile />} />
                         <Route path="/community" element={<Community />} />
+                        <Route path="/legal" element={<Legal />} />
                         <Route path="/organizer" element={<OrganizerDashboard />} />
                         <Route path="/admin" element={<Admin />} />
                         <Route path="*" element={<NotFound />} />
