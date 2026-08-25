@@ -23,6 +23,15 @@ export async function listScraperTargetsByIds({ supabaseUrl, serviceRoleKey, ids
   return res.json();
 }
 
+export async function recordDiscoveredEndpoint({ supabaseUrl, serviceRoleKey, sourceId, url }) {
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/record_discovered_endpoint`, {
+    method: 'POST', headers: headers(serviceRoleKey),
+    body: JSON.stringify({ p_source_id: sourceId, p_url: url }),
+  });
+  if (!res.ok) console.warn(`record_discovered_endpoint ${sourceId} failed: ${res.status}`);
+  return res.ok;
+}
+
 export async function logScraperRun({ supabaseUrl, serviceRoleKey, sourceId, discovered, inserted, updated, skipped, duplicates, status, error, durationMs, httpStatus }) {
   const res = await fetch(`${supabaseUrl}/rest/v1/rpc/log_scraper_run`, {
     method: 'POST', headers: headers(serviceRoleKey),

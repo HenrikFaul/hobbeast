@@ -12,6 +12,37 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.23.0] — 2026-08-25
+
+**Self-healing entry points: sources that point at a home page now find their own
+event calendar.**
+
+Measured cause: of the 201 sources that run but extract nothing, **97 have a wrong
+entry point** — the registry URL is the site's home page (or an unrelated path),
+not its event calendar. Fixing those by hand does not scale and breaks again when
+a site reorganises.
+
+### Added
+- **`findEventHubUrl()`**: when a listing yields zero events, the worker looks for
+  an event hub among the page's own links (`/programok`,
+  `/aktualitasok/kiemelt-rendezvenyek`, …), follows the shallowest one **once**,
+  and scrapes that instead. Guards keep it honest: same host only, at most three
+  path segments, the last segment must be a hub word, and long prose slugs that
+  merely end in one (`/letoltheto-tervek-…-programok`) are rejected.
+- **Durable correction** (`record_discovered_endpoint` RPC, service-role only):
+  when the hub actually produces events, the registry URL is rewritten and the
+  source is annotated, so the fix survives future runs. It never overwrites a
+  source that is already producing.
+
+### Verified
+- Live on bekescsaba.hu: home page 0 events → hub discovered
+  (`/aktualitasok/kiemelt-rendezvenyek`) → **3 events**, correct URL reported back.
+- 6 new unit tests cover nested hubs, prose-slug rejection, shallowest-first
+  preference, host/self-link guards, depth limit and malformed input.
+  Suite: 467 passed. Typecheck, build, performance budget clean.
+
+---
+
 ## [1.22.0] — 2026-08-25
 
 **Revenue attribution layer: the platform can now prove the traffic it delivers.**

@@ -20,7 +20,9 @@ import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
 import { adapterForSource } from './src/sources/adapters.mjs';
 import { ingestEvents } from './src/ingest.mjs';
-import { listScraperTargets, listScraperTargetsByIds, logScraperRun } from './src/registry.mjs';
+import {
+  listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
+} from './src/registry.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? Number(args[i + 1]) || dflt : dflt; };
@@ -60,6 +62,7 @@ async function main() {
       const listing = normalizeEndpointUrl(source.endpoint_url);
       let events = [];
       let httpStatus = null;
+      let discoveredUrl = null;
       let status = 'succeeded';
       let error = null;
       const strategy = source.scrape_strategy || 'render';
@@ -68,7 +71,7 @@ async function main() {
         if (!(await robotsAllows(listing))) throw new Error('robots disallow on listing');
         const opts = { browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log };
         const adapter = strategy === 'site' ? adapterForSource(source) : null;
-        ({ events, httpStatus } = adapter
+        ({ events, httpStatus, discoveredUrl = null } = adapter
           ? await adapter(source, opts)
           : strategy === 'tribe'
             ? await scrapeTribeSource(source, opts)
@@ -92,6 +95,15 @@ async function main() {
           error = `ingest: ${e.message.slice(0, 160)}`;
           log(`  ${label}: ingest error ${error}`);
         }
+      }
+
+      // A hub retry that produced events means the registered URL was wrong;
+      // persist the working one so the fix survives future runs.
+      if (!dryRun && discoveredUrl && events.length > 0) {
+        log(`  ${label}: belepesi pont javitva -> ${discoveredUrl}`);
+        await recordDiscoveredEndpoint({
+          supabaseUrl, serviceRoleKey, sourceId: source.source_id, url: discoveredUrl,
+        }).catch(() => {});
       }
 
       if (!dryRun) {

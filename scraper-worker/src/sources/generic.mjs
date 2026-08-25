@@ -76,6 +76,42 @@ function isoOrNull(y, mo, d) {
 }
 
 /**
+ * Event-hub links on a site's home page: "/programok", "/esemenyek",
+ * "/rendezvenyek", "/esemenynaptar". 97 registered sources point at a home page
+ * rather than the calendar, so when a listing yields nothing we follow the most
+ * promising hub once and report the better URL back for a durable fix.
+ */
+// The LAST path segment must be (or end with) a hub word, so "/programok" and
+// "/aktualitasok/kiemelt-rendezvenyek" both qualify. The length guard rejects
+// prose slugs that merely end in a hub word, e.g.
+// "/letoltheto-tervek-koncepciok-kozep-es-hosszutavu-programok".
+const HUB_SEGMENT_RE = /(^|-)(programok|programjaink|esemenyek|esemenynaptar|rendezvenyek|rendezvenynaptar|programnaptar|naptar|kalendarium|events|programs)$/i;
+const HUB_SEGMENT_MAX_LEN = 30;
+const HUB_MAX_DEPTH = 3;
+
+export function findEventHubUrl(links, listingUrl) {
+  const current = listingUrl.split('?')[0].replace(/\/$/, '');
+  let host;
+  try { host = new URL(listingUrl).host.replace(/^www\./, ''); } catch { return null; }
+  const seen = [];
+  for (const raw of links || []) {
+    let url;
+    try { url = new URL(raw); } catch { continue; }
+    if (url.host.replace(/^www\./, '') !== host) continue;
+    if (url.toString().split('?')[0].replace(/\/$/, '') === current) continue;
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (!segments.length || segments.length > HUB_MAX_DEPTH) continue;
+    const last = segments[segments.length - 1];
+    if (last.length > HUB_SEGMENT_MAX_LEN) continue;
+    if (!HUB_SEGMENT_RE.test(last)) continue;
+    seen.push(url.toString());
+  }
+  // Shortest path first: "/programok" beats "/hirek/programok".
+  seen.sort((a, b) => a.length - b.length);
+  return seen[0] || null;
+}
+
+/**
  * Calendar day-links, pagers and "show all" controls carry a date and a title,
  * so they look exactly like event cards. A title that spells out a full date is
  * a "jump to this day" link, never an event name.
@@ -436,7 +472,7 @@ export function shuffled(list) {
   return arr;
 }
 
-export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {} }) {
+export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {}, allowHubRetry = true }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
   if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
@@ -456,6 +492,9 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
 
   // ItemList JSON-LD on the listing supplies curated detail URLs first.
   detailUrls = [...new Set([...extractItemListUrls(listingHtml, listingUrl), ...detailUrls])];
+
+  // Keep the raw link list: hub discovery needs links the event filter drops.
+  const detailUrlsRaw = [...detailUrls];
 
   // Same-host event-looking links (path keywords OR a date in the URL);
   // never re-fetch the listing itself.
@@ -520,5 +559,27 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
     if (row) events.push(row);
   }
 
-  return { events: resolveEventImages(events), httpStatus: listingStatus };
+  // Self-healing entry point: a listing that produced nothing may simply be the
+  // site's home page. Follow the most promising event hub ONCE and, if that
+  // yields events, report the better URL so the registry can be corrected.
+  let discoveredUrl = null;
+  if (events.length === 0 && allowHubRetry) {
+    const hubUrl = findEventHubUrl(detailUrlsRaw, listingUrl);
+    if (hubUrl) {
+      log(`    no events here, trying event hub ${hubUrl}`);
+      try {
+        const viaHub = await scrapeGenericSource(
+          { ...source, endpoint_url: hubUrl },
+          { browser, fetchStatic, maxDetails, delayMs, log, allowHubRetry: false },
+        );
+        if (viaHub.events.length > 0) {
+          return { events: viaHub.events, httpStatus: viaHub.httpStatus, discoveredUrl: hubUrl };
+        }
+      } catch (e) {
+        log(`    hub retry failed: ${String(e.message).slice(0, 60)}`);
+      }
+    }
+  }
+
+  return { events: resolveEventImages(events), httpStatus: listingStatus, discoveredUrl };
 }
