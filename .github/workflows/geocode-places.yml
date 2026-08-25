@@ -1,0 +1,40 @@
+name: Geocode venues
+
+# Drains the public.geo_places queue: the venue strings that arrive with scraped
+# programs ("A38", "Dürer Kert", "Budapest - Átrium") become verified coordinates
+# so the map can pin a program at its door instead of the city centre.
+#
+# Runs after the scraper's usual slots, and on demand. Nominatim and Photon are
+# free public services, so the script paces itself at ~1 request/second — the
+# limit is politeness, not cost.
+
+on:
+  schedule:
+    - cron: '47 5,13,21 * * *' # 07:47 / 15:47 / 23:47 Europe/Budapest, half an hour after each scrape
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Places to resolve in this run'
+        required: false
+        default: '150'
+
+concurrency:
+  group: geocode-places
+  cancel-in-progress: false
+
+jobs:
+  geocode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Resolve pending venues
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/geocode-places.mjs --limit ${{ github.event.inputs.limit || '150' }}
