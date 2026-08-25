@@ -35,6 +35,15 @@ Investigated the "nincs találat" sources with a dedicated Playwright recon
   to taxonomy pages (`/megye-`, `/kerulet-`, `/telepules-`) are skipped as filters
   rather than events. Listings are also scrolled before harvest for lazy content.
 
+### Fixed — news feeds misclassified as event feeds
+- Five sources (4× koncert.hu, Hegyvidék) were set to the `rss` strategy because
+  the site advertises a feed — but `koncert.hu/rss/hirek` is a **news** feed, not
+  an event stream: it yielded 4 articles while the rendered listing carries 182
+  dated concerts. Switched back to `render` (migration `20260826040000`), which
+  now benefits from listing-level extraction.
+  **Live result: koncert.hu archívum 4 → 192, koncertlista 0 → 182; +177 events
+  inserted in a single run.**
+
 ### Added — admin-configurable schedules
 - `scraper_schedules` table + `pg_cron` hourly dispatcher
   (`run_due_scraper_schedules`) that fires the GitHub workflow through `pg_net`.
