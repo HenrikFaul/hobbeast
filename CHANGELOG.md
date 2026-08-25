@@ -12,6 +12,43 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.22.0] — 2026-08-25
+
+**Revenue attribution layer: the platform can now prove the traffic it delivers.**
+
+The scraper collects 1000+ programs with ticket links and prices, but nothing
+measured whether anyone clicks through to buy — so pillar 1 of the monetization
+plan (5–8% marketplace commission) had no invoiceable basis. Plan:
+[docs/Hobbeast_Ertekteremtesi_Terv_v1.md](./docs/Hobbeast_Ertekteremtesi_Terv_v1.md).
+
+### Added
+- **`outbound_clicks` + `track_outbound_click` RPC** (migration `20260826050000`):
+  every click-through to a partner is recorded with source attribution, ticket
+  price and surface. The client sends **only the event id**; source, price and
+  target URL are read server-side, so partner attribution and ticket value cannot
+  be forged. Repeat clicks by the same user on the same event within 30 seconds
+  collapse into one.
+- **Click tracking on both outbound CTAs** (program card + program detail),
+  fire-and-forget by design: a failed or throwing measurement can never delay or
+  block the member from reaching the partner's ticket page (covered by test).
+- **`admin_partner_performance` RPC + "Partnerek" admin tab**: per partner live
+  programs, click-throughs, distinct interested members, ticket value behind those
+  clicks (GMV proxy) and the 5–8% commission range; plus top-clicked programs and
+  a daily series. This is the sales artifact for venue negotiations and the
+  investor evidence of demand.
+- Commission figures are labelled explicitly as **potential, not booked revenue**,
+  both in the SQL comments and in the UI footnote.
+
+### Verified
+- End-to-end on live data: click recorded → 1900 HUF ticket value attributed →
+  partner report returns it; the 30-second duplicate collapsed as designed.
+- New tests: outbound tracking contract (3) — including the case where the RPC
+  throws synchronously, which the test caught and which is now hardened.
+  Suite: 461 passed. Typecheck, lint, build, performance budget, secret scan clean.
+- The new tab is covered by the v1.20.1 tab-routing regression test.
+
+---
+
 ## [1.21.0] — 2026-08-25
 
 **Listing-level extraction for the 190 zero-yield sources + admin-configurable

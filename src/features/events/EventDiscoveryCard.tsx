@@ -4,6 +4,7 @@ import { ArrowUpRight, Calendar, Clock, ExternalLink, MapPin, Users } from 'luci
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { resolveEventLocationLabel } from '@/lib/eventLocationHelper';
+import { trackOutboundClick } from '@/lib/outboundTracking';
 import {
   RECOMMENDATION_REASON_LABELS,
   type RecommendationReasonCode,
@@ -204,7 +205,12 @@ export function EventDiscoveryCard({
           {isExternal(event) ? (
             outboundUrl ? (
               <Button asChild className={`${relation === 'interest' ? INTEREST_BUTTON_CLASS : DEFAULT_BUTTON_CLASS} rounded-full`} size="sm">
-                <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={outboundUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackOutboundClick(event.external_event_id, 'event_card')}
+                >
                   <ExternalLink aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> Megnézem ({event.source_label})
                 </a>
               </Button>

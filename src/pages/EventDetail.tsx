@@ -16,6 +16,7 @@ import { getEventTripPlan } from '@/lib/tripPlans';
 import { getParticipantStats } from '@/lib/eventParticipantStats';
 import { SafetyActions } from '@/components/safety/SafetyActions';
 import { trackProductEvent } from '@/lib/productAnalyticsClient';
+import { trackOutboundClick } from '@/lib/outboundTracking';
 import { EventSafetyPanel, type EventSafetySummary } from '@/components/safety/EventSafetyPanel';
 import { cancelEventParticipation, getSafeEventDetail, joinEventAtomic } from '@/lib/eventOperations';
 import { EventExpectationPanel } from '@/components/events/EventExpectationPanel';
@@ -537,7 +538,13 @@ const EventDetail = () => {
           {/* Action buttons */}
           <div className="flex gap-3 rounded-[1.75rem] border border-primary/15 bg-primary/[0.06] p-3 shadow-lg shadow-primary/[0.04] sm:p-4">
             {isExternal && externalUrl ? (
-              <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1"
+                onClick={() => trackOutboundClick(event.external_event_id, 'event_detail')}
+              >
                 <Button className="h-12 w-full rounded-full border-0 gradient-primary font-semibold text-primary-foreground shadow-glow">
                   <ExternalLink className="h-4 w-4 mr-2" /> Megnézem ({externalSource})
                 </Button>
