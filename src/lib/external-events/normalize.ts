@@ -58,6 +58,8 @@ export function providerLabel(source: ExternalEventNormalized['external_source']
       return 'Ticket Tailor';
     case 'feed':
       return 'Ellenőrzött programforrás';
+    case 'scraper':
+      return 'Programajánló';
     default:
       return 'Külső forrás';
   }

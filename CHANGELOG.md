@@ -12,6 +12,57 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.16.1] — 2026-08-25
+
+**Owner-requested UX round: live Explore tiles, "Menjünk együtt?" activated, admin polish.**
+Five reported issues fixed in one pass: interactive Explore activity tiles with live count
+badges, the external-event social intent ("piggyback" interest) feature enabled for
+everyone, the word "scraper" purged from every user-facing surface, the notification
+toggle layout repaired, and the owner's admin access verified end to end.
+
+### Added
+- **Interactive Explore activity tiles** (`ActivityTile`): every activity tile (search
+  results and subcategory drill-down) now has a ❤️ favorite toggle writing to
+  `profiles.hobbies` (optimistic, signed-out users are routed to sign-in), a
+  **Programok** button deep-linking to `/events?q=<activity>`, and two live count
+  badges — 📅 upcoming programs and 👥 interested members.
+- **`explore_activity_stats(p_names)` RPC** (migration `20260825190000`): batched
+  aggregate counts per activity — future-dated internal + active external events
+  matching the activity (title/category/tags, accent-folded via new `hu_fold()` helper)
+  plus members whose hobbies include it. Aggregate-only, no identities; capped at 60
+  names per call; granted to `anon` + `authenticated`.
+- `useExploreActivityStats` hook: name-keyed accumulating cache so switching Explore
+  views reuses fetched counts.
+
+### Changed
+- **"Menjünk együtt?" is live**: the `external_social_intent` feature flag turned on at
+  100% rollout — external/scraped event pages now accept "Érdekel" and "Társaságot
+  keresek" intents through the existing privacy-safe RPCs
+  (`set_external_event_social_intent` / `get_external_event_social_summary`). Interest
+  aggregates onto the external event itself (threshold 3 before counts show); **no
+  separate event is created**.
+- **"Scraper" wording removed from the UI**: event source label is now
+  *Programajánló* (`normalize.ts` providerLabel + both `Events.tsx` mappings), the admin
+  tab is *Programgyűjtő* with cleaned card/table headings. The word remains only in
+  code/DB internals, never on screen.
+
+### Fixed
+- **Notification toggle layout** (`NotificationPreferencesCard`): switches no longer
+  overlap their labels on narrow widths — responsive grid
+  (`sm:grid-cols-2 lg:grid-cols-3`), labels `min-w-0 flex-1`, switches `shrink-0`.
+
+### Verified
+- Owner admin access end to end: `health.view`, `providers.manage`,
+  `feature_flags.manage` all TRUE; five active operator roles (content_ops, moderator,
+  organizer_ops, finance_ops, security_admin). Reload `/admin` to see all tabs incl.
+  Programgyűjtő.
+- `explore_activity_stats` live: "Koncert" → 30 upcoming programs; "Futás" → 16
+  interested members; "Siklóernyőzés" → 6 interested members.
+- `evaluate_feature_flag('external_social_intent', …)` TRUE for arbitrary users.
+- typecheck clean, eslint 0 errors, vitest 449/449, build + performance budget PASS.
+
+---
+
 ## [1.16.0] — 2026-08-25
 
 **Scraper platform: 354 registered destinations, event dedup, restored admin.** The V9

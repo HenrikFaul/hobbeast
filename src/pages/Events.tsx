@@ -241,7 +241,9 @@ const Events = () => {
             ? 'Ticketmaster'
             : e.external_source === 'feed'
               ? 'Ellenőrzött programforrás'
-              : e.external_source,
+              : e.external_source === 'scraper'
+                ? 'Programajánló'
+                : e.external_source,
         ],
         description: e.description,
         created_by: '',
@@ -251,7 +253,9 @@ const Events = () => {
           ? 'Ticketmaster'
           : e.external_source === 'feed'
             ? 'Ellenőrzött programforrás'
-            : e.external_source,
+            : e.external_source === 'scraper'
+              ? 'Programajánló'
+              : e.external_source,
         eventbrite_url: e.external_url || undefined,
         eventbrite_logo_url: e.image_url,
         source_last_synced_at: e.source_last_synced_at,

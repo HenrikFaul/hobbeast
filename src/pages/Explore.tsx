@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Search, Sparkles, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useExploreActivityStats } from "@/hooks/useExploreActivityStats";
+import { ActivityTile } from "@/components/explore/ActivityTile";
 import { HOBBY_CATALOG, searchActivities, getCatalogStats, type HobbyCategory, type HobbySubcategory } from "@/lib/hobbyCategories";
 import { CATEGORY_VISUALS } from "@/lib/categoryVisuals";
 import { EXPLORE_HERO_COPY } from "@/content/marketingCopy";
@@ -22,14 +28,56 @@ const CATEGORY_TONES = [
 ] as const;
 
 const Explore = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewLevel>('categories');
   const [selectedCategory, setSelectedCategory] = useState<HobbyCategory | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<HobbySubcategory | null>(null);
+  const [favoriteHobbies, setFavoriteHobbies] = useState<string[]>([]);
   const claimSlot = useResearchClaimSlot("explore", 2);
 
   const stats = getCatalogStats();
   const searchResults = search.trim() ? searchActivities(search) : null;
+
+  const visibleActivityNames = useMemo(() => {
+    if (searchResults) return searchResults.map((act) => act.activityName);
+    if (view === 'activities' && selectedSubcategory) return selectedSubcategory.activities.map((act) => act.name);
+    return [];
+  }, [searchResults, view, selectedSubcategory]);
+  const activityStats = useExploreActivityStats(visibleActivityNames);
+
+  useEffect(() => {
+    if (!user) { setFavoriteHobbies([]); return; }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.from('profiles').select('hobbies').eq('user_id', user.id).single();
+      if (!cancelled && data) setFavoriteHobbies(data.hobbies || []);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const toggleFavorite = async (name: string) => {
+    if (!user) {
+      toast.info('Jelentkezz be, hogy a kedvenceid közé tehesd!');
+      navigate('/auth');
+      return;
+    }
+    const wasFavorite = favoriteHobbies.includes(name);
+    const next = wasFavorite ? favoriteHobbies.filter((h) => h !== name) : [...favoriteHobbies, name];
+    setFavoriteHobbies(next);
+    const { error } = await supabase.from('profiles').update({ hobbies: next }).eq('user_id', user.id);
+    if (error) {
+      setFavoriteHobbies(favoriteHobbies);
+      toast.error('Nem sikerült elmenteni a kedvencet. Próbáld újra.');
+    } else {
+      toast.success(wasFavorite ? 'Eltávolítva a kedvenceid közül.' : `„${name}" mostantól a kedvenceid között van!`);
+    }
+  };
+
+  const searchPrograms = (name: string) => {
+    navigate(`/events?q=${encodeURIComponent(name)}`);
+  };
 
   const handleCategoryClick = (cat: HobbyCategory) => {
     setSelectedCategory(cat);
@@ -173,21 +221,18 @@ const Explore = () => {
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {searchResults.map((act, i) => (
-                <motion.article
+                <ActivityTile
                   key={act.activityId}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.02 }}
-                  className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/[0.04]"
+                  name={act.activityName}
+                  emoji={act.activityEmoji}
+                  subtitle={`${act.categoryName} › ${act.subcategoryName}`}
+                  delay={i * 0.02}
+                  stats={activityStats[act.activityName]}
+                  isFavorite={favoriteHobbies.includes(act.activityName)}
+                  onToggleFavorite={() => void toggleFavorite(act.activityName)}
+                  onSearch={() => searchPrograms(act.activityName)}
                 >
-                  <div className="mb-5 flex items-start gap-3">
-                    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/[0.08] text-2xl">{act.activityEmoji}</span>
-                    <div className="min-w-0 pt-0.5">
-                      <h3 className="font-display font-semibold leading-snug">{act.activityName}</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{act.categoryName} › {act.subcategoryName}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="mb-4 flex flex-wrap gap-1.5">
                     <Badge variant="outline" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
                       {intensityLabel(act.profile.physicalIntensity)}
                     </Badge>
@@ -197,7 +242,7 @@ const Explore = () => {
                       <Users aria-hidden="true" size={8} className="mr-0.5" />{act.profile.groupSize.typical} fő
                     </Badge>
                   </div>
-                </motion.article>
+                </ActivityTile>
               ))}
             </div>
 
@@ -367,19 +412,18 @@ const Explore = () => {
                   {selectedSubcategory.activities.map((act, i) => {
                     const mergedProfile = { ...selectedSubcategory.profile, ...(act.profile || {}) };
                     return (
-                      <motion.article
+                      <ActivityTile
                         key={act.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className="rounded-[1.75rem] border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/[0.04]"
+                        name={act.name}
+                        emoji={act.emoji || selectedSubcategory.emoji}
+                        delay={i * 0.03}
+                        stats={activityStats[act.name]}
+                        isFavorite={favoriteHobbies.includes(act.name)}
+                        onToggleFavorite={() => void toggleFavorite(act.name)}
+                        onSearch={() => searchPrograms(act.name)}
                       >
-                        <div className="mb-4 flex items-center gap-3">
-                          <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary text-2xl">{act.emoji || selectedSubcategory.emoji}</span>
-                          <h3 className="font-display font-semibold leading-snug">{act.name}</h3>
-                        </div>
                         {act.profile && Object.keys(act.profile).length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 border-t border-border/50 pt-4">
+                          <div className="mb-4 flex flex-wrap gap-1.5">
                             {act.profile.physicalIntensity && (
                               <Badge variant="outline" className={`text-[10px] ${intensityColor(act.profile.physicalIntensity)}`}>
                                 {intensityLabel(act.profile.physicalIntensity)}
@@ -396,7 +440,7 @@ const Explore = () => {
                             )}
                           </div>
                         )}
-                      </motion.article>
+                      </ActivityTile>
                     );
                   })}
                 </div>

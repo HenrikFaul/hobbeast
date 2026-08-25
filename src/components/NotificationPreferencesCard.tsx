@@ -179,18 +179,19 @@ export function NotificationPreferencesCard() {
 
         <section aria-labelledby="notification-channel-heading" className="space-y-3">
           <h3 id="notification-channel-heading" className="font-semibold">Csatornák</h3>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {([
               ['in_app_enabled', 'Appon belül', Bell, 'Mindig rendelkezésre áll.'],
               ['email_enabled', 'E-mail', Mail, 'Csak konfigurált szolgáltató esetén.'],
               ['push_enabled', 'Push', Smartphone, 'Csak regisztrált eszköz és provider esetén.'],
             ] as const).map(([key, label, Icon, description]) => (
               <div key={key} className="flex items-start justify-between gap-3 rounded-xl border p-3">
-                <Label htmlFor={`notification-channel-${key}`} className="cursor-pointer">
+                <Label htmlFor={`notification-channel-${key}`} className="min-w-0 flex-1 cursor-pointer">
                   <span className="flex items-center gap-2 text-sm font-medium"><Icon className="h-4 w-4 text-primary" /> {label}</span>
                   <span className="mt-1 block text-xs font-normal text-muted-foreground">{description}</span>
                 </Label>
                 <Switch
+                  className="shrink-0"
                   id={`notification-channel-${key}`}
                   checked={prefs[key]}
                   disabled={savingKey !== null || pushWorking || (key === 'push_enabled' && ['unsupported', 'denied', 'checking'].includes(pushCapability))}

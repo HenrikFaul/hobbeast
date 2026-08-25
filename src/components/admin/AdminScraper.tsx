@@ -74,7 +74,7 @@ export function AdminScraper() {
 
   useEffect(() => { void load(); }, [load]);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Scraper statisztikák betöltése…</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">Programgyűjtő statisztikák betöltése…</p>;
   if (error) return <p className="text-sm text-destructive">Nem sikerült betölteni: {error}</p>;
   if (!stats) return null;
 
@@ -84,7 +84,7 @@ export function AdminScraper() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Esemény-scraper</h2>
+        <h2 className="text-lg font-semibold">Programgyűjtő</h2>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="mr-1 h-4 w-4" /> Frissítés
         </Button>
@@ -92,7 +92,7 @@ export function AdminScraper() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ['Aktív scraper-esemény', totals.total_scraper_events],
+          ['Aktív begyűjtött esemény', totals.total_scraper_events],
           ['Engedélyezett forrás', `${totals.enabled_sources} / ${totals.registered_sources}`],
           ['Összes futás', totals.runs_total],
           ['Összes beszúrás · duplikátum-szűrés', `${numberFormat.format(totals.inserted_total)} · ${numberFormat.format(totals.duplicates_total)}`],
@@ -105,7 +105,7 @@ export function AdminScraper() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Napi scrape-kimenet (14 nap)</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Napi begyűjtés (14 nap)</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
           {daily.length === 0 ? <p className="text-sm text-muted-foreground">Még nincs futásnapló.</p> : (
             <table className="w-full min-w-[560px] text-sm">
