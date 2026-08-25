@@ -20,13 +20,16 @@ import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
 import { adapterForSource } from './src/sources/adapters.mjs';
 import { ingestEvents } from './src/ingest.mjs';
-import { listScraperTargets, logScraperRun } from './src/registry.mjs';
+import { listScraperTargets, listScraperTargetsByIds, logScraperRun } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? Number(args[i + 1]) || dflt : dflt; };
+const strFlag = (name) => { const i = args.indexOf(name); return i >= 0 ? String(args[i + 1] || '') : ''; };
 const dryRun = args.includes('--dry-run');
 const sourcesPerRun = flag('--sources', 25);
 const detailsPerSource = flag('--details', 40);
+// Manual targeted run from the admin panel: exact source ids, bypassing rotation.
+const onlyIds = strFlag('--only').split(',').map((s) => s.trim()).filter((s) => /^src_[a-f0-9]{8}$/.test(s));
 const log = (...m) => console.log(...m);
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -42,8 +45,10 @@ async function main() {
   const started = Date.now();
   log(`Hobbeast scraper v2 (dryRun=${dryRun}, sources=${sourcesPerRun}, details=${detailsPerSource})`);
 
-  const targets = await listScraperTargets({ supabaseUrl, serviceRoleKey, limit: sourcesPerRun });
-  log(`Targets from registry: ${targets.length}`);
+  const targets = onlyIds.length
+    ? await listScraperTargetsByIds({ supabaseUrl, serviceRoleKey, ids: onlyIds })
+    : await listScraperTargets({ supabaseUrl, serviceRoleKey, limit: sourcesPerRun });
+  log(`Targets from registry: ${targets.length}${onlyIds.length ? ' (targeted manual run)' : ''}`);
 
   // --disable-http2: some sites (eventim.hu) abort Chromium's HTTP/2 handshake.
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-http2'] });

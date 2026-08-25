@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Play, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ScraperDestination {
@@ -17,14 +19,11 @@ interface ScraperDestination {
   total_events: number;
   scrape_strategy: string | null;
   scrape_note: string | null;
+  categories: string[] | null;
+  access: string;
+  active_events: number;
+  expired_events: number;
 }
-
-const STRATEGY_LABELS: Record<string, string> = {
-  render: 'böngészős',
-  rss: 'hírfolyam',
-  tribe: 'esemény-API',
-  site: 'egyedi adapter',
-};
 
 interface ScraperDaily {
   day: string;
@@ -38,6 +37,8 @@ interface ScraperDaily {
 
 interface ScraperTotals {
   total_scraper_events: number;
+  active_events: number;
+  expired_events: number;
   enabled_sources: number;
   registered_sources: number;
   runs_total: number;
@@ -50,6 +51,26 @@ interface ScraperStats {
   daily: ScraperDaily[];
   totals: ScraperTotals;
 }
+
+interface ProgressRun {
+  source_id: string;
+  publisher_name: string;
+  run_started_at: string;
+  discovered: number;
+  inserted: number;
+  updated: number;
+  duplicates: number;
+  skipped: number;
+  status: string;
+  http_status: number | null;
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  render: 'böngészős',
+  rss: 'hírfolyam',
+  tribe: 'esemény-API',
+  site: 'egyedi adapter',
+};
 
 const numberFormat = new Intl.NumberFormat('hu-HU');
 
@@ -67,6 +88,11 @@ export function AdminScraper() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dispatching, setDispatching] = useState(false);
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ProgressRun[]>([]);
+  const pollTimer = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,12 +109,68 @@ export function AdminScraper() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) {
+      window.clearInterval(pollTimer.current);
+      pollTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  const pollProgress = useCallback(async (since: string) => {
+    const { data } = await supabase.functions.invoke('scraper-control', {
+      body: { action: 'status', since },
+    });
+    if (Array.isArray(data?.runs)) setProgress(data.runs as ProgressRun[]);
+  }, []);
+
+  const startRun = async (ids: string[]) => {
+    setDispatching(true);
+    const { data, error: invokeError } = await supabase.functions.invoke('scraper-control', {
+      body: { action: 'run', source_ids: ids },
+    });
+    setDispatching(false);
+    if (invokeError || !data?.dispatched) {
+      toast.error('A begyűjtést nem sikerült elindítani.');
+      return;
+    }
+    const startedAt = String(data.started_at || new Date().toISOString());
+    setRunStartedAt(startedAt);
+    setProgress([]);
+    toast.success(ids.length
+      ? `Begyűjtés elindítva ${ids.length} kijelölt forrásra.`
+      : 'Begyűjtés elindítva (automatikus forrásválasztás).');
+    stopPolling();
+    pollTimer.current = window.setInterval(() => { void pollProgress(startedAt); }, 10000);
+    // A futás legfeljebb ~50 percig tarthat; utána a figyelés leáll magától.
+    window.setTimeout(() => { stopPolling(); void load(); }, 55 * 60 * 1000);
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground">Programgyűjtő statisztikák betöltése…</p>;
   if (error) return <p className="text-sm text-destructive">Nem sikerült betölteni: {error}</p>;
   if (!stats) return null;
 
   const { totals, daily, destinations } = stats;
   const visibleDestinations = showAll ? destinations : destinations.slice(0, 30);
+  const progressTotals = progress.reduce(
+    (acc, r) => ({
+      discovered: acc.discovered + (r.discovered || 0),
+      inserted: acc.inserted + (r.inserted || 0),
+      duplicates: acc.duplicates + (r.duplicates || 0),
+      sources: acc.sources + 1,
+    }),
+    { discovered: 0, inserted: 0, duplicates: 0, sources: 0 },
+  );
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -99,9 +181,10 @@ export function AdminScraper() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
-          ['Aktív begyűjtött esemény', totals.total_scraper_events],
+          ['Aktív program (mai naptól)', totals.active_events],
+          ['Lejárt program', totals.expired_events],
           ['Engedélyezett forrás', `${totals.enabled_sources} / ${totals.registered_sources}`],
           ['Összes futás', totals.runs_total],
           ['Összes beszúrás · duplikátum-szűrés', `${numberFormat.format(totals.inserted_total)} · ${numberFormat.format(totals.duplicates_total)}`],
@@ -112,6 +195,64 @@ export function AdminScraper() {
           </Card>
         ))}
       </div>
+
+      <Card className="border-primary/25">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span>Kézi begyűjtés</span>
+            <span className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSelected(new Set(destinations.map((d) => d.source_id)))}>
+                Összes kijelölése
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
+                Kijelölés törlése
+              </Button>
+              <Button size="sm" disabled={dispatching} onClick={() => void startRun([...selected])}>
+                {dispatching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Play className="mr-1 h-4 w-4" />}
+                {selected.size ? `Kijelöltek begyűjtése (${selected.size})` : 'Begyűjtés indítása'}
+              </Button>
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Kijelölés nélkül az automatikus forgó (a legrégebben futott 40 forrás) indul. A futás a felhőben zajlik;
+            az eredmények forrásonként, menet közben jelennek meg alább.
+          </p>
+          {runStartedAt && (
+            <div className="rounded-xl border border-border/70 bg-card/60 p-3">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                {pollTimer.current !== null && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                Folyamat: {progressTotals.sources} forrás kész · {numberFormat.format(progressTotals.discovered)} találat
+                → {numberFormat.format(progressTotals.inserted)} importálva
+                ({numberFormat.format(progressTotals.duplicates)} duplikátum kiszűrve)
+              </p>
+              {progress.length > 0 && (
+                <div className="mt-2 max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <tbody>{progress.map((r) => (
+                      <tr key={`${r.source_id}:${r.run_started_at}`} className="border-b border-border/40 last:border-0">
+                        <td className="py-1 pr-2 font-medium">{r.publisher_name}</td>
+                        <td className="py-1 pr-2">{r.discovered} talált</td>
+                        <td className="py-1 pr-2 text-emerald-600">+{r.inserted} importált</td>
+                        <td className="py-1 pr-2">{r.duplicates} dupla</td>
+                        <td className="py-1">
+                          <Badge variant={r.status === 'failed' ? 'destructive' : 'secondary'} className="text-[10px]">{r.status}</Badge>
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              {progress.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A felhő-futás indul (telepítés ~1-2 perc), az első forrás-eredmények hamarosan érkeznek…
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Napi begyűjtés (14 nap)</CardTitle></CardHeader>
@@ -140,36 +281,64 @@ export function AdminScraper() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Célok (destinations) · prioritás szerint</CardTitle>
+          <CardTitle className="text-sm">Források (destinations) · prioritás szerint</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
-              <th className="py-2 pr-3">Forrás</th><th className="py-2 pr-3">Város</th><th className="py-2 pr-3">Módszer</th>
-              <th className="py-2 pr-3">Utolsó futás</th><th className="py-2 pr-3">Utolsó · összes esemény</th><th className="py-2">Állapot</th>
+              <th className="py-2 pr-2 w-8"></th>
+              <th className="py-2 pr-3">Forrás</th><th className="py-2 pr-3">Módszer</th>
+              <th className="py-2 pr-3">Kategóriák</th><th className="py-2 pr-3">Hozzáférés</th>
+              <th className="py-2 pr-3">Utolsó futás</th><th className="py-2 pr-3">Utolsó · összes</th>
+              <th className="py-2 pr-3">Aktív / Lejárt</th><th className="py-2">Állapot</th>
             </tr></thead>
             <tbody>{visibleDestinations.map((d) => (
               <tr key={d.source_id} className="border-b last:border-0">
+                <td className="py-2 pr-2">
+                  <Checkbox
+                    checked={selected.has(d.source_id)}
+                    onCheckedChange={() => toggleSelected(d.source_id)}
+                    aria-label={`${d.publisher_name} kijelölése begyűjtésre`}
+                  />
+                </td>
                 <td className="py-2 pr-3">
                   <p className="font-medium">{d.publisher_name}</p>
-                  <p className="max-w-[280px] truncate text-xs text-muted-foreground">{d.endpoint_url}</p>
+                  <p className="max-w-[240px] truncate text-xs text-muted-foreground">{d.endpoint_url}</p>
                   {d.scrape_note && (
-                    <p className="max-w-[320px] text-xs italic text-amber-700 dark:text-amber-500" title={d.scrape_note}>
-                      {d.scrape_note.length > 90 ? `${d.scrape_note.slice(0, 90)}…` : d.scrape_note}
+                    <p className="max-w-[280px] text-xs italic text-amber-700 dark:text-amber-500" title={d.scrape_note}>
+                      {d.scrape_note.length > 70 ? `${d.scrape_note.slice(0, 70)}…` : d.scrape_note}
                     </p>
                   )}
                 </td>
-                <td className="py-2 pr-3">{d.city || '—'}</td>
                 <td className="py-2 pr-3">
                   <Badge variant={d.scrape_strategy === 'render' || !d.scrape_strategy ? 'outline' : 'secondary'} className="text-[10px]">
                     {STRATEGY_LABELS[d.scrape_strategy || 'render'] || d.scrape_strategy}
                   </Badge>
                 </td>
+                <td className="py-2 pr-3">
+                  <span className="flex max-w-[160px] flex-wrap gap-1">
+                    {(d.categories || []).slice(0, 2).map((c) => (
+                      <Badge key={c} variant="outline" className="text-[10px] font-normal">{c}</Badge>
+                    ))}
+                    {(d.categories || []).length > 2 && (
+                      <Badge variant="outline" className="text-[10px] font-normal" title={(d.categories || []).join(', ')}>
+                        +{(d.categories || []).length - 2}
+                      </Badge>
+                    )}
+                    {!(d.categories || []).length && <span className="text-xs text-muted-foreground">—</span>}
+                  </span>
+                </td>
+                <td className="py-2 pr-3 text-xs">{d.access}</td>
                 <td className="py-2 pr-3">{formatWhen(d.last_run_at)}</td>
                 <td className="py-2 pr-3">{d.last_events} · {d.total_events}</td>
+                <td className="py-2 pr-3">
+                  <span className="font-semibold text-emerald-600">{d.active_events}</span>
+                  {' / '}
+                  <span className="text-muted-foreground">{d.expired_events}</span>
+                </td>
                 <td className="py-2">
-                  <Badge variant={d.total_events > 0 ? 'default' : d.last_run_at ? 'secondary' : 'outline'}>
-                    {d.total_events > 0 ? 'termel' : d.last_run_at ? 'nincs találat' : 'várakozik'}
+                  <Badge variant={d.active_events > 0 ? 'default' : d.last_run_at ? 'secondary' : 'outline'}>
+                    {d.active_events > 0 ? 'termel' : d.last_run_at ? 'nincs találat' : 'várakozik'}
                   </Badge>
                 </td>
               </tr>

@@ -12,6 +12,41 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.20.0] — 2026-08-25
+
+**Branded Google sign-in + full Programgyűjtő dashboard with manual runs.**
+
+### Fixed
+- **Google sign-in now says "Hobbeast"** instead of the raw
+  `bqdvqmpwccsxumzijspj.supabase.co` URL: the GCP consent screen
+  (gen-lang-client-0838265874) was stuck in Testing because the privacy/ToS links
+  were missing on Branding. Filled both with https://expericentre.com/legal and
+  pushed the app to **In production** (verified in the console). App logo upload is
+  deliberately deferred — it would trigger Google's verification review.
+
+### Added — Programgyűjtő dashboard (Admin tab)
+- **Per-source columns**: gyűjtési módszer (böngészős / hírfolyam / esemény-API /
+  egyedi adapter), kategóriák, hozzáférés (ingyenes / forrásmegjelöléses), utolsó
+  futás + darabszám, összes, és **aktív / lejárt** importált programszám (DB-ből:
+  event_date >= mai nap vs korábbi). Global totals cards now split active/expired.
+- **Manual run**: per-source checkboxes, Összes kijelölése / Kijelölés törlése,
+  "Begyűjtés indítása" button → `scraper-control` edge function (providers.manage
+  gated) dispatches the GitHub workflow, optionally with the selected source_ids
+  (`only` input → worker `--only` flag → `list_scraper_targets_by_ids`).
+- **Live progress panel**: polls `admin_recent_scraper_runs` every 10s during a
+  run — found → imported (duplicates filtered) per source and in total, exactly as
+  the worker logs each source.
+- **Vault-backed dispatch**: the GitHub token lives in Supabase Vault
+  (`github_workflow_token`), readable only through a service-role-gated RPC
+  (`get_scraper_dispatch_token`); it never reaches the browser.
+  ⚠ Operator note: the stored token is the gh CLI token (repo+workflow scopes) —
+  replacing it with a fine-grained PAT (Actions:write on hobbeast only) is
+  recommended: `SELECT vault.update_secret(id, '<new>', 'github_workflow_token')`.
+- Migrations: `20260826020000` (stats v3, targeted list, progress RPC) +
+  `20260826021000`-equivalent token accessor (applied as scraper_dispatch_token_rpc).
+
+---
+
 ## [1.19.1] — 2026-08-25
 
 **Removed the artificial per-source caps that throttled EVERY source.** The owner

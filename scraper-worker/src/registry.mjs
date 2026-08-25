@@ -15,6 +15,14 @@ export async function listScraperTargets({ supabaseUrl, serviceRoleKey, limit = 
   return res.json();
 }
 
+export async function listScraperTargetsByIds({ supabaseUrl, serviceRoleKey, ids }) {
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/list_scraper_targets_by_ids`, {
+    method: 'POST', headers: headers(serviceRoleKey), body: JSON.stringify({ p_ids: ids }),
+  });
+  if (!res.ok) throw new Error(`list_scraper_targets_by_ids ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return res.json();
+}
+
 export async function logScraperRun({ supabaseUrl, serviceRoleKey, sourceId, discovered, inserted, updated, skipped, duplicates, status, error, durationMs, httpStatus }) {
   const res = await fetch(`${supabaseUrl}/rest/v1/rpc/log_scraper_run`, {
     method: 'POST', headers: headers(serviceRoleKey),

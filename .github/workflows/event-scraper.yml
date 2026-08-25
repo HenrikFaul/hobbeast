@@ -17,6 +17,10 @@ on:
         description: 'Detail pages per source'
         required: false
         default: '40'
+      only:
+        description: 'Comma-separated source_ids (manual targeted run from the admin panel)'
+        required: false
+        default: ''
 
 concurrency:
   group: event-scraper
@@ -46,4 +50,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node index.mjs --sources ${{ github.event.inputs.sources || '40' }} --details ${{ github.event.inputs.details || '40' }}
+        run: node index.mjs --sources ${{ github.event.inputs.sources || '40' }} --details ${{ github.event.inputs.details || '40' }} --only "${{ github.event.inputs.only || '' }}"
