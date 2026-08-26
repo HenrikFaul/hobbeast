@@ -9,12 +9,14 @@ import { EventsMapView } from '@/components/events/EventsMapView';
  * so the list view and its ranking logic stay untouched.
  */
 const EventsMap = () => (
-  <main className="min-h-screen pb-16 pt-24">
-    <div className="container mx-auto px-4">
+  // Deliberately outside the site container: a map earns the full width of the
+  // window, and the default gutters left a third of a wide screen empty.
+  <main className="min-h-screen pb-6 pt-20">
+    <div className="mx-auto w-full max-w-[1900px] px-3 sm:px-5 2xl:px-8">
       <motion.header
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex flex-wrap items-end justify-between gap-3"
+        className="mb-3 flex flex-wrap items-end justify-between gap-3"
       >
         <div>
           <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">
@@ -24,7 +26,7 @@ const EventsMap = () => (
             <MapPinned className="h-7 w-7 text-primary" aria-hidden="true" />
             Hol vannak programok?
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          <p className="mt-1 hidden max-w-2xl text-sm text-muted-foreground sm:block">
             Kicsinyítve megyénként, nagyítva városonként látod a programokat. Kattints egy buborékra,
             és megjelennek az ottani élmények.
           </p>

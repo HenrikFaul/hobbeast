@@ -406,9 +406,11 @@
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 9999px;
-  background: hsl(var(--card) / 0.92);
+  background: hsl(var(--card) / 0.94);
   color: hsl(var(--foreground));
   border: 1px solid hsl(var(--border));
+  /* The basemap has colour now — a label needs to sit ON it, not in it. */
+  box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.35);
   box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.4);
   pointer-events: none;
 }

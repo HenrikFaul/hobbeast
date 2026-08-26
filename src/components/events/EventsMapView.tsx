@@ -90,11 +90,24 @@ function formatDate(value: string) {
   }
 }
 
-function prefersDark() {
+/**
+ * The app has no dark theme — nothing ever puts `dark` on <html>. Asking the
+ * operating system instead is what turned a light page into a black map for
+ * anyone whose laptop is in dark mode. The class is still honoured in case a
+ * theme is added later; the OS preference is deliberately not consulted.
+ */
+function appIsDark() {
   if (typeof document === 'undefined') return false;
-  return document.documentElement.classList.contains('dark')
-    || window.matchMedia?.('(prefers-color-scheme: dark)').matches === true;
+  return document.documentElement.classList.contains('dark');
 }
+
+// CARTO Voyager: free, no API key, and it actually looks like a map — parks in
+// green, water in blue, roads and place names legible. Positron (light_all) is
+// so washed out that the county bubbles float over nothing.
+const TILES = {
+  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+};
 
 /**
  * Marker size scales with the square root of the count: Budapest's 500 programs
@@ -191,22 +204,23 @@ export function EventsMapView() {
       attributionControl: true,
     }).fitBounds(HU_BOUNDS);
 
-    const dark = prefersDark();
-    L.tileLayer(
-      dark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        maxZoom: 18,
-      },
-    ).addTo(map);
+    const tiles = L.tileLayer(appIsDark() ? TILES.dark : TILES.light, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // If a theme switch is ever added, the basemap follows it without a reload.
+    const themeWatcher = new MutationObserver(() => {
+      tiles.setUrl(appIsDark() ? TILES.dark : TILES.light);
+    });
+    themeWatcher.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
     layerRef.current = L.layerGroup().addTo(map);
     map.on('zoomend', () => setZoom(map.getZoom()));
     mapRef.current = map;
 
     return () => {
+      themeWatcher.disconnect();
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
@@ -297,9 +311,12 @@ export function EventsMapView() {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+    // The map is the point of this page, so it gets the height of the viewport
+    // and whatever width is left. On a phone it comes first; the result list
+    // sits under it rather than pushing it off the screen.
+    <div className="grid gap-3 lg:h-[calc(100dvh-9.5rem)] lg:grid-cols-[minmax(300px,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(340px,380px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
       {/* Sidebar: filters + results, Booking-style */}
-      <aside className="flex max-h-[78vh] flex-col gap-3 overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 p-4 shadow-elevated">
+      <aside className="order-2 flex max-h-[70vh] flex-col gap-3 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/95 p-4 shadow-elevated lg:order-1 lg:max-h-none lg:h-full">
         <div>
           <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">Térképes kereső</p>
           <h2 className="mt-1 font-display text-xl font-extrabold">
@@ -437,10 +454,10 @@ export function EventsMapView() {
       </aside>
 
       {/* Map */}
-      <div className="relative">
+      <div className="relative order-1 lg:order-2 lg:h-full">
         <div
           ref={containerRef}
-          className="hb-map h-[78vh] w-full overflow-hidden rounded-[1.75rem] border border-border/70 shadow-elevated"
+          className="hb-map h-[58vh] w-full overflow-hidden rounded-[1.5rem] border border-border/70 shadow-elevated sm:h-[64vh] lg:h-full"
           role="application"
           aria-label="Programok térképe"
         />
