@@ -607,3 +607,41 @@ constraint-hiba az egész függvényt visszagörgeti).
 A megkötést NEM lazítjuk: a féllábú URL az adatbázisban rosszabb, mint a hiánya.
 
 *Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🧮 Lapozott listát NEM lehet a böngészőben szűrni (2026-08-27)
+
+**Szabály:** ha a lista lapozva jön (`p_limit`/`p_offset`), akkor minden olyan
+szűrő, ami a teljes halmazra vonatkozik, az ADATBÁZISBAN kell legyen. A
+kliensoldali szűrő csak a már letöltött oldalakat látja, és magabiztosan,
+csendben hiányos választ ad — ez rosszabb, mint a hibaüzenet.
+
+Konkrét eset: „december 12–14., Debrecen” az első 48 sorból válaszolt volna.
+
+**Kliensoldalon maradhat** a második ellenőrzés (védelem mélységben), és azokra
+a forrásokra, amik nem az RPC-n jönnek (minta-események, élő Eventbrite-előnézet).
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## ⚠️ Függvényparaméter bővítés: DROP + CREATE, nem CREATE OR REPLACE (2026-08-27)
+
+**Csapda:** ha egy meglévő függvényhez új (alapértelmezett) paramétert adsz
+`CREATE OR REPLACE`-szel, az NEM cseréli le a régit — új **túlterhelést** hoz
+létre. Ezután a régi, névvel hivatkozó hívás MINDKETTŐRE illeszkedik, és
+`function ... is not unique` hibával elszáll. Ez élesben azonnali kiesés.
+
+**Helyes sorrend:**
+```sql
+DROP FUNCTION IF EXISTS public.f(date, integer, integer);
+CREATE FUNCTION public.f(..., p_new date DEFAULT NULL) ...
+```
+Az új paraméter a lista VÉGÉRE megy, NULL alapértékkel, és NULL = a régi
+viselkedés.
+
+**Bizonyítás kötelező:** csere ELŐTT rögzíts `md5(payload::text)` lenyomatot a
+tipikus hívásokra, utána hasonlítsd össze. Ha nem bájtazonos, az regresszió.
+
+*Utoljára frissítve: 2026-08-27*

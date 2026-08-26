@@ -12,6 +12,47 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.31.0] — 2026-08-27
+
+**Adott napra, időszakra és helyszínre is lehet szűrni — a régiek változatlanul.**
+
+### Dátum: egy nap vagy egy tól–ig időszak
+Az Időszak választóban új sor: **„Adott nap vagy időszak…"**. Két dátummező jön
+elő; ha csak az egyiket töltöd ki, az is értelmes kérdés („ettől a naptól",
+„mostantól eddig"). Fordítva megadott intervallumot **megcserél**, nem üres
+listát ad.
+
+A négy meglévő beállítás (`Minden közelgő`, `Ma`, `Következő 7 nap`,
+`Következő 30 nap`) betűre ugyanazt csinálja, mint eddig, és a dátummezők csak
+akkor jelennek meg, ha kérted őket.
+
+### Helyszín
+Városnév vagy kerület szerinti szűrés, ékezet- és kisbetű-tűrően (a „gyor"
+megtalálja a Győrt), plusz a nyolc legtöbb programot kínáló település
+egykoppintásos gombként. Ez **nem váltja ki** a távolságszűrőt: ahhoz mentett
+profil-lokáció és geokódolt cím kell, ehhez elég egy városnév — így annak is
+működik, akinek egyik sincs.
+
+### Miért az adatbázisban szűr
+Mindkettő a lekérdezés része lett, nem a megjelenítésé. A lista lapozott, így
+egy böngészőben futó szűrő csak a már letöltött oldalakat látja: a
+„december 12–14., Debrecen" kérdésre magabiztosan, csendben hiányos választ
+adott volna az első 48 sorból. A `list_external_events_safe_page` és a
+`list_discoverable_events_safe_page` ezért kapott `p_to_date` és `p_city`
+paramétert.
+
+**Regresszió ellen bizonyítva:** a két függvényt előbb lemértük, aztán
+lecseréltük, és a régi hívások MD5-lenyomata bájtra azonos maradt. Az új
+paraméterek NULL alapértékkel a lista végére kerültek, és a függvények DROP +
+CREATE-tel cserélődtek — `CREATE OR REPLACE` egy második túlterhelést hozott
+volna létre, amire a régi, névvel hivatkozó hívás „ambiguous" hibával szállt
+volna el.
+
+Élőben ellenőrizve: `?city=Debrecen&from=2026-09-01&to=2026-09-30` pontosan 21
+találat, mind Debrecen, mind szeptember — annyi, amennyit az adatbázis számol.
+
+---
+
 ## [1.30.0] — 2026-08-26
 
 **Klubok: a hely, ahol hétről hétre ugyanazok várnak.**

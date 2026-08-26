@@ -87,8 +87,17 @@ function normalizeEventPage(value: unknown): SafeEventPage {
   };
 }
 
+/**
+ * `toDate` and `city` narrow the page at the database, not in the browser.
+ * Filtering a paginated list client-side would only ever see the pages already
+ * fetched, so "December 12-14 in Debrecen" would silently answer from whatever
+ * happened to be in the first 48 rows. Both are optional and omitting them is
+ * exactly the old behaviour.
+ */
 export async function listSafeDiscoverableEventsPage(input: {
   fromDate: string;
+  toDate?: string | null;
+  city?: string | null;
   limit?: number;
   offset?: number;
 }): Promise<SafeEventPage> {
@@ -97,6 +106,8 @@ export async function listSafeDiscoverableEventsPage(input: {
     p_requester_id: null,
     p_limit: Math.max(1, Math.min(100, Math.trunc(input.limit ?? 48) || 48)),
     p_offset: Math.max(0, Math.trunc(input.offset ?? 0) || 0),
+    p_to_date: input.toDate || null,
+    p_city: input.city || null,
   });
   if (error) throw new Error('EVENT_LIST_PAGE_FAILED');
   return normalizeEventPage(data);
@@ -104,6 +115,8 @@ export async function listSafeDiscoverableEventsPage(input: {
 
 export async function listSafeExternalEventsPage(input: {
   fromDate: string;
+  toDate?: string | null;
+  city?: string | null;
   limit?: number;
   offset?: number;
 }): Promise<SafeEventPage> {
@@ -111,9 +124,26 @@ export async function listSafeExternalEventsPage(input: {
     p_from_date: input.fromDate,
     p_limit: Math.max(1, Math.min(100, Math.trunc(input.limit ?? 48) || 48)),
     p_offset: Math.max(0, Math.trunc(input.offset ?? 0) || 0),
+    p_to_date: input.toDate || null,
+    p_city: input.city || null,
   });
   if (error) throw new Error('EXTERNAL_EVENT_LIST_PAGE_FAILED');
   return normalizeEventPage(data);
+}
+
+/** The cities the catalogue actually has upcoming programmes in. */
+export async function listEventCities(fromDate: string): Promise<Array<{ city: string; events: number }>> {
+  const { data, error } = await eventRpcClient.rpc('list_event_cities', {
+    p_from_date: fromDate,
+    p_limit: 60,
+  });
+  if (error) throw new Error('EVENT_CITIES_FAILED');
+  return Array.isArray(data)
+    ? data
+      .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+      .map((row) => ({ city: String(row.city ?? ''), events: Number(row.events) || 0 }))
+      .filter((row) => row.city)
+    : [];
 }
 
 export interface ExternalEventSocialSummary {

@@ -3,7 +3,11 @@ import { HOBBY_CATALOG } from '@/lib/hobbyCategories';
 import { buildCanonicalEventIdentity } from '@/lib/recommendationEngine';
 
 export type SourceFilter = 'all' | 'hobbeast' | 'external';
-export type DateFilter = 'all' | 'today' | 'week' | 'month';
+/**
+ * `custom` is the from–to range; the four preset values keep their exact
+ * meaning, so nothing that worked before behaves differently.
+ */
+export type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 export type CapacityFilter = 'all' | 'available' | 'waitlist';
 export type LatLng = { lat: number; lon: number };
 export type EventRelation = 'own' | 'joined' | 'interest' | 'default';
@@ -148,6 +152,53 @@ export function getTodayDateString(now = new Date()) {
 
 export function isUpcomingEventDate(eventDate: string | null | undefined, now = new Date()) {
   return Boolean(eventDate && eventDate >= getTodayDateString(now));
+}
+
+export interface EventDateRange {
+  /** ISO yyyy-mm-dd, inclusive. */
+  from: string | null;
+  /** ISO yyyy-mm-dd, inclusive. A single day is from === to. */
+  to: string | null;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isIsoDate(value: string | null | undefined): value is string {
+  return typeof value === 'string' && ISO_DATE.test(value);
+}
+
+/**
+ * Normalises what the two date inputs contain. A range entered backwards is
+ * swapped rather than silently returning nothing, and a half-open range (only
+ * a start, or only an end) is valid — people often mean "from the 12th" or
+ * "any time up to the 20th".
+ */
+export function normalizeDateRange(from: string | null | undefined, to: string | null | undefined): EventDateRange {
+  const start = isIsoDate(from) ? from : null;
+  const end = isIsoDate(to) ? to : null;
+  if (start && end && start > end) return { from: end, to: start };
+  return { from: start, to: end };
+}
+
+export function eventMatchesDateRange(event: EventData, range: EventDateRange) {
+  if (!range.from && !range.to) return true;
+  // Dates are ISO yyyy-mm-dd, so string comparison is date comparison.
+  if (!event.event_date) return false;
+  if (range.from && event.event_date < range.from) return false;
+  if (range.to && event.event_date > range.to) return false;
+  return true;
+}
+
+/**
+ * City match, accent- and case-insensitive so "Gyor" finds "Győr". Also looks
+ * at the district and the address, because a programme in the 13th district
+ * says "Budapest" in one field and "XIII." in another.
+ */
+export function eventMatchesCity(event: EventData, city: string | null | undefined) {
+  if (!city || !city.trim()) return true;
+  const needle = normalizeText(city);
+  return [event.location_city, event.location_district, event.location_address, event.location_free_text]
+    .some((value) => value && normalizeText(value).includes(needle));
 }
 
 export function haversineDistanceKm(from: LatLng, to: LatLng) {

@@ -16,6 +16,7 @@ import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
 import {
   cancelEventParticipation,
   joinEventAtomic,
+  listEventCities,
   listSafeDiscoverableEventsPage,
   listSafeExternalEventsPage,
 } from '@/lib/eventOperations';
@@ -51,6 +52,9 @@ import {
   isExternal,
   hasCompanionPlan,
   isUpcomingEventDate,
+  eventMatchesCity,
+  eventMatchesDateRange,
+  normalizeDateRange,
   normalizeText,
   type CapacityFilter,
   eventMatchesPrice,
@@ -92,11 +96,17 @@ const Events = () => {
     requestedSource === 'hobbeast' || requestedSource === 'external' ? requestedSource : 'all',
   );
   const [dateFilter, setDateFilter] = useState<DateFilter>(
-    requestedDate === 'today' || requestedDate === 'week' || requestedDate === 'month' ? requestedDate : 'all',
+    requestedDate === 'today' || requestedDate === 'week' || requestedDate === 'month' || requestedDate === 'custom' ? requestedDate : 'all',
   );
   const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>(
     requestedCapacity === 'available' || requestedCapacity === 'waitlist' ? requestedCapacity : 'all',
   );
+  // The from-to range and the city. Both narrow the query at the database, so
+  // they are part of what gets fetched, not just of what gets displayed.
+  const [dateFrom, setDateFrom] = useState(searchParams.get('from') || '');
+  const [dateTo, setDateTo] = useState(searchParams.get('to') || '');
+  const [cityFilter, setCityFilter] = useState(searchParams.get('city') || '');
+  const [cityOptions, setCityOptions] = useState<Array<{ city: string; events: number }>>([]);
   const [priceFilter, setPriceFilter] = useState<PriceFilter>(() => {
     const requested = searchParams.get('price');
     return requested === 'free' || requested === 'paid' ? requested : 'all';
@@ -167,6 +177,9 @@ const Events = () => {
     if (dateFilter !== 'all') next.set('date', dateFilter);
     if (capacityFilter !== 'all') next.set('capacity', capacityFilter);
     if (priceFilter !== 'all') next.set('price', priceFilter);
+    if (dateFrom) next.set('from', dateFrom);
+    if (dateTo) next.set('to', dateTo);
+    if (cityFilter) next.set('city', cityFilter);
     if (distanceFilterEnabled) {
       next.set('distance', '1');
       next.set('km', String(distanceKm));
@@ -180,11 +193,11 @@ const Events = () => {
       next.set('create', '1');
     }
     setSearchParams(next, { replace: true });
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets, showCreate, planningCircleId, setSearchParams]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets, dateFrom, dateTo, cityFilter, showCreate, planningCircleId, setSearchParams]);
 
   useEffect(() => {
     setVisibleCount(24);
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets, dateFrom, dateTo, cityFilter]);
 
   const toggleSetValue = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
     setter((prev) => {
@@ -194,6 +207,23 @@ const Events = () => {
       return next;
     });
   };
+
+  /**
+   * What the two date inputs and the city box actually mean for the query.
+   * `from` never goes below today: the catalogue holds no past programmes, so
+   * asking for them would be a request that can only ever return nothing.
+   */
+  const queryRange = useMemo(() => {
+    const today = getTodayDateString();
+    if (dateFilter !== 'custom') return { from: today, to: null as string | null };
+    const range = normalizeDateRange(dateFrom || null, dateTo || null);
+    return {
+      from: range.from && range.from > today ? range.from : today,
+      to: range.to,
+    };
+  }, [dateFilter, dateFrom, dateTo]);
+
+  const queryCity = cityFilter.trim();
 
   const clearCategorySelections = () => {
     setSelectedCategoryIds(new Set());
@@ -207,7 +237,9 @@ const Events = () => {
     const today = getTodayDateString();
     try {
       const page = await listSafeDiscoverableEventsPage({
-        fromDate: today,
+        fromDate: queryRange.from,
+        toDate: queryRange.to,
+        city: queryCity || null,
         limit: EVENT_PAGE_SIZE,
         offset: append ? nativeOffset : 0,
       });
@@ -236,7 +268,9 @@ const Events = () => {
     const today = getTodayDateString();
     try {
       const page = await listSafeExternalEventsPage({
-        fromDate: today,
+        fromDate: queryRange.from,
+        toDate: queryRange.to,
+        city: queryCity || null,
         limit: EVENT_PAGE_SIZE,
         offset: append ? externalOffset : 0,
       });
@@ -329,6 +363,26 @@ const Events = () => {
   };
 
   useEffect(() => { fetchEvents(); fetchEbEvents(); fetchExternalDbEvents(); }, []);
+  // The range and the city are part of the query, so changing them has to go
+  // back to the database rather than re-filtering a page that was fetched for
+  // a different question. Debounced because the city box is typed into.
+  const initialQueryShape = useRef(`${queryRange.from}|${queryRange.to}|${queryCity}`);
+  useEffect(() => {
+    const shape = `${queryRange.from}|${queryRange.to}|${queryCity}`;
+    if (shape === initialQueryShape.current) return undefined;
+    const timer = window.setTimeout(() => {
+      initialQueryShape.current = shape;
+      setNativeOffset(0);
+      setExternalOffset(0);
+      void fetchEvents();
+      void fetchExternalDbEvents();
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryRange.from, queryRange.to, queryCity]);
+  useEffect(() => {
+    listEventCities(getTodayDateString()).then(setCityOptions).catch(() => setCityOptions([]));
+  }, []);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
   useEffect(() => {
@@ -616,9 +670,15 @@ const Events = () => {
         || (sourceFilter === 'external' && isExternal(ev));
       const matchDistance = !distanceFilterEnabled || distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
       const eventDate = ev.event_date ? new Date(`${ev.event_date}T00:00:00`) : null;
-      const matchDate = dateFilter === 'all'
-        || (dateFilter === 'today' && ev.event_date === today)
-        || (eventDate !== null && eventDate >= todayDate && eventDate <= dateLimit);
+      // The four presets keep their exact meaning; 'custom' is the new
+      // from-to range. The range is also applied at the database, so this is
+      // the second pass - it still has to be here for the sample events and
+      // for the live Eventbrite preview, which never went through the RPC.
+      const matchDate = dateFilter === 'custom'
+        ? eventMatchesDateRange(ev, normalizeDateRange(dateFrom || null, dateTo || null))
+        : dateFilter === 'all'
+          || (dateFilter === 'today' && ev.event_date === today)
+          || (eventDate !== null && eventDate >= todayDate && eventDate <= dateLimit);
       const isFull = Boolean(ev.max_attendees && (ev.participant_count || 0) >= ev.max_attendees);
       const matchCapacity = capacityFilter === 'all'
         || (capacityFilter === 'available' && !isFull)
@@ -645,6 +705,7 @@ const Events = () => {
         true;
 
       return matchPrimary && matchSource && matchDistance && matchDate && matchCapacity
+        && eventMatchesCity(ev, cityFilter)
         && eventMatchesPrice(ev, priceFilter)
         && eventMatchesVibeFacets(ev, vibeFacets)
         && !suppressedIdentities.has(eventCanonicalIdentity(ev));
@@ -656,7 +717,7 @@ const Events = () => {
       );
     }
     return rows;
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, priceFilter, vibeFacets, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, priceFilter, vibeFacets, dateFrom, dateTo, cityFilter, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
 
   const discoveryEntries = useMemo(() => {
     const organic = filtered.map((event) => ({ ...event, eventId: event.id }));
@@ -950,6 +1011,7 @@ const Events = () => {
               <option value="today">Ma</option>
               <option value="week">Következő 7 nap</option>
               <option value="month">Következő 30 nap</option>
+              <option value="custom">Adott nap vagy időszak…</option>
             </select>
           </label>
           <label className="text-sm font-medium">
@@ -977,6 +1039,107 @@ const Events = () => {
               <option value="paid">Csak jegyes</option>
             </select>
           </label>
+        </div>
+
+        {/* The from-to range, shown only when it was asked for, so the common
+            case keeps the same three controls it always had. */}
+        {dateFilter === 'custom' && (
+          <div className="mb-4 rounded-[1.2rem] border border-primary/10 bg-secondary/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-medium">
+                Ettől
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  min={getTodayDateString()}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="mt-1.5 h-11 rounded-[0.9rem] bg-card"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Eddig
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || getTodayDateString()}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="mt-1.5 h-11 rounded-[0.9rem] bg-card"
+                />
+              </label>
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full bg-card"
+                onClick={() => { const today = getTodayDateString(); setDateFrom(today); setDateTo(today); }}
+              >
+                Csak ma
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full bg-card"
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                disabled={!dateFrom && !dateTo}
+              >
+                Dátumok törlése
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {dateFrom && dateTo && dateFrom === dateTo
+                  ? 'Egyetlen napra szűrsz.'
+                  : dateFrom && dateTo
+                    ? 'A két dátum közötti programok, mindkettőt beleértve.'
+                    : dateFrom
+                      ? 'Ettől a naptól kezdve minden program.'
+                      : dateTo
+                        ? 'Mától eddig a napig.'
+                        : 'Add meg a kezdő és/vagy a záró napot.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Location. The distance slider below needs a saved profile location
+            and a geocoded address; this one only needs a town name, so it also
+            works for someone who has neither. */}
+        <div className="mb-5 rounded-[1.2rem] border border-primary/10 bg-secondary/40 p-4">
+          <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Helyszín</p>
+            {cityFilter && (
+              <button
+                type="button"
+                className="text-xs font-semibold text-primary hover:underline"
+                onClick={() => setCityFilter('')}
+              >
+                Helyszínszűrő törlése
+              </button>
+            )}
+          </div>
+          <div className="relative mb-3">
+            <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              value={cityFilter}
+              onChange={(event) => setCityFilter(event.target.value)}
+              placeholder="Város vagy kerület — pl. Debrecen, XIII."
+              aria-label="Helyszín szerinti szűrés"
+              className="h-11 rounded-[0.9rem] bg-card pl-10"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cityOptions.slice(0, 8).map((entry) => (
+              <Button
+                key={entry.city}
+                size="sm"
+                variant={cityFilter === entry.city ? 'default' : 'outline'}
+                aria-pressed={cityFilter === entry.city}
+                className={`rounded-full ${cityFilter === entry.city ? 'border-0 bg-accent text-accent-foreground' : 'bg-card'}`}
+                onClick={() => setCityFilter(cityFilter === entry.city ? '' : entry.city)}
+              >
+                {entry.city}<span className="ml-1.5 text-xs opacity-70">{entry.events}</span>
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="mb-5 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
