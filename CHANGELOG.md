@@ -10,6 +10,15 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ## [Unreleased]
 
+### Tervezés
+- `docs/Hobbeast_Nehezen_Elerheto_Csoportok_Terv.md` — terv az otthon lévő szülőkre és a
+  nyugdíjasokra. Fő megállapítás: a „hogyan érzed magad egyedül érkezve" adatmodell
+  (`profiles.solo_arrival_comfort`, `preferred_group_size`, `accessibility_needs`) már
+  létezik, a `FirstEventConfidenceCard` fel is teszi a kérdéseket — de a Profil oldal
+  aljára van temetve, és semmi nem olvassa vissza, ezért mindhárom oszlop üres. A terv
+  ezen kívül kimondja, hogy 4 valódi profilnál a „menjünk együtt" hidegindítási
+  problémája a legnagyobb kockázat, és horgonyprogramokkal kell kezdeni, nem szűrőkkel.
+
 ---
 
 ## [1.29.0] — 2026-08-26
