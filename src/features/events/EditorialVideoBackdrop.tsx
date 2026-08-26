@@ -67,7 +67,14 @@ export function EditorialVideoBackdrop({ category, seed, className }: EditorialV
 
   useEffect(() => {
     const node = containerRef.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return undefined;
+    if (!node) return undefined;
+    // Without an observer there is no way to know when the card is on screen;
+    // showing the clip is the better default, and the poster still covers the
+    // moment before it loads.
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return undefined;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
       { rootMargin: '200px' },

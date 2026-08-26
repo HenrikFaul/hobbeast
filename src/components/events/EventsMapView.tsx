@@ -459,7 +459,8 @@ export function EventsMapView() {
           </div>
         )}
         <p className="absolute bottom-3 right-4 z-[500] rounded-full bg-card/90 px-3 py-1 text-[11px] text-muted-foreground shadow backdrop-blur">
-          {zoom >= CITY_ZOOM_THRESHOLD || county ? 'Városok' : 'Megyék'} · nagyíts a részletekért
+          {level === 'venue' ? 'Helyszínek' : level === 'city' ? 'Városok és kerületek' : 'Megyék'}
+          {level === 'venue' ? ' · kattints egy tűre' : ' · nagyíts a részletekért'}
         </p>
       </div>
     </div>
