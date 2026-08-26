@@ -465,3 +465,55 @@ csomagolja; kézi másolásnál minden telepítés ~50 kB átgépelése, elgépe
 kockázattal. A CLI ugyanazt a repóban lévő fájlt tölti fel.
 
 *Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🔗 Külsős programra tett kiterjesztés SOHA nem lehet külön esemény (2026-08-26)
+
+**Probléma:** ha egy külső programhoz "menjünk együtt" funkciót csinálunk, a
+kézenfekvő megoldás egy `events` sor létrehozása lenne. Ez azonnal duplikációt
+okoz: ugyanaz a program kétszer szerepel a katalógusban, két külön dátummal,
+két külön helyszínnel, és a két példány elkezd elsodródni egymástól.
+
+**Szabály:** a közös látogatás CSAK kiterjesztés. Két kicsi tábla
+(`external_event_companion_plans`, `external_event_companion_members`) hivatkozik
+az `external_events` sorra; a `events` táblába SEMMI nem íródik.
+
+**A duplikáció ellen az adatbázis véd, nem a UI:**
+
+```sql
+CREATE UNIQUE INDEX external_event_companion_plans_one_open
+  ON public.external_event_companion_plans (external_event_id)
+  WHERE status = 'open';
+```
+
+Egy programhoz egyetlen nyitott terv tartozhat. Aki másodikként érkezik, nem
+tud rivális tervet indítani — a meglévőhöz csatlakozik. A létrehozó RPC
+`ON CONFLICT ... WHERE status = 'open' DO NOTHING`-gal idempotens, így két
+egyidejű "igen" sem hoz létre két tervet.
+
+**A listákban jelölni kell:** a program külsős marad (forrásbadge, eredeti
+link, jegyvásárlás a szervezőnél), csak egy `Közös látogatás · N fő` címke
+kerül rá.
+
+**Ellenőrzés:** `src/features/__tests__/companionVisibility.test.ts`,
+`src/components/events/ExternalEventCompanionCard.test.tsx`,
+`src/lib/__tests__/externalCompanionPlan.test.ts`.
+
+*Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🚪 `/events/:id` nem csak a saját eseményeket jelenti (2026-08-26)
+
+**Hiba:** a térkép kártyái `/events/<external_events.id>`-re linkeltek, de az
+`EventDetail` csak a `events` táblát nézte (illetve `eb-`/`ext-` előtagú
+id-knál a sessionStorage-ot). Eredmény: "Az esemény nem található" minden
+térképes kattintásra — és minden megosztott vagy könyvjelzőzött linkre is.
+
+**Szabály:** ha egy id nem található a saját táblában, MIELŐTT hibát írnánk ki,
+meg kell nézni a külsős táblát is (`get_external_event_safe`), ugyanazzal a
+láthatósági kapuval, amit a lista használ. A sessionStorage-alapú átadás
+kényelmi gyorsítás lehet, de sosem lehet az egyetlen út egy oldalhoz.
+
+*Utoljára frissítve: 2026-08-26*

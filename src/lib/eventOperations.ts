@@ -165,6 +165,127 @@ export async function setExternalEventSocialIntent(input: {
   return row && typeof row === 'object' ? row as Record<string, unknown> : null;
 }
 
+/**
+ * A companion plan is an extension of an external program, not a second event.
+ * It never writes to `events`; it hangs a host, a meeting point and a handful
+ * of joiners off the external program that already exists.
+ */
+export interface ExternalEventCompanionPlan {
+  id: string;
+  hostName: string;
+  isHost: boolean;
+  meetingPoint: string | null;
+  meetTime: string | null;
+  note: string | null;
+  maxCompanions: number | null;
+  companionCount: number;
+  spotsLeft: number | null;
+  iJoined: boolean;
+  createdAt: string | null;
+}
+
+export interface ExternalEventCompanionState {
+  featureEnabled: boolean;
+  available: boolean;
+  plan: ExternalEventCompanionPlan | null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function normalizeCompanionState(data: unknown): ExternalEventCompanionState {
+  const payload = data && typeof data === 'object' && !Array.isArray(data)
+    ? data as Record<string, unknown>
+    : {};
+  const raw = payload.plan && typeof payload.plan === 'object' && !Array.isArray(payload.plan)
+    ? payload.plan as Record<string, unknown>
+    : null;
+  return {
+    featureEnabled: payload.feature_enabled === true,
+    available: payload.available === true,
+    plan: raw && typeof raw.id === 'string'
+      ? {
+        id: raw.id,
+        hostName: asText(raw.host_name) || 'Hobbeast tag',
+        isHost: raw.is_host === true,
+        meetingPoint: asText(raw.meeting_point),
+        meetTime: asText(raw.meet_time),
+        note: asText(raw.note),
+        maxCompanions: typeof raw.max_companions === 'number' ? raw.max_companions : null,
+        companionCount: Math.max(0, Number(raw.companion_count) || 0),
+        spotsLeft: typeof raw.spots_left === 'number' ? raw.spots_left : null,
+        iJoined: raw.i_joined === true,
+        createdAt: asText(raw.created_at),
+      }
+      : null,
+  };
+}
+
+function companionError(error: { message?: string } | null, fallback: string): Error {
+  const message = error?.message || '';
+  for (const code of [
+    'AUTH_REQUIRED',
+    'FEATURE_DISABLED',
+    'EXTERNAL_EVENT_NOT_AVAILABLE',
+    'COMPANION_PLAN_NOT_FOUND',
+    'COMPANION_PLAN_FULL',
+    'USER_SUSPENDED',
+  ]) {
+    if (message.includes(code)) return new Error(code);
+  }
+  return new Error(fallback);
+}
+
+/** One external program, resolved by its id through the public-availability gate. */
+export async function getSafeExternalEvent(externalEventId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await eventRpcClient.rpc('get_external_event_safe', {
+    p_external_event_id: externalEventId,
+  });
+  if (error) throw new Error('EXTERNAL_EVENT_LOAD_FAILED');
+  return data && typeof data === 'object' && !Array.isArray(data)
+    ? data as Record<string, unknown>
+    : null;
+}
+
+export async function getExternalEventCompanionPlan(externalEventId: string): Promise<ExternalEventCompanionState> {
+  const { data, error } = await eventRpcClient.rpc('get_external_event_companion_plan', {
+    p_external_event_id: externalEventId,
+  });
+  if (error) throw new Error('COMPANION_PLAN_LOAD_FAILED');
+  return normalizeCompanionState(data);
+}
+
+export async function createExternalEventCompanionPlan(input: {
+  externalEventId: string;
+  meetingPoint?: string | null;
+  meetTime?: string | null;
+  note?: string | null;
+  maxCompanions?: number | null;
+}): Promise<ExternalEventCompanionState> {
+  const { data, error } = await eventRpcClient.rpc('create_external_event_companion_plan', {
+    p_external_event_id: input.externalEventId,
+    p_meeting_point: input.meetingPoint ?? null,
+    p_meet_time: input.meetTime ?? null,
+    p_note: input.note ?? null,
+    p_max_companions: input.maxCompanions ?? null,
+  });
+  if (error) throw companionError(error, 'COMPANION_PLAN_CREATE_FAILED');
+  return normalizeCompanionState(data);
+}
+
+export async function setExternalEventCompanionMembership(input: {
+  planId: string;
+  active: boolean;
+}): Promise<ExternalEventCompanionState> {
+  const { data, error } = await eventRpcClient.rpc('set_external_event_companion_membership', {
+    p_plan_id: input.planId,
+    p_active: input.active,
+  });
+  if (error) throw companionError(error, 'COMPANION_MEMBERSHIP_FAILED');
+  return normalizeCompanionState(data);
+}
+
 async function invokeEventOperation<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('event-operations', { body });
   if (error) {

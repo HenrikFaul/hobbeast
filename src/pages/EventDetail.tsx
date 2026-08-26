@@ -18,7 +18,10 @@ import { SafetyActions } from '@/components/safety/SafetyActions';
 import { trackProductEvent } from '@/lib/productAnalyticsClient';
 import { trackOutboundClick } from '@/lib/outboundTracking';
 import { EventSafetyPanel, type EventSafetySummary } from '@/components/safety/EventSafetyPanel';
-import { cancelEventParticipation, getSafeEventDetail, joinEventAtomic } from '@/lib/eventOperations';
+import { cancelEventParticipation, getSafeEventDetail, getSafeExternalEvent, joinEventAtomic } from '@/lib/eventOperations';
+import { ExternalEventCompanionCard } from '@/components/events/ExternalEventCompanionCard';
+import { categoryEmoji, providerLabel } from '@/lib/external-events/normalize';
+import type { ExternalEventNormalized } from '@/lib/external-events/types';
 import { EventExpectationPanel } from '@/components/events/EventExpectationPanel';
 import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard';
 import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
@@ -108,6 +111,38 @@ const SAMPLE_EVENTS = [
   { id: 'sample-5', title: 'Akusztikus jam session', category: 'Zene', event_date: '2026-03-22', event_time: '19:30', location_city: 'Wien', location_district: null, location_address: 'Café Prückel', location_free_text: null, location_type: 'address', max_attendees: 15, image_emoji: '🎸', tags: ['Gitár', 'Jam'], description: 'Akusztikus zenélés egy hangulatos bécsi kávézóban. Hozd a hangszered!', created_by: '', participant_count: 6 },
   { id: 'sample-6', title: 'Street Food & Cooking Challenge', category: 'Gasztronómia', event_date: '2026-03-23', event_time: '11:00', location_city: 'Budapest', location_district: null, location_address: 'Bálna', location_free_text: null, location_type: 'address', max_attendees: 30, image_emoji: '👨‍🍳', tags: ['Főzés', 'Verseny'], description: 'Street food stílusú főzőverseny a Bálnában! Csapatban vagy egyénileg, díjak a nyerteseknek.', created_by: '', participant_count: 18 },
 ];
+
+/**
+ * An external program rendered on the same page as a Hobbeast event. It stays
+ * an external program — nothing is copied into `events` — this only reshapes
+ * the row so the existing layout can display it.
+ */
+function externalEventToDetail(row: Record<string, unknown>, externalEventId: string): EventData {
+  const text = (key: string) => (typeof row[key] === 'string' && row[key] ? row[key] as string : null);
+  const number = (key: string) => (typeof row[key] === 'number' ? row[key] as number : null);
+  return {
+    id: externalEventId,
+    title: text('title') || 'Program',
+    category: text('subcategory') || text('category') || 'Külső program',
+    event_date: text('event_date'),
+    event_time: text('event_time'),
+    location_city: text('location_city'),
+    location_district: null,
+    location_address: text('location_address'),
+    location_free_text: text('location_free_text'),
+    location_type: text('location_type'),
+    max_attendees: number('max_attendees'),
+    image_emoji: categoryEmoji(text('category')),
+    tags: Array.isArray(row.tags) ? (row.tags as unknown[]).filter((tag): tag is string => typeof tag === 'string') : null,
+    description: text('description'),
+    created_by: '',
+    location_lat: number('location_lat'),
+    location_lon: number('location_lon'),
+    external_event_id: externalEventId,
+    _location_precision: 'full',
+    _exact_location_visible: true,
+  };
+}
 
 function getEventVisualTone(category: string) {
   const normalized = category.toLocaleLowerCase('hu-HU');
@@ -199,6 +234,28 @@ const EventDetail = () => {
         console.error('Failed to load safe event detail', error);
         return null;
       }) as EventData | null;
+
+      // Not one of our own events? Then the id may belong to an external
+      // program. Its map card and any shared link point straight at it, and
+      // before this fallback existed both ended on "nem található".
+      if (!data) {
+        const external = await getSafeExternalEvent(id).catch((error) => {
+          console.error('Failed to load external program', error);
+          return null;
+        });
+        if (external) {
+          setEvent(externalEventToDetail(external, id));
+          setIsExternal(true);
+          setExternalUrl(typeof external.external_url === 'string' ? external.external_url : null);
+          setExternalSource(providerLabel(
+            String(external.external_source || '') as ExternalEventNormalized['external_source'],
+          ));
+          setParticipantCount(0);
+        }
+        setLoading(false);
+        return;
+      }
+
       if (data) {
         setEvent(data);
         const { data: hostProfile } = await supabase
@@ -362,10 +419,15 @@ const EventDetail = () => {
         <div className="container mx-auto max-w-xl rounded-[2rem] border border-border/70 bg-card/90 px-6 py-16 text-center shadow-xl shadow-primary/[0.05]">
           <span aria-hidden="true" className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-secondary text-2xl">🗓️</span>
           <h1 className="font-display text-2xl font-semibold">Az esemény nem található</h1>
-          <p className="mx-auto mb-6 mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Lehet, hogy az eseményt törölték, vagy a hivatkozás már nem érvényes.</p>
-          <Button variant="outline" className="rounded-full" onClick={() => navigate('/events')}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Vissza az eseményekhez
-          </Button>
+          <p className="mx-auto mb-6 mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Lehet, hogy a programot időközben levették, vagy a hivatkozás már nem érvényes.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" className="rounded-full" onClick={() => navigate('/events')}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Vissza az eseményekhez
+            </Button>
+            <Button variant="ghost" className="rounded-full" onClick={() => navigate('/events/map')}>
+              <MapPin className="h-4 w-4 mr-2" /> Térképes nézet
+            </Button>
+          </div>
         </div>
       </main>
     );
@@ -593,6 +655,21 @@ const EventDetail = () => {
               }}
             />
           </div>
+
+          {isExternal && event.external_event_id && (
+            <ExternalEventCompanionCard
+              externalEventId={event.external_event_id}
+              eventTitle={event.title}
+              eventDate={event.event_date}
+              eventTime={event.event_time}
+              venueHint={event.place_name || event.location_address || event.location_free_text || event.location_city}
+              sourceLabel={externalSource}
+              authenticated={Boolean(user)}
+              onRequestSignIn={() => navigate(`/auth?redirect=/events/${id}`)}
+              autoPrompt
+              onDecline={() => navigate('/events/map')}
+            />
+          )}
 
           {isExternal && event.external_event_id && (
             <ExternalEventSocialIntentCard

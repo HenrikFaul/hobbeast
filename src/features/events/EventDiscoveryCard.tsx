@@ -155,6 +155,15 @@ export function EventDiscoveryCard({
           {statusBadge && (
             <Badge variant="outline" className={`rounded-full text-xs ${statusBadge.className}`}>{statusBadge.label}</Badge>
           )}
+          {typeof event.companion_count === 'number' && event.companion_count > 0 && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/30 bg-primary/10 text-xs text-primary"
+              title="Külső program, amelyre hobbeastos tagok közösen szerveződtek"
+            >
+              Közös látogatás · {event.companion_count} fő
+            </Badge>
+          )}
           {event.freshness_state === 'stale' && (
             <Badge variant="outline" className="rounded-full border-amber-300 bg-amber-50 text-xs text-amber-800">Régebben ellenőrzött külső adat</Badge>
           )}

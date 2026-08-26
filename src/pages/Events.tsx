@@ -50,6 +50,7 @@ import {
   getTodayDateString,
   haversineDistanceKm,
   isExternal,
+  hasCompanionPlan,
   isUpcomingEventDate,
   normalizeText,
   type CapacityFilter,
@@ -270,6 +271,7 @@ const Events = () => {
         freshness_state: e.freshness_state || 'unknown',
         import_state: e.import_state || 'active',
         canonical_identity: e.canonical_fingerprint || undefined,
+        companion_count: e.companion_count ?? 0,
       }));
       setExternalDbEvents((current) => append
         ? [...new Map([...current, ...mapped].map((event) => [event.id, event])).values()]
@@ -529,7 +531,9 @@ const Events = () => {
         'default';
 
       const textMatches = ev.title.toLowerCase().includes(search.toLowerCase()) || (ev.tags || []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
-      const matchSource = sourceFilter === 'all' || (sourceFilter === 'hobbeast' && !isExternal(ev)) || (sourceFilter === 'external' && isExternal(ev));
+      const matchSource = sourceFilter === 'all'
+        || (sourceFilter === 'hobbeast' && (!isExternal(ev) || hasCompanionPlan(ev)))
+        || (sourceFilter === 'external' && isExternal(ev));
       const matchDistance = !distanceFilterEnabled || distanceFilteredIds === null || distanceFilteredIds.has(ev.id);
       const eventDate = ev.event_date ? new Date(`${ev.event_date}T00:00:00`) : null;
       const matchDate = dateFilter === 'all'

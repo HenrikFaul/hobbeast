@@ -78,9 +78,13 @@ export function ExternalEventSocialIntentCard({
             <Users className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="external-social-title" className="font-semibold">Menjünk együtt?</h2>
+            {/* Deliberately not "menjünk együtt": that is the companion plan
+                above. This is the lighter signal for people who do not want to
+                organise anything, only to be counted. */}
+            <h2 id="external-social-title" className="font-semibold">Csak jeleznéd, hogy érdekel?</h2>
             <p className="text-sm text-muted-foreground">
-              Ez továbbra is külső program: a Hobbeast nem válik szervezővé, csak privacy-safe érdeklődést gyűjt.
+              Szervezés nélkül is jelezheted az érdeklődésed. Ez továbbra is külső program:
+              a Hobbeast nem válik szervezővé, csak névtelen, összesített érdeklődést gyűjt.
             </p>
           </div>
         </div>

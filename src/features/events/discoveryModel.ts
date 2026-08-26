@@ -42,6 +42,11 @@ export interface EventData {
   /** Present on aggregated programs; the normalizer already supplies these. */
   price_min?: number | null;
   is_free?: boolean | null;
+  /**
+   * How many members already plan to visit this external program together.
+   * A companion plan is an extension of the program, not a second event.
+   */
+  companion_count?: number | null;
 }
 
 export interface ExternalSupplyRow {
@@ -68,6 +73,7 @@ export interface ExternalSupplyRow {
   freshness_state: EventData['freshness_state'];
   import_state: EventData['import_state'];
   canonical_fingerprint: string | null;
+  companion_count?: number | null;
 }
 
 export interface ProfileLocation {
@@ -90,6 +96,16 @@ const geocodeCache = new Map<string, LatLng | null>();
 
 export function isExternal(event: EventData) {
   return event.source !== undefined && event.source !== 'hobbeast';
+}
+
+/**
+ * A companion plan makes an external program part of what Hobbeast members are
+ * doing, without ever copying it into `events`. The card stays the external
+ * one — it only carries a joint visit — so it belongs under the "Hobbeast"
+ * filter too, clearly labelled as an extension rather than an event of ours.
+ */
+export function hasCompanionPlan(event: EventData) {
+  return typeof event.companion_count === 'number' && event.companion_count > 0;
 }
 
 export function safeExternalUrl(value: string | null | undefined) {

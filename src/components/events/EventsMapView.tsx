@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, CalendarDays, ExternalLink, Loader2, MapPin, Ticket, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ExternalLink, Loader2, MapPin, Ticket, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +56,8 @@ interface MapEvent {
   organizer_name: string | null;
   lat: number;
   lon: number;
+  /** How many Hobbeast members already plan to go together. 0 = no plan yet. */
+  companion_count?: number | null;
 }
 
 /** Hungary, with a little breathing room. */
@@ -430,8 +432,14 @@ export function EventsMapView() {
                             </span>
                           )}
                         </p>
-                        <div className="mt-1.5 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           {event.category && <Badge variant="outline" className="text-[10px]">{event.category}</Badge>}
+                          {typeof event.companion_count === 'number' && event.companion_count > 0 && (
+                            <Badge className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">
+                              <Users className="mr-1 h-2.5 w-2.5" aria-hidden="true" />
+                              {event.companion_count} megy együtt
+                            </Badge>
+                          )}
                           {event.external_url && (
                             <a
                               href={event.external_url}
