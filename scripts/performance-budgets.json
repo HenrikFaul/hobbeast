@@ -5,9 +5,10 @@
     {
       "id": "landing-main-js",
       "pattern": "^index-[A-Za-z0-9_-]+\\.js$",
-      "maxRawBytes": 163840,
-      "maxGzipBytes": 51200,
-      "required": true
+      "maxRawBytes": 167936,
+      "maxGzipBytes": 52224,
+      "required": true,
+      "note": "Re-baselined in v1.30.0. The app shell carries one lazy() entry per route, so a new top-level section (/klubok and /klubok/:slug) grows it by design; the ceiling had 234 bytes of headroom and the two routes needed 254. Raised by 4 KiB raw / 1 KiB gzip, which leaves room for roughly one more section before this has to be looked at properly rather than nudged again. The pages themselves are separate chunks."
     },
     {
       "id": "global-css",

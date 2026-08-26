@@ -563,3 +563,47 @@ admin paneleknél a v1.26.0-ban.
 nehéz komponenst, és csak akkor nyúlj a küszöbhöz, ha nincs ilyen.
 
 *Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🏛️ Klub ≠ hub ≠ kör: mielőtt új entitást csinálsz, nézd meg a meglévőket (2026-08-26)
+
+**Kérdés volt:** kell-e külön `clubs` tábla, amikor van `virtual_hubs`,
+`social_circles`, `venues` és `external_event_feed_sources`?
+
+**Válasz:** igen, mert egyik sem ugyanaz:
+- `virtual_hubs` — automatikusan generált online hobbi-hub, kvalifikációs
+  pontszámmal; nincs címe és nincs edzésideje
+- `social_circles` — kis, privát kör olyanoknak, akik már ismerik egymást
+- `clubs` — valódi szervezet címmel, edzésrenddel, nyitott ajtóval, ami akkor
+  is létezik, ha a Hobbeast nem
+
+**A döntő szabály:** a „csatlakozás" nem tagfelvétel. A Hobbeast nem tud
+felvenni senkit egy egyesületbe — csak jelezni tudja az érdeklődést. Ezt a
+felületen KI KELL MONDANI, nem elég technikailag helyesen megcsinálni.
+Ugyanez a szabály, mint a v1.28.0 közös látogatásainál.
+
+**Katalógusból származó sor gazdátlan.** Egy nyilvános klubkeresőből átvett
+adat tény a világról, nem a klub állítása: `owner_id IS NULL`, és az oldal ki is
+írja, hogy „a klub még nem vette át”. Az ingest csak hiányt tölt ki
+(`COALESCE(mező, új_érték)`), kézzel gondozott adatot soha nem ír felül.
+
+*Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🔗 Külső katalógus linkjei: normalizálni kell, mielőtt megkötésbe ütközik (2026-08-26)
+
+**Hiba:** a `clubs_facebook_shape` CHECK megköveteli a `^https?://` kezdetet. A
+klubkereső viszont írt `www.facebook.com/CowbellsFootball` alakot is, és az első
+ilyen sor egy 200 elemű köteg egészét megölte (a plpgsql loopban a
+constraint-hiba az egész függvényt visszagörgeti).
+
+**Szabály:** külső forrásból jövő URL-t KÉT helyen kell kezelni:
+1. a gyűjtőben normalizálni (`new URL()`-lel, séma pótlásával) — a puszta
+   hostból használható link lesz, a `mailto:`/`#` pedig kiesik
+2. az ingest függvényben újra szűrni — mert az nem bízhat a hívójában
+
+A megkötést NEM lazítjuk: a féllábú URL az adatbázisban rosszabb, mint a hiánya.
+
+*Utoljára frissítve: 2026-08-26*

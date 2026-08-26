@@ -12,6 +12,7 @@ const navLinks = [
   { to: "/", label: "Főoldal" },
   { to: "/events", label: "Események" },
   { to: "/explore", label: "Hobbik" },
+  { to: "/klubok", label: "Klubok" },
   { to: "/community", label: "Közösség" },
   { to: "/about", label: "Rólunk" },
 ];

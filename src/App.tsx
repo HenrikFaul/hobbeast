@@ -17,6 +17,8 @@ import Index from "./pages/Index";
 const Explore = lazy(() => import("./pages/Explore"));
 const Events = lazy(() => import("./pages/Events"));
 const EventsMap = lazy(() => import("@/pages/EventsMap"));
+const Clubs = lazy(() => import("@/pages/Clubs"));
+const ClubDetail = lazy(() => import("@/pages/ClubDetail"));
 const About = lazy(() => import("./pages/About"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -87,6 +89,8 @@ const App = () => (
                         <Route path="/events" element={<Events />} />
                         <Route path="/events/map" element={<EventsMap />} />
                         <Route path="/events/:id" element={<EventDetail />} />
+                        <Route path="/klubok" element={<Clubs />} />
+                        <Route path="/klubok/:slug" element={<ClubDetail />} />
                         <Route path="/events/:id/organize" element={<OrganizeEventRedirect />} />
                         <Route path="/about" element={<About />} />
                         <Route path="/profile" element={<Profile />} />

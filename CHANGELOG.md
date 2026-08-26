@@ -10,14 +10,50 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ## [Unreleased]
 
-### Tervezés
-- `docs/Hobbeast_Nehezen_Elerheto_Csoportok_Terv.md` — terv az otthon lévő szülőkre és a
-  nyugdíjasokra. Fő megállapítás: a „hogyan érzed magad egyedül érkezve" adatmodell
-  (`profiles.solo_arrival_comfort`, `preferred_group_size`, `accessibility_needs`) már
-  létezik, a `FirstEventConfidenceCard` fel is teszi a kérdéseket — de a Profil oldal
-  aljára van temetve, és semmi nem olvassa vissza, ezért mindhárom oszlop üres. A terv
-  ezen kívül kimondja, hogy 4 valódi profilnál a „menjünk együtt" hidegindítási
-  problémája a legnagyobb kockázat, és horgonyprogramokkal kell kezdeni, nem szűrőkkel.
+---
+
+## [1.30.0] — 2026-08-26
+
+**Klubok: a hely, ahol hétről hétre ugyanazok várnak.**
+
+### Új entitás
+Karateklub, evezős egyesület, túraszakosztály. Nem `virtual_hub` (az
+automatikusan generált online hobbi-hub) és nem `social_circle` (kis, privát
+kör): a klub valódi szervezet címmel, edzésidőkkel és nyitott ajtóval — akkor
+is létezik, ha a Hobbeast nem.
+
+Épp ezért a „csatlakozás" itt **nem tagfelvétel**. A Hobbeast nem tud
+felvenni senkit a Budapest Evezős Egyesületbe; azt csak a klub teheti. Amit
+tud: elviszi hozzájuk az érdeklődést, és megmutatja az utat befelé. Ugyanaz az
+őszinteségi szabály, mint a v1.28.0 közös látogatásainál — sosem adjuk ki
+magunkat annak, amire hivatkozunk.
+
+- **`clubs` + `club_members`**, RLS-sel; minden olvasás SECURITY DEFINER
+  függvényen át megy, közvetlenül csak a sajátját látja bárki.
+- Három út befelé: a klub **maga regisztrál** (elbírálásra vár), az **admin
+  veszi fel**, vagy a **katalógusgyűjtés** tölti be egy nyilvános
+  klubkeresőből.
+- Publikus felület: `/klubok` (sportág- és városszűrővel), `/klubok/:slug`.
+- **Admin fül**: elbírálási sor, kézi felvétel és szerkesztés, jelentkezők
+  listája — `providers.manage` jogosultsághoz kötve.
+
+### 2698 valódi magyar klub
+A `scripts/harvest-sport-clubs.mjs` a Nagy Sportágválasztó nyilvános,
+sportágankénti klubkeresőjét olvassa: **2698 egyedi klub, 51 sportág, 543
+település**, 1596 honlappal és 1582 Facebook-oldallal. Havonta újrafut, hogy a
+lista ne rohadjon meg.
+
+Egy katalógussor tény a világról, nem a klub állítása: **gazdátlanul** kerül ki,
+és az is marad, amíg valaki a klubtól át nem veszi. Az `ingest_directory_clubs`
+csak hiányt tölt ki, kézzel gondozott adatot soha nem ír felül.
+
+### Fixed
+- Egy séma nélküli hivatkozás (`www.facebook.com/…`) a URL-ellenőrzésen elbukva
+  megölt egy 200 klubos köteget. A megkötés jó; a javítás mindkét oldalán:
+  a gyűjtő használható linket csinál a puszta hostból, az ingest pedig újra
+  szűr, mert nem bízik a bemenetében.
+- Az `events` route budget re-baseline-ja: az app-shell route-onként egy
+  `lazy()` bejegyzést visz, így egy új főszekció szükségszerűen növeli.
 
 ---
 
