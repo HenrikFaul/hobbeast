@@ -8,7 +8,17 @@ const allMigrationNames = readdirSync(migrationRoot)
   .filter((name) => /^\d{14}.*\.sql$/i.test(name))
   .sort();
 const migrationNames = allMigrationNames
-  .filter((name) => /^202608(?:22|25)\d+.*\.sql$/i.test(name));
+  .filter((name) => /^202608(?:22|25|26)\d+.*\.sql$/i.test(name));
+
+const SAFE_SEARCH_PATH =
+  /SET\s+search_path\s*(?:=|TO)\s*'?(?:pg_catalog'?\s*,\s*'?)?public'?(?:\s*,\s*'?pg_temp'?)?/i;
+
+// A REVOKE stays in force until something grants the privilege back, so it
+// counts wherever it was written — not only inside the file that happens to
+// hold the newest CREATE OR REPLACE of the function.
+const allMigrationSql = allMigrationNames
+  .map((name) => readFileSync(resolve(migrationRoot, name), 'utf8'))
+  .join('\n');
 
 const failures = [];
 let audited = 0;
@@ -24,7 +34,10 @@ for (const migrationName of migrationNames) {
     if (!/SECURITY\s+DEFINER/i.test(segment)) continue;
     audited += 1;
 
-    if (!/SET\s+search_path\s*=\s*(?:pg_catalog\s*,\s*)?public(?:\s*,\s*pg_temp)?/i.test(segment)) {
+    // Both spellings are safe and both are used in this repo:
+    //   SET search_path = public
+    //   SET search_path TO 'pg_catalog', 'public'
+    if (!SAFE_SEARCH_PATH.test(segment)) {
       failures.push(`${migrationName}: ${functionName} has no explicit safe search_path`);
     }
 
@@ -33,7 +46,7 @@ for (const migrationName of migrationNames) {
       `REVOKE\\s+(?:ALL|EXECUTE)[^;]*ON\\s+FUNCTION\\s+public\\.${unqualified}\\s*\\(`,
       'i',
     );
-    if (!revokePattern.test(sql)) {
+    if (!revokePattern.test(allMigrationSql)) {
       failures.push(`${migrationName}: ${functionName} is not explicitly revoked from PUBLIC`);
     }
   }
