@@ -443,3 +443,25 @@ Használj `chr(92)`-t a Python payloadban, vagy a Write eszközt.
 
 *Utoljára frissítve: 2026-04-01 — összevont közös tudásbázis*
 *Ez egy FOLYAMATOSAN BŐVÜLŐ fájl. Új hibákat MINDIG appendelj, SOHA ne törölj!*
+
+---
+
+## 🚀 Edge Function telepítés: a CLI be van jelentkezve (2026-08-26)
+
+**Tény:** a Supabase CLI ezen a gépen hitelesített (a token a Windows
+Credential Managerben van, nem fájlban és nem környezeti változóban — ezért
+`SUPABASE_ACCESS_TOKEN` üresnek látszik, a `supabase projects list` mégis megy).
+
+**Ebből következik:** edge function telepítéshez NEM kell a fájl tartalmát
+kézzel átmásolni semmilyen API-hívásba. A helyes parancs:
+
+```
+node scripts/sync-edge-recipes.mjs --check
+npx --no-install supabase functions deploy source-manager --project-ref bqdvqmpwccsxumzijspj
+```
+
+**Miért fontos:** a source-manager a receptmotor szó szerinti másolatát
+csomagolja; kézi másolásnál minden telepítés ~50 kB átgépelése, elgépelési
+kockázattal. A CLI ugyanazt a repóban lévő fájlt tölti fel.
+
+*Utoljára frissítve: 2026-08-26*

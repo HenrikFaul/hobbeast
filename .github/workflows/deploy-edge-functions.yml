@@ -5,11 +5,12 @@ name: Deploy Edge Functions
 # way. That promise only holds if the deployed copy tracks the repository —
 # deploying it by hand is how the two drift apart.
 #
-# Requires two repository secrets:
-#   SUPABASE_ACCESS_TOKEN  — a personal access token from the Supabase dashboard
-#   SUPABASE_PROJECT_ID    — the project ref (bqdvqmpwccsxumzijspj)
-# Without them the job explains what is missing and stops, rather than failing
-# in a way that looks like a broken build.
+# Needs one repository secret: SUPABASE_ACCESS_TOKEN, a personal access token
+# from the Supabase dashboard. The project ref is not a secret — it is read from
+# supabase/config.toml, the same file the CLI uses locally.
+#
+# Without the token the job says so and stops, rather than failing in a way that
+# looks like a broken build.
 
 on:
   push:
@@ -38,15 +39,24 @@ jobs:
       - name: Check the recipe copy is in sync before shipping it
         run: node scripts/sync-edge-recipes.mjs --check
 
+      - name: Read the project ref
+        id: project
+        run: |
+          REF=$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)
+          if [ -z "$REF" ]; then
+            echo "::error::project_id is missing from supabase/config.toml"
+            exit 1
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
       - name: Check credentials
         id: creds
         env:
           TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROJECT: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          if [ -z "$TOKEN" ] || [ -z "$PROJECT" ]; then
+          if [ -z "$TOKEN" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SUPABASE_ACCESS_TOKEN / SUPABASE_PROJECT_ID are not set — skipping the deploy."
+            echo "::warning::SUPABASE_ACCESS_TOKEN is not set — skipping the deploy. Add it under Settings > Secrets and variables > Actions."
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
@@ -58,4 +68,4 @@ jobs:
         run: |
           npx --yes supabase@latest functions deploy \
             "${{ github.event.inputs.function || 'source-manager' }}" \
-            --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+            --project-ref "${{ steps.project.outputs.ref }}"
