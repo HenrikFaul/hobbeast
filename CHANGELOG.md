@@ -91,9 +91,31 @@ an emoji says nothing about what the evening will be like.
   gets the poster frame. The clip is chosen by a stable hash of the program id,
   so a card never reshuffles its backdrop.
 
+### Also in this release
+- **Admin bundle**: every panel is lazy-loaded per tab, so the Admin route chunk
+  fell from 251 KB to 10 KB. It had been over its budget before this change.
+- **`global-css` raw ceiling** 131072 → 135168: the old limit left 52 bytes of
+  headroom, so any new component broke it. Gzip stays put and remains the
+  binding constraint.
+- **Security-definer audit unbroken.** It had failed on every push since before
+  this release: it matched only `SET search_path = public`, while every
+  migration here writes `SET search_path TO 'pg_catalog', 'public'` — so three
+  correctly-hardened functions were reported as unhardened with no way to fix
+  them without rewriting append-only history. Both spellings now count, a
+  REVOKE counts wherever it was written, and 2026-08-26 migrations are audited
+  too. With the false positives gone it found a real one:
+  `list_scraper_targets_by_ids` was executable by PUBLIC (migration
+  `20260826130000`). No data leaked — the body returns nothing unless the caller
+  is the service role.
+
 ### Fixed
 - Programgyűjtő titles no longer carry inline markup (`<wbr />`) into the card.
 - The map list shows a thumbnail for every program, not only those with a photo.
+- **The map route crashed** on a constant that survived the zoom-level refactor.
+  `npm run typecheck` reported success because the root tsconfig it uses has
+  `files: []` and project references — it never checks `src`. `/events/map` now
+  has a Playwright boot test next to the landing page's, failing on any page
+  error or on the error boundary appearing.
 
 ---
 
