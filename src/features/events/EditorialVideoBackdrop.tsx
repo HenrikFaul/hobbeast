@@ -86,8 +86,19 @@ export function EditorialVideoBackdrop({ category, seed, className }: EditorialV
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (inView) void video.play().catch(() => undefined);
-    else video.pause();
+    // jsdom throws on play()/pause() outright, and a browser can reject the
+    // promise on its autoplay policy. A decorative backdrop must never take the
+    // card down with it either way.
+    try {
+      if (inView) {
+        const started = video.play();
+        if (started && typeof started.catch === 'function') started.catch(() => undefined);
+      } else {
+        video.pause();
+      }
+    } catch {
+      /* No media playback here — the poster frame stays. */
+    }
   }, [inView]);
 
   if (!clip) return null;
