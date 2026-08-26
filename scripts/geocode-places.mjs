@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Drains the public.geo_places queue: turns the venue strings that arrive with
 // scraped programs ("A38", "Dürer Kert", "Budapest - Átrium") into coordinates,
 // so the map can pin a program at its actual door instead of the city centre.
@@ -54,10 +53,20 @@ function decodeEntities(value) {
 // only of these ("Koncertterem", "Tetőterasz", "Országos") is not geocodable and
 // is marked unresolvable instead of being guessed at.
 const GENERIC = new Set([
-  'budapest', 'orszagos', 'magyarorszag', 'hungary', 'terem', 'nagyterem', 'kisterem',
-  'koncertterem', 'terasz', 'tetoterasz', 'orrterasz', 'szinpad', 'helyszin', 'helyszinen',
-  'tobb', 'telepulesen', 'es', 'in', 'multiple', 'locations', 'online', 'stream',
-  'a', 'az', 'the', 'of', 'and', 'ter', 'utca', 'ut', 'korut', 'krt', 'sugarut',
+  // places / admin
+  'budapest', 'orszagos', 'magyarorszag', 'hungary', 'online', 'stream',
+  'helyszin', 'helyszinen', 'tobb', 'telepulesen', 'multiple', 'locations',
+  // room and building words: they describe a KIND of place, never which one
+  'terem', 'nagyterem', 'kisterem', 'koncertterem', 'terasz', 'tetoterasz',
+  'orrterasz', 'szinpad', 'udvar', 'udvara', 'kert', 'garden', 'park',
+  'haz', 'haza', 'kozpont', 'kozponti', 'kozossegi', 'muvelodesi', 'kulturalis',
+  'muzeum', 'muzeuma', 'szinhaz', 'mozi', 'konyvtar', 'konyvtara', 'galeria',
+  'klub', 'club', 'bar', 'pub', 'cafe', 'kavezo', 'presszo', 'etterem',
+  'hotel', 'panzio', 'csarnok', 'arena', 'stadion', 'sportcsarnok', 'uszoda',
+  'palota', 'kastely', 'var', 'vara', 'templom', 'iskola', 'egyetem', 'studio',
+  'hall', 'center', 'centre', 'rendezvenykozpont', 'muhely', 'amfiteatrum',
+  'szabadter', 'szabadteri', 'utca', 'ut', 'ter', 'tere', 'korut', 'krt',
+  'sugarut', 'setany', 'rakpart', 'a', 'az', 'the', 'of', 'and', 'es',
 ]);
 
 export function distinctiveTokens(name) {
@@ -65,16 +74,26 @@ export function distinctiveTokens(name) {
 }
 
 // Accepts a geocoder hit only when its name really is the place we asked for.
-export function nameMatches(query, candidate) {
+//
+// Live failures this gate exists for: Photon answered "ELTE Fűvészkert" for
+// "Dürer Kert", "Országos Színháztörténeti Múzeum" for "Ferenczy Múzeum" and
+// "Vénusz Garden" for "Bridge Garden" — every one of them shares only the
+// building-type word. So type words carry no weight, and at least 60% of the
+// identifying words have to turn up in the answer.
+export function nameMatches(query, candidateName, candidateContext = '') {
   const q = fold(query);
-  const c = fold(candidate);
-  if (!q || !c) return false;
-  if (c.includes(q) || q.includes(c)) return true;
-  const qt = distinctiveTokens(query);
-  const ct = new Set(fold(candidate).split(' '));
-  if (!qt.length) return false;
-  const hits = qt.filter((t) => ct.has(t));
-  return hits.length > 0 && hits.length / qt.length >= 0.5;
+  const name = fold(candidateName);
+  if (!q || !name) return false;
+  // The very same name, spelled the same way.
+  if (q.length >= 4 && name.includes(q)) return true;
+
+  const wanted = distinctiveTokens(query);
+  if (!wanted.length) return false;
+  // The street and city around the hit count too: "Gyöngyös-Mátra Művelődési
+  // Központ" is legitimately answered by "Mátra Művelődési Központ, Gyöngyös".
+  const words = new Set(fold(`${candidateName} ${candidateContext}`).split(' '));
+  const hits = wanted.filter((token) => words.has(token));
+  return hits.length / wanted.length >= 0.6;
 }
 
 // Budapest postal codes are 1XYZ where XY is the district number (01..23).
@@ -191,7 +210,7 @@ export async function resolvePlace(place, knownCities, deps = {}) {
         continue;
       }
       await wait(1200);
-      const hit = hits.find((h) => inHungary(h) && nameMatches(name, h.name || h.display));
+      const hit = hits.find((h) => inHungary(h) && nameMatches(name, h.name || h.display, h.display));
       if (!hit) continue;
       const district = districtFromPostcode(hit.postcode)
         || districtFromText(hit.districtText)
