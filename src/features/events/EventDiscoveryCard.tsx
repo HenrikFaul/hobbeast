@@ -17,6 +17,7 @@ import {
   type EventData,
   type EventRelation,
 } from './discoveryModel';
+import { eventSeason, groupActivityReason } from './eventFacets';
 
 const OWN_BADGE_CLASS = 'border-accent/25 bg-accent/15 text-foreground';
 const JOINED_BADGE_CLASS = 'border-primary/25 bg-primary/10 text-primary';
@@ -79,6 +80,10 @@ export function EventDiscoveryCard({
   const [imageFailed, setImageFailed] = useState(false);
   const reduceMotion = useReducedMotion();
   const event = entry.item;
+  // The same two rules the "közösségi" and "szezonális" filters use, shown on
+  // the card so the result of a filter never looks arbitrary.
+  const groupReason = groupActivityReason(event);
+  const seasonLabel = eventSeason(event)?.label ?? null;
   const statusBadge = relation === 'own'
     ? { label: 'Saját', className: OWN_BADGE_CLASS }
     : relation === 'joined'
@@ -154,6 +159,24 @@ export function EventDiscoveryCard({
           )}
           {statusBadge && (
             <Badge variant="outline" className={`rounded-full text-xs ${statusBadge.className}`}>{statusBadge.label}</Badge>
+          )}
+          {groupReason && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-accent/30 bg-accent/10 text-xs text-foreground"
+              title={groupReason}
+            >
+              Csapatos program
+            </Badge>
+          )}
+          {seasonLabel && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-amber-300 bg-amber-50 text-xs text-amber-900"
+              title={`Idénybeli program: ${seasonLabel}`}
+            >
+              {seasonLabel}
+            </Badge>
           )}
           {typeof event.companion_count === 'number' && event.companion_count > 0 && (
             <Badge

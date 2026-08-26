@@ -517,3 +517,49 @@ láthatósági kapuval, amit a lista használ. A sessionStorage-alapú átadás
 kényelmi gyorsítás lehet, de sosem lehet az egyetlen út egy oldalhoz.
 
 *Utoljára frissítve: 2026-08-26*
+
+---
+
+## 🔎 Kulcsszavas szűrő: mindig éles adaton kell ellenőrizni (2026-08-26)
+
+**Hiba:** a „Közösségi programok" szűrő elsőre beengedett egy koncertet
+(„Színpadra fel! – Dúros Zenekar"), mert a szabály tartalmazta a `zenekar`
+szót. A cím a FELLÉPŐT nevezi meg, nem azt, hogy a látogató zenél.
+
+**Szabály:** kulcsszavas osztályozó szabályt SOHA ne csak kitalált példákkal
+teszteljünk. A szabály megírása után futtatni kell az éles katalóguson, és
+minden hamis találatból teszteset lesz. Három ilyen jött elő:
+
+- `zenekar` / `korus` → a fellépőt nevezi meg, nem részvételi formát
+- `tura` szóhatár nélkül → a `kultura` is tartalmazza (`\btura` kell)
+- rossz upstream kategória (stand-up est „Társasjáték" kategóriával) → a CÍM
+  felülírja a kategóriát, ha a cím egyértelműen nézői formátumot mond
+  (`SPECTATOR_TITLE` a `src/features/events/eventFacets.ts`-ben)
+
+**Kétfeltételes szezonalitás:** a „szezonális" szűrő csak akkor enged át egy
+programot, ha (1) a szövege megnevezi a szezont ÉS (2) a program SAJÁT dátuma
+abba a szezonba esik. Egyik feltétel önmagában használhatatlan: decemberben
+minden mozielőadás „karácsonyi" lenne, júliusban meg a „Karácsonyi vásár"
+elnevezésű raktárkiárusítás jönne be.
+
+**Ellenőrzés:** `src/features/__tests__/eventFacets.test.ts` (26 teszt, köztük
+minden éles hamis találat).
+
+*Utoljára frissítve: 2026-08-26*
+
+---
+
+## 📦 Bundle-budget: új funkció előtt nézd meg, mit lehet lustán tölteni (2026-08-26)
+
+**Tény:** a három új szűrő + a hero rotátor 5,7 KB-tal átvitte az
+`events-route` nyers budgetjét (128 527 > 122 880 bájt).
+
+**Rossz válasz:** megemelni a küszöböt. **Jó válasz:** a `CreateEventDialog`
+(642 sor) csak akkor kell, ha a felhasználó megnyomja a gombot — `React.lazy` +
+`Suspense`, és a route 128 KB-ról 67 KB-ra esett. Ugyanaz a minta, mint az
+admin paneleknél a v1.26.0-ban.
+
+**Szabály:** ha egy route budget FAIL-t kap, előbb keress egy kattintás mögötti
+nehéz komponenst, és csak akkor nyúlj a küszöbhöz, ha nincs ilyen.
+
+*Utoljára frissítve: 2026-08-26*

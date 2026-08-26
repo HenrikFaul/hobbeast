@@ -1,12 +1,11 @@
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, CalendarDays, Filter, MapPin, MapPinned, Plus, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { CreateEventDialog } from "@/components/CreateEventDialog";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -66,11 +65,21 @@ import {
 } from '@/features/events/discoveryModel';
 import { EventDiscoveryCard } from '@/features/events/EventDiscoveryCard';
 import { CategoryFilterDialog } from '@/features/events/CategoryFilterDialog';
+import { HeroMediaRotator } from '@/features/events/HeroMediaRotator';
+import {
+  eventMatchesVibeFacets,
+  vibeFacetMeta,
+  type VibeFacet,
+} from '@/features/events/eventFacets';
 import {
   loadDiscoveryProfileLocation,
   loadJoinedEventIds,
 } from '@/features/events/eventsRepository';
-import riversideBadminton from '@/assets/editorial/events-riverside-badminton.webp';
+
+// The create-event form is the single heaviest thing on this route and
+// nobody sees it until they press the button, so it is fetched then.
+const CreateEventDialog = lazy(() => import("@/components/CreateEventDialog")
+  .then((module) => ({ default: module.CreateEventDialog })));
 
 const Events = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -132,6 +141,10 @@ const Events = () => {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(() => new Set((searchParams.get('cat') || '').split(',').filter(Boolean)));
   const [selectedSubcategoryKeys, setSelectedSubcategoryKeys] = useState<Set<string>>(() => new Set((searchParams.get('sub') || '').split(',').filter(Boolean)));
   const [selectedActivityKeys, setSelectedActivityKeys] = useState<Set<string>>(() => new Set((searchParams.get('activity') || '').split(',').filter(Boolean)));
+  const [vibeFacets, setVibeFacets] = useState<Set<VibeFacet>>(
+    () => new Set((searchParams.get('vibe') || '').split(',').filter((value): value is VibeFacet =>
+      value === 'has_signups' || value === 'seasonal' || value === 'group')),
+  );
   const [visibleCount, setVisibleCount] = useState(24);
   const [pendingJoinIds, setPendingJoinIds] = useState<Set<string>>(new Set());
   const [suppressedIdentities, setSuppressedIdentities] = useState<Set<string>>(new Set());
@@ -161,16 +174,17 @@ const Events = () => {
     if (selectedCategoryIds.size) next.set('cat', [...selectedCategoryIds].sort().join(','));
     if (selectedSubcategoryKeys.size) next.set('sub', [...selectedSubcategoryKeys].sort().join(','));
     if (selectedActivityKeys.size) next.set('activity', [...selectedActivityKeys].sort().join(','));
+    if (vibeFacets.size) next.set('vibe', [...vibeFacets].sort().join(','));
     if (showCreate && planningCircleId) {
       next.set('circle', planningCircleId);
       next.set('create', '1');
     }
     setSearchParams(next, { replace: true });
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, showCreate, planningCircleId, setSearchParams]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets, showCreate, planningCircleId, setSearchParams]);
 
   useEffect(() => {
     setVisibleCount(24);
-  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys]);
+  }, [search, sourceFilter, primaryFilter, dateFilter, capacityFilter, priceFilter, distanceFilterEnabled, distanceKm, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, vibeFacets]);
 
   const toggleSetValue = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, value: string) => {
     setter((prev) => {
@@ -369,6 +383,72 @@ const Events = () => {
     [allEvents],
   );
 
+  /**
+   * The five categories the catalogue actually has the most of, as one-tap
+   * shortcuts. Counted from what is loaded rather than from a fixed editorial
+   * list, so the shortcuts follow the supply: a quiet month for concerts pushes
+   * concerts out of the row on its own.
+   *
+   * A subcategory is offered instead of its parent when it carries most of that
+   * parent's programmes — "Túra" is a more useful tap than "Sport & Mozgás"
+   * when nearly everything under the parent is a hike.
+   */
+  const topCategoryShortcuts = useMemo(() => {
+    const categories = new Map<string, number>();
+    const subcategories = new Map<string, number>();
+    for (const event of allEvents) {
+      const keys = getEventCategoryKeys(event.category);
+      if (!keys.categoryId) continue;
+      categories.set(keys.categoryId, (categories.get(keys.categoryId) || 0) + 1);
+      if (keys.subcategoryId) {
+        const subKey = `${keys.categoryId}::${keys.subcategoryId}`;
+        subcategories.set(subKey, (subcategories.get(subKey) || 0) + 1);
+      }
+    }
+
+    const shortcuts: Array<{ key: string; kind: 'category' | 'subcategory'; label: string; count: number }> = [];
+    for (const [categoryId, count] of categories) {
+      const category = HOBBY_CATALOG.find((item) => item.id === categoryId);
+      if (!category) continue;
+      const dominant = [...subcategories]
+        .filter(([key]) => key.startsWith(`${categoryId}::`))
+        .sort((a, b) => b[1] - a[1])[0];
+      if (dominant && dominant[1] >= count * 0.75 && dominant[1] >= 3) {
+        const subcategory = category.subcategories.find((item) => item.id === dominant[0].split('::')[1]);
+        if (subcategory) {
+          shortcuts.push({ key: dominant[0], kind: 'subcategory', label: subcategory.name, count: dominant[1] });
+          continue;
+        }
+      }
+      shortcuts.push({ key: categoryId, kind: 'category', label: category.name, count });
+    }
+    return shortcuts.sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [allEvents]);
+
+  const toggleShortcut = (shortcut: { key: string; kind: 'category' | 'subcategory' }) => {
+    setPrimaryFilter('categories');
+    setSearch('');
+    toggleSetValue(
+      shortcut.kind === 'category' ? setSelectedCategoryIds : setSelectedSubcategoryKeys,
+      shortcut.key,
+    );
+  };
+
+  const shortcutActive = (shortcut: { key: string; kind: 'category' | 'subcategory' }) =>
+    activePrimaryFilter === 'categories'
+    && (shortcut.kind === 'category'
+      ? selectedCategoryIds.has(shortcut.key)
+      : selectedSubcategoryKeys.has(shortcut.key));
+
+  const toggleVibeFacet = (facet: VibeFacet) => {
+    setVibeFacets((previous) => {
+      const next = new Set(previous);
+      if (next.has(facet)) next.delete(facet);
+      else next.add(facet);
+      return next;
+    });
+  };
+
   useEffect(() => {
     let active = true;
     if (!user || !newRecommenderEnabled || nativeRecommendationIds.length === 0) {
@@ -566,6 +646,7 @@ const Events = () => {
 
       return matchPrimary && matchSource && matchDistance && matchDate && matchCapacity
         && eventMatchesPrice(ev, priceFilter)
+        && eventMatchesVibeFacets(ev, vibeFacets)
         && !suppressedIdentities.has(eventCanonicalIdentity(ev));
     });
     if (activePrimaryFilter === 'personal') {
@@ -575,7 +656,7 @@ const Events = () => {
       );
     }
     return rows;
-  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, priceFilter, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
+  }, [allEvents, search, sourceFilter, distanceFilterEnabled, distanceFilteredIds, selectedCategoryIds, selectedSubcategoryKeys, selectedActivityKeys, activePrimaryFilter, joinedEventIds, favorites, user, dateFilter, capacityFilter, priceFilter, vibeFacets, suppressedIdentities, recommendationByIdentity, newRecommenderEnabled]);
 
   const discoveryEntries = useMemo(() => {
     const organic = filtered.map((event) => ({ ...event, eventId: event.id }));
@@ -761,15 +842,10 @@ const Events = () => {
 
             <figure className="relative mx-auto aspect-[4/3] w-full max-w-[26rem]">
               <div aria-hidden="true" className="absolute -inset-2 -rotate-3 rounded-[1.5rem_4rem_2rem_3.25rem] bg-[#ff8f72]" />
-              <img
-                src={riversideBadminton}
-                alt="Barátok tollaslabdáznak a Duna-parton naplementében"
-                width={1280}
-                height={853}
-                loading="lazy"
-                decoding="async"
-                className="relative h-full w-full rotate-1 rounded-[1.5rem_4rem_2rem_3.25rem] object-cover shadow-2xl"
-              />
+              {/* Not one photograph any more: the whole editorial library takes
+                  turns here, so the page shows the breadth of the catalogue
+                  instead of a single sport. */}
+              <HeroMediaRotator className="relative h-full w-full rotate-1 overflow-hidden rounded-[1.5rem_4rem_2rem_3.25rem] shadow-2xl" />
               <figcaption className="absolute -bottom-3 right-2 -rotate-2 rounded-full border-2 border-[#183124] bg-[#dfff62] px-4 py-2 text-sm font-extrabold text-[#183124] shadow-xl">
                 mozdulj • kapcsolódj
               </figcaption>
@@ -782,6 +858,72 @@ const Events = () => {
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dfff62] text-[#183124]"><Filter size={16} aria-hidden="true" /></span>
           Finomhangold a találatokat
         </div>
+        {/* Categories first. Most people arrive knowing the KIND of evening
+            they want, not its title, so the taxonomy leads and the free-text
+            box waits below for the minority who are looking for one thing. */}
+        <div className="mb-6 rounded-[1.4rem] border border-primary/10 bg-secondary/40 p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-extrabold">Mihez van kedved?</h2>
+            <p className="text-xs text-muted-foreground">A katalógus legnépesebb témái — egy koppintás.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {topCategoryShortcuts.map((shortcut) => (
+              <Button
+                key={shortcut.key}
+                size="sm"
+                variant={shortcutActive(shortcut) ? 'default' : 'outline'}
+                onClick={() => toggleShortcut(shortcut)}
+                aria-pressed={shortcutActive(shortcut)}
+                className={`rounded-full ${shortcutActive(shortcut) ? 'gradient-primary border-0 text-primary-foreground' : 'bg-card'}`}
+              >
+                {shortcut.label}
+                <span className="ml-1.5 text-xs opacity-70">{shortcut.count}</span>
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full bg-card"
+              onClick={() => {
+                setSearch('');
+                setPrimaryFilter('categories');
+                setShowCategoryModal(true);
+              }}
+            >
+              Minden kategória{selectedCategoryCount > 0 ? ` (${selectedCategoryCount})` : ''}
+            </Button>
+          </div>
+
+          <div className="mt-4 border-t border-primary/10 pt-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Milyen legyen?</p>
+            <div className="flex flex-wrap gap-2">
+              {(['has_signups', 'seasonal', 'group'] as const).map((facet) => {
+                const meta = vibeFacetMeta(facet);
+                const active = vibeFacets.has(facet);
+                return (
+                  <Button
+                    key={facet}
+                    size="sm"
+                    variant={active ? 'default' : 'outline'}
+                    aria-pressed={active}
+                    onClick={() => toggleVibeFacet(facet)}
+                    className={`rounded-full ${active ? 'border-0 bg-accent text-accent-foreground hover:bg-accent/90' : 'bg-card'}`}
+                  >
+                    {meta.label}
+                  </Button>
+                );
+              })}
+            </div>
+            {vibeFacets.size > 0 && (
+              <ul className="mt-2.5 space-y-1 text-xs text-muted-foreground">
+                {[...vibeFacets].map((facet) => (
+                  <li key={facet}>{vibeFacetMeta(facet).blurb}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
         <div className="mb-5 flex flex-wrap gap-2">
           {SOURCE_FILTERS.map((sf) => (
             <Button
@@ -839,8 +981,8 @@ const Events = () => {
 
         <div className="mb-5 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary" aria-hidden="true" />
-            <Input placeholder="Keress eseményt..." value={search} onChange={(e) => {
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input placeholder="…vagy keress konkrét név szerint" value={search} onChange={(e) => {
                 const value = e.target.value;
                 setSearch(value);
                 if (value.trim()) {
@@ -848,7 +990,7 @@ const Events = () => {
                 } else {
                   setPrimaryFilter((prev) => prev === 'search' ? 'all' : prev);
                 }
-              }} className="h-12 rounded-full bg-background/80 pl-11" />
+              }} className="h-10 rounded-full bg-background/70 pl-10 text-sm" />
           </div>
           <div className="flex flex-wrap justify-center gap-2 lg:justify-end">
             <Button
@@ -875,18 +1017,6 @@ const Events = () => {
               Nekem
             </Button>
 
-            <Button
-              size="sm"
-              variant={activePrimaryFilter === 'categories' ? 'default' : 'outline'}
-              onClick={() => {
-                setSearch('');
-                setPrimaryFilter('categories');
-                setShowCategoryModal(true);
-              }}
-              className={activePrimaryFilter === 'categories' ? 'border border-primary/15 bg-secondary text-primary hover:bg-secondary/80' : ''}
-            >
-              Kategóriák{selectedCategoryCount > 0 ? ` (${selectedCategoryCount})` : ''}
-            </Button>
           </div>
         </div>
 
@@ -1112,7 +1242,11 @@ const Events = () => {
         onClear={clearCategorySelections}
       />
 
-      {showCreate && <CreateEventDialog circleId={planningCircleId || undefined} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />}
+      {showCreate && (
+        <Suspense fallback={null}>
+          <CreateEventDialog circleId={planningCircleId || undefined} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchEvents(); }} />
+        </Suspense>
+      )}
       {leaveTarget && (
         <LeaveEventDialog
           eventTitle={leaveTarget.title}

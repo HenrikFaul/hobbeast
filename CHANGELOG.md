@@ -12,6 +12,55 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.29.0] — 2026-08-26
+
+**The events page asks what you feel like, not what you can spell.**
+
+### One photograph became the whole library
+The hero showed the same badminton picture to everyone, for ever, which quietly
+told every visitor that this is a badminton site. It now draws from all 132
+editorial clips — a different one on every visit, rotating every nine seconds
+while it is on screen. Nothing is fetched before the hero is visible, playback
+stops when it scrolls away, and a viewer who asked for reduced motion gets one
+still frame that never moves.
+
+### Categories lead, typing is the fallback
+The free-text box was the first thing on the page, which only helps someone who
+already knows the name of the thing they want. The filter card now opens with
+**Mihez van kedved?** — the five busiest themes in the catalogue as one-tap
+chips, counted from what is actually loaded, so the shortcuts follow the supply
+rather than an editorial guess. A subcategory replaces its parent when it holds
+most of the parent's programmes ("Túra" beats "Sport & Mozgás" when nearly
+everything under it is a hike). The search box moved below and got smaller.
+
+### Three filters that answer real questions
+- **Már vannak résztvevők** — somebody has already committed: a participant on
+  a Hobbeast event, or a companion plan on an external programme.
+- **Szezonális** — a programme that names its season AND happens while that
+  season is on, judged by the programme's own date. Both halves are required,
+  which is why December does not make a cinema screening seasonal and
+  "karácsonyi" in July does not count either. Ten Hungarian windows from
+  farsang and busójárás to advent and szilveszter; the chip names what is
+  currently running.
+- **Közösségi programok** — what falls apart alone. A football match needs two
+  sides, a board game night needs players, a partner dance needs a partner, a
+  group hike IS the group. A concert or an exhibition does not qualify however
+  sociable it feels: one person with one ticket has a complete evening. Each
+  match carries the reason it fired, shown on the card as **Csapatos program**.
+
+Measured against the live catalogue, which is where three of the rules came
+from: a performing band ("Dúros Zenekar") is not a team activity, "kultúra"
+folds to "kultura" and must not be read as "túra", and a title that plainly
+says stand-up overrides a category that says board games.
+
+### Fixed
+- The events route chunk went over its size budget with the new filters, so the
+  create-event form — the heaviest thing on the route, and invisible until the
+  button is pressed — is now fetched on demand. The route fell from 128 KB to
+  67 KB, well inside budget.
+
+---
+
 ## [1.28.0] — 2026-08-26
 
 **An external program's own page — and a joint visit that never becomes a second event.**
