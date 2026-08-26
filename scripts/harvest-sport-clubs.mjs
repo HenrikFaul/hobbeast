@@ -94,6 +94,25 @@ function stripTags(value) {
 }
 
 /**
+ * The directory writes links inconsistently: some carry a scheme, some are bare
+ * hosts ("www.facebook.com/CowbellsFootball"), some are mailto or a stray
+ * fragment. A bare host is still a usable link once the scheme is added;
+ * anything else is dropped rather than stored as a half-URL.
+ */
+export function normalizeUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.startsWith('#') || /^(mailto|tel|javascript):/i.test(raw)) return null;
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, '')}`;
+  try {
+    const url = new URL(withScheme);
+    if (!url.hostname.includes('.')) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Each club is one `div.klub_tabla` row of four columns: name, postal code,
  * city, then the icon links. The row markup is deeply nested WPBakery output,
  * so the columns are read positionally rather than by class.
@@ -112,9 +131,9 @@ export function parseClubRows(html, sportName, sourceUrl) {
     const city = columns[2] || null;
     if (name.length < 2 || /^klub|^ir\.?sz|^telep|^város/i.test(name)) continue;
 
-    const links = [...row.matchAll(/href="([^"]+)"/g)].map((link) => link[1].trim());
-    const facebook = links.find((link) => /facebook\.com/i.test(link)) || null;
-    const website = links.find((link) => /^https?:\/\//i.test(link) && !/facebook\.com|sportagvalaszto\.hu/i.test(link)) || null;
+    const links = [...row.matchAll(/href="([^"]+)"/g)].map((link) => normalizeUrl(link[1]));
+    const facebook = links.find((link) => link && /facebook\.com/i.test(link)) || null;
+    const website = links.find((link) => link && !/facebook\.com|sportagvalaszto\.hu/i.test(link)) || null;
 
     rows.push({
       name,
@@ -211,7 +230,7 @@ async function main() {
 // pathToFileURL, not a hand-built file:// string: on Windows the drive letter
 // makes the naive form ("file://C:/...") differ from Node's ("file:///C:/...")
 // and the script silently does nothing.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     process.stderr.write(`${error.stack || error}\n`);
     process.exit(1);
