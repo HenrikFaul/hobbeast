@@ -34,6 +34,8 @@ const STRATEGY_LABELS: Record<string, string> = {
   ics: 'naptár-feed',
   'wp-ics-calendar': 'naptár-rács',
   jsonld: 'strukturált adat',
+  'wp-posts': 'cikkekből',
+  'page-prose': 'egy esemény oldala',
 };
 
 export function AdminSourceSubmissions({ refreshToken = 0 }: { refreshToken?: number }) {

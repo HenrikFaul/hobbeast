@@ -6,13 +6,21 @@
 // gate and event-normalization contract.
 
 import { buildEvent, normalizeEndpointUrl, resolveEventImages } from './generic.mjs';
-import { parseIcs, parseJsonLdEvents, parseWpIcsCalendar } from './recipes.mjs';
+import {
+  parseIcs, parseJsonLdEvents, parseProsePage, parseWpIcsCalendar, parseWpPosts,
+} from './recipes.mjs';
 
 const PARSERS = {
-  ics: (text, url) => parseIcs(text),
+  ics: (text) => parseIcs(text),
   'wp-ics-calendar': (text, url) => parseWpIcsCalendar(text, url),
   jsonld: (text, url) => parseJsonLdEvents(text, url),
+  // The endpoint is the WordPress REST collection, so the payload is JSON.
+  'wp-posts': (text) => parseWpPosts(JSON.parse(text)),
+  'page-prose': (text, url) => parseProsePage(text, url),
 };
+
+// Strategies whose source is one place. Everything else lists other people's venues.
+const SINGLE_VENUE_STRATEGIES = new Set(['ics', 'wp-ics-calendar', 'page-prose']);
 
 export function supportsRecipeStrategy(strategy) {
   return Object.prototype.hasOwnProperty.call(PARSERS, strategy);
@@ -38,8 +46,12 @@ export async function scrapeRecipeSource(source, { fetchStatic, log = () => {} }
     // The listing carries every field, so the event id has to come from the
     // entry itself — a shared listing URL would collapse them into one row.
     // A calendar grid names the program but not the place — for a single-venue
-    // source the place IS the publisher, and that name is geocodable.
-    if (!item.location && source.publisher_name) item.location = source.publisher_name;
+    // source the place IS the publisher, and that name is geocodable. An
+    // aggregator is the opposite: forty programs at forty addresses must never
+    // all be pinned on the magazine's own name.
+    if (!item.location && source.publisher_name && SINGLE_VENUE_STRATEGIES.has(strategy)) {
+      item.location = source.publisher_name;
+    }
     const row = buildEvent(source, item, {
       listingUrl: url,
       detailUrl: item.url || url,

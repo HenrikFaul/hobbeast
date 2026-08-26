@@ -73,6 +73,11 @@ const STRATEGY_LABELS: Record<string, string> = {
   rss: 'hírfolyam',
   tribe: 'esemény-API',
   site: 'egyedi adapter',
+  ics: 'naptár-feed',
+  'wp-ics-calendar': 'naptár-rács',
+  jsonld: 'strukturált adat',
+  'wp-posts': 'cikkekből',
+  'page-prose': 'egy esemény oldala',
 };
 
 const numberFormat = new Intl.NumberFormat('hu-HU');

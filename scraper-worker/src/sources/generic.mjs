@@ -10,6 +10,11 @@
 // the admin scraper stats, so weak sources can be triaged without code changes.
 
 import crypto from 'node:crypto';
+// The Hungarian date vocabulary lives in recipes.mjs so that the Edge Function,
+// which bundles only that file, parses dates exactly the way the worker does.
+import { foldHu, parseHuTextDate } from './recipes.mjs';
+
+export { foldHu, parseHuTextDate };
 
 // Hungarian event-page URL vocabulary. "ajanlat" matters: programturizmus.hu
 // (22 registered sources) publishes every event as /ajanlat-{slug}.html.
@@ -31,48 +36,6 @@ export function parseEventDate(raw) {
   const m = raw.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2})(?::\d{2})?)?/);
   if (!m) return { date: null, time: null };
   return { date: m[1], time: m[2] ? `${m[2]}:00` : null };
-}
-
-const HU_MONTHS = {
-  januar: 1, febru: 2, marcius: 3, aprilis: 4, majus: 5, junius: 6,
-  julius: 7, augusztus: 8, szeptember: 9, oktober: 10, november: 11, december: 12,
-  jan: 1, feb: 2, marc: 3, apr: 4, maj: 5, jun: 6, jul: 7, aug: 8, szept: 9, szep: 9, okt: 10, nov: 11, dec: 12,
-};
-
-function foldHu(s) {
-  return String(s || '').toLowerCase()
-    .replace(/[áa]/g, 'a').replace(/[éě]/g, 'e').replace(/í/g, 'i')
-    .replace(/[óöő]/g, 'o').replace(/[úüű]/g, 'u');
-}
-
-/** Best-effort Hungarian free-text date: "2026. augusztus 30.", "2026.08.30", "aug. 30." */
-export function parseHuTextDate(text) {
-  const t = foldHu(text).slice(0, 400);
-  let m = t.match(/(20\d{2})[.\-/]\s?(\d{1,2})[.\-/]\s?(\d{1,2})/);
-  if (m) return isoOrNull(Number(m[1]), Number(m[2]), Number(m[3]));
-  m = t.match(/(20\d{2})\.?\s*([a-z]{3,10})\.?\s*(\d{1,2})/);
-  if (m && monthOf(m[2])) return isoOrNull(Number(m[1]), monthOf(m[2]), Number(m[3]));
-  m = t.match(/\b([a-z]{3,10})\.?\s*(\d{1,2})\b/);
-  if (m && monthOf(m[1])) {
-    const now = new Date();
-    const month = monthOf(m[1]);
-    const day = Number(m[2]);
-    let year = now.getFullYear();
-    const candidate = new Date(Date.UTC(year, month - 1, day));
-    if (candidate.getTime() < now.getTime() - 32 * 86400000) year += 1;
-    return isoOrNull(year, month, day);
-  }
-  return null;
-}
-
-function monthOf(word) {
-  for (const [key, num] of Object.entries(HU_MONTHS)) if (word.startsWith(key)) return num;
-  return null;
-}
-
-function isoOrNull(y, mo, d) {
-  if (!y || !mo || !d || mo > 12 || d > 31) return null;
-  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 /**

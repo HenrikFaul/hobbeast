@@ -41,6 +41,18 @@ export const RECIPES = {
     hint: 'A feed adja a linkeket, a részleteket az egyes oldalakról olvassuk.',
     needsBrowser: false,
   },
+  'wp-posts': {
+    id: 'wp-posts',
+    label: 'WordPress cikkek (programajánló)',
+    hint: 'A magazinjellegű oldalak a programokat cikkekben közlik — a cikkek törzséből olvassuk ki őket.',
+    needsBrowser: false,
+  },
+  'page-prose': {
+    id: 'page-prose',
+    label: 'Egyetlen esemény oldala',
+    hint: 'Nem katalógus: egy rendezvény saját oldala, a dátum a szövegben.',
+    needsBrowser: false,
+  },
   render: {
     id: 'render',
     label: 'Böngészős betöltés',
@@ -347,6 +359,239 @@ export function guessPublisherName(html, url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
 }
 
+// --- Hungarian free-text dates ---------------------------------------------
+// Shared with the worker (generic.mjs re-exports these) so a preview and a
+// production run can never disagree about what "2026. szeptember 4-6." means.
+
+const HU_MONTHS = {
+  januar: 1, febru: 2, marcius: 3, aprilis: 4, majus: 5, junius: 6,
+  julius: 7, augusztus: 8, szeptember: 9, oktober: 10, november: 11, december: 12,
+  jan: 1, feb: 2, marc: 3, apr: 4, maj: 5, jun: 6, jul: 7, aug: 8, szept: 9, szep: 9, okt: 10, nov: 11, dec: 12,
+};
+
+export function foldHu(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[áa]/g, 'a').replace(/[éě]/g, 'e').replace(/í/g, 'i')
+    .replace(/[óöő]/g, 'o').replace(/[úüű]/g, 'u');
+}
+
+/** Best-effort Hungarian free-text date: "2026. augusztus 30.", "2026.08.30", "aug. 30." */
+export function parseHuTextDate(text) {
+  const t = foldHu(text).slice(0, 400);
+  let m = t.match(/(20\d{2})[.\-/]\s?(\d{1,2})[.\-/]\s?(\d{1,2})/);
+  if (m) return isoOrNull(Number(m[1]), Number(m[2]), Number(m[3]));
+  m = t.match(/(20\d{2})\.?\s*([a-z]{3,10})\.?\s*(\d{1,2})/);
+  if (m && monthOf(m[2])) return isoOrNull(Number(m[1]), monthOf(m[2]), Number(m[3]));
+  m = t.match(/\b([a-z]{3,10})\.?\s*(\d{1,2})\b/);
+  if (m && monthOf(m[1])) {
+    const now = new Date();
+    const month = monthOf(m[1]);
+    const day = Number(m[2]);
+    let year = now.getFullYear();
+    const candidate = new Date(Date.UTC(year, month - 1, day));
+    if (candidate.getTime() < now.getTime() - 32 * 86400000) year += 1;
+    return isoOrNull(year, month, day);
+  }
+  return null;
+}
+
+function monthOf(word) {
+  for (const [key, num] of Object.entries(HU_MONTHS)) if (word.startsWith(key)) return num;
+  return null;
+}
+
+function isoOrNull(y, mo, d) {
+  if (!y || !mo || !d || mo > 12 || d > 31) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+// A dated section heading is not automatically an event.
+//
+// sportagvalaszto.hu proved it: "Miért érdemes csatlakozni?" and "Melyik sportág
+// illik a testalkatodhoz?" are article sections that happen to sit above a
+// paragraph containing a date. Publishing those as programs would be worse than
+// finding nothing, so a heading has to look like the NAME of something before it
+// is accepted.
+
+const QUESTION_RE = /\?\s*$/;
+
+const SECTION_WORDS = new Set([
+  'miert', 'hogyan', 'mit', 'mikor', 'hol', 'kinek', 'melyik', 'mennyi', 'ki',
+  'gyakori', 'kerdesek', 'jelentkezes', 'regisztracio', 'kapcsolat', 'rolunk',
+  'program', 'programok', 'informaciok', 'tudnivalok', 'reszletek', 'helyszin',
+  'jegyek', 'jegyinfo', 'belepo', 'megkozelites', 'parkolas', 'gyik', 'sajto',
+  'tamogatoink', 'partnereink', 'galeria', 'osszefoglalo', 'ajanlo', 'bevezeto',
+]);
+
+/** Marks that a heading names a specific thing rather than a section of prose. */
+const NAME_MARKERS = /[/@|]|\s[–—-]\s|\d/;
+
+export function looksLikeEventHeading(heading, fold) {
+  const raw = String(heading ?? '').trim();
+  if (raw.length < 8 || raw.length > 180) return false;
+  // "Miért érdemes csatlakozni?" — a question is a section, never an event name.
+  if (QUESTION_RE.test(raw)) return false;
+
+  const words = fold(raw).split(' ').filter(Boolean);
+  if (!words.length) return false;
+  // A heading whose opening word is a section word is prose scaffolding.
+  if (SECTION_WORDS.has(words[0])) return false;
+  // …and so is one built entirely from them.
+  if (words.every((w) => SECTION_WORDS.has(w))) return false;
+
+  // A proper name shows itself: an inner capital, a separator, or a number.
+  const innerCapital = raw.split(/\s+/).slice(1).some((w) => /^[A-ZÁÉÍÓÖŐÚÜŰ]/.test(w));
+  return innerCapital || NAME_MARKERS.test(raw);
+}
+
+// --- recipe: WordPress posts (magazine listings) ----------------------------
+//
+// Most Hungarian "programajánló" sites are not calendars at all — they are
+// magazines. funzine.hu is the clearest case: its /category/programok archive
+// holds editorial articles, its REST namespaces contain no events plugin, and
+// the programs themselves live INSIDE the article bodies, as h2/h3 sections of
+// a listicle ("20 csodás szüreti program…", each heading a named, dated event).
+//
+// Reading only the listing page finds nothing there. Reading the article bodies
+// through the always-present wp/v2/posts endpoint turns one article into twenty
+// programs.
+
+const DATE_TAIL_RE = /\s*[([][^()[\]]*20\d{2}[^()[\]]*[)\]]\s*$/;
+
+function sectionImage(html) {
+  const m = String(html ?? '').match(/<img[^>]+src=["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
+/** Splits an article body into (heading, following markup) pairs. */
+export function splitHeadingSections(html) {
+  const source = String(html ?? '');
+  const out = [];
+  const re = /<h([23])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  const marks = [];
+  for (const m of source.matchAll(re)) {
+    marks.push({ heading: stripTags(m[2]), start: m.index + m[0].length });
+  }
+  for (let i = 0; i < marks.length; i += 1) {
+    const end = i + 1 < marks.length ? source.lastIndexOf('<h', marks[i + 1].start) : source.length;
+    out.push({ heading: marks[i].heading, body: source.slice(marks[i].start, Math.max(end, marks[i].start)) });
+  }
+  return out;
+}
+
+/**
+ * Turns WordPress posts into events. `parseDate` is injected so the worker and
+ * the Edge Function can share this file while the Hungarian free-text date
+ * parser stays in generic.mjs.
+ */
+export function parseWpPosts(posts, { parseDate = parseHuTextDate, fallbackToArticle = true } = {}) {
+  const list = Array.isArray(posts) ? posts : [];
+  const events = [];
+  const seen = new Set();
+  const toDate = typeof parseDate === 'function' ? parseDate : () => null;
+
+  const push = (name, startDate, url, description, image) => {
+    const clean = String(name ?? '').replace(DATE_TAIL_RE, '').trim();
+    if (!clean || clean.length < 6 || !startDate) return;
+    const key = `${clean.toLowerCase()}|${startDate}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    // Hungarian listicles name the venue after a double slash:
+    // "Tábor Fesztivál // Alsóörs", "BotanicArt // Művészetek Háza, Veszprém".
+    const parts = clean.split(/\s*\/\/\s*/);
+    const title = parts[0].trim();
+    const location = parts.length > 1 ? parts.slice(1).join(' // ').trim() : null;
+    events.push({
+      name: (title.length >= 6 ? title : clean).slice(0, 200),
+      startDate,
+      url,
+      description: description ? description.slice(0, 800) : null,
+      image,
+      location: location ? location.slice(0, 160) : null,
+      city: location && location.includes(',') ? location.split(',').pop().trim() : null,
+    });
+  };
+
+  for (const post of list) {
+    const link = post?.link ?? null;
+    const body = post?.content?.rendered ?? '';
+    const sections = splitHeadingSections(body);
+    let found = 0;
+
+    for (const section of sections) {
+      const text = stripTags(section.body).slice(0, 500);
+      // The date is usually in the heading itself ("… (2026. szeptember 4-6.)")
+      // and otherwise in the first lines under it.
+      const date = toDate(section.heading) || toDate(text);
+      if (!date) continue;
+      if (!looksLikeEventHeading(section.heading, foldHu)) continue;
+      push(section.heading, date, link, text, sectionImage(section.body));
+      found += 1;
+    }
+
+    // A single-topic article still describes one program.
+    if (!found && fallbackToArticle) {
+      const title = stripTags(post?.title?.rendered ?? '');
+      const excerpt = stripTags(post?.excerpt?.rendered ?? '');
+      const date = toDate(title) || toDate(excerpt);
+      // The same gate: a quiz headline ("Melyik sportág illik a testalkatodhoz?")
+      // is an article, not a program, however many dates its body contains.
+      if (date && looksLikeEventHeading(title, foldHu)) push(title, date, link, excerpt, null);
+    }
+  }
+  return events;
+}
+
+// --- recipe: single-event page ----------------------------------------------
+//
+// sportagvalaszto.hu/nagy-sportagvalaszto/ is not a catalogue: it is one
+// recurring event's landing page, its date written in prose ("2026. szeptember
+// 18-19-én"). Reporting "no programs found" there is wrong — there is exactly
+// one, and saying so is more useful than an empty result.
+
+export function parseProsePage(html, pageUrl, { parseDate = parseHuTextDate } = {}) {
+  const source = String(html ?? '');
+  const toDate = typeof parseDate === 'function' ? parseDate : () => null;
+
+  const ogTitle = source.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1];
+  const h1 = source.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1];
+  const docTitle = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const name = decodeEntities(ogTitle || (h1 ? stripTags(h1) : '') || (docTitle ? stripTags(docTitle) : ''));
+  if (!name || name.length < 4) return [];
+
+  const text = stripTags(source);
+  const date = toDate(text);
+  if (!date) return [];
+
+  const ogImage = source.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
+  // Page-builder sites leak shortcodes into og:description ("[/vc_column"), so
+  // the visible text is the more reliable summary.
+  const description = text.slice(0, 400);
+
+  return [{
+    name: name.slice(0, 200),
+    startDate: date,
+    url: pageUrl,
+    description,
+    image: ogImage,
+  }];
+}
+
+// --- WordPress discovery -----------------------------------------------------
+
+export function looksLikeWordPress(html) {
+  const source = String(html ?? '');
+  return /<meta name=["']generator["'][^>]+WordPress/i.test(source)
+    || /\/wp-json\//i.test(source)
+    || /\/wp-content\//i.test(source);
+}
+
+/** The category id a WordPress archive page announces about itself. */
+export function wpCategoryId(html) {
+  const m = String(html ?? '').match(/wp-json\/wp\/v2\/categories\/(\d+)/i);
+  return m ? m[1] : null;
+}
+
 // --- the inspector ----------------------------------------------------------
 
 function futureCount(events) {
@@ -465,6 +710,24 @@ export async function inspectSource(inputUrl, { fetchText, maxDetailFetches = 6 
       }
     }
 
+    // 2b. WordPress without an events plugin: the programs are in the articles.
+    if (!candidates.length && looksLikeWordPress(html)) {
+      const category = wpCategoryId(html);
+      const postsUrl = `${origin}/wp-json/wp/v2/posts?per_page=20`
+        + (category ? `&categories=${category}` : '')
+        + '&_fields=id,link,title,excerpt,content';
+      const api = await fetchText(postsUrl);
+      if (api.ok) {
+        try {
+          const posts = JSON.parse(api.text);
+          const mined = parseWpPosts(posts);
+          addCandidate('wp-posts', postsUrl, mined,
+            `A WordPress cikk-API ${Array.isArray(posts) ? posts.length : 0} cikkét átnézve `
+            + `${futureCount(mined)} datált program jött ki a cikkek szövegéből.`);
+        } catch { /* not JSON — the REST API is closed */ }
+      }
+    }
+
     // 3. ICS Calendar plugin grid
     if (/ics-calendar|ics_calendar/i.test(html)) {
       addCandidate('wp-ics-calendar', listingUrl, parseWpIcsCalendar(html, listingUrl),
@@ -497,6 +760,13 @@ export async function inspectSource(inputUrl, { fetchText, maxDetailFetches = 6 
     if (!(await tryHub())) break;
   }
 
+  // A page that is one event's own page is not a catalogue, and reporting
+  // "nothing found" there is simply wrong.
+  if (!candidates.length) {
+    addCandidate('page-prose', listingUrl, parseProsePage(html, listingUrl),
+      'Ez egy rendezvény saját oldala, nem programlista — a dátum a szövegben szerepel.');
+  }
+
   // Rendering is always possible; offer it whenever nothing better was proven,
   // and as a second option when something was.
   candidates.push({
@@ -511,7 +781,11 @@ export async function inspectSource(inputUrl, { fetchText, maxDetailFetches = 6 
 
   candidates.sort((a, b) => b.confidence - a.confidence || b.eventCount - a.eventCount);
   if (candidates.length === 1) {
-    warnings.push('Strukturált esemény-adatot nem találtunk az oldalon. A böngészős betöltés még működhet — mentés után indíts próbafuttatást.');
+    // Say what the page actually is; "no structured data" sends the operator
+    // looking for a hidden API that is usually not there.
+    warnings.push(looksLikeWordPress(html)
+      ? 'Ez az oldal WordPress, de nincs rajta eseménynaptár-bővítmény, és a cikkeiből sem jött ki datált program. Valószínűleg magazin- vagy hírkategória, nem programlista — keresd meg a szervező eseménynaptárát, vagy indíts próbafuttatást a böngészős betöltéssel.'
+      : 'Nem találtunk datált programot az oldalon: sem strukturált esemény-adatot, sem szövegben felismerhető dátumot. A böngészős betöltés még működhet — mentés után indíts próbafuttatást.');
   }
 
   return { url: listingUrl, homepageUrl, publisherName, candidates, warnings };
