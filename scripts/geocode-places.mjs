@@ -277,6 +277,10 @@ async function main() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required (or use --file)');
 
+  // Newly collected programs bring venue strings nobody has resolved yet.
+  const enqueued = await restRpc(base, key, 'enqueue_missing_geo_places', {});
+  console.log(`queued ${enqueued} new place(s)`);
+
   const cities = await restGet(base, key, 'hu_settlements?select=display_name');
   const knownCities = new Set(cities.map((c) => fold(c.display_name)));
   const places = await restGet(

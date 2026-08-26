@@ -37,6 +37,9 @@ export async function scrapeRecipeSource(source, { fetchStatic, log = () => {} }
   for (const item of raw) {
     // The listing carries every field, so the event id has to come from the
     // entry itself — a shared listing URL would collapse them into one row.
+    // A calendar grid names the program but not the place — for a single-venue
+    // source the place IS the publisher, and that name is geocodable.
+    if (!item.location && source.publisher_name) item.location = source.publisher_name;
     const row = buildEvent(source, item, {
       listingUrl: url,
       detailUrl: item.url || url,
