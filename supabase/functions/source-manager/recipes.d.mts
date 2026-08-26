@@ -44,3 +44,33 @@ export function inspectSource(
 export function normalizeSourceUrl(input: string): string | null;
 export function isSocialUrl(url: string): boolean;
 export function guessPublisherName(html: string, url: string): string | null;
+
+export interface ExtractionRule {
+  version?: number;
+  container: string;
+  fields: Record<string, { selector?: string; attr?: string }>;
+  dateFormat?: 'auto' | 'hu' | 'iso';
+  limit?: number;
+}
+
+export interface RuleEvent {
+  name: string;
+  startDate: string;
+  url: string | null;
+  description: string | null;
+  image: string | null;
+  location: string | null;
+  city: string | null;
+  offers: { price_min?: number; currency?: string };
+}
+
+export function validateRule(rule: unknown): { ok: boolean; errors: string[] };
+export function extractWithRule(
+  html: string,
+  rule: unknown,
+  pageUrl: string,
+): { events: RuleEvent[]; errors: string[] };
+export function sampleRepeatingBlock(
+  html: string,
+  options?: { maxChars?: number },
+): { snippet: string; hintSelector: string | null; candidates: Array<{ selector: string; occurrences: number }> };

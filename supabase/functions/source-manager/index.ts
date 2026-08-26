@@ -17,7 +17,9 @@
 // the deploy pipeline cannot do. The handful of helpers below are the same ones
 // shared/providerFetch.ts and shared/userAuth.ts provide.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
-import { inspectSource, normalizeSourceUrl } from './recipes.mjs';
+import {
+  extractWithRule, inspectSource, normalizeSourceUrl, sampleRepeatingBlock, validateRule,
+} from './recipes.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -171,6 +173,133 @@ Deno.serve(async (req) => {
       return jsonResponse({ ...result, request_id: requestId });
     }
 
+    if (action === 'test-rule') {
+      if (overRateLimit(user.id)) {
+        return jsonResponse({ error: { code: 'RATE_LIMITED' }, request_id: requestId }, 429);
+      }
+      const url = normalizeSourceUrl(String(body.url ?? ''));
+      if (!url) return jsonResponse({ error: { code: 'INVALID_URL' }, request_id: requestId }, 400);
+      const check = validateRule(body.rule);
+      if (!check.ok) {
+        return jsonResponse({ events: [], errors: check.errors, request_id: requestId });
+      }
+      const page = await fetchText(url);
+      if (!page.ok) {
+        return jsonResponse({
+          events: [],
+          errors: [`Az oldal nem érhető el (HTTP ${page.status}).`],
+          request_id: requestId,
+        });
+      }
+      const result = extractWithRule(page.text, body.rule, url);
+      return jsonResponse({
+        events: result.events.slice(0, 10),
+        total: result.events.length,
+        errors: result.errors,
+        // A statically fetched page cannot show a JS-built listing; say so
+        // rather than letting an empty result look like a broken rule.
+        note: result.events.length === 0
+          ? 'Ha az oldal JavaScripttel építi a listát, itt üres marad — mentés után a próbafuttatás böngészővel tölti be.'
+          : null,
+        request_id: requestId,
+      });
+    }
+
+    if (action === 'suggest-rule') {
+      await requireAdmin();
+      const url = normalizeSourceUrl(String(body.url ?? ''));
+      if (!url) return jsonResponse({ error: { code: 'INVALID_URL' }, request_id: requestId }, 400);
+      const page = await fetchText(url);
+      if (!page.ok) {
+        return jsonResponse({ error: { code: 'PAGE_UNREACHABLE', status: page.status }, request_id: requestId }, 502);
+      }
+      const block = sampleRepeatingBlock(page.text);
+      const fallbackRule = {
+        version: 1,
+        container: block.hintSelector ?? '.event',
+        fields: {
+          title: { selector: 'h1, h2, h3, .title' },
+          date: { selector: 'time, .date, .datum' },
+          url: { selector: 'a', attr: 'href' },
+        },
+        dateFormat: 'auto',
+      };
+
+      const apiKey = String(Deno.env.get('GEMINI_API_KEY') ?? '').trim();
+      if (!apiKey) {
+        const tried = extractWithRule(page.text, fallbackRule, url);
+        return jsonResponse({
+          rule: fallbackRule,
+          events: tried.events.slice(0, 10),
+          errors: tried.errors,
+          candidates: block.candidates,
+          source: 'heuristic',
+          note: 'AI kulcs nincs beállítva, ezért a leggyakoribb ismétlődő elemből készült javaslat.',
+          request_id: requestId,
+        });
+      }
+
+      // The model returns a RULE, never code. Whatever it answers is validated
+      // against our schema and then interpreted by our own reader, so a hostile
+      // page cannot turn this into execution.
+      const prompt = [
+        'You extract event listings. Given an HTML fragment, answer with ONE JSON object and nothing else.',
+        'Schema: {"version":1,"container":"<css selector for the repeating event element>",',
+        '"fields":{"title":{"selector":"..."},"date":{"selector":"...","attr":"text|datetime"},',
+        '"time":{"selector":"..."},"url":{"selector":"a","attr":"href"},"image":{"selector":"img","attr":"src"},',
+        '"location":{"selector":"..."},"price":{"selector":"..."}},"dateFormat":"auto|hu|iso"}',
+        'Only these selector features are supported: tag, .class, #id, [attr], [attr=v], [attr^=v], [attr$=v],',
+        '[attr*=v], descendant (space) and child (>) combinators. No pseudo-classes, no :has, no :nth-child.',
+        'Field selectors are resolved INSIDE the container element. Omit fields the page does not have.',
+        'Prefer stable class names over generated ones. Dates are usually Hungarian free text.',
+        block.hintSelector ? `A likely container is ${block.hintSelector}.` : '',
+        'HTML fragment:',
+        block.snippet,
+      ].filter(Boolean).join('\n');
+
+      let rule = null;
+      let modelError = null;
+      try {
+        const response = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='
+            + encodeURIComponent(apiKey),
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+            }),
+            signal: AbortSignal.timeout(30_000),
+          },
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        rule = JSON.parse(text);
+      } catch (error) {
+        modelError = error instanceof Error ? error.message.slice(0, 120) : 'unknown';
+      }
+
+      const check = rule ? validateRule(rule) : { ok: false, errors: [] };
+      const chosen = check.ok ? rule : fallbackRule;
+      const tried = extractWithRule(page.text, chosen, url);
+      return jsonResponse({
+        rule: chosen,
+        events: tried.events.slice(0, 10),
+        total: tried.events.length,
+        errors: [...(check.ok ? [] : check.errors), ...tried.errors],
+        candidates: block.candidates,
+        source: check.ok ? 'ai' : 'heuristic',
+        note: check.ok
+          ? null
+          : (modelError
+            ? `Az AI javaslat nem érkezett meg (${modelError}); a leggyakoribb ismétlődő elemből készült javaslat.`
+            : 'Az AI válasza nem felelt meg a szabály-sémának, ezért a heurisztikus javaslat látszik.'),
+        request_id: requestId,
+      });
+    }
+
     if (action === 'save') {
       await requireAdmin();
       const { data, error } = await admin.rpc('admin_upsert_scraper_source', {
@@ -183,6 +312,7 @@ Deno.serve(async (req) => {
         p_scrape_enabled: body.scrape_enabled !== false,
         p_note: body.note ? String(body.note).slice(0, 300) : null,
         p_source_id: body.source_id ? String(body.source_id) : null,
+        p_rule: body.rule ?? null,
       });
       if (error) {
         console.error(JSON.stringify({ level: 'error', code: 'SAVE_FAILED', detail: error.message, request_id: requestId }));

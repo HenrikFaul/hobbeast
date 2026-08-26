@@ -5,9 +5,10 @@
 // 257 here. This file only wires those parsers to the worker's fetch, robots
 // gate and event-normalization contract.
 
-import { buildEvent, normalizeEndpointUrl, resolveEventImages } from './generic.mjs';
+import { buildEvent, normalizeEndpointUrl, renderPage, resolveEventImages } from './generic.mjs';
 import {
-  parseIcs, parseJsonLdEvents, parseProsePage, parseWpIcsCalendar, parseWpPosts,
+  extractWithRule, parseIcs, parseJsonLdEvents, parseProsePage, parseWpIcsCalendar,
+  parseWpPosts, validateRule,
 } from './recipes.mjs';
 
 const PARSERS = {
@@ -60,4 +61,49 @@ export async function scrapeRecipeSource(source, { fetchStatic, log = () => {} }
     if (row) events.push(row);
   }
   return { events: resolveEventImages(events), httpStatus: 200 };
+}
+
+/**
+ * The 'selector' strategy: a declarative rule decides what to read.
+ *
+ * The page is rendered with Playwright first, so a listing built by JavaScript
+ * is visible to the rule, and the SAME interpreter the admin preview uses is
+ * then applied to that HTML. Nothing from the rule is executed — it only names
+ * elements and attributes.
+ */
+export async function scrapeSelectorSource(source, { browser, fetchStatic, log = () => {} }) {
+  const url = normalizeEndpointUrl(source.endpoint_url);
+  if (!url) throw new Error('invalid endpoint url');
+
+  const rule = source.scrape_rule;
+  const check = validateRule(rule);
+  if (!check.ok) throw new Error(`invalid rule: ${check.errors.join('; ').slice(0, 160)}`);
+
+  let html = null;
+  let httpStatus = null;
+  if (browser) {
+    const rendered = await renderPage(browser, url);
+    html = rendered.html;
+    httpStatus = rendered.status;
+  } else {
+    html = await fetchStatic(url);
+    httpStatus = 200;
+  }
+
+  const { events: raw, errors } = extractWithRule(html, rule, url);
+  for (const message of errors) log(`  rule: ${message}`);
+  log(`  recipe selector: ${raw.length} entries from ${rule.container}`);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const events = [];
+  for (const item of raw) {
+    if (String(item.startDate ?? '').slice(0, 10) < today) continue;
+    const row = buildEvent(source, item, {
+      listingUrl: url,
+      detailUrl: item.url || url,
+      idSeed: `${item.name}|${String(item.startDate).slice(0, 16)}`,
+    });
+    if (row) events.push(row);
+  }
+  return { events: resolveEventImages(events), httpStatus };
 }

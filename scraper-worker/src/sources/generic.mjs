@@ -390,7 +390,8 @@ function collectListingCards(page) {
   });
 }
 
-async function renderPage(browser, url) {
+// Exported so the rule runner renders exactly the way every other strategy does.
+export async function renderPage(browser, url) {
   const page = await browser.newPage({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
     // Municipal/venue sites often serve mismatched certs; we only read public data.

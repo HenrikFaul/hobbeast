@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Search, Sparkles, TriangleAlert } from 'lucide-react';
+import { Loader2, Play, Search, Sparkles, TriangleAlert, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,6 +28,20 @@ export interface RecipeSample {
   location: string | null;
 }
 
+export interface ExtractionRule {
+  version?: number;
+  container: string;
+  fields: Record<string, { selector?: string; attr?: string }>;
+  dateFormat?: string;
+  limit?: number;
+}
+
+export interface RuleSample {
+  name: string;
+  startDate: string;
+  location: string | null;
+}
+
 export interface RecipeCandidate {
   strategy: string;
   label: string;
@@ -39,6 +53,9 @@ export interface RecipeCandidate {
   samples: RecipeSample[];
   evidence: string;
   confidence: number;
+  /** Only for the 'selector' recipe: a starting rule and the classes that repeat. */
+  ruleTemplate?: ExtractionRule;
+  containerCandidates?: Array<{ selector: string; occurrences: number }>;
 }
 
 export interface InspectResult {
@@ -74,9 +91,81 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
   const [categories, setCategories] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  // Declarative-rule route: the operator edits data, never code.
+  const [ruleText, setRuleText] = useState('');
+  const [ruleErrors, setRuleErrors] = useState<string[]>([]);
+  const [ruleSamples, setRuleSamples] = useState<RuleSample[]>([]);
+  const [ruleTotal, setRuleTotal] = useState(0);
+  const [testing, setTesting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
 
   const chosen = result?.candidates.find((c) => c.strategy === strategy) ?? null;
   const usable = Boolean(chosen && !chosen.unsupported);
+
+  const parsedRule = (): ExtractionRule | null => {
+    try {
+      return JSON.parse(ruleText) as ExtractionRule;
+    } catch {
+      return null;
+    }
+  };
+
+  const pickStrategy = (candidate: RecipeCandidate) => {
+    setStrategy(candidate.strategy);
+    setRuleErrors([]);
+    setRuleSamples([]);
+    setRuleTotal(0);
+    if (candidate.strategy === 'selector' && !ruleText) {
+      setRuleText(JSON.stringify(candidate.ruleTemplate ?? {}, null, 2));
+    }
+  };
+
+  const setRuleContainer = (selector: string) => {
+    const rule = parsedRule() ?? (chosen?.ruleTemplate as ExtractionRule | undefined) ?? null;
+    if (!rule) return;
+    setRuleText(JSON.stringify({ ...rule, container: selector }, null, 2));
+  };
+
+  const testRule = async () => {
+    const rule = parsedRule();
+    if (!rule) {
+      setRuleErrors(['A szabály nem érvényes JSON.']);
+      return;
+    }
+    setTesting(true);
+    const { data, error } = await supabase.functions.invoke('source-manager', {
+      body: { action: 'test-rule', url: chosen?.endpointUrl ?? result?.url, rule },
+    });
+    setTesting(false);
+    if (error || !data) {
+      setRuleErrors(['A tesztelés nem sikerült.']);
+      return;
+    }
+    const payload = data as { events?: RuleSample[]; total?: number; errors?: string[]; note?: string | null };
+    setRuleSamples(payload.events ?? []);
+    setRuleTotal(payload.total ?? payload.events?.length ?? 0);
+    setRuleErrors([...(payload.errors ?? []), ...(payload.note ? [payload.note] : [])]);
+  };
+
+  const suggestRule = async () => {
+    setSuggesting(true);
+    const { data, error } = await supabase.functions.invoke('source-manager', {
+      body: { action: 'suggest-rule', url: chosen?.endpointUrl ?? result?.url },
+    });
+    setSuggesting(false);
+    if (error || !data) {
+      setRuleErrors(['A javaslat nem érkezett meg.']);
+      return;
+    }
+    const payload = data as {
+      rule?: ExtractionRule; events?: RuleSample[]; total?: number;
+      errors?: string[]; note?: string | null; source?: string;
+    };
+    if (payload.rule) setRuleText(JSON.stringify(payload.rule, null, 2));
+    setRuleSamples(payload.events ?? []);
+    setRuleTotal(payload.total ?? payload.events?.length ?? 0);
+    setRuleErrors([...(payload.errors ?? []), ...(payload.note ? [payload.note] : [])]);
+  };
 
   const inspect = async () => {
     if (!url.trim()) return;
@@ -111,7 +200,8 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
       city: city.trim() || null,
       categories,
       note: note.trim() || null,
-      detected_events: chosen.eventCount,
+      detected_events: chosen.strategy === 'selector' ? ruleTotal : chosen.eventCount,
+      rule: chosen.strategy === 'selector' ? parsedRule() : null,
       inspection: {
         strategy: chosen.strategy,
         event_count: chosen.eventCount,
@@ -147,6 +237,10 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
     setCity('');
     setCategories([]);
     setNote('');
+    setRuleText('');
+    setRuleErrors([]);
+    setRuleSamples([]);
+    setRuleTotal(0);
     onSaved?.();
   };
 
@@ -201,7 +295,7 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
                 <button
                   key={candidate.strategy}
                   type="button"
-                  onClick={() => setStrategy(candidate.strategy)}
+                  onClick={() => pickStrategy(candidate)}
                   aria-pressed={active}
                   disabled={candidate.unsupported}
                   className={cn(
@@ -234,6 +328,83 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {chosen?.strategy === 'selector' && (
+          <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/[0.04] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="text-xs font-semibold">Kiolvasási szabály</Label>
+              <span className="flex gap-2">
+                <Button
+                  type="button" size="sm" variant="outline"
+                  disabled={suggesting}
+                  onClick={() => void suggestRule()}
+                >
+                  {suggesting ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Wand2 className="mr-1 h-3.5 w-3.5" />}
+                  Javaslat kérése
+                </Button>
+                <Button type="button" size="sm" variant="outline" disabled={testing} onClick={() => void testRule()}>
+                  {testing ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1 h-3.5 w-3.5" />}
+                  Szabály tesztelése
+                </Button>
+              </span>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              A szabály megmondja, melyik elem ismétlődik, és azon belül hol a cím, a dátum és a link.
+              Ez adat, nem kód — nem futtatunk semmit, amit nem mi írtunk.
+            </p>
+
+            {chosen.containerCandidates && chosen.containerCandidates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[0.66rem] uppercase tracking-wide text-muted-foreground">Ismétlődő elemek:</span>
+                {chosen.containerCandidates.slice(0, 5).map((candidate) => (
+                  <button
+                    key={candidate.selector}
+                    type="button"
+                    onClick={() => setRuleContainer(candidate.selector)}
+                    className="rounded-full border border-border/70 px-2 py-0.5 font-mono text-[0.68rem] hover:border-primary/60"
+                  >
+                    {candidate.selector} <span className="opacity-60">{candidate.occurrences}×</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <Textarea
+              value={ruleText}
+              onChange={(event) => setRuleText(event.target.value)}
+              rows={10}
+              spellCheck={false}
+              className="font-mono text-[0.72rem]"
+              aria-label="Kiolvasási szabály JSON formában"
+            />
+
+            {ruleErrors.length > 0 && (
+              <ul className="space-y-0.5">
+                {ruleErrors.map((message) => (
+                  <li key={message} className="text-xs text-destructive">• {message}</li>
+                ))}
+              </ul>
+            )}
+
+            {ruleSamples.length > 0 && (
+              <div className="rounded-lg border border-border/70 bg-background/60 p-2">
+                <p className="mb-1 text-xs font-medium">
+                  A szabály {ruleTotal} programot talált. Az első néhány:
+                </p>
+                <ul className="space-y-0.5">
+                  {ruleSamples.map((sample) => (
+                    <li key={`${sample.startDate}-${sample.name}`} className="text-xs">
+                      <span className="font-medium">{sample.startDate.slice(0, 10)}</span>
+                      <span className="text-muted-foreground"> · {sample.name}</span>
+                      {sample.location ? <span className="text-muted-foreground"> · {sample.location}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -302,7 +473,11 @@ export function SourceInspector({ mode, onSaved }: { mode: 'admin' | 'provider';
               Begyűjtési cím: <span className="break-all font-mono">{chosen?.endpointUrl}</span>
             </p>
 
-            <Button onClick={() => void save()} disabled={saving || !publisherName.trim()} className="w-full sm:w-auto">
+            <Button
+              onClick={() => void save()}
+              disabled={saving || !publisherName.trim() || (chosen?.strategy === 'selector' && !parsedRule())}
+              className="w-full sm:w-auto"
+            >
               {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {mode === 'admin' ? 'Mentés és próbafuttatás' : 'Beküldés jóváhagyásra'}
             </Button>

@@ -53,6 +53,12 @@ export const RECIPES = {
     hint: 'Nem katalógus: egy rendezvény saját oldala, a dátum a szövegben.',
     needsBrowser: false,
   },
+  selector: {
+    id: 'selector',
+    label: 'Egyedi szabály (szelektorok)',
+    hint: 'Te (vagy az AI) megmondod, melyik elem ismétlődik és hol a cím, a dátum, a link. A szabály adat, nem kód.',
+    needsBrowser: false,
+  },
   render: {
     id: 'render',
     label: 'Böngészős betöltés',
@@ -592,6 +598,428 @@ export function wpCategoryId(html) {
   return m ? m[1] : null;
 }
 
+// --- a rule instead of a script ---------------------------------------------
+//
+// When a site exposes no structured data, the honest way to teach the collector
+// about it is a DECLARATIVE RULE: which element repeats, and which selector
+// inside it holds the title, the date, the link. A rule is data — readable,
+// versionable, correctable by hand, and safe to accept from an AI, because
+// nothing it says is ever executed. The alternative (an AI writing a scraper
+// script that the server runs) is remote code execution by design: the model's
+// input is a stranger's HTML.
+//
+// The interpreter below is deliberately self-contained. The same file runs in
+// the Edge Function preview and in the worker — the worker renders the page with
+// Playwright first and then hands this code the resulting HTML — so what the
+// operator sees when testing a rule is what production will extract.
+
+const VOID_TAGS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
+  'param', 'source', 'track', 'wbr',
+]);
+
+// Tags that implicitly close a previous sibling of the same name.
+const SELF_CLOSING_SIBLINGS = new Set(['li', 'p', 'tr', 'td', 'th', 'option', 'dd', 'dt']);
+
+const ATTR_RE = /([a-zA-Z_:@][-\w:.]*)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
+
+function parseAttrs(raw) {
+  const attrs = {};
+  if (!raw) return attrs;
+  ATTR_RE.lastIndex = 0;
+  let m;
+  while ((m = ATTR_RE.exec(raw))) {
+    const value = m[2] ?? m[3] ?? m[4] ?? '';
+    attrs[m[1].toLowerCase()] = value;
+  }
+  return attrs;
+}
+
+/**
+ * Tolerant tag-soup parser. Real pages are not well-formed, so unmatched close
+ * tags pop up to the nearest match and are otherwise ignored.
+ */
+export function parseHtml(html) {
+  const source = String(html ?? '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+
+  const root = { tag: '#root', attrs: {}, children: [], parent: null };
+  const stack = [root];
+  const tagRe = /<(\/)?([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+  let last = 0;
+  let m;
+
+  const addText = (text) => {
+    if (!text) return;
+    const trimmed = text.replace(/\s+/g, ' ');
+    if (!trimmed.trim()) return;
+    stack[stack.length - 1].children.push({ tag: '#text', text: trimmed });
+  };
+
+  while ((m = tagRe.exec(source))) {
+    addText(source.slice(last, m.index));
+    last = tagRe.lastIndex;
+    const closing = Boolean(m[1]);
+    const tag = m[2].toLowerCase();
+    const rest = m[3] || '';
+
+    if (closing) {
+      // Pop to the nearest matching open tag; ignore a stray close tag.
+      for (let i = stack.length - 1; i > 0; i -= 1) {
+        if (stack[i].tag === tag) { stack.length = i; break; }
+      }
+      continue;
+    }
+
+    if (SELF_CLOSING_SIBLINGS.has(tag) && stack[stack.length - 1].tag === tag) stack.pop();
+
+    const node = { tag, attrs: parseAttrs(rest), children: [], parent: stack[stack.length - 1] };
+    stack[stack.length - 1].children.push(node);
+    if (!VOID_TAGS.has(tag) && !/\/\s*$/.test(rest)) stack.push(node);
+  }
+  addText(source.slice(last));
+  return root;
+}
+
+export function textOf(node) {
+  if (!node) return '';
+  if (node.tag === '#text') return node.text ?? '';
+  return (node.children ?? []).map(textOf).join(' ');
+}
+
+function elements(node, out = []) {
+  for (const child of node.children ?? []) {
+    if (child.tag === '#text') continue;
+    out.push(child);
+    elements(child, out);
+  }
+  return out;
+}
+
+// --- the selector subset -----------------------------------------------------
+// tag, *, .class, #id, [attr], [attr=v], [attr*=v], [attr^=v], [attr$=v],
+// combined into compounds, joined by descendant (space) or child (>) combinators,
+// and grouped with commas. Deliberately no pseudo-classes: a rule must stay
+// something a person can read and correct.
+
+const COMPOUND_RE = /^(\*|[a-zA-Z][\w:-]*)?((?:[.#][\w-]+|\[[^\]]+\])*)$/;
+const PART_RE = /([.#][\w-]+)|(\[[^\]]+\])/g;
+
+function parseCompound(text) {
+  const trimmed = text.trim();
+  const m = COMPOUND_RE.exec(trimmed);
+  if (!m) return null;
+  const compound = { tag: m[1] && m[1] !== '*' ? m[1].toLowerCase() : null, classes: [], id: null, attrs: [] };
+  PART_RE.lastIndex = 0;
+  let part;
+  while ((part = PART_RE.exec(m[2] || ''))) {
+    if (part[1]?.startsWith('.')) compound.classes.push(part[1].slice(1));
+    else if (part[1]?.startsWith('#')) compound.id = part[1].slice(1);
+    else if (part[2]) {
+      const body = part[2].slice(1, -1);
+      const attr = body.match(/^([-\w:]+)\s*(?:([*^$]?)=\s*"?'?([^"']*)"?'?)?$/);
+      if (!attr) return null;
+      compound.attrs.push({ name: attr[1].toLowerCase(), op: attr[2] || (attr[3] !== undefined ? '' : null), value: attr[3] ?? null });
+    }
+  }
+  return compound;
+}
+
+export function parseSelector(selector) {
+  const groups = [];
+  for (const group of String(selector ?? '').split(',')) {
+    const tokens = group.trim().split(/\s*(>)\s*|\s+/).filter((t) => t !== undefined && t !== '');
+    if (!tokens.length) continue;
+    const steps = [];
+    let combinator = ' ';
+    let ok = true;
+    for (const token of tokens) {
+      if (token === '>') { combinator = '>'; continue; }
+      const compound = parseCompound(token);
+      if (!compound) { ok = false; break; }
+      steps.push({ compound, combinator });
+      combinator = ' ';
+    }
+    if (ok && steps.length) groups.push(steps);
+  }
+  return groups;
+}
+
+function matchesCompound(node, compound) {
+  if (!node || node.tag === '#text' || node.tag === '#root') return false;
+  if (compound.tag && node.tag !== compound.tag) return false;
+  if (compound.id && node.attrs.id !== compound.id) return false;
+  if (compound.classes.length) {
+    const classes = String(node.attrs.class ?? '').split(/\s+/);
+    if (!compound.classes.every((c) => classes.includes(c))) return false;
+  }
+  for (const attr of compound.attrs) {
+    const value = node.attrs[attr.name];
+    if (value === undefined) return false;
+    if (attr.op === null || attr.value === null) continue;
+    if (attr.op === '' && value !== attr.value) return false;
+    if (attr.op === '*' && !value.includes(attr.value)) return false;
+    if (attr.op === '^' && !value.startsWith(attr.value)) return false;
+    if (attr.op === '$' && !value.endsWith(attr.value)) return false;
+  }
+  return true;
+}
+
+function matchesSteps(node, steps) {
+  let index = steps.length - 1;
+  if (!matchesCompound(node, steps[index].compound)) return false;
+  let current = node;
+  for (index -= 1; index >= 0; index -= 1) {
+    const { compound, combinator } = steps[index + 1];
+    if (combinator === '>') {
+      current = current.parent;
+      if (!current || !matchesCompound(current, steps[index].compound)) return false;
+    } else {
+      let ancestor = current.parent;
+      let found = false;
+      while (ancestor) {
+        if (matchesCompound(ancestor, steps[index].compound)) { found = true; break; }
+        ancestor = ancestor.parent;
+      }
+      if (!found) return false;
+      current = ancestor;
+    }
+  }
+  return true;
+}
+
+export function queryAll(root, selector) {
+  const groups = parseSelector(selector);
+  if (!groups.length) return [];
+  return elements(root).filter((node) => groups.some((steps) => matchesSteps(node, steps)));
+}
+
+export function queryFirst(root, selector) {
+  return queryAll(root, selector)[0] ?? null;
+}
+
+// --- rule validation and application ----------------------------------------
+
+const FIELD_NAMES = ['title', 'date', 'time', 'url', 'image', 'location', 'city', 'price', 'description'];
+const ATTR_NAME_RE = /^[a-zA-Z_:@][-\w:.]*$/;
+const DATE_FORMATS = new Set(['auto', 'hu', 'iso']);
+
+/**
+ * A rule is data, so it is checked like data: every selector must parse, every
+ * field must be one we know, and anything unexpected is reported rather than
+ * silently ignored. A rule that "matches nothing" because of a typo is the
+ * failure mode this catches.
+ */
+export function validateRule(rule) {
+  const errors = [];
+  if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+    return { ok: false, errors: ['A szabály nem objektum.'] };
+  }
+  if (rule.version !== undefined && rule.version !== 1) errors.push('Ismeretlen szabály-verzió (csak 1 támogatott).');
+
+  if (typeof rule.container !== 'string' || !rule.container.trim()) {
+    errors.push('Hiányzik a "container" szelektor.');
+  } else if (!parseSelector(rule.container).length) {
+    errors.push(`A "container" szelektor nem értelmezhető: ${rule.container}`);
+  }
+
+  const fields = rule.fields;
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
+    errors.push('Hiányzik a "fields" objektum.');
+  } else {
+    for (const [name, field] of Object.entries(fields)) {
+      if (!FIELD_NAMES.includes(name)) {
+        errors.push(`Ismeretlen mező: ${name} (használható: ${FIELD_NAMES.join(', ')})`);
+        continue;
+      }
+      if (!field || typeof field !== 'object') {
+        errors.push(`A(z) "${name}" mező nem objektum.`);
+        continue;
+      }
+      if (field.selector !== undefined) {
+        if (typeof field.selector !== 'string' || !parseSelector(field.selector).length) {
+          errors.push(`A(z) "${name}" szelektora nem értelmezhető: ${field.selector}`);
+        }
+      }
+      if (field.attr !== undefined && (typeof field.attr !== 'string' || !ATTR_NAME_RE.test(field.attr))) {
+        errors.push(`A(z) "${name}" mező "attr" értéke érvénytelen.`);
+      }
+    }
+    if (!fields.title) errors.push('A "title" mező kötelező.');
+    if (!fields.date) errors.push('A "date" mező kötelező.');
+  }
+
+  if (rule.dateFormat !== undefined && !DATE_FORMATS.has(rule.dateFormat)) {
+    errors.push(`Ismeretlen "dateFormat": ${rule.dateFormat} (auto | hu | iso)`);
+  }
+  if (rule.limit !== undefined && (!Number.isInteger(rule.limit) || rule.limit < 1 || rule.limit > 500)) {
+    errors.push('A "limit" 1 és 500 közötti egész szám lehet.');
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+function readField(container, field, pageUrl) {
+  if (!field) return null;
+  const node = field.selector ? queryFirst(container, field.selector) : container;
+  if (!node) return null;
+  const attr = field.attr || 'text';
+  if (attr === 'text') {
+    const value = decodeEntities(textOf(node));
+    return value || null;
+  }
+  const raw = node.attrs?.[attr.toLowerCase()];
+  if (raw === undefined || raw === '') return null;
+  return attr === 'href' || attr === 'src' ? (absoluteUrl(pageUrl, raw) ?? raw) : decodeEntities(raw);
+}
+
+// An ISO timestamp carries its own time; reading it back out of the string
+// with a generic clock pattern picks up the seconds instead.
+const ISO_DATETIME_RE = /(\d{4})-(\d{2})-(\d{2})(?:[T ]([01]\d|2[0-3]):([0-5]\d))?/;
+const TIME_RE = /(?<![\d:])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d:])/;
+const PRICE_RE = /(\d[\d\s.,]{1,12})\s*(Ft|HUF|EUR|€)/i;
+
+function toDateTime(value, format, parseHu) {
+  if (!value) return null;
+  const text = String(value);
+  const iso = text.match(ISO_DATETIME_RE);
+  if (iso && format !== 'hu') {
+    return { date: `${iso[1]}-${iso[2]}-${iso[3]}`, time: iso[4] ? `${iso[4]}:${iso[5]}` : null };
+  }
+  if (format === 'iso') return null;
+  const parsed = parseHu(text);
+  return parsed ? { date: parsed, time: null } : null;
+}
+
+function toPrice(value) {
+  if (!value) return {};
+  const m = String(value).match(PRICE_RE);
+  if (!m) return {};
+  const amount = Number(m[1].replace(/[\s.]/g, '').replace(',', '.'));
+  if (!Number.isFinite(amount) || amount <= 0) return {};
+  const unit = m[2].toUpperCase();
+  return { price_min: amount, currency: unit === 'FT' ? 'HUF' : (unit === '€' ? 'EUR' : unit) };
+}
+
+/**
+ * Applies a validated rule to a page. The worker passes the HTML Playwright
+ * produced, the Edge Function passes the HTML it fetched — same code, same
+ * result for the same input.
+ */
+export function extractWithRule(html, rule, pageUrl, { parseDate = parseHuTextDate } = {}) {
+  const check = validateRule(rule);
+  if (!check.ok) return { events: [], errors: check.errors };
+
+  const root = parseHtml(html);
+  const containers = queryAll(root, rule.container).slice(0, rule.limit ?? 200);
+  const format = rule.dateFormat ?? 'auto';
+  const events = [];
+  const seen = new Set();
+
+  for (const container of containers) {
+    const name = readField(container, rule.fields.title, pageUrl);
+    const dateText = readField(container, rule.fields.date, pageUrl);
+    const parsed = toDateTime(dateText, format, parseDate);
+    if (!name || name.length < 3 || !parsed) continue;
+    const startDate = parsed.date;
+
+    // A dedicated time field wins; then the timestamp's own time; only then a
+    // clock pattern found in the date text.
+    const timeField = readField(container, rule.fields.time, pageUrl);
+    const fieldClock = timeField ? timeField.match(TIME_RE) : null;
+    const textClock = dateText ? dateText.match(TIME_RE) : null;
+    const asClock = (m) => `${m[1].padStart(2, '0')}:${m[2]}`;
+    // A timestamp's own time beats a pattern found in free text, where a UTC
+    // offset ("+02:00") reads exactly like a clock.
+    const time = fieldClock ? asClock(fieldClock) : (parsed.time ?? (textClock ? asClock(textClock) : null));
+    const key = `${name.toLowerCase()}|${startDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const location = readField(container, rule.fields.location, pageUrl);
+    events.push({
+      name: name.slice(0, 200),
+      startDate: time ? `${startDate}T${time}` : startDate,
+      url: readField(container, rule.fields.url, pageUrl) ?? pageUrl,
+      description: (readField(container, rule.fields.description, pageUrl) ?? '').slice(0, 800) || null,
+      image: readField(container, rule.fields.image, pageUrl),
+      location: location ? location.slice(0, 160) : null,
+      city: readField(container, rule.fields.city, pageUrl),
+      offers: toPrice(readField(container, rule.fields.price, pageUrl)),
+    });
+  }
+
+  const errors = [];
+  if (!containers.length) errors.push(`A "container" szelektor egyetlen elemre sem illeszkedik: ${rule.container}`);
+  else if (!events.length) errors.push('Vannak illeszkedő elemek, de egyikből sem jött ki cím és dátum — ellenőrizd a "title" és a "date" szelektort.');
+  return { events, errors };
+}
+
+// --- picking the part of the page worth showing a model ----------------------
+//
+// A rule generator does not need the whole document, and sending it is both
+// expensive and less accurate. What matters is the block where one structure
+// REPEATS. This finds the class that occurs most often on the page, slices the
+// markup around its first few occurrences, and hands back both the snippet and
+// the class as a starting suggestion — so even without a model, an operator has
+// a candidate container selector to try.
+
+const NOISE_RE = /<(script|style|svg|noscript|iframe|head)[\s\S]*?<\/\1>/gi;
+const CLASS_RE = /class=["']([^"']+)["']/gi;
+
+// Utility-first frameworks put dozens of classes on every element; a container
+// class is a name, not a style stack.
+const UTILITY_RE = /^(?:[a-z]+-\d|[mp][txyblr]?-|w-|h-|flex|grid|text-|bg-|border|rounded|shadow|gap-|items-|justify-|hidden|block|inline|absolute|relative|z-\d|col-|row-|container|wrapper|clearfix|sr-only)/i;
+
+function candidateClasses(html) {
+  const counts = new Map();
+  CLASS_RE.lastIndex = 0;
+  let m;
+  while ((m = CLASS_RE.exec(html))) {
+    for (const name of m[1].split(/\s+/)) {
+      if (!name || name.length < 3 || name.length > 40) continue;
+      if (UTILITY_RE.test(name)) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([, n]) => n >= 3 && n <= 400)
+    // An event card class is repeated often and usually says what it is.
+    .sort((a, b) => (scoreClass(b[0], b[1]) - scoreClass(a[0], a[1])))
+    .slice(0, 6);
+}
+
+const MEANINGFUL_RE = /(event|program|esemeny|rendezveny|card|item|entry|post|listing|teaser|koncert|eloadas)/i;
+
+function scoreClass(name, count) {
+  return count + (MEANINGFUL_RE.test(name) ? 40 : 0);
+}
+
+/**
+ * Returns a representative slice of the page plus the most likely container
+ * class, capped so it stays cheap to send and quick to read.
+ */
+export function sampleRepeatingBlock(html, { maxChars = 12000 } = {}) {
+  const source = String(html ?? '').replace(NOISE_RE, ' ');
+  const ranked = candidateClasses(source);
+  const hint = ranked.length ? `.${ranked[0][0]}` : null;
+
+  if (!hint) {
+    const body = source.indexOf('<body');
+    return { snippet: source.slice(body >= 0 ? body : 0, (body >= 0 ? body : 0) + maxChars), hintSelector: null, candidates: [] };
+  }
+
+  const needle = ranked[0][0];
+  const first = source.search(new RegExp(`class=["'][^"']*\\b${needle.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`));
+  const start = Math.max(0, (first < 0 ? 0 : first) - 400);
+  return {
+    snippet: source.slice(start, start + maxChars),
+    hintSelector: hint,
+    candidates: ranked.map(([name, count]) => ({ selector: `.${name}`, occurrences: count })),
+  };
+}
+
 // --- the inspector ----------------------------------------------------------
 
 function futureCount(events) {
@@ -765,6 +1193,36 @@ export async function inspectSource(inputUrl, { fetchText, maxDetailFetches = 6 
   if (!candidates.length) {
     addCandidate('page-prose', listingUrl, parseProsePage(html, listingUrl),
       'Ez egy rendezvény saját oldala, nem programlista — a dátum a szövegben szerepel.');
+  }
+
+  // Nothing matched a known format: offer the declarative-rule route with a
+  // starting point, so the operator (or a model) has something to correct
+  // rather than a blank field.
+  if (!candidates.length) {
+    const block = sampleRepeatingBlock(html);
+    candidates.push({
+      strategy: 'selector',
+      ...RECIPES.selector,
+      endpointUrl: listingUrl,
+      eventCount: 0,
+      samples: [],
+      evidence: block.hintSelector
+        ? `Nincs ismert formátum, de a leggyakrabban ismétlődő elem: ${block.hintSelector} `
+          + `(${block.candidates[0]?.occurrences ?? 0} db). Innen indulhat a szabály.`
+        : 'Nincs ismert formátum, és ismétlődő elemet sem találtunk — a szabályt kézzel kell megadni.',
+      confidence: 30,
+      ruleTemplate: {
+        version: 1,
+        container: block.hintSelector ?? '.event',
+        fields: {
+          title: { selector: 'h1, h2, h3, .title' },
+          date: { selector: 'time, .date, .datum' },
+          url: { selector: 'a', attr: 'href' },
+        },
+        dateFormat: 'auto',
+      },
+      containerCandidates: block.candidates,
+    });
   }
 
   // Rendering is always possible; offer it whenever nothing better was proven,

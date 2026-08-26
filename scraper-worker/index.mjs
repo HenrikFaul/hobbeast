@@ -19,7 +19,9 @@ import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
 import { adapterForSource } from './src/sources/adapters.mjs';
-import { scrapeRecipeSource, supportsRecipeStrategy } from './src/sources/recipeRunner.mjs';
+import {
+  scrapeRecipeSource, scrapeSelectorSource, supportsRecipeStrategy,
+} from './src/sources/recipeRunner.mjs';
 import { ingestEvents } from './src/ingest.mjs';
 import {
   listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
@@ -74,13 +76,15 @@ async function main() {
         const adapter = strategy === 'site' ? adapterForSource(source) : null;
         ({ events, httpStatus, discoveredUrl = null } = adapter
           ? await adapter(source, opts)
-          : supportsRecipeStrategy(strategy)
-            ? await scrapeRecipeSource(source, opts)
-            : strategy === 'tribe'
-              ? await scrapeTribeSource(source, opts)
-              : strategy === 'rss'
-                ? await scrapeRssSource(source, opts)
-                : await scrapeGenericSource(source, opts));
+          : strategy === 'selector'
+            ? await scrapeSelectorSource(source, opts)
+            : supportsRecipeStrategy(strategy)
+              ? await scrapeRecipeSource(source, opts)
+              : strategy === 'tribe'
+                ? await scrapeTribeSource(source, opts)
+                : strategy === 'rss'
+                  ? await scrapeRssSource(source, opts)
+                  : await scrapeGenericSource(source, opts));
         if (events.length > 300) events = events.slice(0, 300);
         log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
       } catch (e) {
