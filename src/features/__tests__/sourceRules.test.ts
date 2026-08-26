@@ -67,6 +67,16 @@ describe('mini-DOM and the selector subset', () => {
     expect(textOf(queryFirst(card, 'h3.t')).trim()).toBe('Kőleves Open Mic');
   });
 
+  it('supports :nth-of-type so a repeated wrapper can be told apart', () => {
+    // pecs.hu repeats an identical .post-meta__event-card for the date and the
+    // venue; without this there is no way to name the second one.
+    const html = parseHtml(
+      '<div class="c"><div class="meta"><span>a</span></div><div class="meta"><span>b</span></div></div>',
+    );
+    expect(textOf(queryFirst(html, '.meta:nth-of-type(2)')).trim()).toBe('b');
+    expect(queryAll(html, '.meta:nth-of-type(3)')).toEqual([]);
+  });
+
   it('refuses a selector it does not implement rather than guessing', () => {
     expect(parseSelector('li:nth-child(2)')).toEqual([]);
     expect(queryAll(root, 'li:nth-child(2)')).toEqual([]);

@@ -706,14 +706,21 @@ function elements(node, out = []) {
 // and grouped with commas. Deliberately no pseudo-classes: a rule must stay
 // something a person can read and correct.
 
-const COMPOUND_RE = /^(\*|[a-zA-Z][\w:-]*)?((?:[.#][\w-]+|\[[^\]]+\])*)$/;
+// One pseudo-class earns its place: ":nth-of-type(2)" is how you say "the second
+// meta line", and Hungarian listings repeat an identical wrapper for date and
+// venue. Anything more expressive (:has, :not, 2n+1) stays out.
+const COMPOUND_RE = /^(\*|[a-zA-Z][\w:-]*)?((?:[.#][\w-]+|\[[^\]]+\])*)(:nth-of-type\((\d{1,3})\))?$/;
 const PART_RE = /([.#][\w-]+)|(\[[^\]]+\])/g;
 
 function parseCompound(text) {
   const trimmed = text.trim();
   const m = COMPOUND_RE.exec(trimmed);
   if (!m) return null;
-  const compound = { tag: m[1] && m[1] !== '*' ? m[1].toLowerCase() : null, classes: [], id: null, attrs: [] };
+  const compound = {
+    tag: m[1] && m[1] !== '*' ? m[1].toLowerCase() : null,
+    classes: [], id: null, attrs: [],
+    nthOfType: m[4] ? Number(m[4]) : null,
+  };
   PART_RE.lastIndex = 0;
   let part;
   while ((part = PART_RE.exec(m[2] || ''))) {
@@ -765,6 +772,10 @@ function matchesCompound(node, compound) {
     if (attr.op === '*' && !value.includes(attr.value)) return false;
     if (attr.op === '^' && !value.startsWith(attr.value)) return false;
     if (attr.op === '$' && !value.endsWith(attr.value)) return false;
+  }
+  if (compound.nthOfType) {
+    const siblings = (node.parent?.children ?? []).filter((c) => c.tag === node.tag);
+    if (siblings.indexOf(node) !== compound.nthOfType - 1) return false;
   }
   return true;
 }
@@ -972,7 +983,7 @@ const CLASS_RE = /class=["']([^"']+)["']/gi;
 
 // Utility-first frameworks put dozens of classes on every element; a container
 // class is a name, not a style stack.
-const UTILITY_RE = /^(?:[a-z]+-\d|[mp][txyblr]?-|w-|h-|flex|grid|text-|bg-|border|rounded|shadow|gap-|items-|justify-|hidden|block|inline|absolute|relative|z-\d|col-|row-|container|wrapper|clearfix|sr-only)/i;
+const UTILITY_RE = /^(?:[a-z]+-\d|[mp][txyblr]?-|w-|h-|flex|grid|text-|bg-|border|rounded|shadow|gap-|items-|justify-|hidden|block|inline|absolute|relative|z-\d|col-|row-|container|wrapper|clearfix|sr-only|fa[srlbd]?$|fa-|icon|dropdown|navbar|nav-|menu|btn|swiper|slick|modal|offcanvas|carousel|collapse|tooltip|popover|badge|breadcrumb)/i;
 
 function candidateClasses(html) {
   const counts = new Map();
