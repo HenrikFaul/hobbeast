@@ -1,0 +1,53 @@
+{
+  "product_name": "Hobbeast",
+  "logo_letter": "H",
+  "tagline": "Hungarian hobby-event discovery platform with an automated program-aggregation engine",
+  "tagline_translations": {
+    "en": "Hungarian hobby-event discovery platform with an automated program-aggregation engine",
+    "hu": "Magyar hobbiesemény-felfedező platform automatizált programgyűjtő motorral"
+  },
+  "languages": [
+    "en",
+    "hu"
+  ],
+  "language_names": {
+    "en": "English",
+    "hu": "Magyar",
+    "de": "Deutsch"
+  },
+  "repository": "HenrikFaul/hobbeast",
+  "version": "v1.26.0",
+  "prepared_date": "2026-08-26",
+  "confidence_label": "Medium (code evidence strong, market evidence absent)",
+  "baseline_valuation": "€18k–€65k",
+  "target_valuation": "€210k–€520k",
+  "value_multiple": "6–16×",
+  "title_translations": {
+    "en": "TOP 10 VALUE-BUILDING\nGROWTH INITIATIVES",
+    "hu": "TOP 10 ÉRTÉKTEREMTŐ\nNÖVEKEDÉSI KEZDEMÉNYEZÉS"
+  },
+  "subtitle_translations": {
+    "en": "The path from a working product with no users to a small real business",
+    "hu": "Az út a működő, de felhasználó nélküli terméktől a kicsi, valódi vállalkozásig"
+  },
+  "valuation_title_translations": {
+    "en": "Software Valuation & Technical Due-Diligence Report",
+    "hu": "Szoftver Értékelési és Technikai Átvilágítási Jelentés"
+  },
+  "exec_summary_translations": {
+    "en": "Basis for this report: the repository itself, the production database and public competitor sites. No paid valuation database was used, and no analyst report is cited that was not read. Every figure below is <b>conditional on execution and on market response</b>, not a forecast. The platform currently has 4 real signed-in accounts, 0 event participations and €0 revenue; the increments are what each initiative could be worth <i>if it produces paying customers or measurable audience</i>. If none of them produces revenue, the valuation stays at the baseline of €18k–€65k.",
+    "hu": "A jelentés alapja: maga a repository, az éles adatbázis és a versenytársak nyilvános oldalai. Fizetős értékelési adatbázist nem használtunk, és nem hivatkozunk olyan elemzői jelentésre, amelyet nem olvastunk el. Az alábbi számok <b>a végrehajtástól és a piaci reakciótól függő</b> értékek, nem előrejelzések. A platformnak jelenleg 4 valódi bejelentkezett fiókja, 0 eseményrészvétele és 0 EUR bevétele van; a növekmények azt mutatják, mennyit érhet egy-egy kezdeményezés <i>akkor, ha fizető ügyfelet vagy mérhető közönséget hoz</i>. Ha egyik sem termel bevételt, az érték a 18e–65e eurós kiindulási szinten marad."
+  },
+  "output_slug": "growth-strategy",
+  "valuation_output_slug": "valuation-report",
+  "author": "AI-assisted technical due-diligence — conservative basis",
+  "brand": {
+    "primary": "#3F8F5B",
+    "primary_dark": "#183124",
+    "primary_mid": "#1F4531",
+    "accent": "#C6E356",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444"
+  }
+}

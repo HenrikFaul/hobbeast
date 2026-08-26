@@ -1,0 +1,781 @@
+{
+  "_comment": "Hobbeast growth initiatives. Every value range is CONDITIONAL on execution and market response — see project.json exec_summary_translations. Baseline is EUR 18k-65k (central 32k); the increments only materialise if the initiative produces paying customers or measurable audience.",
+  "initiatives": [
+    {
+      "value": "+€45k–€110k",
+      "translations": {
+        "en": {
+          "title": "Paid venue partner programme — the first euro of revenue",
+          "desc": [
+            "Nothing else on this list matters as much as this one, because every valuation lens collapses to the same sentence: the product has €0 revenue, so it is priced as an asset rather than a business. The fastest credible path to a first invoice is the venue partnership, and the plumbing already exists — <b>outbound_clicks</b> records every click through to a ticket seller, and <b>admin_partner_performance()</b> already computes per-partner live programs, clicks, distinct members and a commission estimate.",
+            "The offer to a venue is concrete rather than aspirational: \"your programs are already in our catalogue and on our map; for €39–€99 a month you get a dashboard showing how many people saw and clicked them, priority placement in your category, and the ability to publish directly.\" Five such partners at €59 is €3,540 ARR — commercially trivial, and valuation-wise transformative, because it moves the asset from lens 1 (discounted replacement cost) into lens 5 (revenue multiple), which currently carries a weight of zero.",
+            "Be realistic about the sales motion: Hungarian venues are price-sensitive and slow, the first ten conversations will mostly fail, and the honest pitch requires audience numbers that do not exist yet. That is why this initiative and #2 must run together — the dashboard is only persuasive once it shows non-zero traffic. Expect a 3–6 month sales cycle and a conversion rate under 10% on cold outreach."
+          ],
+          "impl": [
+            "Create supabase/migrations/<ts>_partner_subscriptions.sql",
+            "  Table partner_subscriptions:",
+            "    source_id text REFERENCES external_event_feed_sources(source_id)",
+            "    tier text CHECK (tier IN ('free','visible','featured'))",
+            "    monthly_fee_eur numeric, started_at, cancelled_at, contact_email",
+            "  RLS: partner reads only its own row; providers.manage reads all",
+            "  RPC partner_self_performance() — same shape as admin_partner_performance",
+            "    but scoped to the caller's own source_id",
+            "",
+            "Extend src/pages/OrganizerDashboard.tsx",
+            "  New tab 'Partner' next to the existing 'Program sources' tab",
+            "  Reuse the AdminPartnerPerformance chart components",
+            "  Show: live programs, views, outbound clicks, estimated ticket value",
+            "",
+            "Billing: do NOT build a payment integration for the first ten customers.",
+            "  Issue manual invoices (Számlázz.hu / Billingo) and record the tier by hand.",
+            "  Only integrate Stripe/Barion once >10 paying partners justify it.",
+            "",
+            "Sales asset: a one-page PDF generated from partner_self_performance,",
+            "  so the first call can show real numbers instead of a promise."
+          ],
+          "metrics": [
+            ["Paying partners (month 6)", "0 → 5–12"],
+            ["ARR", "€0 → €3.5k–€12k"],
+            ["Valuation lens applied", "asset → 1.5–3× ARR"],
+            ["Sales cycle", "3–6 months, <10% cold conversion"]
+          ],
+          "regen": "Rewrite this initiative as a 90-day operational plan for a solo founder in Budapest: week-by-week outreach targets, the exact list of 30 venues to approach (drawn from the top sources in external_event_feed_sources by live program count), the pricing test to run, the objection-handling script for 'we already have Facebook', and the minimum dashboard screenshot needed before the first call. State explicitly what happens if fewer than 3 partners sign."
+        },
+        "hu": {
+          "title": "Fizetős helyszíni partnerprogram — az első euró bevétel",
+          "desc": [
+            "Ezen a listán semmi nem számít ennyire, mert minden értékelési nézőpont ugyanabba a mondatba fut bele: a terméknek 0 € bevétele van, ezért eszközként árazódik, nem vállalkozásként. Az első számláig vezető leggyorsabb hiteles út a helyszíni partnerség, és a vezetékek már megvannak — az <b>outbound_clicks</b> minden jegyértékesítőhöz vezető kattintást rögzít, az <b>admin_partner_performance()</b> pedig már ma kiszámolja partnerenként az élő programokat, a kattintásokat, a különböző tagokat és a jutalékbecslést.",
+            "A helyszínnek szóló ajánlat konkrét, nem vágyvezérelt: „a programjaitok már benne vannak a katalógusunkban és a térképünkön; havi 39–99 €-ért kaptok egy kimutatást arról, hányan látták és kattintották őket, elsőbbségi megjelenést a kategóriátokban, és közvetlen publikálási lehetőséget.” Öt ilyen partner 59 €-val 3 540 € ARR — kereskedelmileg jelentéktelen, értékelési szempontból viszont átalakító, mert az eszközt az 1. nézőpontból (diszkontált pótlási költség) az 5.-be (bevételi szorzó) viszi át, amelynek most nulla a súlya.",
+            "Az értékesítésről reálisan: a magyar helyszínek árérzékenyek és lassúak, az első tíz beszélgetés többsége el fog bukni, és a tisztességes ajánlathoz olyan közönségszámok kellenek, amelyek még nincsenek. Ezért kell ezt és a 2. kezdeményezést együtt futtatni — a kimutatás csak akkor meggyőző, ha nem nulla forgalmat mutat. Számíts 3–6 hónapos értékesítési ciklusra és 10% alatti konverzióra hideg megkeresésnél."
+          ],
+          "impl": [
+            "Hozd létre: supabase/migrations/<ts>_partner_subscriptions.sql",
+            "  partner_subscriptions tábla:",
+            "    source_id text REFERENCES external_event_feed_sources(source_id)",
+            "    tier text CHECK (tier IN ('free','visible','featured'))",
+            "    monthly_fee_eur numeric, started_at, cancelled_at, contact_email",
+            "  RLS: a partner csak a saját sorát olvassa; providers.manage mindet",
+            "  RPC partner_self_performance() — az admin_partner_performance alakja,",
+            "    de a hívó saját source_id-jára szűkítve",
+            "",
+            "Bővítsd: src/pages/OrganizerDashboard.tsx",
+            "  Új 'Partner' fül a meglévő 'Program sources' mellé",
+            "  Használd újra az AdminPartnerPerformance diagramelemeit",
+            "  Mutasd: élő programok, megtekintés, kimenő kattintás, becsült jegyérték",
+            "",
+            "Számlázás: az első tíz ügyfélhez NE építs fizetési integrációt.",
+            "  Kézi számla (Számlázz.hu / Billingo), a tier kézi rögzítésével.",
+            "  Stripe/Barion csak akkor, ha 10+ fizető partner indokolja.",
+            "",
+            "Értékesítési anyag: egyoldalas PDF a partner_self_performance adataiból,",
+            "  hogy az első hívás valódi számokat mutasson, ne ígéretet."
+          ],
+          "metrics": [
+            ["Fizető partner (6. hónap)", "0 → 5–12"],
+            ["ARR", "0 € → 3,5e €–12e €"],
+            ["Alkalmazott értékelési nézőpont", "eszköz → 1,5–3× ARR"],
+            ["Értékesítési ciklus", "3–6 hónap, <10% hideg konverzió"]
+          ],
+          "regen": "Írd újra ezt a kezdeményezést 90 napos operatív tervként egy budapesti egyszemélyes alapítónak: heti bontású megkeresési célok, a megkeresendő 30 helyszín pontos listája (az external_event_feed_sources élő programszám szerinti élmezőnyéből), a futtatandó árazási teszt, a „nekünk már van Facebookunk” kifogáskezelő szöveg, és a minimum kimutatás-képernyőkép, ami az első hívás előtt kell. Mondd ki azt is, mi történik, ha háromnál kevesebb partner ír alá."
+        }
+      }
+    },
+    {
+      "value": "+€35k–€80k",
+      "translations": {
+        "en": {
+          "title": "A first real audience — and the instrumentation to prove it exists",
+          "desc": [
+            "The production database records <b>0 product-analytics events</b> and <b>3 outbound clicks</b> in total. That is not a small gap; it means no commercial conversation can be held, because the first question any partner, advertiser or acquirer asks is \"how many people see this?\" and the honest answer today is \"we cannot tell you\". The <b>analytics-ingest</b> Edge Function and the <b>product_analytics_events</b> table already exist and are consent- and flag-gated; they have simply never been switched on with real traffic behind them.",
+            "The audience target should be deliberately small and real: <b>1,000 weekly active users in Budapest within 6 months</b>. The raw material for reaching it is already in the database — 1,804 live programs is enough inventory to publish a weekly \"what's on\" digest, to feed an Instagram account, and to rank for long-tail Hungarian searches like \"társasjáték est Budapest\" that the incumbents cover poorly.",
+            "Be pessimistic about the cost. Hungarian consumer acquisition for a free product typically runs €0.30–€1.20 per click and 2–6% signup conversion, so 1,000 registered users costs somewhere between €5,000 and €25,000 in paid media alone — before any of them return a second time. Organic channels are slower but are the only sustainable option at this stage, which means content and SEO, not ads."
+          ],
+          "impl": [
+            "Enable measurement end to end",
+            "  Verify the consent gate and feature flag for analytics-ingest are ON in production",
+            "  Instrument the funnel: program_view, program_open, outbound_click,",
+            "    save_event, signup_start, signup_complete",
+            "  Add a Grafana-free dashboard: extend admin_engagement_stats() with a",
+            "    weekly-actives series and surface it on the existing AdminMetrics tab",
+            "",
+            "Programmatic SEO from existing data",
+            "  Add routes /programok/:city and /programok/:category rendered from",
+            "    map_events_list(); one indexable page per city and per category",
+            "  Emit schema.org Event JSON-LD per program (the collector already parses it,",
+            "    so the shape is known) — this is what wins Google's event rich results",
+            "  Generate sitemap.xml at build time from the same RPC",
+            "",
+            "Owned distribution",
+            "  Weekly digest email from saved_events + list_hobby_alerts()",
+            "    using the existing notification-delivery-worker",
+            "",
+            "Do NOT buy ads until organic tracking proves a retention curve exists."
+          ],
+          "metrics": [
+            ["Weekly active users", "~0 → 1,000"],
+            ["Analytics events recorded", "0 → measurable funnel"],
+            ["Indexable programme pages", "0 → 300+"],
+            ["Realistic paid CAC if used", "€5–€25 per registration"]
+          ],
+          "regen": "Rewrite this as a Hungarian-market SEO and content plan for a solo operator: the 40 long-tail keywords worth targeting based on the actual category distribution in external_events, the page template for /programok/:city, the weekly publishing cadence that is sustainable for one person, and an honest 6-month traffic projection with a stated failure case — what the numbers look like if SEO does not compound."
+        },
+        "hu": {
+          "title": "Első valódi közönség — és a mérés, amivel bizonyítható",
+          "desc": [
+            "Az éles adatbázis összesen <b>0 termékanalitikai eseményt</b> és <b>3 kimenő kattintást</b> rögzít. Ez nem kis hiányosság: azt jelenti, hogy semmilyen kereskedelmi beszélgetés nem folytatható le, mert minden partner, hirdető vagy vevő első kérdése az, hogy „hányan látják ezt?”, és az őszinte válasz ma az, hogy „nem tudjuk megmondani”. Az <b>analytics-ingest</b> Edge Function és a <b>product_analytics_events</b> tábla már létezik, hozzájárulás- és kapcsolóvezérelten; egyszerűen soha nem kapcsolták be valódi forgalom mellett.",
+            "A közönségcél legyen szándékosan kicsi és valódi: <b>1 000 heti aktív felhasználó Budapesten 6 hónapon belül</b>. A nyersanyag már az adatbázisban van — 1 804 élő program elég készlet egy heti „mi van a városban” hírlevélhez, egy Instagram-fiók táplálásához, és ahhoz, hogy hosszú farkú magyar keresésekre rangsorolj, mint a „társasjáték est Budapest”, amit a piacvezetők gyengén fednek le.",
+            "A költségről legyünk pesszimisták. Ingyenes termék magyar fogyasztói szerzése tipikusan 0,30–1,20 € kattintásonként és 2–6% regisztrációs konverzió, tehát 1 000 regisztrált felhasználó önmagában 5 000 és 25 000 € közötti fizetett hirdetést jelent — még mielőtt bármelyikük másodszor visszatérne. Az organikus csatornák lassabbak, de ebben a szakaszban ezek az egyetlen fenntartható lehetőségek: tehát tartalom és SEO, nem hirdetés."
+          ],
+          "impl": [
+            "Kapcsold be a mérést végponttól végpontig",
+            "  Ellenőrizd, hogy az analytics-ingest hozzájárulási kapuja és funkciókapcsolója BE van élesben",
+            "  Mérd a tölcsért: program_view, program_open, outbound_click,",
+            "    save_event, signup_start, signup_complete",
+            "  Külső eszköz nélküli kimutatás: bővítsd az admin_engagement_stats()-ot",
+            "    heti aktív idősorral, és jelenítsd meg a meglévő AdminMetrics fülön",
+            "",
+            "Programozott SEO a meglévő adatból",
+            "  Új útvonalak: /programok/:varos és /programok/:kategoria a map_events_list()",
+            "    alapján; városonként és kategóriánként egy indexelhető oldal",
+            "  Adj ki schema.org Event JSON-LD-t programonként (a gyűjtő már értelmezi,",
+            "    tehát ismert az alak) — ez nyeri meg a Google esemény-találatait",
+            "  Generálj sitemap.xml-t build időben ugyanabból az RPC-ből",
+            "",
+            "Saját elosztás",
+            "  Heti összefoglaló e-mail a saved_events és a list_hobby_alerts() alapján,",
+            "    a meglévő notification-delivery-worker használatával",
+            "",
+            "NE vegyél hirdetést, amíg az organikus mérés nem bizonyít megtartási görbét."
+          ],
+          "metrics": [
+            ["Heti aktív felhasználó", "~0 → 1 000"],
+            ["Rögzített analitikai esemény", "0 → mérhető tölcsér"],
+            ["Indexelhető programoldal", "0 → 300+"],
+            ["Reális fizetett CAC, ha mégis", "5–25 € regisztrációnként"]
+          ],
+          "regen": "Írd újra ezt magyar piaci SEO- és tartalomtervként egy egyszemélyes üzemeltetőnek: a 40 érdemi hosszú farkú kulcsszó az external_events tényleges kategóriamegoszlása alapján, a /programok/:varos oldalsablon, az egy ember számára fenntartható heti publikálási ütem, és egy őszinte 6 havi forgalmi előrejelzés kimondott bukási esettel — hogyan néznek ki a számok, ha a SEO nem indul be."
+        }
+      }
+    },
+    {
+      "value": "+€25k–€55k",
+      "translations": {
+        "en": {
+          "title": "Ticketing affiliate contracts — turning existing clicks into commission",
+          "desc": [
+            "The catalogue already sends people to ticket sellers: every external program carries an <b>external_url</b>, many carry <b>price_min</b> and <b>currency</b>, and <b>trackOutboundClick()</b> fires on both outbound CTAs. What is missing is the commercial agreement that turns a click into money. Hungarian ticketing platforms (Tixa, Jegy.hu, Eventim, Funcode) and international ones (Eventbrite, Ticketmaster) all run affiliate or partner programmes.",
+            "The mechanics are cheap: an affiliate identifier appended to the outbound URL, per-seller, resolved server-side so it cannot be forged. The existing <b>track_outbound_click</b> RPC already reads the target URL and price server-side for exactly this reason, so the attribution surface is honest by construction and would survive a partner audit.",
+            "Set expectations low. Affiliate commissions in events are typically 3–8% of ticket value, and conversion from click to purchase for cold aggregator traffic is 1–4%. At 1,000 outbound clicks a month, an average €18 ticket and a 5% commission at 2% conversion, monthly revenue is roughly €18. This becomes meaningful only at 20,000+ monthly clicks — which is why it ranks below the audience initiative, not above it."
+          ],
+          "impl": [
+            "Create supabase/migrations/<ts>_affiliate_programs.sql",
+            "  Table affiliate_programs: host text PRIMARY KEY, param_name text,",
+            "    param_value text, commission_rate numeric, agreement_url text,",
+            "    active boolean, signed_at date",
+            "  Extend track_outbound_click() to return the decorated URL:",
+            "    look up affiliate_programs by the host of external_url,",
+            "    append the parameter server-side, return it to the client",
+            "",
+            "Update src/lib/outboundTracking.ts",
+            "  trackOutboundClick currently fires and forgets; add an optional",
+            "    resolve mode that awaits the decorated URL before navigation,",
+            "    with a hard 400 ms timeout falling back to the raw URL",
+            "  Keep the existing exception containment — a tracking failure must",
+            "    never block the member from reaching the partner",
+            "",
+            "Extend admin_partner_performance() with realised commission",
+            "  once a seller reports conversions, so the estimate can be corrected",
+            "",
+            "Apply to: Eventbrite affiliate, Ticketmaster partner, Tixa, Jegy.hu.",
+            "Track application status in affiliate_programs.agreement_url."
+          ],
+          "metrics": [
+            ["Affiliate agreements signed", "0 → 2–4"],
+            ["Commission on tracked clicks", "0% → 3–8%"],
+            ["Break-even click volume", "~20,000 outbound clicks/month"],
+            ["Revenue at 1,000 clicks/month", "≈ €18 (honest, not a typo)"]
+          ],
+          "regen": "Rewrite this as a partner-application pack: the exact affiliate programmes available to a Hungarian entity in 2026, their commission terms and approval requirements, the minimum traffic each demands before approval, and a decision table saying which are worth applying to at 1k, 10k and 50k monthly outbound clicks."
+        },
+        "hu": {
+          "title": "Jegyértékesítői affiliate szerződések — a meglévő kattintásból jutalék",
+          "desc": [
+            "A katalógus már ma jegyértékesítőkhöz küldi az embereket: minden külső programnak van <b>external_url</b>-je, soknak <b>price_min</b> és <b>currency</b> mezője, és a <b>trackOutboundClick()</b> mindkét kimenő gombon elsül. Ami hiányzik, az a kereskedelmi megállapodás, ami a kattintást pénzzé teszi. A magyar jegyplatformok (Tixa, Jegy.hu, Eventim, Funcode) és a nemzetköziek (Eventbrite, Ticketmaster) mind működtetnek affiliate- vagy partnerprogramot.",
+            "A mechanika olcsó: egy affiliate azonosító a kimenő URL-hez fűzve, értékesítőnként, szerveroldalon feloldva, hogy ne lehessen hamisítani. A meglévő <b>track_outbound_click</b> RPC pontosan ezért olvassa a cél-URL-t és az árat szerveroldalon, így az attribúciós felület felépítésénél fogva őszinte, és egy partneri auditot is kiállna.",
+            "Az elvárásokat tartsuk alacsonyan. Az eseményjegyes affiliate jutalék jellemzően a jegyérték 3–8%-a, és a hideg aggregátorforgalom kattintásból vásárlássá konverziója 1–4%. Havi 1 000 kimenő kattintásnál, 18 € átlagos jegyárnál, 5% jutalékkal és 2% konverzióval a havi bevétel nagyjából 18 €. Ez csak havi 20 000+ kattintásnál válik érdemivé — ezért áll a közönségszerzés alatt, és nem fölötte."
+          ],
+          "impl": [
+            "Hozd létre: supabase/migrations/<ts>_affiliate_programs.sql",
+            "  affiliate_programs tábla: host text PRIMARY KEY, param_name text,",
+            "    param_value text, commission_rate numeric, agreement_url text,",
+            "    active boolean, signed_at date",
+            "  Bővítsd a track_outbound_click()-et: adja vissza a díszített URL-t",
+            "    az external_url hosztja alapján keresve az affiliate_programs-ban,",
+            "    a paramétert szerveroldalon fűzve hozzá",
+            "",
+            "Módosítsd: src/lib/outboundTracking.ts",
+            "  a trackOutboundClick most tűz-és-felejt; adj hozzá opcionális",
+            "    feloldó módot, amely navigáció előtt megvárja a díszített URL-t,",
+            "    kemény 400 ms időkorláttal, nyers URL-re visszaesve",
+            "  Tartsd meg a kivételkezelést — mérési hiba soha nem blokkolhatja,",
+            "    hogy a tag eljusson a partnerhez",
+            "",
+            "Bővítsd az admin_partner_performance()-t valós jutalékkal,",
+            "  amint egy értékesítő konverziót jelent, hogy a becslés korrigálható legyen",
+            "",
+            "Jelentkezz: Eventbrite affiliate, Ticketmaster partner, Tixa, Jegy.hu.",
+            "A jelentkezés állapotát az affiliate_programs.agreement_url tartsa nyilván."
+          ],
+          "metrics": [
+            ["Aláírt affiliate szerződés", "0 → 2–4"],
+            ["Jutalék a mért kattintásokon", "0% → 3–8%"],
+            ["Nullszaldós kattintásszám", "~20 000 kimenő kattintás/hó"],
+            ["Bevétel 1 000 kattintás/hó mellett", "≈ 18 € (nem elírás)"]
+          ],
+          "regen": "Írd újra ezt partneri jelentkezési csomagként: melyik affiliate programok érhetők el magyar entitásnak 2026-ban, milyen jutalékfeltételekkel és jóváhagyási követelményekkel, mekkora minimum forgalmat kérnek, és egy döntési táblázat arról, melyikre érdemes jelentkezni havi 1 000, 10 000 és 50 000 kimenő kattintásnál."
+        }
+      }
+    },
+    {
+      "value": "+€20k–€45k",
+      "translations": {
+        "en": {
+          "title": "Legal footing for the aggregation — converting the biggest risk into an asset",
+          "desc": [
+            "This is the initiative most likely to be skipped and most likely to destroy a transaction. The entire catalogue is built by collecting from 345 third-party Hungarian sites, and in <b>external_event_feed_sources</b> every one of them carries <b>legal_review_status = 'pending'</b>. The schema is admirably honest about this — it has fields for robots checks, terms URLs, copyright URLs, attribution requirements and a legal basis — but the fields are not filled in.",
+            "A buyer's counsel will find this in an afternoon. The result is not usually a lower price; it is a delayed or abandoned deal, because the counsel cannot advise on an unquantified risk. Converting it costs little: factual event data (title, date, place) enjoys weak copyright protection in the EU, so the exposure is concentrated in copied descriptions and images, and in database-right claims under the EU Database Directive, which Hungary implements.",
+            "The work is unglamorous and high-value: obtain written permission or a feed agreement from the largest sources, add visible source attribution in the UI, respect robots and rate limits demonstrably, and store the evidence. Ten signed permissions covering the sources behind most of the catalogue turn the single largest unpriced risk into a documented, transferable asset."
+          ],
+          "impl": [
+            "Fill the fields the schema already has",
+            "  For the top 30 sources by live program count, populate terms_url,",
+            "    copyright_url, attribution_required, legal_basis and set",
+            "    legal_review_status to 'approved' or 'rejected' with a note",
+            "  Add a migration that blocks scrape_enabled = true for any source",
+            "    with legal_review_status = 'rejected'",
+            "",
+            "Make attribution visible",
+            "  On EventDiscoveryCard and EventDetail show 'Forrás: <publisher_name>'",
+            "    as a link, not only as an outbound CTA",
+            "  Store only a short excerpt of third-party descriptions (the collector",
+            "    already truncates to 500-800 chars) and always link to the original",
+            "",
+            "Reduce copied media exposure",
+            "  Prefer the editorial video library over hotlinked third-party images",
+            "    where the source's terms are unclear — the fallback already exists",
+            "    in src/features/events/EditorialVideoBackdrop.tsx",
+            "",
+            "Outreach: a one-page permission letter to the 10 largest sources.",
+            "Most will say yes — being aggregated sends them traffic."
+          ],
+          "metrics": [
+            ["Sources with resolved legal status", "0 / 345 → 30 / 345"],
+            ["Written permissions or feed deals", "0 → 10"],
+            ["Deal-blocking risk in due diligence", "unquantified → documented"],
+            ["Cost to execute", "mostly time; €0–€1,500 for counsel review"]
+          ],
+          "regen": "Rewrite this as a legal-readiness checklist for a Hungarian sole trader aggregating public event listings: what the EU Database Directive and Hungarian copyright law actually protect in an event listing, which parts of the current collection are safe, which are not, the exact wording of a permission request letter in Hungarian, and what to change in the product if a source refuses."
+        },
+        "hu": {
+          "title": "A gyűjtés jogi megalapozása — a legnagyobb kockázatból eszköz",
+          "desc": [
+            "Ez az a kezdeményezés, amit a legvalószínűbb kihagyni, és a legvalószínűbb, hogy tranzakciót öl meg. A teljes katalógus 345 külső magyar oldal gyűjtéséből épül, és az <b>external_event_feed_sources</b> táblában mindegyik <b>legal_review_status = 'pending'</b> állapotú. A séma ebben példásan őszinte — van benne robots-ellenőrzés, felhasználási feltételek URL, szerzői jogi URL, forrásmegjelölési kötelezettség és jogalap mező —, csak épp nincsenek kitöltve.",
+            "A vevő jogásza ezt egy délután alatt megtalálja. Az eredmény jellemzően nem alacsonyabb ár, hanem elhúzódó vagy meghiúsult ügylet, mert a jogász nem tud tanácsot adni számszerűsítetlen kockázatra. Az átalakítás keveset kóstál: a tényszerű eseményadat (cím, dátum, helyszín) az EU-ban gyenge szerzői jogi védelmet élvez, így a kitettség a másolt leírásokra és képekre, valamint az EU adatbázis-irányelv szerinti adatbázis-jogi igényekre koncentrálódik, amelyet Magyarország is átültetett.",
+            "A munka látványtalan és nagy értékű: írásos engedély vagy feed-megállapodás a legnagyobb forrásoktól, látható forrásmegjelölés a felületen, a robots és a sebességkorlátok bizonyítható betartása, és a bizonyítékok tárolása. Tíz aláírt engedély, amely a katalógus nagy részét adó forrásokat fedi, a legnagyobb be nem árazott kockázatot dokumentált, átruházható eszközzé alakítja."
+          ],
+          "impl": [
+            "Töltsd ki azokat a mezőket, amelyeket a séma már tartalmaz",
+            "  Az élő programszám szerinti top 30 forrásnál töltsd ki a terms_url,",
+            "    copyright_url, attribution_required, legal_basis mezőket, és állítsd",
+            "    a legal_review_status-t 'approved' vagy 'rejected' értékre megjegyzéssel",
+            "  Migráció, amely tiltja a scrape_enabled = true-t minden olyan forrásnál,",
+            "    ahol legal_review_status = 'rejected'",
+            "",
+            "Tedd láthatóvá a forrásmegjelölést",
+            "  Az EventDiscoveryCard és az EventDetail mutassa a 'Forrás: <publisher_name>'",
+            "    hivatkozást, ne csak kimenő gombként",
+            "  Csak rövid kivonatot tárolj a külső leírásokból (a gyűjtő már 500-800",
+            "    karakterre vág), és mindig linkelj az eredetire",
+            "",
+            "Csökkentsd a másolt média kitettséget",
+            "  Ahol a forrás feltételei nem egyértelműek, a szerkesztői videókönyvtárat",
+            "    részesítsd előnyben a külső képek beemelése helyett — a tartalék már",
+            "    létezik: src/features/events/EditorialVideoBackdrop.tsx",
+            "",
+            "Megkeresés: egyoldalas engedélykérő levél a 10 legnagyobb forrásnak.",
+            "A többség igent mond — a gyűjtés forgalmat küld nekik."
+          ],
+          "metrics": [
+            ["Rendezett jogi státuszú forrás", "0 / 345 → 30 / 345"],
+            ["Írásos engedély vagy feed-megállapodás", "0 → 10"],
+            ["Ügyletblokkoló kockázat átvilágításkor", "számszerűsítetlen → dokumentált"],
+            ["Végrehajtás költsége", "főként idő; 0–1 500 € jogi átnézésre"]
+          ],
+          "regen": "Írd újra ezt jogi felkészültségi ellenőrzőlistaként egy magyar egyéni vállalkozónak, aki nyilvános eseménylistákat aggregál: mit véd valójában az EU adatbázis-irányelv és a magyar szerzői jogi törvény egy eseménylistában, a jelenlegi gyűjtés mely részei biztonságosak és melyek nem, egy magyar nyelvű engedélykérő levél pontos szövege, és mit kell változtatni a terméken, ha egy forrás elutasít."
+        }
+      }
+    },
+    {
+      "value": "+€15k–€40k",
+      "translations": {
+        "en": {
+          "title": "Provider self-service portal — the B2B product hiding inside the admin panel",
+          "desc": [
+            "The v1.26.0 release added a source wizard that already does the hard part: a provider pastes a URL, the engine inspects the page, runs seven extraction recipes against it and reports how many dated programs each produced, then queues the source for admin approval. The organizer dashboard has a <b>Program sources</b> tab and <b>submit_event_source()</b> writes into a review queue. This is a SaaS product with the login screen missing.",
+            "Turning it into one means giving a venue a reason to return weekly: their own performance numbers, control over how their programs appear, the ability to correct a wrong date without emailing anyone, and a badge that marks them as a verified partner in the catalogue. None of that requires new infrastructure — <b>event_source_submissions</b>, <b>outbound_clicks</b> and the capability system already exist.",
+            "The realistic ceiling is modest. Hungary has perhaps 300–600 venues that programme regularly enough to care, and a plausible penetration in two years is 5–10% at €30–€80 a month. That is €5k–€30k ARR — a small business, not a rocket. It is ranked here because it is the cheapest durable revenue line available and because it directly strengthens initiative #1."
+          ],
+          "impl": [
+            "Extend the existing provider surface, do not build a new app",
+            "  src/features/organizer/dashboard/OrganizerSourcesView.tsx already",
+            "    renders SourceInspector in 'provider' mode and lists submissions",
+            "  Add: per-source performance, a 'correct this program' form writing to a",
+            "    moderation queue, and a verified-partner badge shown on their cards",
+            "",
+            "Create supabase/migrations/<ts>_provider_program_edits.sql",
+            "  Table provider_program_edits: external_event_id, submitted_by,",
+            "    field text CHECK (field IN ('title','event_date','event_time','price_min')),",
+            "    proposed_value text, status, reviewed_by, reviewed_at",
+            "  RLS: a provider may only propose edits for programs whose source_id",
+            "    they own via an approved event_source_submission",
+            "  Never let a provider write external_events directly",
+            "",
+            "Onboarding: reuse the source wizard as the signup flow itself.",
+            "  A venue that pastes its URL and sees 40 of its own programs appear",
+            "  has already experienced the product's value before registering.",
+            "",
+            "Guard the abuse surface: the DB already caps pending submissions at 10."
+          ],
+          "metrics": [
+            ["Venues with an active provider login", "0 → 20–60"],
+            ["Programs corrected by their own venue", "0 → measurable data quality lift"],
+            ["Realistic 2-year ARR ceiling", "€5k–€30k"],
+            ["Reachable Hungarian venue market", "~300–600 venues"]
+          ],
+          "regen": "Rewrite this as a product specification for the provider portal: the exact screens, the permission model on top of the existing capability system, the edit-approval workflow, the free-versus-paid feature split, and a cold-start plan for the first 20 venues given that the catalogue already contains their programs without their involvement."
+        },
+        "hu": {
+          "title": "Szolgáltatói önkiszolgáló portál — a B2B termék, ami az adminban lapul",
+          "desc": [
+            "A v1.26.0 kiadás olyan forrásvarázslót hozott, amely a nehezét már elvégzi: a szolgáltató beilleszt egy linket, a motor megnézi az oldalt, hét kiolvasási receptet futtat rá, és jelenti, melyik hány datált programot adott, majd jóváhagyásra sorba állítja a forrást. A szervezői felületen ott a <b>Program sources</b> fül, a <b>submit_event_source()</b> pedig egy felülvizsgálati sorba ír. Ez egy SaaS termék, amiről hiányzik a belépőképernyő.",
+            "Termékké tenni azt jelenti, hogy a helyszínnek oka legyen hetente visszatérni: saját teljesítményszámok, kontroll afölött, hogyan jelennek meg a programjai, lehetőség egy rossz dátum javítására anélkül, hogy bárkinek írnia kellene, és egy jelvény, amely ellenőrzött partnerként jelöli a katalógusban. Ehhez nem kell új infrastruktúra — az <b>event_source_submissions</b>, az <b>outbound_clicks</b> és a jogosultsági rendszer már megvan.",
+            "A reális plafon szerény. Magyarországon talán 300–600 olyan helyszín van, amely elég rendszeresen programozik ahhoz, hogy érdekelje; két év alatt hihető penetráció 5–10%, havi 30–80 €-val. Ez 5e–30e € ARR — kisvállalkozás, nem rakéta. Azért szerepel itt, mert ez a legolcsóbb tartós bevételi vonal, és mert közvetlenül erősíti az 1. kezdeményezést."
+          ],
+          "impl": [
+            "Bővítsd a meglévő szolgáltatói felületet, ne építs új alkalmazást",
+            "  A src/features/organizer/dashboard/OrganizerSourcesView.tsx már",
+            "    'provider' módban jeleníti meg a SourceInspector-t és listázza a beküldéseket",
+            "  Add hozzá: forrásonkénti teljesítmény, „javítsd ezt a programot” űrlap",
+            "    moderációs sorba írva, és ellenőrzött-partner jelvény a kártyáikon",
+            "",
+            "Hozd létre: supabase/migrations/<ts>_provider_program_edits.sql",
+            "  provider_program_edits tábla: external_event_id, submitted_by,",
+            "    field text CHECK (field IN ('title','event_date','event_time','price_min')),",
+            "    proposed_value text, status, reviewed_by, reviewed_at",
+            "  RLS: a szolgáltató csak olyan program javítását javasolhatja, amelynek",
+            "    source_id-je jóváhagyott event_source_submission alapján az övé",
+            "  Szolgáltató soha ne írhasson közvetlenül az external_events táblába",
+            "",
+            "Bevezetés: maga a forrásvarázsló legyen a regisztrációs folyamat.",
+            "  Az a helyszín, amely beilleszti a linkjét és látja megjelenni 40 saját",
+            "  programját, már megtapasztalta a termék értékét a regisztráció előtt.",
+            "",
+            "Visszaélés-védelem: az adatbázis már 10-nél korlátozza a függő beküldéseket."
+          ],
+          "metrics": [
+            ["Aktív szolgáltatói belépéssel rendelkező helyszín", "0 → 20–60"],
+            ["Saját helyszín által javított program", "0 → mérhető adatminőség-javulás"],
+            ["Reális 2 éves ARR plafon", "5e €–30e €"],
+            ["Elérhető magyar helyszínpiac", "~300–600 helyszín"]
+          ],
+          "regen": "Írd újra ezt a szolgáltatói portál termékspecifikációjaként: a pontos képernyők, a jogosultsági modell a meglévő capability rendszerre építve, a javítás-jóváhagyási folyamat, az ingyenes és fizetős funkciók szétválasztása, és hidegindítási terv az első 20 helyszínre, figyelembe véve, hogy a katalógus a közreműködésük nélkül is tartalmazza a programjaikat."
+        }
+      }
+    },
+    {
+      "value": "+€12k–€28k",
+      "translations": {
+        "en": {
+          "title": "Installable mobile surface — a PWA, not a native app",
+          "desc": [
+            "Event discovery is a phone activity, and the product currently has no home-screen presence. A service worker file exists at <b>public/hobbeast-sw.js</b>, but there is no web app manifest, no install prompt and no push registration wired to the existing <b>user_push_subscriptions</b> table. Adding those three things is days of work, not months.",
+            "The reason to do this as a PWA rather than a native app is economic. A React Native or Capacitor build adds two store submissions, two release pipelines, App Store review latency and Apple's developer fee, for a product with no users to install it. A PWA reaches the same home screen on Android — which is roughly 70% of the Hungarian smartphone base — with none of that overhead.",
+            "The valuation effect is indirect but real: an installed icon is the difference between a website someone visited once and an app they open on Friday afternoon. It is also the prerequisite for push notifications, which is the only retention channel that does not depend on email deliverability. Be honest about the limit — iOS PWA support remains second-class, so a native build is worth revisiting only after retention is proven."
+          ],
+          "impl": [
+            "Add public/manifest.webmanifest",
+            "  name, short_name 'Hobbeast', start_url '/events', display 'standalone'",
+            "  theme_color '#183124', background_color, icons at 192/512 from",
+            "    public/hobbeast-mark.svg",
+            "  Link it from index.html and add apple-touch-icon",
+            "",
+            "Finish public/hobbeast-sw.js",
+            "  Cache the app shell and the editorial poster frames",
+            "  Never cache Supabase API responses — programs change daily",
+            "  Add an update prompt; a stale shell already caused one confusing",
+            "    session where the deployed bundle and the cached one disagreed",
+            "",
+            "Wire push to the existing infrastructure",
+            "  user_push_subscriptions and notification-delivery-worker already exist",
+            "  Trigger: a saved event starts tomorrow (saved_events + list_hobby_alerts)",
+            "  Respect notification_preferences — the consent model is already built",
+            "",
+            "Add an install prompt component shown after the second visit, never the first.",
+            "Verify on a real Android device; the automation browser cannot prove install."
+          ],
+          "metrics": [
+            ["Home-screen installs", "0 → 15–25% of returning users"],
+            ["Push opt-in rate", "0 → 20–35% of installs"],
+            ["Cost versus native app", "days versus 6–10 weeks"],
+            ["iOS coverage", "partial — known limitation"]
+          ],
+          "regen": "Rewrite this as a PWA implementation checklist for a React/Vite SPA on Vercel: manifest fields, icon sizes, service-worker caching strategy that never serves a stale Supabase response, the install-prompt UX pattern that does not annoy first-time visitors, push subscription flow against the existing user_push_subscriptions table, and how to test each part on Android and iOS."
+        },
+        "hu": {
+          "title": "Telepíthető mobilfelület — PWA, nem natív alkalmazás",
+          "desc": [
+            "Az eseményfelfedezés telefonos tevékenység, a terméknek pedig jelenleg nincs kezdőképernyős jelenléte. Létezik service worker fájl a <b>public/hobbeast-sw.js</b> alatt, de nincs web app manifest, nincs telepítési ajánlat, és nincs push-regisztráció a meglévő <b>user_push_subscriptions</b> táblához kötve. Ez a három dolog napok, nem hónapok munkája.",
+            "Azért PWA és nem natív alkalmazás, mert így gazdaságos. Egy React Native vagy Capacitor build két áruházi beadást, két kiadási folyamatot, App Store átfutást és Apple fejlesztői díjat jelentene — egy olyan termékhez, amelynek nincs felhasználója, aki telepítené. A PWA ugyanarra a kezdőképernyőre jut el Androidon — ami a magyar okostelefon-bázis nagyjából 70%-a — mindezen teher nélkül.",
+            "Az értékhatás közvetett, de valós: a telepített ikon a különbség egy egyszer meglátogatott weboldal és egy péntek délután megnyitott alkalmazás között. Ez egyben a push értesítés előfeltétele is, ami az egyetlen megtartási csatorna, amely nem függ az e-mail kézbesíthetőségtől. A korlátról legyünk őszinték: az iOS PWA-támogatás továbbra is másodrendű, így natív buildet csak a megtartás bizonyítása után érdemes újragondolni."
+          ],
+          "impl": [
+            "Hozd létre: public/manifest.webmanifest",
+            "  name, short_name 'Hobbeast', start_url '/events', display 'standalone'",
+            "  theme_color '#183124', background_color, 192/512-es ikonok a",
+            "    public/hobbeast-mark.svg alapján",
+            "  Linkeld az index.html-ből, és adj hozzá apple-touch-icon-t",
+            "",
+            "Fejezd be: public/hobbeast-sw.js",
+            "  Cache-eld az alkalmazásvázat és a szerkesztői poszterképeket",
+            "  Soha ne cache-eld a Supabase API válaszokat — a programok naponta változnak",
+            "  Adj frissítési ajánlatot; egy elavult váz már okozott egy zavaros",
+            "    munkamenetet, ahol a kitelepített és a cache-elt bundle eltért",
+            "",
+            "Kösd rá a pusht a meglévő infrastruktúrára",
+            "  A user_push_subscriptions és a notification-delivery-worker már megvan",
+            "  Kiváltó: egy mentett program holnap kezdődik (saved_events + list_hobby_alerts)",
+            "  Tartsd tiszteletben a notification_preferences-t — a hozzájárulási modell kész",
+            "",
+            "A telepítési ajánlat a második látogatás után jelenjen meg, soha nem az elsőn.",
+            "Valódi Android eszközön ellenőrizd; az automatizált böngésző nem bizonyítja a telepítést."
+          ],
+          "metrics": [
+            ["Kezdőképernyős telepítés", "0 → visszatérők 15–25%-a"],
+            ["Push feliratkozási arány", "0 → telepítések 20–35%-a"],
+            ["Költség a natívhoz képest", "napok kontra 6–10 hét"],
+            ["iOS lefedettség", "részleges — ismert korlát"]
+          ],
+          "regen": "Írd újra ezt PWA bevezetési ellenőrzőlistaként egy Vercelen futó React/Vite SPA-hoz: manifest mezők, ikonméretek, olyan service-worker cache stratégia, amely soha nem szolgál ki elavult Supabase választ, olyan telepítési ajánlat, amely nem idegesíti az első látogatót, push feliratkozási folyamat a meglévő user_push_subscriptions táblára, és hogyan tesztelj minden részt Androidon és iOS-en."
+        }
+      }
+    },
+    {
+      "value": "+€12k–€30k",
+      "translations": {
+        "en": {
+          "title": "Nationwide coverage and a freshness guarantee",
+          "desc": [
+            "The catalogue is Budapest-heavy and partly unplaced: of the active programs, 465 cannot be put on the map at all because they carry no usable location, and outside the capital most counties have fewer than 25 programs. A national aggregator that is really a Budapest aggregator cannot be sold as national coverage, and a partner in Debrecen or Szeged will notice within a minute.",
+            "The infrastructure to fix this already exists and is idle. <b>scraper_schedules</b> supports per-source scheduling, the <b>geo_places</b> gazetteer doubles as a work queue that resolves new venues automatically, and the v1.26.0 source wizard means adding a regional source takes minutes rather than a migration. What is missing is the editorial work of finding and adding the sources — roughly 100 county-level cultural centres, theatres and tourism offices.",
+            "Freshness is the other half. A listing that shows a cancelled or past event destroys trust faster than a missing one, and there is currently no published guarantee. A visible \"checked within 24 hours\" promise, backed by the existing run logs, is a genuine differentiator against Hungarian incumbents whose listings are frequently stale — and it is measurable, which makes it sellable."
+          ],
+          "impl": [
+            "Close the coverage gap",
+            "  Query: SELECT county, count(*) FROM event_map_placements GROUP BY county",
+            "    to get the current distribution, then target the weakest 10 counties",
+            "  For each, add the county seat's cultural centre, theatre and tourism",
+            "    office through the admin source wizard — the inspector reports",
+            "    program counts before saving, so a bad source is visible immediately",
+            "",
+            "Close the placement gap",
+            "  465 programs have no usable location. For each source producing them,",
+            "    set a default city on external_event_feed_sources.city so the",
+            "    collector can fall back to it (the recipe runner already falls back",
+            "    to publisher_name for the venue)",
+            "  Re-run scripts/geocode-places.mjs; it tops up its own queue",
+            "",
+            "Publish the freshness guarantee",
+            "  RPC source_freshness(): last successful run per source from scraper_runs",
+            "  Show 'Ellenőrizve: X órája' on the program card",
+            "  Alert when any enabled source has not succeeded in 48 hours",
+            "",
+            "Do not add sources faster than they can be legally reviewed (see initiative 4)."
+          ],
+          "metrics": [
+            ["Counties with 50+ live programs", "3 → 12"],
+            ["Programs that cannot be mapped", "465 → under 150"],
+            ["Published freshness SLO", "none → checked within 24 h"],
+            ["Marginal cost per new source", "≈ €0 — the engine is already paid for"]
+          ],
+          "regen": "Rewrite this as a source-acquisition worklist: the 100 specific Hungarian regional sources worth adding, ordered by expected program yield, with the extraction recipe each is likely to need based on its platform (WordPress, Tribe events, static HTML), and a weekly cadence one person can sustain alongside everything else."
+        },
+        "hu": {
+          "title": "Országos lefedettség és frissességi garancia",
+          "desc": [
+            "A katalógus Budapest-túlsúlyos és részben elhelyezetlen: az aktív programokból 465 egyáltalán nem tehető térképre, mert nincs használható helyszíne, a fővároson kívül pedig a legtöbb megyében 25 alatt van a programszám. Egy országos aggregátor, amely valójában budapesti aggregátor, nem adható el országos lefedettségként, és egy debreceni vagy szegedi partner ezt egy percen belül észreveszi.",
+            "A javításhoz szükséges infrastruktúra megvan és üresjáratban áll. A <b>scraper_schedules</b> forrásonkénti ütemezést tud, a <b>geo_places</b> névtár egyben munkasor is, amely automatikusan feloldja az új helyszíneket, és a v1.26.0 forrásvarázsló miatt egy regionális forrás hozzáadása percek, nem migráció kérdése. Ami hiányzik, az a szerkesztői munka: nagyjából 100 megyei művelődési központ, színház és turisztikai iroda megtalálása és felvétele.",
+            "A frissesség a másik fele. Egy lemondott vagy elmúlt eseményt mutató listázás gyorsabban rombolja a bizalmat, mint egy hiányzó, és jelenleg nincs közzétett garancia. Egy látható „24 órán belül ellenőrizve” ígéret, a meglévő futásnaplókkal alátámasztva, valódi megkülönböztető a magyar piacvezetőkkel szemben, akiknek a listái gyakran elavultak — és mérhető, ami eladhatóvá teszi."
+          ],
+          "impl": [
+            "Zárd be a lefedettségi rést",
+            "  Lekérdezés: SELECT county, count(*) FROM event_map_placements GROUP BY county",
+            "    a jelenlegi eloszláshoz, majd célozd a leggyengébb 10 megyét",
+            "  Mindegyikhez vedd fel a megyeszékhely művelődési központját, színházát",
+            "    és turisztikai irodáját az admin forrásvarázslóval — az elemző mentés",
+            "    előtt jelenti a programszámot, így a rossz forrás azonnal látszik",
+            "",
+            "Zárd be az elhelyezési rést",
+            "  465 programnak nincs használható helyszíne. Az ezeket adó forrásoknál",
+            "    állíts be alapértelmezett várost az external_event_feed_sources.city",
+            "    mezőben, hogy a gyűjtő arra eshessen vissza (a receptfuttató a",
+            "    helyszínnél már visszaesik a publisher_name-re)",
+            "  Futtasd újra a scripts/geocode-places.mjs-t; magától tölti fel a sorát",
+            "",
+            "Tedd közzé a frissességi garanciát",
+            "  RPC source_freshness(): forrásonkénti utolsó sikeres futás a scraper_runs-ból",
+            "  Mutasd a programkártyán: 'Ellenőrizve: X órája'",
+            "  Riasztás, ha egy engedélyezett forrás 48 órája nem futott sikeresen",
+            "",
+            "Ne vegyél fel gyorsabban forrást, mint ahogy jogilag átnézhető (lásd 4. kezdeményezés)."
+          ],
+          "metrics": [
+            ["Megye 50+ élő programmal", "3 → 12"],
+            ["Térképre nem tehető program", "465 → 150 alatt"],
+            ["Közzétett frissességi vállalás", "nincs → 24 órán belül ellenőrizve"],
+            ["Új forrás határköltsége", "≈ 0 € — a motor már ki van fizetve"]
+          ],
+          "regen": "Írd újra ezt forrásszerzési munkalistaként: a felvételre érdemes 100 konkrét magyar regionális forrás, várható programhozam szerint rendezve, mindegyikhez a valószínűleg szükséges kiolvasási recepttel a platformja alapján (WordPress, Tribe events, statikus HTML), és olyan heti ütemmel, amit egy ember minden más mellett fenn tud tartani."
+        }
+      }
+    },
+    {
+      "value": "+€10k–€25k",
+      "translations": {
+        "en": {
+          "title": "Owned distribution — a weekly digest that does not depend on an algorithm",
+          "desc": [
+            "Every channel the product could rely on today belongs to someone else: Google's index, Instagram's feed, Facebook's reach. An email list is the only distribution a small publisher actually owns, and in the events category it is unusually well suited — the product is inherently weekly, and \"what is on this weekend\" is a message people genuinely want on Thursday.",
+            "The infrastructure is already built and unused. <b>notification_templates</b>, <b>notification_preferences</b>, <b>notification_digest_batches</b> and the <b>notification-delivery-worker</b> Edge Function exist with a consent model attached; <b>saved_events</b> and <b>list_hobby_alerts()</b> can personalise the selection. What is missing is a sending domain, a template and the editorial discipline to publish every week without fail.",
+            "The honest arithmetic: a list of 2,000 subscribers at a 35% open rate and 8% click rate sends roughly 56 clicks per issue. That is not a business by itself, but it is a compounding asset that raises the value of every other initiative — it makes the partner dashboard show real numbers, it feeds the affiliate clicks, and it is the single thing an acquirer can verify independently."
+          ],
+          "impl": [
+            "Set up the sending path properly before writing any content",
+            "  Domain authentication: SPF, DKIM, DMARC on expericentre.com",
+            "  Provider: Resend or Postmark — both have a free tier well above",
+            "    2,000 subscribers at weekly cadence",
+            "",
+            "Build the digest generator",
+            "  RPC weekly_digest(p_user_id): 8-12 programs for the coming week,",
+            "    ranked by the user's saved categories (saved_events) and city,",
+            "    falling back to the highest-quality programs in their county",
+            "  Reuse notification_digest_batches / notification_digest_items —",
+            "    the batching schema already exists",
+            "  Send through the existing notification-delivery-worker on a pg_cron",
+            "    trigger, the same pattern as run_due_scraper_schedules()",
+            "",
+            "Capture subscribers where attention already is",
+            "  A one-field signup on the map and events pages ('Heti programajánló')",
+            "  Do not require an account to subscribe — that gate costs more",
+            "    subscribers than it saves",
+            "",
+            "Measure: open, click and unsubscribe per issue, into product_analytics_events."
+          ],
+          "metrics": [
+            ["Email subscribers", "0 → 2,000 in 12 months"],
+            ["Expected open / click rate", "30–40% / 6–10%"],
+            ["Clicks per issue at 2,000 subs", "≈ 56"],
+            ["Channel ownership", "borrowed → owned"]
+          ],
+          "regen": "Rewrite this as a newsletter operating plan: the Thursday production checklist, the template structure that works on mobile email clients, the personalisation rules from saved_events, the Hungarian subject-line patterns worth testing, the deliverability setup step by step, and the point at which the list stops being worth the weekly effort."
+        },
+        "hu": {
+          "title": "Saját elosztás — heti ajánló, amely nem függ algoritmustól",
+          "desc": [
+            "Minden csatorna, amelyre a termék ma támaszkodhatna, valaki másé: a Google indexe, az Instagram feedje, a Facebook elérése. Az e-mail lista az egyetlen elosztás, amely valóban egy kis kiadóé, és az események kategóriájában szokatlanul jól illeszkedik — a termék eleve heti ritmusú, és a „mi van a hétvégén” olyan üzenet, amit az emberek csütörtökön tényleg várnak.",
+            "Az infrastruktúra megépült, és használatlan. A <b>notification_templates</b>, <b>notification_preferences</b>, <b>notification_digest_batches</b> és a <b>notification-delivery-worker</b> Edge Function létezik, hozzájárulási modellel együtt; a <b>saved_events</b> és a <b>list_hobby_alerts()</b> személyre szabhatja a válogatást. Ami hiányzik: egy küldő domain, egy sablon, és a szerkesztői fegyelem, hogy minden héten kimenjen.",
+            "Az őszinte számtan: 2 000 feliratkozó 35% megnyitási és 8% kattintási aránnyal számonként nagyjából 56 kattintást ad. Ez önmagában nem üzlet, de kamatozó eszköz, amely minden más kezdeményezés értékét emeli — ettől mutat valódi számokat a partneri kimutatás, ez táplálja az affiliate kattintásokat, és ez az egyetlen dolog, amit egy vevő függetlenül is ellenőrizni tud."
+          ],
+          "impl": [
+            "Előbb rendezd a küldési útvonalat, csak utána írj tartalmat",
+            "  Domain hitelesítés: SPF, DKIM, DMARC az expericentre.com-on",
+            "  Szolgáltató: Resend vagy Postmark — mindkettő ingyenes szintje bőven",
+            "    elbír 2 000 feliratkozót heti ütemben",
+            "",
+            "Építsd meg az ajánlógenerátort",
+            "  RPC weekly_digest(p_user_id): 8-12 program a következő hétre,",
+            "    a felhasználó mentett kategóriái (saved_events) és városa szerint",
+            "    rangsorolva, visszaesve a megyéje legjobb programjaira",
+            "  Használd újra a notification_digest_batches / notification_digest_items-et —",
+            "    a kötegelési séma már létezik",
+            "  Küldd a meglévő notification-delivery-worker-rel pg_cron kiváltásra,",
+            "    ugyanazzal a mintával, mint a run_due_scraper_schedules()",
+            "",
+            "Gyűjts feliratkozót ott, ahol már ott a figyelem",
+            "  Egymezős feliratkozás a térkép és a programok oldalon („Heti programajánló”)",
+            "  Ne kérj fiókot a feliratkozáshoz — az a kapu több feliratkozót",
+            "    veszít, mint amennyit megment",
+            "",
+            "Mérd: megnyitás, kattintás, leiratkozás számonként, a product_analytics_events-be."
+          ],
+          "metrics": [
+            ["E-mail feliratkozó", "0 → 2 000 tizenkét hónap alatt"],
+            ["Várható megnyitás / kattintás", "30–40% / 6–10%"],
+            ["Kattintás számonként 2 000 feliratkozónál", "≈ 56"],
+            ["Csatorna tulajdonlás", "kölcsönzött → saját"]
+          ],
+          "regen": "Írd újra ezt hírlevél-üzemeltetési tervként: a csütörtöki gyártási ellenőrzőlista, a mobil e-mail kliensekben működő sablonszerkezet, a saved_events alapú személyre szabási szabályok, a tesztelésre érdemes magyar tárgysor-minták, a kézbesíthetőségi beállítás lépésről lépésre, és az a pont, ahol a lista már nem éri meg a heti ráfordítást."
+        }
+      }
+    },
+    {
+      "value": "+€10k–€25k",
+      "translations": {
+        "en": {
+          "title": "Licensing the catalogue — the data product nobody has asked for yet",
+          "desc": [
+            "The collection pipeline is the only genuinely differentiated asset in the product: 345 configured sources, seven extraction recipes including a shared engine that the preview and the production run cannot disagree about, a name-gated geocoder, and 1,804 live programs of which 672 are pinned to an exact venue. As a consumer app that is invisible. As a feed for someone else's product it is directly saleable.",
+            "The plausible buyers are specific: hotel and tourism sites that want a \"what's on nearby\" widget, city and county tourism boards, corporate intranets and community apps, and smaller media sites that cannot justify their own scraping. The technical surface is small — <b>map_markers()</b> and <b>map_events_list()</b> already return exactly the shapes an external consumer would want, and both are already SECURITY DEFINER with explicit grants.",
+            "Temper the expectation sharply. Data licensing is a slow, relationship-led sale with a long procurement cycle, and it is legally downstream of initiative #4: reselling aggregated third-party listings without permission is materially riskier than displaying them with attribution. Treat this as a €5k–€20k-a-year opportunity with two or three customers, not a platform play — and do not start it before the licences are in place."
+          ],
+          "impl": [
+            "Expose a metered public API on top of existing RPCs",
+            "  New Edge Function supabase/functions/public-events-api/index.ts",
+            "  Key-based auth: table api_keys (key_hash, customer, plan, rate_limit,",
+            "    created_at, revoked_at); never store the raw key",
+            "  Endpoints: GET /events?city=&category=&from=&to= → map_events_list()",
+            "             GET /clusters?level=county → map_markers()",
+            "  Return attribution with every record: publisher_name + external_url",
+            "",
+            "Enforce the licence boundary in the data itself",
+            "  Only serve sources whose legal_review_status = 'approved'",
+            "    (see initiative 4 — this is the technical dependency)",
+            "  Rate limit per key; log every call for billing evidence",
+            "",
+            "Package it as a widget, not just an API",
+            "  A single <script> embed rendering a 'What's on nearby' card,",
+            "    because a hotel marketing manager cannot consume a JSON API",
+            "",
+            "Price: €99-€399/month by volume. Two customers pay for the effort."
+          ],
+          "metrics": [
+            ["API/widget customers", "0 → 2–4"],
+            ["Realistic annual licence revenue", "€5k–€20k"],
+            ["Sources legally clear to resell", "0 → 30 (blocked on initiative 4)"],
+            ["Engineering effort", "1–2 weeks on existing RPCs"]
+          ],
+          "regen": "Rewrite this as a data-licensing go-to-market plan: the 20 named Hungarian organisations most likely to buy an events feed, what each would use it for, the pricing tiers, the contract clauses that protect against onward redistribution, and the exact technical dependency on source permissions that must be cleared first."
+        },
+        "hu": {
+          "title": "A katalógus licencelése — az adattermék, amit még senki nem kért",
+          "desc": [
+            "A gyűjtőcsatorna a termék egyetlen valóban megkülönböztető eszköze: 345 beállított forrás, hét kiolvasási recept — köztük egy közös motor, amelyről az előnézet és az éles futás nem tud eltérni —, névegyeztetéssel kapuzott geokóder, és 1 804 élő program, ebből 672 pontos helyszínre tűzve. Fogyasztói alkalmazásként ez láthatatlan. Valaki más termékének adatforrásaként közvetlenül eladható.",
+            "A hihető vevők konkrétak: szállodai és turisztikai oldalak, amelyek „mi van a közelben” modult akarnak, város- és megyei turisztikai szervezetek, vállalati intranetek és közösségi appok, valamint kisebb médiaoldalak, amelyeknek nem éri meg saját gyűjtést üzemeltetni. A technikai felület kicsi — a <b>map_markers()</b> és a <b>map_events_list()</b> már pontosan azokat az alakokat adja vissza, amiket egy külső fogyasztó szeretne, és mindkettő SECURITY DEFINER, kifejezett jogosultságokkal.",
+            "Az elvárást viszont erősen fogjuk vissza. Az adatlicencelés lassú, kapcsolatvezérelt értékesítés, hosszú beszerzési ciklussal, és jogilag a 4. kezdeményezés után következik: engedély nélkül továbbértékesíteni aggregált külső listákat lényegesen kockázatosabb, mint forrásmegjelöléssel megjeleníteni őket. Kezeld évi 5e–20e €-s lehetőségként két-három ügyféllel, ne platformjátékként — és ne kezdd el, mielőtt a licencek megvannak."
+          ],
+          "impl": [
+            "Adj ki mért nyilvános API-t a meglévő RPC-kre",
+            "  Új Edge Function: supabase/functions/public-events-api/index.ts",
+            "  Kulcsalapú hitelesítés: api_keys tábla (key_hash, customer, plan,",
+            "    rate_limit, created_at, revoked_at); a nyers kulcsot soha ne tárold",
+            "  Végpontok: GET /events?city=&category=&from=&to= → map_events_list()",
+            "             GET /clusters?level=county → map_markers()",
+            "  Minden rekorddal adj forrásmegjelölést: publisher_name + external_url",
+            "",
+            "Érvényesítsd a licenchatárt magában az adatban",
+            "  Csak olyan forrásokat szolgálj ki, ahol legal_review_status = 'approved'",
+            "    (lásd 4. kezdeményezés — ez a technikai függőség)",
+            "  Kulcsonkénti sebességkorlát; minden hívást naplózz számlázási bizonyítéknak",
+            "",
+            "Csomagold modulként, ne csak API-ként",
+            "  Egyetlen <script> beágyazás, amely „Mi van a közelben” kártyát rajzol,",
+            "    mert egy szállodai marketinges nem tud JSON API-t fogyasztani",
+            "",
+            "Ár: 99-399 €/hó forgalom szerint. Két ügyfél kifizeti a ráfordítást."
+          ],
+          "metrics": [
+            ["API/modul ügyfél", "0 → 2–4"],
+            ["Reális éves licencbevétel", "5e €–20e €"],
+            ["Jogilag továbbadható forrás", "0 → 30 (a 4. kezdeményezésen múlik)"],
+            ["Fejlesztői ráfordítás", "1–2 hét a meglévő RPC-kre"]
+          ],
+          "regen": "Írd újra ezt adatlicencelési piacra lépési tervként: az a 20 megnevezett magyar szervezet, amely a legvalószínűbben vásárolna eseményfeedet, mire használnák, az árazási szintek, a továbbterjesztés elleni szerződéses kikötések, és a forrásengedélyekre vonatkozó pontos technikai függőség, amit előbb rendezni kell."
+        }
+      }
+    },
+    {
+      "value": "+€8k–€17k",
+      "translations": {
+        "en": {
+          "title": "Provable reliability — the diligence hygiene that stops an offer being discounted",
+          "desc": [
+            "This initiative adds no features and no users, and it is on the list because in a due-diligence conversation it is worth more per hour invested than most feature work. The repository already has unusually good bones for a solo project — 511 unit tests, CI running a security-definer audit, performance budgets, secret scanning, SBOM generation and release validation. Three specific holes undermine all of it.",
+            "First, <b>npm run typecheck passes without checking anything</b>: the root tsconfig has <i>files: []</i> and project references, so the command exits 0 while the app project reports a large backlog of type errors. A live route recently crashed on a constant left behind by a refactor, having passed typecheck, lint and 511 tests. Second, there are only three end-to-end specs for more than twenty routes. Third, there is no uptime monitoring at all — nobody would know if the site went down on a Saturday.",
+            "None of this is expensive. It is perhaps a week of work, and it changes what a technical buyer sees: not \"a solo project with green badges\" but \"a project whose gates actually mean something\". In a small transaction that difference is routinely worth more than the week costs."
+          ],
+          "impl": [
+            "Make the type check real",
+            "  Either point npm run typecheck at tsconfig.app.json and fix the",
+            "    backlog incrementally with a ratchet, or add a CI step that fails",
+            "    when the error count rises above the current recorded baseline",
+            "  Do not leave a gate that reports success without checking anything",
+            "",
+            "Cover the routes that can crash",
+            "  e2e/smoke.spec.ts already boots / and /events/map; add /events,",
+            "    /events/:id, /explore, /organizer and /admin",
+            "  Each spec asserts: no page error, no error-boundary text",
+            "",
+            "Add uptime and error monitoring",
+            "  A free external monitor on / and /events/map",
+            "  Route the existing AppErrorBoundary's correlation ids to a Supabase",
+            "    table so client crashes are visible without asking a user",
+            "  Alert when a scheduled scraper run fails twice consecutively",
+            "",
+            "Publish a one-page architecture note in docs/ for a buyer's engineer."
+          ],
+          "metrics": [
+            ["Routes with a boot test", "2 → 8"],
+            ["Meaningful type checking in CI", "none → enforced ratchet"],
+            ["Time to notice an outage", "unbounded → under 5 minutes"],
+            ["Effort", "≈ 1 week"]
+          ],
+          "regen": "Rewrite this as a technical due-diligence readiness checklist: what a buyer's engineer will actually run against this repository in the first hour, what they will find, the order in which to fix those findings by cost-to-fix versus impact-on-price, and the exact contents of the architecture note that answers their questions before they ask."
+        },
+        "hu": {
+          "title": "Bizonyítható megbízhatóság — az átvilágítási higiénia, ami megvédi az ajánlatot",
+          "desc": [
+            "Ez a kezdeményezés nem ad funkciót és nem hoz felhasználót, mégis szerepel a listán, mert egy átvilágítási beszélgetésben befektetett óránként többet ér, mint a legtöbb funkciófejlesztés. A repository egyszemélyes projekthez képest szokatlanul jó alapokkal bír — 511 egységteszt, CI-ben futó security-definer audit, teljesítménybudgetek, titokszkennelés, SBOM-generálás és kiadásellenőrzés. Három konkrét lyuk aláássa mindezt.",
+            "Először: az <b>npm run typecheck úgy megy át, hogy semmit nem ellenőriz</b> — a gyökér tsconfig <i>files: []</i> beállítású projektreferenciákkal, így a parancs 0-val kilép, miközben az app projekt nagy mennyiségű típushibát jelez. Egy éles útvonal nemrég egy refaktor után bennmaradt konstanson omlott össze, miután átment a típusellenőrzésen, a linten és 511 teszten. Másodszor: húsznál több útvonalhoz mindössze három végponttól végpontig teszt tartozik. Harmadszor: egyáltalán nincs rendelkezésre állás-figyelés — senki nem tudná meg, ha az oldal szombaton leállna.",
+            "Ebből semmi nem drága. Nagyjából egy hét munka, és megváltoztatja, mit lát egy technikai vevő: nem „egyszemélyes projektet zöld jelvényekkel”, hanem „projektet, ahol a kapuk jelentenek is valamit”. Egy kis tranzakcióban ez a különbség rendszeresen többet ér, mint amennyibe az a hét kerül."
+          ],
+          "impl": [
+            "Tedd valódivá a típusellenőrzést",
+            "  Vagy irányítsd az npm run typecheck-et a tsconfig.app.json-ra, és javítsd",
+            "    a hátralékot fokozatosan, racsnival, vagy tegyél a CI-be olyan lépést,",
+            "    amely elbukik, ha a hibaszám a jelenlegi rögzített alap fölé megy",
+            "  Ne maradjon olyan kapu, amely ellenőrzés nélkül jelent sikert",
+            "",
+            "Fedd le az összeomolható útvonalakat",
+            "  Az e2e/smoke.spec.ts már indítja a / és a /events/map oldalt; vedd fel",
+            "    az /events, /events/:id, /explore, /organizer és /admin útvonalakat",
+            "  Minden teszt állítsa: nincs oldalhiba, nincs hibahatár-szöveg",
+            "",
+            "Vezess be rendelkezésre állás- és hibafigyelést",
+            "  Ingyenes külső monitor a / és a /events/map oldalra",
+            "  Vezesd a meglévő AppErrorBoundary korrelációs azonosítóit Supabase",
+            "    táblába, hogy a kliensoldali összeomlások felhasználói jelzés nélkül is látszódjanak",
+            "  Riasztás, ha egy ütemezett gyűjtési futás kétszer egymás után elbukik",
+            "",
+            "Tegyél a docs/ mappába egyoldalas architektúra-jegyzetet a vevő mérnökének."
+          ],
+          "metrics": [
+            ["Indítási teszttel fedett útvonal", "2 → 8"],
+            ["Érdemi típusellenőrzés a CI-ben", "nincs → kikényszerített racsni"],
+            ["Kiesés észrevételi ideje", "korlátlan → 5 percen belül"],
+            ["Ráfordítás", "≈ 1 hét"]
+          ],
+          "regen": "Írd újra ezt technikai átvilágítási felkészültségi ellenőrzőlistaként: mit fog a vevő mérnöke ténylegesen lefuttatni ezen a repositoryn az első órában, mit fog találni, milyen sorrendben érdemes ezeket javítani javítási költség kontra árhatás alapján, és pontosan mit tartalmazzon az az architektúra-jegyzet, amely megválaszolja a kérdéseiket, mielőtt felteszik őket."
+        }
+      }
+    }
+  ]
+}

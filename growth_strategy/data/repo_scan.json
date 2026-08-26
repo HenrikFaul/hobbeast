@@ -1,0 +1,208 @@
+{
+  "scanned_at": "2026-08-26T11:57:04.053736",
+  "scan_root": "C:\\Work\\Expericentre",
+  "total_files": 1691,
+  "total_loc": 121601,
+  "languages": [
+    {
+      "language": "TypeScript",
+      "files": 289,
+      "loc": 44654
+    },
+    {
+      "language": "SQL",
+      "files": 156,
+      "loc": 36805
+    },
+    {
+      "language": "TypeScript (TSX)",
+      "files": 188,
+      "loc": 29910
+    },
+    {
+      "language": "JavaScript",
+      "files": 49,
+      "loc": 9016
+    },
+    {
+      "language": "Python",
+      "files": 5,
+      "loc": 1216
+    },
+    {
+      "language": ".mp4",
+      "files": 350,
+      "loc": 0
+    },
+    {
+      "language": ".png",
+      "files": 174,
+      "loc": 0
+    },
+    {
+      "language": ".jpg",
+      "files": 149,
+      "loc": 0
+    },
+    {
+      "language": "Markdown",
+      "files": 144,
+      "loc": 0
+    },
+    {
+      "language": ".pdf",
+      "files": 46,
+      "loc": 0
+    },
+    {
+      "language": ".webp",
+      "files": 32,
+      "loc": 0
+    },
+    {
+      "language": ".avif",
+      "files": 31,
+      "loc": 0
+    },
+    {
+      "language": "JSON",
+      "files": 14,
+      "loc": 0
+    },
+    {
+      "language": ".svg",
+      "files": 13,
+      "loc": 0
+    },
+    {
+      "language": ".txt",
+      "files": 10,
+      "loc": 0
+    },
+    {
+      "language": ".xlsx",
+      "files": 8,
+      "loc": 0
+    },
+    {
+      "language": ".zip",
+      "files": 5,
+      "loc": 0
+    },
+    {
+      "language": "CSS",
+      "files": 4,
+      "loc": 0
+    },
+    {
+      "language": ".woff2",
+      "files": 4,
+      "loc": 0
+    },
+    {
+      "language": ".docx",
+      "files": 3,
+      "loc": 0
+    },
+    {
+      "language": ".control",
+      "files": 3,
+      "loc": 0
+    },
+    {
+      "language": "HTML",
+      "files": 2,
+      "loc": 0
+    },
+    {
+      "language": ".ndjson",
+      "files": 2,
+      "loc": 0
+    },
+    {
+      "language": ".jsonl",
+      "files": 2,
+      "loc": 0
+    },
+    {
+      "language": "TOML",
+      "files": 2,
+      "loc": 0
+    }
+  ],
+  "detected_stack": [
+    "Node.js/npm",
+    "Supabase",
+    "Tailwind CSS",
+    "TypeScript",
+    "Vercel",
+    "Vite"
+  ],
+  "detected_manifests": [
+    "package.json",
+    "tailwind.config.ts",
+    "tsconfig.json",
+    "vercel.json",
+    "vite.config.ts",
+    "supabase/config.toml"
+  ],
+  "dependency_hints": [
+    {
+      "manifest": "package.json",
+      "name": "hobbeast",
+      "version": "1.26.0",
+      "dep_count": 52,
+      "dev_dep_count": 23,
+      "top_deps": [
+        "@hookform/resolvers",
+        "@lovable.dev/cloud-auth-js",
+        "@radix-ui/react-accordion",
+        "@radix-ui/react-alert-dialog",
+        "@radix-ui/react-aspect-ratio",
+        "@radix-ui/react-avatar",
+        "@radix-ui/react-checkbox",
+        "@radix-ui/react-collapsible",
+        "@radix-ui/react-context-menu",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-hover-card",
+        "@radix-ui/react-label",
+        "@radix-ui/react-menubar",
+        "@radix-ui/react-navigation-menu",
+        "@radix-ui/react-popover",
+        "@radix-ui/react-progress",
+        "@radix-ui/react-radio-group",
+        "@radix-ui/react-scroll-area",
+        "@radix-ui/react-select",
+        "@radix-ui/react-separator",
+        "@radix-ui/react-slider",
+        "@radix-ui/react-slot",
+        "@radix-ui/react-switch",
+        "@radix-ui/react-tabs",
+        "@radix-ui/react-toast",
+        "@radix-ui/react-toggle",
+        "@radix-ui/react-toggle-group",
+        "@radix-ui/react-tooltip",
+        "@supabase/supabase-js",
+        "@tanstack/react-query",
+        "class-variance-authority",
+        "clsx",
+        "cmdk",
+        "date-fns",
+        "embla-carousel-react",
+        "framer-motion",
+        "input-otp",
+        "leaflet",
+        "lucide-react"
+      ]
+    }
+  ],
+  "git": {
+    "first_commit": "2026-08-26T02:55:05+02:00",
+    "last_commit": "2026-08-26T02:55:05+02:00",
+    "commit_count": 835,
+    "contributor_count": 0,
+    "branch": "main",
+    "remote_url": "https://github.com/HenrikFaul/hobbeast.git"
+  }
+}

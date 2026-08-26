@@ -1,0 +1,33 @@
+{
+  "_comment": "EXAMPLE project config for the standalone Valuation pack — Effectime Enterprise. When dropping this folder into a NEW repo, copy this to data/project.json and replace every value with your product's details.",
+
+  "product_name": "Effectime Enterprise",
+  "logo_letter": "E",
+  "tagline": "Multi-tenant HR leave management & workforce planning SaaS",
+
+  "languages": ["en", "hu"],
+  "language_names": { "en": "English", "hu": "Magyar", "de": "Deutsch" },
+
+  "repository": "owner/effectime-app-enterprise",
+  "version": "v2.6.0+",
+  "prepared_date": "2026-05-15",
+  "confidence_label": "Medium-High",
+
+  "valuation_title_translations": {
+    "en": "Software Valuation & Technical Due-Diligence Report",
+    "hu": "Szoftver Értékelési és Technikai Átvilágítási Jelentés"
+  },
+
+  "valuation_output_slug": "valuation-report",
+  "author": "AI-assisted Technical Due-Diligence",
+
+  "brand": {
+    "primary": "#6366F1",
+    "primary_dark": "#0F172A",
+    "primary_mid": "#1E293B",
+    "accent": "#818CF8",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444"
+  }
+}

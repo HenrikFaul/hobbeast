@@ -42,3 +42,11 @@ media-library/videos/
 
 # Playwright screenshot output (54MB of PNG/ZIP build artefacts).
 pw-shots/
+
+# 3.3 GB of collected stock footage and stills for Instagram posts. The
+# selection lives on disk; only the tooling that produced it is versioned.
+instaposztokhoz/media/
+
+# Python bytecode from the report generators.
+__pycache__/
+*.pyc

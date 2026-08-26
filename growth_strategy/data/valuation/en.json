@@ -1,0 +1,524 @@
+{
+  "executive_summary": {
+    "description": [
+      "Hobbeast (expericentre.com) is a <b>Hungarian hobby-event discovery platform</b> built on React/TypeScript and Supabase. Members browse, save and join local programs; an automated collection engine aggregates public event listings from 345 configured Hungarian sources into a single searchable catalogue with a map, category filters, saved-event alerts and calendar export. An admin console manages the collection pipeline, and an outbound-click layer measures traffic sent to ticket sellers.",
+      "This report values the <b>software asset in its current state</b>. It deliberately takes the conservative side of every judgement call, because the single most important fact about this product is not in the code: <b>it has no users and no revenue</b>. 934 accounts exist, but 930 are bulk-created test accounts, only 4 have ever signed in, there are 0 event participations and 0 analytics events recorded. Any valuation that applies a revenue or user multiple here would be fiction."
+    ],
+    "kpis_title": "Key Statistics (measured, not estimated)",
+    "kpis": [
+      { "label": "Hand-written code (LOC)", "value": "98,400" },
+      { "label": "Frontend files (.ts/.tsx)", "value": "373" },
+      { "label": "DB migrations", "value": "127" },
+      { "label": "Edge Functions", "value": "29" },
+      { "label": "Automated tests", "value": "511" },
+      { "label": "Active dev months", "value": "~5" },
+      { "label": "Live programs in catalogue", "value": "1,804" },
+      { "label": "Real signed-in users", "value": "4" },
+      { "label": "Revenue to date", "value": "€0" }
+    ],
+    "tables": [
+      {
+        "title": "Build Effort Summary (PERT, traditional human team, no AI assistance)",
+        "headers": ["Metric", "Low", "Most Likely", "High"],
+        "col_widths": [190, 100, 110, 100],
+        "rows": [
+          ["Person-hours", "3,950", "6,150", "9,070"],
+          ["Person-months (160 h/mo)", "24.7", "38.4", "56.7"],
+          ["Calendar months (4-person team)", "9 mo", "14 mo", "20 mo"]
+        ]
+      },
+      {
+        "title": "Replacement Cost Today — what it would cost to rebuild this in 2026",
+        "headers": ["Scenario", "Low", "Most Likely", "High"],
+        "col_widths": [190, 100, 110, 100],
+        "rows": [
+          ["AI-assisted rebuild, CEE seniors", "€48,000", "€85,000", "€155,000"],
+          ["Traditional CEE team", "€126,000", "€235,000", "€408,000"],
+          ["Traditional Western EU agency", "€316,000", "€584,000", "€1,043,000"]
+        ],
+        "highlight_last": false
+      },
+      {
+        "title": "Market Value Summary — what a buyer would actually pay",
+        "headers": ["Scenario", "Estimated Range", "Central Estimate"],
+        "col_widths": [220, 145, 135],
+        "rows": [
+          ["<b>Current state (0 users, €0 revenue)</b>", "<b>€18k – €65k</b>", "<b>€32k</b>"],
+          ["With €30k ARR from venue partners", "€90k – €240k", "€150k"],
+          ["With €100k ARR + 10k monthly actives", "€300k – €700k", "€450k"],
+          ["Strategic buy by a ticketing incumbent", "€400k – €1.2M", "€650k"],
+          ["Fire sale / abandoned asset", "€3k – €12k", "€6k"]
+        ],
+        "highlight_penultimate": false
+      }
+    ],
+    "callout": "⚠  <b>The one number that decides everything:</b> revenue is €0 and real weekly users are effectively zero. Build cost is <b>not</b> market value — it would cost roughly €85k to rebuild this today, and a buyer would still pay far less, because they are buying an unproven asset, not a business. Every figure in this report should be read as \"what the code is worth\", never as \"what the company is worth\"."
+  },
+
+  "product_reconstruction": {
+    "intro": "What exists, verified by reading the repository rather than by reading the marketing copy.",
+    "h2_blocks": [
+      {
+        "title": "Technical Stack",
+        "tables": [
+          {
+            "headers": ["Layer", "Technology", "Evidence"],
+            "col_widths": [120, 190, 190],
+            "rows": [
+              ["Frontend", "React 18, TypeScript, Vite 6", "package.json, 373 .ts/.tsx files"],
+              ["UI", "Tailwind CSS, Radix UI / shadcn (48 primitives)", "src/components/ui"],
+              ["Motion / maps", "framer-motion, Leaflet 1.9", "EventsMapView.tsx"],
+              ["Backend", "Supabase (Postgres, Auth, Storage, Realtime)", "supabase/config.toml"],
+              ["Serverless", "29 Deno Edge Functions", "supabase/functions"],
+              ["Data layer", "127 SQL migrations, RLS on every table", "supabase/migrations"],
+              ["Collection worker", "Node + Playwright, GitHub Actions", "scraper-worker/"],
+              ["Hosting", "Vercel (SPA) + Supabase managed", "vercel.json"],
+              ["QA", "Vitest (511 tests), Playwright e2e, ESLint", "94 test files"],
+              ["CI", "GitHub Actions: audit, tests, budgets, SBOM", ".github/workflows/ci.yml"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Feature Modules Actually Present",
+        "tables": [
+          {
+            "headers": ["Module", "State", "Notes"],
+            "col_widths": [150, 100, 250],
+            "rows": [
+              ["Auth + profiles + onboarding", "Complete", "Google OAuth consent screen published"],
+              ["Event discovery feed + filters", "Complete", "price, category, city, saved-event filters"],
+              ["Map search", "Complete", "county → district → venue pin drill-down"],
+              ["Program collection engine", "Complete", "345 sources, 7 extraction recipes"],
+              ["Self-service source wizard", "Complete", "URL in → recipe proposal → trial run"],
+              ["Admin console", "Complete", "13 capability-gated tabs"],
+              ["Organizer dashboard", "Complete", "attendees, check-in, messages, analytics"],
+              ["Saved events + alerts", "Complete", "ICS + Google Calendar export"],
+              ["Outbound-click attribution", "Complete", "partner performance reporting"],
+              ["Trust & safety / moderation", "Partial", "schema and RPCs exist, little UI traffic"],
+              ["Payments / ticketing", "<font color='#EF4444'>Absent</font>", "no payment provider integrated"],
+              ["Native mobile app", "<font color='#EF4444'>Absent</font>", "responsive web only"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "How the code came into existence",
+        "body": [
+          "This matters for valuation and is easy to verify: of 835 commits, <b>523 are authored by <font color='#B45309'>gpt-engineer-app[bot]</font></b> (the Lovable AI code generator), 273 by the owner, 38 by Claude Code and 1 by Lovable. Development ran in bursts — 288 commits in March 2026, 396 in April, then a four-month gap, then 77 in July and 73 in August.",
+          "The practical consequence is not that the code is bad — it is coherent, typed, tested and governed better than most solo projects. The consequence is that <b>the effort embedded in it is reproducible by anyone with the same tools</b>, which caps what the asset can command on the market."
+        ]
+      }
+    ]
+  },
+
+  "scope_decomposition": {
+    "intro": "Effort is not proportional to lines of code. This section separates the parts that are genuinely hard from the parts a generator produced in an afternoon.",
+    "h2_blocks": [
+      {
+        "title": "Complexity by Area",
+        "tables": [
+          {
+            "headers": ["Area", "LOC", "Complexity", "Comment"],
+            "col_widths": [150, 70, 90, 190],
+            "rows": [
+              ["Frontend app (hand-written)", "45,375", "Medium", "Many screens, conventional patterns"],
+              ["Generated Supabase types", "6,844", "None", "Machine output — excluded from effort"],
+              ["Vendored shadcn primitives", "3,653", "None", "Copied library — excluded from effort"],
+              ["Database + RLS + RPCs", "29,692", "High", "275 functions, security-definer discipline"],
+              ["Edge Functions", "18,702", "Medium-High", "Auth, SSRF guards, provider contracts"],
+              ["Collection engine", "2,409", "High", "7 recipes, geocoding gate, dedup"],
+              ["Tooling & scripts", "1,941", "Medium", "Budgets, SBOM, audits, geocoder"],
+              ["Tests", "9,520", "Medium", "511 unit + 3 e2e specs"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Complexity Multipliers Applied",
+        "tables": [
+          {
+            "headers": ["Factor", "Multiplier", "Why"],
+            "col_widths": [180, 90, 230],
+            "rows": [
+              ["Multi-tenant security (RLS everywhere)", "1.35×", "Every table policy-gated and audited"],
+              ["Third-party site fragility", "1.30×", "345 sources that change without notice"],
+              ["Hungarian localisation + date parsing", "1.15×", "Free-text Hungarian dates, accent folding"],
+              ["No native mobile", "0.85×", "Responsive web only — scope avoided"],
+              ["No payments / no PCI scope", "0.80×", "Whole compliance branch absent"],
+              ["Single-language UI", "0.90×", "No i18n framework in the product itself"]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  "methodology": {
+    "intro": "Three independent methods, then triangulation. Where they disagree, the report reports the disagreement rather than averaging it away.",
+    "h2_blocks": [
+      {
+        "title": "Estimation Methods",
+        "subsections": [
+          {
+            "title": "1. Bottom-up PERT by module",
+            "body": "Each area receives an optimistic (O), most-likely (M) and pessimistic (P) hour estimate; the expected value is E = (O + 4M + P) / 6. Non-coding work — QA, design, project management, DevOps — is estimated explicitly rather than folded into a coding percentage."
+          },
+          {
+            "title": "2. Replacement cost with 2026 tooling",
+            "body": "The traditional estimate answers \"what would this have cost a team in 2019\". It is <b>not</b> what a buyer's alternative costs today. The repository itself is the evidence: one owner plus AI generators produced it in roughly five active months. The AI-assisted scenario is therefore the honest replacement cost, and it is the figure that caps market value."
+          },
+          {
+            "title": "3. Market triangulation across four lenses",
+            "body": "Discounted replacement cost, pre-revenue marketplace comparables, the standalone data-asset value of the collection pipeline, and a strategic-buyer view. The revenue-multiple lens is deliberately given a weight of zero, because the revenue is zero."
+          }
+        ]
+      },
+      {
+        "title": "Important Distinctions",
+        "bullets": [
+          "<b>Effort ≠ duration.</b> 6,150 person-hours is roughly 14 calendar months for a four-person team, not 14 months of one person's time.",
+          "<b>Build cost ≠ market value.</b> Sunk cost is irrelevant to a buyer. It appears here only as an upper bound.",
+          "<b>Code quality ≠ business value.</b> This codebase is above average for a solo project. That raises the floor slightly; it does not create demand.",
+          "<b>Working ≠ adopted.</b> The collection engine demonstrably works — 1,804 live programs. Nobody is reading them."
+        ],
+        "bullet_marker": "→"
+      }
+    ]
+  },
+
+  "team_composition": {
+    "intro": "What a team reproducing this from scratch would need, and what it would cost to run.",
+    "h2_blocks": [
+      {
+        "title": "Roles Required",
+        "tables": [
+          {
+            "headers": ["Role", "Allocation", "Responsibility"],
+            "col_widths": [150, 90, 260],
+            "rows": [
+              ["Senior full-stack engineer", "1.0 FTE", "Architecture, data model, RLS, edge functions"],
+              ["Frontend engineer", "1.0 FTE", "Screens, design system, map and discovery UX"],
+              ["Data / scraping engineer", "0.6 FTE", "Collection recipes, geocoding, scheduling"],
+              ["QA engineer", "0.4 FTE", "Test suite, CI gates, release validation"],
+              ["Product designer", "0.3 FTE", "Visual system, editorial media, mobile layouts"],
+              ["Product / project manager", "0.3 FTE", "Scope, governance, release documentation"]
+            ]
+          }
+        ],
+        "callouts": [
+          "<b>Option A — CEE in-house (recommended basis):</b> 3.6 FTE for ~14 months at a €38/h blended loaded rate ≈ <b>€235k</b>. This is the classic figure and the one most often quoted; it overstates today's alternative.",
+          "<b>Option B — Western EU agency:</b> the same scope at a €95/h blended agency rate ≈ <b>€584k</b>. Relevant only if the buyer must outsource to a Western vendor.",
+          "<b>Option C — AI-assisted, 1–2 CEE seniors (what actually happened):</b> ~1,900 hours at €42/h ≈ <b>€85k</b> including tooling. The repository's own commit history is the proof that this is achievable."
+        ]
+      }
+    ]
+  },
+
+  "effort_estimate": {
+    "intro": "PERT breakdown for a traditional team building the current feature set from an empty repository.",
+    "h2_blocks": [
+      {
+        "title": "Bottom-up Breakdown (hours)",
+        "tables": [
+          {
+            "headers": ["Area", "Optimistic", "Most Likely", "Pessimistic", "PERT E"],
+            "col_widths": [150, 88, 88, 88, 86],
+            "rows": [
+              ["Frontend application", "1,600", "2,400", "3,600", "2,467"],
+              ["Database, RLS, RPCs", "700", "1,050", "1,600", "1,083"],
+              ["Edge Functions", "450", "700", "1,050", "717"],
+              ["Collection engine", "400", "620", "950", "638"],
+              ["QA, CI, governance", "350", "520", "800", "538"],
+              ["Design & editorial media", "250", "380", "600", "395"],
+              ["Product / project management", "200", "300", "470", "312"],
+              ["<b>TOTAL</b>", "<b>3,950</b>", "<b>5,970</b>", "<b>9,070</b>", "<b>6,150</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "Same effort in other units",
+            "headers": ["Unit", "Low", "Most Likely", "High"],
+            "col_widths": [190, 100, 110, 100],
+            "rows": [
+              ["Person-hours", "3,950", "6,150", "9,070"],
+              ["Person-months (160 h)", "24.7", "38.4", "56.7"],
+              ["Person-years", "2.1", "3.2", "4.7"],
+              ["Calendar months, 4-person team", "9", "14", "20"],
+              ["<b>AI-assisted equivalent (hours)</b>", "<b>1,250</b>", "<b>1,900</b>", "<b>3,000</b>"]
+            ],
+            "highlight_last": true
+          }
+        ]
+      },
+      {
+        "title": "Why the AI-assisted figure is the one that matters",
+        "body": "A buyer's decision is not \"build it the old way or buy this\". It is \"reproduce it with the same generators or buy this\". 523 of 835 commits in this repository were machine-authored, and the whole product reached v1.26.0 in roughly five active months of part-time work. Treating the €235k traditional figure as the asset's worth would overstate it by an order of magnitude.",
+        "callouts": [
+          "⚠  The AI-assisted estimate assumes an engineer who already knows the target architecture. A team learning Supabase, RLS and Playwright scraping simultaneously would land closer to the traditional range."
+        ]
+      }
+    ]
+  },
+
+  "cost_estimate": {
+    "intro": "Costs are stated in EUR at 2026 Central-European contractor rates, fully loaded (salary, employer contributions, tooling, management overhead).",
+    "h2_blocks": [
+      {
+        "title": "Detailed Cost Model — traditional CEE team, most-likely effort",
+        "tables": [
+          {
+            "headers": ["Role", "Hours", "Rate", "Cost"],
+            "col_widths": [180, 90, 100, 120],
+            "rows": [
+              ["Senior full-stack engineer", "2,000", "€55/h", "€110,000"],
+              ["Frontend engineer", "1,900", "€40/h", "€76,000"],
+              ["Data / scraping engineer", "900", "€45/h", "€40,500"],
+              ["QA engineer", "600", "€32/h", "€19,200"],
+              ["Product designer", "450", "€38/h", "€17,100"],
+              ["Product / project manager", "300", "€45/h", "€13,500"],
+              ["Infrastructure & tooling (14 months)", "—", "—", "€6,000"],
+              ["<b>TOTAL (traditional CEE)</b>", "<b>6,150</b>", "—", "<b>€282,300</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "Scenario ranges",
+            "headers": ["Scenario", "Low", "Most Likely", "High"],
+            "col_widths": [190, 100, 110, 100],
+            "rows": [
+              ["AI-assisted, 1–2 CEE seniors", "€48,000", "€85,000", "€155,000"],
+              ["Traditional CEE team", "€126,000", "€235,000", "€408,000"],
+              ["Mixed CEE team + WEU lead", "€190,000", "€338,000", "€560,000"],
+              ["Western EU agency", "€316,000", "€584,000", "€1,043,000"]
+            ]
+          }
+        ],
+        "callouts": [
+          "<b>Running cost is genuinely low.</b> Supabase free/pro tier, Vercel hobby/pro, GitHub Actions free minutes and a domain put the current monthly burn at roughly <b>€25–€70</b>. At 10,000 monthly actives it would rise to an estimated €120–€300. Infrastructure is not what stands between this product and profitability."
+        ]
+      }
+    ]
+  },
+
+  "market_comparison": {
+    "intro": "Comparables were chosen for structural similarity — event aggregation, local discovery, small-market consumer marketplaces — not for flattery.",
+    "h2_blocks": [
+      {
+        "title": "Comparable Products",
+        "tables": [
+          {
+            "headers": ["Product", "Model", "Relevance to Hobbeast"],
+            "col_widths": [130, 130, 240],
+            "rows": [
+              ["Meetup", "Subscription (organizer-paid)", "Closest social model; global scale, entrenched"],
+              ["Eventbrite", "Ticketing commission", "The monetisation Hobbeast has not built"],
+              ["Programturizmus.hu", "Ad-funded HU listings", "Direct Hungarian incumbent with audience"],
+              ["Funzine / WeLoveBudapest", "Media + advertising", "Owns the Budapest events audience today"],
+              ["Fever", "Curated experiences + ticketing", "Aspirational model, needs supply contracts"],
+              ["Bandsintown / Songkick", "Artist-led aggregation", "Proof that aggregation alone is commoditised"]
+            ]
+          },
+          {
+            "title": "Valuation multiples observed in this segment",
+            "headers": ["Stage", "Typical basis", "Multiple"],
+            "col_widths": [150, 200, 150],
+            "rows": [
+              ["Pre-revenue asset sale", "Discounted replacement cost", "0.2× – 0.7×"],
+              ["Micro-SaaS with early ARR", "Annual recurring revenue", "1.5× – 3× ARR"],
+              ["Consumer marketplace, growing", "Annual recurring revenue", "3× – 6× ARR"],
+              ["Ad-funded local media", "EBITDA", "3× – 5×"],
+              ["Strategic / defensive buy", "Audience + supply contracts", "Deal-specific"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "The uncomfortable comparison",
+        "body": "Programturizmus, Funzine and WeLoveBudapest already aggregate Hungarian events <i>and</i> have audiences, sales teams and advertiser relationships. Hobbeast's engine is arguably more automated than theirs. That is a genuine technical edge and a weak commercial one: in this category, distribution beats data collection, and Hobbeast currently has none."
+      }
+    ]
+  },
+
+  "market_value_estimate": {
+    "intro": "Four lenses, weighted. The revenue-multiple lens is included only to record that it contributes nothing.",
+    "h2_blocks": [
+      {
+        "title": "Valuation Lenses",
+        "subsections": [
+          {
+            "title": "Lens 1 — Discounted replacement cost (weight 35%)",
+            "body": "Replacement cost today is ~€85k. A buyer discounts heavily for: no traction (−25%), no defensible IP because the same generators are available to them (−15%), dependency on 345 third-party sites that may block or restyle at will (−10%), and single-author key-person risk (−5%). Net ≈ 45% of replacement → <b>€38k</b>, range €25k–€65k."
+          },
+          {
+            "title": "Lens 2 — Pre-revenue marketplace comparables (weight 25%)",
+            "body": "On Acquire.com and Flippa, pre-revenue consumer marketplaces with fewer than 10 real users list between €5k and €50k and frequently do not sell at all. Hobbeast's working aggregation pipeline and clean CI put it in the upper half of that band but do not lift it out of it → <b>€22k</b>, range €10k–€45k."
+          },
+          {
+            "title": "Lens 3 — Standalone data-asset value (weight 25%)",
+            "body": "The collection pipeline replaces the manual work of a part-time listings editor: 345 configured sources, 1,804 live programs, 672 of them pinned to an exact geocoded venue, refreshed three times a day. That is worth roughly €7k–€15k per year of avoided labour to a media buyer; capitalised at 2–3× and discounted for perishability → <b>€28k</b>, range €12k–€45k."
+          },
+          {
+            "title": "Lens 4 — Strategic / acqui-hire (weight 15%)",
+            "body": "There is no team to acquire — the work was done by one owner and AI generators — so the usual acqui-hire premium does not apply. A Hungarian events or ticketing player might pay a modest sum for the domain, brand and engine as a defensive move → <b>€15k</b>, range €0k–€40k."
+          },
+          {
+            "title": "Lens 5 — Revenue multiple (weight 0%)",
+            "body": "ARR is €0. 3 outbound clicks have ever been recorded and 0 analytics events. There is no revenue line to multiply. This lens contributes <b>€0</b> and is listed so that its absence is explicit rather than hidden."
+          }
+        ]
+      },
+      {
+        "title": "Triangulated Result",
+        "tables": [
+          {
+            "headers": ["Lens", "Weight", "Low", "Central", "High"],
+            "col_widths": [170, 70, 85, 85, 90],
+            "rows": [
+              ["Discounted replacement cost", "35%", "€25k", "€38k", "€65k"],
+              ["Pre-revenue comparables", "25%", "€10k", "€22k", "€45k"],
+              ["Standalone data asset", "25%", "€12k", "€28k", "€45k"],
+              ["Strategic / defensive", "15%", "€0k", "€15k", "€40k"],
+              ["Revenue multiple", "0%", "€0k", "€0k", "€0k"],
+              ["<b>WEIGHTED RESULT</b>", "<b>100%</b>", "<b>€18k</b>", "<b>€32k</b>", "<b>€65k</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "What would change the answer",
+            "headers": ["Trigger", "Resulting range", "Central"],
+            "col_widths": [230, 145, 125],
+            "rows": [
+              ["First 5 paying venue partners (~€12k ARR)", "€45k – €110k", "€70k"],
+              ["€30k ARR + 2,000 monthly actives", "€90k – €240k", "€150k"],
+              ["€100k ARR + 10,000 monthly actives", "€300k – €700k", "€450k"],
+              ["Signed content licences with 3 major venues", "€70k – €180k", "€110k"],
+              ["Aggregation blocked by 3+ major sources", "€8k – €25k", "€14k"]
+            ]
+          }
+        ]
+      }
+    ],
+    "callout": "<b>Central estimate: €32,000</b> for the software asset as it stands today, with a defensible range of <b>€18k–€65k</b>. This is a deliberately conservative figure. Anyone quoting a six- or seven-figure number for this product today is valuing the roadmap, not the asset."
+  },
+
+  "assumptions_limitations": {
+    "intro": "The separation below is the discipline that keeps the number honest. Everything in the first group was measured; everything in the second was inferred; everything in the third is missing and would move the estimate.",
+    "h2_blocks": [
+      {
+        "title": "Known — measured from the repository and the live database",
+        "bullets": [
+          "98,400 lines of hand-written code across 373 frontend files, 127 migrations, 29 edge functions.",
+          "835 commits, of which 523 are authored by an AI code generator (gpt-engineer-app[bot]).",
+          "511 unit tests and 3 end-to-end specs; CI runs audit, tests, budgets, SBOM and release validation.",
+          "1,804 active future programs from 345 enabled sources; 672 pinned to an exact geocoded venue.",
+          "934 accounts, of which 930 were bulk-created in three batches in April 2026; 4 have ever signed in.",
+          "0 event participations, 0 product-analytics events, 3 outbound clicks, €0 revenue.",
+          "Deployed and publicly reachable at expericentre.com; Google OAuth consent screen in production."
+        ],
+        "bullet_marker": "✓"
+      },
+      {
+        "title": "Inferred — reasoned, not measured",
+        "bullets": [
+          "2026 CEE contractor rates of €32–€55/h fully loaded; Western EU agency €80–€115/h.",
+          "AI-assisted development is 3–4× faster than traditional for this class of work.",
+          "A media buyer's avoided-labour value for the collection pipeline of €7k–€15k per year.",
+          "Discount factors for traction, IP defensibility, source fragility and key-person risk.",
+          "That the 930 bulk accounts are test data rather than a dormant audience.",
+          "Competitor positions taken from public sites, not from their financials."
+        ],
+        "bullet_marker": "~"
+      },
+      {
+        "title": "Missing — would materially move the number",
+        "bullets": [
+          "Any revenue, contract or letter of intent from a venue, ticket seller or advertiser.",
+          "Traffic data: there is no analytics history, so organic demand is entirely unknown.",
+          "Written permission from the aggregated sources; the legal footing of the collection is untested.",
+          "Cost of customer acquisition in the Hungarian market — never measured.",
+          "Retention behaviour: with 0 participations there is no cohort to analyse.",
+          "Any independent security audit or penetration test."
+        ],
+        "bullet_marker": "✗"
+      }
+    ],
+    "callout": "⚠  <b>The largest single risk is legal, not technical.</b> The catalogue is built by scraping 345 third-party sites. The registry records a robots check and a legal-review field, but 345 sources sit at <i>pending</i> legal review. A buyer's counsel will price that uncertainty, and it is the most likely reason for an offer to come in at the bottom of the range."
+  },
+
+  "next_steps": {
+    "intro": "Ordered by how much each one moves the valuation per euro spent.",
+    "h2_blocks": [
+      {
+        "title": "If the goal is to sell within 6 months",
+        "bullets": [
+          "Get three signed venue partnerships, even at €50/month. Revenue of any size moves the valuation from an asset multiple to a business multiple.",
+          "Turn on analytics and run a small paid-acquisition test — €500 of ads producing a measurable funnel is worth more in a data room than another feature.",
+          "Obtain written aggregation permission, or an API/feed agreement, from the ten largest sources. This converts the biggest legal risk into a documented asset.",
+          "Delete or clearly quarantine the 930 seeded accounts. A buyer who discovers them unannounced will discount the whole data room."
+        ],
+        "bullet_marker": "→"
+      },
+      {
+        "title": "If the goal is to keep building",
+        "bullets": [
+          "Pick one city and one hobby vertical and win it completely before broadening.",
+          "Ship the provider portal so venues have a reason to log in weekly.",
+          "Instrument the funnel end to end; the current inability to answer \"how many people saw a program\" blocks every commercial conversation.",
+          "Keep the collection engine's cost near zero — it is the only genuine moat, and it is cheap to run."
+        ],
+        "bullet_marker": "→"
+      },
+      {
+        "title": "Technical debt worth clearing",
+        "bullets": [
+          "<b>typecheck is a no-op.</b> The root tsconfig has <i>files: []</i> and project references, so <i>npm run typecheck</i> exits 0 without checking src. A live route crashed on an undefined constant that passed all gates.",
+          "The app project (tsconfig.app.json) reports a large backlog of type errors, mostly Supabase generated-type mismatches. Until it is clean, TypeScript is decorative in CI.",
+          "Legal review status is <i>pending</i> for the entire source registry.",
+          "Only 3 end-to-end specs exist for a product with 20+ routes."
+        ],
+        "bullet_marker": "→"
+      }
+    ]
+  },
+
+  "appendix": {
+    "h2_blocks": [
+      {
+        "title": "Repository Inventory",
+        "tables": [
+          {
+            "headers": ["Area", "Files", "Lines"],
+            "col_widths": [230, 130, 140],
+            "rows": [
+              ["Frontend src (all text files)", "422", "56,709"],
+              ["… of which hand-written .ts/.tsx", "324", "45,375"],
+              ["… of which generated Supabase types", "1", "6,844"],
+              ["… of which vendored shadcn primitives", "48", "3,653"],
+              ["SQL migrations", "127", "29,692"],
+              ["Edge Functions", "97", "18,702"],
+              ["Collection worker", "18", "2,409"],
+              ["Build & audit scripts", "15", "1,941"],
+              ["End-to-end specs", "3", "314"],
+              ["Documentation & governance", "60", "5,536"]
+            ]
+          },
+          {
+            "title": "Confidence assessment by section",
+            "headers": ["Section", "Confidence", "Why"],
+            "col_widths": [170, 110, 220],
+            "rows": [
+              ["Product reconstruction", "High", "Read directly from the repository"],
+              ["Effort estimate", "Medium", "PERT on inferred module boundaries"],
+              ["Cost estimate", "Medium", "Rate assumptions are regional averages"],
+              ["Market comparison", "Medium-Low", "Competitor financials are not public"],
+              ["Market value", "Low-Medium", "No revenue or traffic to anchor on"],
+              ["Legal exposure", "Low", "No counsel opinion obtained"]
+            ]
+          }
+        ]
+      }
+    ],
+    "closing": "Prepared from repository and production-database evidence on 2026-08-26 at version v1.26.0. Figures are estimates with stated ranges, not an appraisal, an audit or investment advice. The conservative bias is deliberate: for a pre-revenue asset, the cost of overstating value is a failed transaction and lost credibility, while the cost of understating it is a negotiation that starts lower."
+  }
+}

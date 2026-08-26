@@ -1,0 +1,522 @@
+{
+  "executive_summary": {
+    "description": [
+      "A Hobbeast (expericentre.com) egy <b>magyar hobbiesemény-felfedező platform</b>, React/TypeScript és Supabase alapon. A tagok helyi programokat böngésznek, mentenek és csatlakoznak hozzájuk; egy automatizált gyűjtőmotor 345 beállított magyar forrásból egyetlen kereshető katalógusba hozza a nyilvános eseménylistákat — térképpel, kategóriaszűrőkkel, mentett programokra szóló értesítésekkel és naptárexporttal. Az admin felület kezeli a gyűjtési folyamatot, egy kimenőkattintás-réteg pedig méri a jegyértékesítőkhöz továbbküldött forgalmat.",
+      "Ez a jelentés a <b>szoftvereszközt a jelenlegi állapotában</b> értékeli, és minden vitatható ponton szándékosan a konzervatív oldalra áll. A termékről ugyanis a legfontosabb tény nem a kódban van: <b>nincs felhasználója és nincs bevétele</b>. 934 fiók létezik, de 930 tömegesen létrehozott tesztfiók, mindössze 4 lépett be valaha, 0 eseményrészvétel és 0 analitikai esemény van rögzítve. Bármely értékelés, amely itt bevételi vagy felhasználói szorzót alkalmazna, fikció lenne."
+    ],
+    "kpis_title": "Kulcsszámok (mérve, nem becsülve)",
+    "kpis": [
+      { "label": "Kézzel írt kód (sor)", "value": "98 400" },
+      { "label": "Frontend fájlok (.ts/.tsx)", "value": "373" },
+      { "label": "Adatbázis-migrációk", "value": "127" },
+      { "label": "Edge Function", "value": "29" },
+      { "label": "Automata teszt", "value": "511" },
+      { "label": "Aktív fejlesztési hónap", "value": "~5" },
+      { "label": "Élő program a katalógusban", "value": "1 804" },
+      { "label": "Valódi bejelentkezett felhasználó", "value": "4" },
+      { "label": "Eddigi bevétel", "value": "0 €" }
+    ],
+    "tables": [
+      {
+        "title": "Ráfordítás összegzés (PERT, hagyományos emberi csapat, AI nélkül)",
+        "headers": ["Mutató", "Alsó", "Legvalószínűbb", "Felső"],
+        "col_widths": [190, 100, 110, 100],
+        "rows": [
+          ["Emberóra", "3 950", "6 150", "9 070"],
+          ["Emberhónap (160 ó/hó)", "24,7", "38,4", "56,7"],
+          ["Naptári hónap (4 fős csapat)", "9 hó", "14 hó", "20 hó"]
+        ]
+      },
+      {
+        "title": "Pótlási költség ma — mennyibe kerülne 2026-ban újraépíteni",
+        "headers": ["Forgatókönyv", "Alsó", "Legvalószínűbb", "Felső"],
+        "col_widths": [190, 100, 110, 100],
+        "rows": [
+          ["AI-támogatott újraépítés, CEE seniorok", "48 000 €", "85 000 €", "155 000 €"],
+          ["Hagyományos CEE csapat", "126 000 €", "235 000 €", "408 000 €"],
+          ["Nyugat-európai ügynökség", "316 000 €", "584 000 €", "1 043 000 €"]
+        ]
+      },
+      {
+        "title": "Piaci érték összegzés — mennyit fizetne valójában egy vevő",
+        "headers": ["Forgatókönyv", "Becsült sáv", "Középérték"],
+        "col_widths": [220, 145, 135],
+        "rows": [
+          ["<b>Jelenlegi állapot (0 felhasználó, 0 € bevétel)</b>", "<b>18e € – 65e €</b>", "<b>32e €</b>"],
+          ["30e € ARR helyszíni partnerekből", "90e € – 240e €", "150e €"],
+          ["100e € ARR + 10 000 havi aktív", "300e € – 700e €", "450e €"],
+          ["Stratégiai vásárlás jegyértékesítő részéről", "400e € – 1,2M €", "650e €"],
+          ["Kényszerértékesítés / elhagyott eszköz", "3e € – 12e €", "6e €"]
+        ]
+      }
+    ],
+    "callout": "⚠  <b>Az egyetlen szám, ami mindent eldönt:</b> a bevétel 0 €, a valódi heti felhasználószám gyakorlatilag nulla. Az építési költség <b>nem</b> piaci érték — ma nagyjából 85 000 €-ból lenne újraépíthető, egy vevő mégis ennél jóval kevesebbet fizetne, mert nem vállalkozást, hanem bizonyítatlan eszközt vásárol. A jelentés minden száma azt jelenti, hogy „mennyit ér a kód”, és soha nem azt, hogy „mennyit ér a cég”."
+  },
+
+  "product_reconstruction": {
+    "intro": "Mi létezik valójában — a repository elolvasása, nem a marketingszöveg alapján.",
+    "h2_blocks": [
+      {
+        "title": "Technológiai stack",
+        "tables": [
+          {
+            "headers": ["Réteg", "Technológia", "Bizonyíték"],
+            "col_widths": [120, 190, 190],
+            "rows": [
+              ["Frontend", "React 18, TypeScript, Vite 6", "package.json, 373 .ts/.tsx fájl"],
+              ["Felület", "Tailwind CSS, Radix UI / shadcn (48 elem)", "src/components/ui"],
+              ["Mozgás / térkép", "framer-motion, Leaflet 1.9", "EventsMapView.tsx"],
+              ["Backend", "Supabase (Postgres, Auth, Storage, Realtime)", "supabase/config.toml"],
+              ["Szerver nélküli", "29 Deno Edge Function", "supabase/functions"],
+              ["Adatréteg", "127 SQL migráció, RLS minden táblán", "supabase/migrations"],
+              ["Gyűjtő worker", "Node + Playwright, GitHub Actions", "scraper-worker/"],
+              ["Hosting", "Vercel (SPA) + Supabase managed", "vercel.json"],
+              ["Minőség", "Vitest (511 teszt), Playwright e2e, ESLint", "94 tesztfájl"],
+              ["CI", "GitHub Actions: audit, teszt, budget, SBOM", ".github/workflows/ci.yml"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Ténylegesen meglévő funkciómodulok",
+        "tables": [
+          {
+            "headers": ["Modul", "Állapot", "Megjegyzés"],
+            "col_widths": [150, 100, 250],
+            "rows": [
+              ["Belépés, profil, onboarding", "Kész", "Google OAuth engedélyképernyő élesben"],
+              ["Programfelfedezés + szűrők", "Kész", "ár, kategória, város, mentett programok"],
+              ["Térképes kereső", "Kész", "megye → kerület → helyszín lefúrás"],
+              ["Programgyűjtő motor", "Kész", "345 forrás, 7 kiolvasási recept"],
+              ["Önkiszolgáló forrásvarázsló", "Kész", "link be → recept javaslat → próbafuttatás"],
+              ["Admin konzol", "Kész", "13 jogosultsághoz kötött fül"],
+              ["Szervezői felület", "Kész", "résztvevők, check-in, üzenetek, analitika"],
+              ["Mentett programok + értesítés", "Kész", "ICS és Google Naptár export"],
+              ["Kimenőkattintás-mérés", "Kész", "partnerteljesítmény riport"],
+              ["Bizalom és biztonság / moderáció", "Részleges", "séma és RPC megvan, alig van forgalom"],
+              ["Fizetés / jegyértékesítés", "<font color='#EF4444'>Hiányzik</font>", "nincs fizetési szolgáltató"],
+              ["Natív mobilalkalmazás", "<font color='#EF4444'>Hiányzik</font>", "csak reszponzív web"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Hogyan keletkezett a kód",
+        "body": [
+          "Ez az értékelés szempontjából lényeges, és könnyen ellenőrizhető: a 835 commitból <b>523-at a <font color='#B45309'>gpt-engineer-app[bot]</font></b> (a Lovable AI kódgenerátora) készített, 273-at a tulajdonos, 38-at a Claude Code, 1-et a Lovable. A fejlesztés hullámokban zajlott — 288 commit 2026 márciusában, 396 áprilisban, majd négy hónap szünet, végül 77 júliusban és 73 augusztusban.",
+          "A gyakorlati következtetés nem az, hogy a kód rossz — koherens, típusos, tesztelt, és jobban szabályozott, mint a legtöbb egyszemélyes projekt. A következtetés az, hogy <b>a benne lévő munka bárki számára reprodukálható ugyanezekkel az eszközökkel</b>, ami felső korlátot szab annak, amit az eszköz a piacon elérhet."
+        ]
+      }
+    ]
+  },
+
+  "scope_decomposition": {
+    "intro": "A ráfordítás nem arányos a kódsorok számával. Ez a fejezet elválasztja a valóban nehéz részeket azoktól, amiket egy generátor egy délután alatt előállított.",
+    "h2_blocks": [
+      {
+        "title": "Komplexitás területenként",
+        "tables": [
+          {
+            "headers": ["Terület", "Sor", "Komplexitás", "Megjegyzés"],
+            "col_widths": [150, 70, 90, 190],
+            "rows": [
+              ["Frontend (kézzel írt)", "45 375", "Közepes", "Sok képernyő, megszokott minták"],
+              ["Generált Supabase típusok", "6 844", "Nincs", "Gépi kimenet — kihagyva a ráfordításból"],
+              ["Átvett shadcn elemek", "3 653", "Nincs", "Másolt könyvtár — kihagyva"],
+              ["Adatbázis + RLS + RPC", "29 692", "Magas", "275 függvény, security-definer fegyelem"],
+              ["Edge Function-ök", "18 702", "Közepes-magas", "Auth, SSRF-védelem, szolgáltatói szerződések"],
+              ["Gyűjtőmotor", "2 409", "Magas", "7 recept, geokódolási kapu, deduplikáció"],
+              ["Eszközök és szkriptek", "1 941", "Közepes", "Budget, SBOM, auditok, geokóder"],
+              ["Tesztek", "9 520", "Közepes", "511 egység + 3 e2e teszt"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Alkalmazott komplexitás-szorzók",
+        "tables": [
+          {
+            "headers": ["Tényező", "Szorzó", "Miért"],
+            "col_widths": [180, 90, 230],
+            "rows": [
+              ["Több-bérlős biztonság (RLS mindenhol)", "1,35×", "Minden tábla policy-védett és auditált"],
+              ["Külső oldalak törékenysége", "1,30×", "345 forrás, amely bármikor változhat"],
+              ["Magyar lokalizáció és dátumértelmezés", "1,15×", "Szabadszöveges magyar dátumok, ékezetkezelés"],
+              ["Nincs natív mobil", "0,85×", "Csak reszponzív web — elkerült hatókör"],
+              ["Nincs fizetés / nincs PCI", "0,80×", "Teljes megfelelőségi ág hiányzik"],
+              ["Egynyelvű felület", "0,90×", "A termékben nincs i18n keretrendszer"]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  "methodology": {
+    "intro": "Három független módszer, majd háromszögelés. Ahol eltérnek, a jelentés az eltérést közli, nem átlagolja el.",
+    "h2_blocks": [
+      {
+        "title": "Becslési módszerek",
+        "subsections": [
+          {
+            "title": "1. Alulról építkező PERT modulonként",
+            "body": "Minden terület kap egy optimista (O), legvalószínűbb (M) és pesszimista (P) órabecslést; a várható érték E = (O + 4M + P) / 6. A nem kódolási munka — QA, dizájn, projektvezetés, DevOps — külön becsléssel szerepel, nem a kódolás százalékaként."
+          },
+          {
+            "title": "2. Pótlási költség 2026-os eszközökkel",
+            "body": "A hagyományos becslés arra válaszol, hogy „mennyibe került volna ez egy csapatnak 2019-ben”. Ez <b>nem</b> a vevő mai alternatívája. Maga a repository a bizonyíték: egy tulajdonos plusz AI-generátorok nagyjából öt aktív hónap alatt előállították. Ezért az AI-támogatott forgatókönyv az őszinte pótlási költség, és ez az a szám, amely felső korlátot ad a piaci értéknek."
+          },
+          {
+            "title": "3. Piaci háromszögelés négy nézőponton",
+            "body": "Diszkontált pótlási költség, bevétel előtti piactér-összehasonlítások, a gyűjtőcsatorna önálló adateszköz-értéke, valamint a stratégiai vevő nézőpontja. A bevételi szorzó nézőpont súlya szándékosan nulla, mert a bevétel nulla."
+          }
+        ]
+      },
+      {
+        "title": "Fontos megkülönböztetések",
+        "bullets": [
+          "<b>Ráfordítás ≠ átfutási idő.</b> 6 150 emberóra négy fős csapatnál nagyjából 14 naptári hónap, nem 14 hónapnyi egyszemélyes munka.",
+          "<b>Építési költség ≠ piaci érték.</b> Az elsüllyedt költség a vevőt nem érdekli; itt csak felső korlátként szerepel.",
+          "<b>Kódminőség ≠ üzleti érték.</b> Ez a kódbázis egyszemélyes projekthez képest átlag feletti. Ez kissé emeli a padlót, de keresletet nem teremt.",
+          "<b>Működik ≠ használják.</b> A gyűjtőmotor bizonyítottan működik — 1 804 élő program. Senki nem olvassa őket."
+        ],
+        "bullet_marker": "→"
+      }
+    ]
+  },
+
+  "team_composition": {
+    "intro": "Milyen csapat kellene a nulláról való újraépítéshez, és mennyibe kerülne működtetni.",
+    "h2_blocks": [
+      {
+        "title": "Szükséges szerepkörök",
+        "tables": [
+          {
+            "headers": ["Szerepkör", "Kapacitás", "Felelősség"],
+            "col_widths": [150, 90, 260],
+            "rows": [
+              ["Senior full-stack fejlesztő", "1,0 FTE", "Architektúra, adatmodell, RLS, edge function"],
+              ["Frontend fejlesztő", "1,0 FTE", "Képernyők, dizájnrendszer, térkép és felfedezés"],
+              ["Adat / gyűjtő fejlesztő", "0,6 FTE", "Gyűjtési receptek, geokódolás, ütemezés"],
+              ["QA mérnök", "0,4 FTE", "Tesztkészlet, CI kapuk, kiadásellenőrzés"],
+              ["Termékdizájner", "0,3 FTE", "Vizuális rendszer, szerkesztői média, mobil"],
+              ["Termék- / projektmenedzser", "0,3 FTE", "Hatókör, governance, kiadási dokumentáció"]
+            ]
+          }
+        ],
+        "callouts": [
+          "<b>A változat — CEE házon belül (ajánlott alap):</b> 3,6 FTE ~14 hónapon át, 38 €/ó terhelt vegyes díjjal ≈ <b>235 000 €</b>. Ez a klasszikus szám, amit leggyakrabban idéznek; a mai alternatívát túlbecsüli.",
+          "<b>B változat — nyugat-európai ügynökség:</b> ugyanez a hatókör 95 €/ó vegyes ügynökségi díjjal ≈ <b>584 000 €</b>. Csak akkor releváns, ha a vevőnek nyugati beszállítót kell alkalmaznia.",
+          "<b>C változat — AI-támogatott, 1–2 CEE senior (ami valójában történt):</b> ~1 900 óra 42 €/ó díjjal ≈ <b>85 000 €</b>, eszközökkel együtt. A repository commit-története maga a bizonyíték, hogy ez elérhető."
+        ]
+      }
+    ]
+  },
+
+  "effort_estimate": {
+    "intro": "PERT bontás egy hagyományos csapatra, amely üres repositoryból építi fel a jelenlegi funkciókészletet.",
+    "h2_blocks": [
+      {
+        "title": "Alulról építkező bontás (óra)",
+        "tables": [
+          {
+            "headers": ["Terület", "Optimista", "Legvalószínűbb", "Pesszimista", "PERT E"],
+            "col_widths": [150, 88, 88, 88, 86],
+            "rows": [
+              ["Frontend alkalmazás", "1 600", "2 400", "3 600", "2 467"],
+              ["Adatbázis, RLS, RPC", "700", "1 050", "1 600", "1 083"],
+              ["Edge Function-ök", "450", "700", "1 050", "717"],
+              ["Gyűjtőmotor", "400", "620", "950", "638"],
+              ["QA, CI, governance", "350", "520", "800", "538"],
+              ["Dizájn és szerkesztői média", "250", "380", "600", "395"],
+              ["Termék- / projektvezetés", "200", "300", "470", "312"],
+              ["<b>ÖSSZESEN</b>", "<b>3 950</b>", "<b>5 970</b>", "<b>9 070</b>", "<b>6 150</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "Ugyanez más mértékegységekben",
+            "headers": ["Egység", "Alsó", "Legvalószínűbb", "Felső"],
+            "col_widths": [190, 100, 110, 100],
+            "rows": [
+              ["Emberóra", "3 950", "6 150", "9 070"],
+              ["Emberhónap (160 ó)", "24,7", "38,4", "56,7"],
+              ["Emberév", "2,1", "3,2", "4,7"],
+              ["Naptári hónap, 4 fős csapat", "9", "14", "20"],
+              ["<b>AI-támogatott megfelelő (óra)</b>", "<b>1 250</b>", "<b>1 900</b>", "<b>3 000</b>"]
+            ],
+            "highlight_last": true
+          }
+        ]
+      },
+      {
+        "title": "Miért az AI-támogatott szám a mérvadó",
+        "body": "A vevő döntése nem az, hogy „megépítem a régi módon vagy megveszem”. Hanem az, hogy „reprodukálom ugyanazokkal a generátorokkal vagy megveszem”. Ebben a repositoryban 835 commitból 523 gépi szerzőségű, és a termék körülbelül öt aktív, részmunkaidős hónap alatt jutott el az v1.26.0 verzióig. A 235 000 €-s hagyományos számot az eszköz értékeként kezelni nagyságrendi túlbecslés lenne.",
+        "callouts": [
+          "⚠  Az AI-támogatott becslés olyan fejlesztőt feltételez, aki már ismeri a célarchitektúrát. Egy csapat, amely egyszerre tanulja a Supabase-t, az RLS-t és a Playwright-alapú gyűjtést, közelebb kerülne a hagyományos sávhoz."
+        ]
+      }
+    ]
+  },
+
+  "cost_estimate": {
+    "intro": "A költségek euróban, 2026-os közép-európai vállalkozói díjakon, teljes terheléssel (bér, járulékok, eszközök, vezetési rezsi).",
+    "h2_blocks": [
+      {
+        "title": "Részletes költségmodell — hagyományos CEE csapat, legvalószínűbb ráfordítás",
+        "tables": [
+          {
+            "headers": ["Szerepkör", "Óra", "Díj", "Költség"],
+            "col_widths": [180, 90, 100, 120],
+            "rows": [
+              ["Senior full-stack fejlesztő", "2 000", "55 €/ó", "110 000 €"],
+              ["Frontend fejlesztő", "1 900", "40 €/ó", "76 000 €"],
+              ["Adat / gyűjtő fejlesztő", "900", "45 €/ó", "40 500 €"],
+              ["QA mérnök", "600", "32 €/ó", "19 200 €"],
+              ["Termékdizájner", "450", "38 €/ó", "17 100 €"],
+              ["Termék- / projektmenedzser", "300", "45 €/ó", "13 500 €"],
+              ["Infrastruktúra és eszközök (14 hó)", "—", "—", "6 000 €"],
+              ["<b>ÖSSZESEN (hagyományos CEE)</b>", "<b>6 150</b>", "—", "<b>282 300 €</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "Forgatókönyv-sávok",
+            "headers": ["Forgatókönyv", "Alsó", "Legvalószínűbb", "Felső"],
+            "col_widths": [190, 100, 110, 100],
+            "rows": [
+              ["AI-támogatott, 1–2 CEE senior", "48 000 €", "85 000 €", "155 000 €"],
+              ["Hagyományos CEE csapat", "126 000 €", "235 000 €", "408 000 €"],
+              ["Vegyes CEE csapat + nyugati vezető", "190 000 €", "338 000 €", "560 000 €"],
+              ["Nyugat-európai ügynökség", "316 000 €", "584 000 €", "1 043 000 €"]
+            ]
+          }
+        ],
+        "callouts": [
+          "<b>Az üzemeltetési költség valóban alacsony.</b> A Supabase free/pro, a Vercel hobby/pro, a GitHub Actions ingyenes percei és egy domain a jelenlegi havi égést nagyjából <b>25–70 €</b>-ra teszik. 10 000 havi aktív felhasználónál ez becslésünk szerint 120–300 €-ra nőne. Nem az infrastruktúra áll a termék és a nyereségesség között."
+        ]
+      }
+    ]
+  },
+
+  "market_comparison": {
+    "intro": "Az összehasonlítás alapja a szerkezeti hasonlóság — eseményaggregáció, helyi felfedezés, kis piacos fogyasztói piacterek —, nem a hízelgés.",
+    "h2_blocks": [
+      {
+        "title": "Összehasonlítható termékek",
+        "tables": [
+          {
+            "headers": ["Termék", "Modell", "Relevancia a Hobbeastra"],
+            "col_widths": [130, 130, 240],
+            "rows": [
+              ["Meetup", "Előfizetés (szervező fizet)", "Legközelebbi közösségi modell, globális, beágyazott"],
+              ["Eventbrite", "Jegyértékesítési jutalék", "Az a bevételi modell, amit a Hobbeast nem épített meg"],
+              ["Programturizmus.hu", "Hirdetésből élő HU listázó", "Közvetlen magyar versenytárs, közönséggel"],
+              ["Funzine / WeLoveBudapest", "Média + hirdetés", "Ma ők birtokolják a budapesti eseményközönséget"],
+              ["Fever", "Kurált élmények + jegy", "Vágyott modell, beszállítói szerződéseket igényel"],
+              ["Bandsintown / Songkick", "Előadó-központú aggregáció", "Bizonyíték: az aggregáció önmagában tömegtermék"]
+            ]
+          },
+          {
+            "title": "A szegmensben megfigyelt értékelési szorzók",
+            "headers": ["Szakasz", "Tipikus alap", "Szorzó"],
+            "col_widths": [150, 200, 150],
+            "rows": [
+              ["Bevétel előtti eszközértékesítés", "Diszkontált pótlási költség", "0,2× – 0,7×"],
+              ["Mikro-SaaS induló ARR-rel", "Éves ismétlődő bevétel", "1,5× – 3× ARR"],
+              ["Növekvő fogyasztói piactér", "Éves ismétlődő bevétel", "3× – 6× ARR"],
+              ["Hirdetésből élő helyi média", "EBITDA", "3× – 5×"],
+              ["Stratégiai / védekező vásárlás", "Közönség + beszállítói szerződések", "Ügyletfüggő"]
+            ]
+          }
+        ]
+      },
+      {
+        "title": "A kellemetlen összehasonlítás",
+        "body": "A Programturizmus, a Funzine és a WeLoveBudapest már ma is aggregálja a magyar eseményeket — <i>és</i> van közönségük, értékesítési csapatuk és hirdetői kapcsolatuk. A Hobbeast motorja vitathatatlanul automatizáltabb az övéknél. Ez valódi technikai előny és gyenge kereskedelmi előny: ebben a kategóriában az elosztás veri az adatgyűjtést, a Hobbeastnak pedig jelenleg egyáltalán nincs elosztása."
+      }
+    ]
+  },
+
+  "market_value_estimate": {
+    "intro": "Négy nézőpont, súlyozva. A bevételi szorzó csak azért szerepel, hogy rögzítsük: nem ad hozzá semmit.",
+    "h2_blocks": [
+      {
+        "title": "Értékelési nézőpontok",
+        "subsections": [
+          {
+            "title": "1. nézőpont — Diszkontált pótlási költség (súly 35%)",
+            "body": "A mai pótlási költség ~85 000 €. A vevő jelentősen diszkontál: nincs felhasználói bázis (−25%), nincs védhető szellemi tulajdon, mert ugyanazok a generátorok neki is elérhetők (−15%), 345 külső oldaltól való függés, amelyek bármikor tilthatnak vagy átépülhetnek (−10%), és egyszemélyes kulcsemberkockázat (−5%). Nettó ≈ a pótlási költség 45%-a → <b>38e €</b>, sáv 25e €–65e €."
+          },
+          {
+            "title": "2. nézőpont — Bevétel előtti piactér-összehasonlítás (súly 25%)",
+            "body": "Az Acquire.com és a Flippa oldalán a 10 valódi felhasználó alatti, bevétel nélküli fogyasztói piacterek 5 000 és 50 000 € között hirdetnek, és gyakran egyáltalán nem kelnek el. A Hobbeast működő gyűjtőcsatornája és tiszta CI-je a sáv felső felébe emeli, de nem emeli ki belőle → <b>22e €</b>, sáv 10e €–45e €."
+          },
+          {
+            "title": "3. nézőpont — Önálló adateszköz-érték (súly 25%)",
+            "body": "A gyűjtőcsatorna egy részmunkaidős listaszerkesztő munkáját váltja ki: 345 beállított forrás, 1 804 élő program, ebből 672 pontos, geokódolt helyszínre tűzve, napi háromszori frissítéssel. Ez egy médiavásárlónak nagyjából évi 7 000–15 000 € megtakarított munkaerőt ér; 2–3×-os tőkésítéssel és a romlandóságra diszkontálva → <b>28e €</b>, sáv 12e €–45e €."
+          },
+          {
+            "title": "4. nézőpont — Stratégiai / csapatfelvásárlás (súly 15%)",
+            "body": "Nincs megvásárolható csapat — a munkát egy tulajdonos és AI-generátorok végezték —, így a szokásos acqui-hire prémium nem érvényesül. Egy magyar esemény- vagy jegyértékesítő szereplő védekező lépésként fizethet szerény összeget a domainért, a márkáért és a motorért → <b>15e €</b>, sáv 0 €–40e €."
+          },
+          {
+            "title": "5. nézőpont — Bevételi szorzó (súly 0%)",
+            "body": "Az ARR 0 €. Összesen 3 kimenő kattintás és 0 analitikai esemény van rögzítve. Nincs bevételi sor, amit szorozni lehetne. Ez a nézőpont <b>0 €-t</b> ad hozzá, és azért szerepel a listán, hogy a hiánya kimondott legyen, ne rejtett."
+          }
+        ]
+      },
+      {
+        "title": "Háromszögelt eredmény",
+        "tables": [
+          {
+            "headers": ["Nézőpont", "Súly", "Alsó", "Közép", "Felső"],
+            "col_widths": [170, 70, 85, 85, 90],
+            "rows": [
+              ["Diszkontált pótlási költség", "35%", "25e €", "38e €", "65e €"],
+              ["Bevétel előtti összehasonlítás", "25%", "10e €", "22e €", "45e €"],
+              ["Önálló adateszköz", "25%", "12e €", "28e €", "45e €"],
+              ["Stratégiai / védekező", "15%", "0 €", "15e €", "40e €"],
+              ["Bevételi szorzó", "0%", "0 €", "0 €", "0 €"],
+              ["<b>SÚLYOZOTT EREDMÉNY</b>", "<b>100%</b>", "<b>18e €</b>", "<b>32e €</b>", "<b>65e €</b>"]
+            ],
+            "highlight_last": true
+          },
+          {
+            "title": "Mi változtatná meg a választ",
+            "headers": ["Kiváltó esemény", "Adódó sáv", "Közép"],
+            "col_widths": [230, 145, 125],
+            "rows": [
+              ["Első 5 fizető helyszíni partner (~12e € ARR)", "45e € – 110e €", "70e €"],
+              ["30e € ARR + 2 000 havi aktív", "90e € – 240e €", "150e €"],
+              ["100e € ARR + 10 000 havi aktív", "300e € – 700e €", "450e €"],
+              ["Aláírt tartalomlicenc 3 nagy helyszínnel", "70e € – 180e €", "110e €"],
+              ["3+ nagy forrás letiltja a gyűjtést", "8e € – 25e €", "14e €"]
+            ]
+          }
+        ]
+      }
+    ],
+    "callout": "<b>Középérték: 32 000 €</b> a szoftvereszközért a mai állapotában, védhető sávval <b>18e €–65e €</b> között. Ez szándékosan konzervatív szám. Aki ma hat- vagy hétjegyű összeget mond erre a termékre, az a tervet értékeli, nem az eszközt."
+  },
+
+  "assumptions_limitations": {
+    "intro": "Az alábbi szétválasztás az a fegyelem, ami őszintén tartja a számot. Az első csoportban minden mérve van; a másodikban következtetve; a harmadik hiányzik, és elmozdítaná a becslést.",
+    "h2_blocks": [
+      {
+        "title": "Ismert — a repositoryból és az éles adatbázisból mérve",
+        "bullets": [
+          "98 400 sor kézzel írt kód 373 frontend fájlban, 127 migrációban, 29 edge function-ben.",
+          "835 commit, ebből 523-at AI kódgenerátor (gpt-engineer-app[bot]) készített.",
+          "511 egységteszt és 3 végponttól végpontig teszt; a CI auditot, teszteket, budgeteket, SBOM-ot és kiadásellenőrzést futtat.",
+          "1 804 aktív jövőbeli program 345 engedélyezett forrásból; 672 pontos, geokódolt helyszínre tűzve.",
+          "934 fiók, ebből 930 három tömeges adagban jött létre 2026 áprilisában; 4 lépett be valaha.",
+          "0 eseményrészvétel, 0 termékanalitikai esemény, 3 kimenő kattintás, 0 € bevétel.",
+          "Élesben elérhető az expericentre.com címen; a Google OAuth engedélyképernyő éles állapotban."
+        ],
+        "bullet_marker": "✓"
+      },
+      {
+        "title": "Következtetett — indokolt, de nem mért",
+        "bullets": [
+          "2026-os CEE vállalkozói díjak 32–55 €/ó teljes terheléssel; nyugat-európai ügynökség 80–115 €/ó.",
+          "Az AI-támogatott fejlesztés ennél a munkatípusnál 3–4×-e a hagyományosnak.",
+          "A gyűjtőcsatorna megtakarított munkaerő-értéke egy médiavásárlónak évi 7 000–15 000 €.",
+          "A felhasználói bázisra, védhetőségre, forrástörékenységre és kulcsemberkockázatra alkalmazott diszkontok.",
+          "Hogy a 930 tömeges fiók tesztadat, nem alvó közönség.",
+          "A versenytársak pozíciója nyilvános oldalakról, nem a pénzügyi adataikból származik."
+        ],
+        "bullet_marker": "~"
+      },
+      {
+        "title": "Hiányzó — érdemben elmozdítaná a számot",
+        "bullets": [
+          "Bármilyen bevétel, szerződés vagy szándéknyilatkozat helyszíntől, jegyértékesítőtől vagy hirdetőtől.",
+          "Forgalmi adat: nincs analitikai előzmény, így az organikus kereslet teljesen ismeretlen.",
+          "Írásos engedély a gyűjtött forrásoktól; a gyűjtés jogi alapja nincs letesztelve.",
+          "Ügyfélszerzési költség a magyar piacon — soha nem mérve.",
+          "Megtartási viselkedés: 0 részvétellel nincs elemezhető kohorsz.",
+          "Bármilyen független biztonsági audit vagy behatolásteszt."
+        ],
+        "bullet_marker": "✗"
+      }
+    ],
+    "callout": "⚠  <b>A legnagyobb egyedi kockázat jogi, nem technikai.</b> A katalógus 345 külső oldal gyűjtéséből épül. A nyilvántartás rögzít robots-ellenőrzést és jogi felülvizsgálati mezőt, de mind a 345 forrás <i>függőben</i> státuszú jogi felülvizsgálat szempontjából. A vevő jogásza beárazza ezt a bizonytalanságot, és ez a legvalószínűbb oka annak, ha egy ajánlat a sáv alján érkezik."
+  },
+
+  "next_steps": {
+    "intro": "Sorrend aszerint, hogy egy elköltött euró mennyit mozdít az értéken.",
+    "h2_blocks": [
+      {
+        "title": "Ha a cél az eladás 6 hónapon belül",
+        "bullets": [
+          "Szerezz három aláírt helyszíni partnerséget, akár havi 50 €-ért. Bármekkora bevétel átviszi az értékelést eszközszorzóról üzleti szorzóra.",
+          "Kapcsold be az analitikát, és futtass egy kis fizetett hirdetési tesztet — 500 € hirdetés mérhető tölcsérrel többet ér egy adatszobában, mint még egy funkció.",
+          "Szerezz írásos gyűjtési engedélyt vagy API/feed megállapodást a tíz legnagyobb forrástól. Ez a legnagyobb jogi kockázatot dokumentált eszközzé alakítja.",
+          "Töröld vagy egyértelműen különítsd el a 930 magvetett fiókot. Az a vevő, aki bejelentés nélkül találja meg őket, az egész adatszobát leértékeli."
+        ],
+        "bullet_marker": "→"
+      },
+      {
+        "title": "Ha a cél a további építkezés",
+        "bullets": [
+          "Válassz egy várost és egy hobbi-szegmenst, és nyerd meg teljesen, mielőtt szélesítenél.",
+          "Add ki a szolgáltatói portált, hogy a helyszíneknek legyen okuk hetente belépni.",
+          "Mérd végig a tölcsért; jelenleg arra a kérdésre sem tudsz válaszolni, hogy „hányan látták a programot” — ez minden kereskedelmi beszélgetést blokkol.",
+          "Tartsd a gyűjtőmotor költségét nulla közelében — ez az egyetlen valódi védőárok, és olcsó üzemeltetni."
+        ],
+        "bullet_marker": "→"
+      },
+      {
+        "title": "Érdemben ledolgozandó technikai adósság",
+        "bullets": [
+          "<b>A típusellenőrzés nem csinál semmit.</b> A gyökér tsconfig <i>files: []</i> beállítású projektreferenciákkal, így az <i>npm run typecheck</i> a src érintése nélkül fut le sikeresen. Egy éles útvonal egy definiálatlan konstanson omlott össze, miközben minden kapu zöld volt.",
+          "Az app projekt (tsconfig.app.json) nagy mennyiségű típushibát jelez, főként Supabase generált-típus eltérésekből. Amíg ez nem tiszta, a TypeScript a CI-ben dekoráció.",
+          "A teljes forrásnyilvántartás jogi felülvizsgálata <i>függőben</i> státuszú.",
+          "20+ útvonalhoz mindössze 3 végponttól végpontig teszt tartozik."
+        ],
+        "bullet_marker": "→"
+      }
+    ]
+  },
+
+  "appendix": {
+    "h2_blocks": [
+      {
+        "title": "Repository leltár",
+        "tables": [
+          {
+            "headers": ["Terület", "Fájl", "Sor"],
+            "col_widths": [230, 130, 140],
+            "rows": [
+              ["Frontend src (minden szöveges fájl)", "422", "56 709"],
+              ["… ebből kézzel írt .ts/.tsx", "324", "45 375"],
+              ["… ebből generált Supabase típus", "1", "6 844"],
+              ["… ebből átvett shadcn elem", "48", "3 653"],
+              ["SQL migrációk", "127", "29 692"],
+              ["Edge Function-ök", "97", "18 702"],
+              ["Gyűjtő worker", "18", "2 409"],
+              ["Build és audit szkriptek", "15", "1 941"],
+              ["Végponttól végpontig tesztek", "3", "314"],
+              ["Dokumentáció és governance", "60", "5 536"]
+            ]
+          },
+          {
+            "title": "Megbízhatóság fejezetenként",
+            "headers": ["Fejezet", "Megbízhatóság", "Miért"],
+            "col_widths": [170, 110, 220],
+            "rows": [
+              ["Termék-rekonstrukció", "Magas", "Közvetlenül a repositoryból olvasva"],
+              ["Ráfordítás-becslés", "Közepes", "PERT következtetett modulhatárokon"],
+              ["Költségbecslés", "Közepes", "A díjfeltevések regionális átlagok"],
+              ["Piaci összehasonlítás", "Közepes-alacsony", "A versenytársak pénzügyei nem nyilvánosak"],
+              ["Piaci érték", "Alacsony-közepes", "Nincs bevétel vagy forgalom horgonynak"],
+              ["Jogi kitettség", "Alacsony", "Nem készült jogi szakvélemény"]
+            ]
+          }
+        ]
+      }
+    ],
+    "closing": "Készült repository- és éles adatbázis-bizonyítékok alapján 2026-08-26-án, a v1.26.0 verziónál. A számok megadott sávokkal közölt becslések, nem hivatalos értékbecslés, nem audit és nem befektetési tanács. A konzervatív torzítás szándékos: bevétel előtti eszköznél a túlbecslés ára meghiúsult tranzakció és elvesztett hitelesség, az alulbecslésé pedig csupán egy alacsonyabbról induló tárgyalás."
+  }
+}
