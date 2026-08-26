@@ -7,6 +7,8 @@ import { Loader2, Play, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminScraperSchedules } from '@/components/admin/AdminScraperSchedules';
+import { AdminSourceSubmissions } from '@/components/admin/AdminSourceSubmissions';
+import { SourceInspector } from '@/features/sources/SourceInspector';
 
 interface ScraperDestination {
   source_id: string;
@@ -94,6 +96,8 @@ export function AdminScraper() {
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressRun[]>([]);
   const pollTimer = useRef<number | null>(null);
+  // Bumped after a source is added or approved so the dependent panels reload.
+  const [sourcesVersion, setSourcesVersion] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -254,6 +258,10 @@ export function AdminScraper() {
           )}
         </CardContent>
       </Card>
+
+      <SourceInspector mode="admin" onSaved={() => { setSourcesVersion((v) => v + 1); void load(); }} />
+
+      <AdminSourceSubmissions refreshToken={sourcesVersion} />
 
       <AdminScraperSchedules selectedSourceIds={[...selected]} />
 

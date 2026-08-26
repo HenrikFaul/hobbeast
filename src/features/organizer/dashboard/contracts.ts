@@ -6,7 +6,7 @@ import type {
   ParticipationStatus,
 } from '@/lib/organizer';
 
-export type OrganizerDashboardTab = 'events' | 'attendees' | 'checkin' | 'messages' | 'analytics' | 'settings';
+export type OrganizerDashboardTab = 'events' | 'attendees' | 'checkin' | 'messages' | 'analytics' | 'sources' | 'settings';
 export type OrganizerIncidentType = 'safety' | 'venue' | 'attendance' | 'accessibility' | 'other';
 export type OrganizerIncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type OrganizerStatusBadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
@@ -17,6 +17,7 @@ export const ORGANIZER_DASHBOARD_TABS: Array<{ value: OrganizerDashboardTab; lab
   { value: 'checkin', label: 'Check-in' },
   { value: 'messages', label: 'Messages' },
   { value: 'analytics', label: 'Analytics' },
+  { value: 'sources', label: 'Program sources' },
   { value: 'settings', label: 'Settings' },
 ];
 

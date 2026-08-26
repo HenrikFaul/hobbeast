@@ -4,3 +4,4 @@ export * from './OrganizerEventViews';
 export * from './OrganizerParticipantViews';
 export * from './OrganizerStatCards';
 
+export * from './OrganizerSourcesView';

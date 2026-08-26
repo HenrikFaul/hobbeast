@@ -60,6 +60,7 @@ describe('organizer dashboard feature contracts', () => {
       'checkin:Check-in',
       'messages:Messages',
       'analytics:Analytics',
+      'sources:Program sources',
       'settings:Settings',
     ]);
     expect(PARTICIPATION_FILTERS.map(({ value, label }) => `${value}:${label}`)).toEqual([

@@ -197,7 +197,7 @@ describe('OrganizerDashboard route characterization', () => {
 
     expect(document.body.textContent).toContain('Organizer mode');
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]')).map((item) => item.textContent)).toEqual([
-      'My events', 'Attendees', 'Check-in', 'Messages', 'Analytics', 'Settings',
+      'My events', 'Attendees', 'Check-in', 'Messages', 'Analytics', 'Program sources', 'Settings',
     ]);
     expect(document.body.textContent).toContain('Duna-parti séta');
     expect(document.body.textContent).toContain('Budapest · 2026-09-01');

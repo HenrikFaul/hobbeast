@@ -38,6 +38,7 @@ import {
   OrganizerMessagesTab,
   OrganizerParticipantDetailSheet,
   OrganizerSettingsTab,
+  OrganizerSourcesTab,
   selectOwnedOrganizerEventId,
   type OrganizerIncidentSeverity,
   type OrganizerIncidentType,
@@ -516,7 +517,7 @@ export default function OrganizerDashboard() {
           nextParams.set('tab', value);
           setSearchParams(nextParams, { replace: true });
         }}>
-          <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:grid-cols-3 lg:grid-cols-6">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:grid-cols-4 lg:grid-cols-7">
             {ORGANIZER_DASHBOARD_TABS.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
             ))}
@@ -579,6 +580,8 @@ export default function OrganizerDashboard() {
           />
 
           <OrganizerAnalyticsTab analytics={analytics} />
+
+          <OrganizerSourcesTab />
 
           <OrganizerSettingsTab
             selectedEventId={selectedEvent?.id ?? null}
