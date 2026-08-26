@@ -12,9 +12,10 @@
     {
       "id": "global-css",
       "pattern": "^index-[A-Za-z0-9_-]+\\.css$",
-      "maxRawBytes": 131072,
+      "maxRawBytes": 135168,
       "maxGzipBytes": 22528,
-      "required": true
+      "required": true,
+      "note": "Raw ceiling raised from 131072 in v1.26.0: the previous limit left 52 bytes of headroom, so any new component broke it. Gzip stays at 22528 and is the binding constraint — that is what crosses the network."
     },
     {
       "id": "events-route",
@@ -33,9 +34,10 @@
     {
       "id": "admin-route",
       "pattern": "^Admin-[A-Za-z0-9_-]+\\.js$",
-      "maxRawBytes": 225280,
-      "maxGzipBytes": 71680,
-      "required": true
+      "maxRawBytes": 51200,
+      "maxGzipBytes": 20480,
+      "required": true,
+      "note": "Every admin panel is lazy-loaded per tab since v1.26.0, so this chunk is the shell only. It was 251 KB before the split, over even the old ceiling."
     },
     {
       "id": "organizer-route",

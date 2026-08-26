@@ -1,22 +1,25 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, Shield, ShieldAlert, BookOpen, Users, Calendar, BarChart3, Flag, RefreshCw, Settings, Store } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { AdminCatalog } from "@/components/admin/AdminCatalog";
-import { AdminUsers } from "@/components/admin/AdminUsers";
-import { AdminAutoEvents } from "@/components/admin/AdminAutoEvents";
-import { AdminEvents } from "@/components/admin/AdminEvents";
-import { AdminMetrics } from "@/components/admin/AdminMetrics";
-import { AdminEventbrite } from "@/components/admin/AdminEventbrite";
-import { CommonAdminPanel } from "@/components/admin/CommonAdminPanel";
-import { AdminModeration } from "@/components/admin/AdminModeration";
-import { AdminProductOutcomes } from "@/components/admin/AdminProductOutcomes";
-import { AdminFeatureFlags } from "@/components/admin/AdminFeatureFlags";
-import { AdminOperations } from "@/components/admin/AdminOperations";
-import { AdminScraper } from "@/components/admin/AdminScraper";
-import { AdminPartnerPerformance } from "@/components/admin/AdminPartnerPerformance";
+// Only one admin tab is ever on screen, and several panels carry their own
+// charts, editors and inspectors — so every panel loads when its tab is opened
+// instead of shipping the whole console in one chunk.
+const AdminScraper = lazy(() => import("@/components/admin/AdminScraper").then((m) => ({ default: m.AdminScraper })));
+const AdminCatalog = lazy(() => import("@/components/admin/AdminCatalog").then((m) => ({ default: m.AdminCatalog })));
+const AdminUsers = lazy(() => import("@/components/admin/AdminUsers").then((m) => ({ default: m.AdminUsers })));
+const AdminAutoEvents = lazy(() => import("@/components/admin/AdminAutoEvents").then((m) => ({ default: m.AdminAutoEvents })));
+const AdminEvents = lazy(() => import("@/components/admin/AdminEvents").then((m) => ({ default: m.AdminEvents })));
+const AdminMetrics = lazy(() => import("@/components/admin/AdminMetrics").then((m) => ({ default: m.AdminMetrics })));
+const AdminEventbrite = lazy(() => import("@/components/admin/AdminEventbrite").then((m) => ({ default: m.AdminEventbrite })));
+const CommonAdminPanel = lazy(() => import("@/components/admin/CommonAdminPanel").then((m) => ({ default: m.CommonAdminPanel })));
+const AdminModeration = lazy(() => import("@/components/admin/AdminModeration").then((m) => ({ default: m.AdminModeration })));
+const AdminProductOutcomes = lazy(() => import("@/components/admin/AdminProductOutcomes").then((m) => ({ default: m.AdminProductOutcomes })));
+const AdminFeatureFlags = lazy(() => import("@/components/admin/AdminFeatureFlags").then((m) => ({ default: m.AdminFeatureFlags })));
+const AdminOperations = lazy(() => import("@/components/admin/AdminOperations").then((m) => ({ default: m.AdminOperations })));
+const AdminPartnerPerformance = lazy(() => import("@/components/admin/AdminPartnerPerformance").then((m) => ({ default: m.AdminPartnerPerformance })));
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -52,7 +55,7 @@ const Admin = () => {
         }}
         className="w-full"
       ><TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-13"><TabsTrigger value="catalog" className="text-xs sm:text-sm"><BookOpen className="h-4 w-4 mr-1 hidden sm:inline" /> Katalógus</TabsTrigger><TabsTrigger value="users" className="text-xs sm:text-sm"><Users className="h-4 w-4 mr-1 hidden sm:inline" /> Felhasználók</TabsTrigger><TabsTrigger value="auto-events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> AI események</TabsTrigger><TabsTrigger value="events" className="text-xs sm:text-sm"><Calendar className="h-4 w-4 mr-1 hidden sm:inline" /> Események</TabsTrigger><TabsTrigger value="operations" className="text-xs sm:text-sm"><Activity className="h-4 w-4 mr-1 hidden sm:inline" /> Operations</TabsTrigger><TabsTrigger value="moderation" className="text-xs sm:text-sm"><ShieldAlert className="h-4 w-4 mr-1 hidden sm:inline" /> Moderáció</TabsTrigger><TabsTrigger value="metrics" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Metrikák</TabsTrigger><TabsTrigger value="outcomes" className="text-xs sm:text-sm"><BarChart3 className="h-4 w-4 mr-1 hidden sm:inline" /> Outcome</TabsTrigger><TabsTrigger value="feature-flags" className="text-xs sm:text-sm"><Flag className="h-4 w-4 mr-1 hidden sm:inline" /> Flagek</TabsTrigger><TabsTrigger value="eventbrite" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Import</TabsTrigger><TabsTrigger value="common-admin" className="text-xs sm:text-sm"><Settings className="h-4 w-4 mr-1 hidden sm:inline" /> Common Admin</TabsTrigger><TabsTrigger value="scraper" className="text-xs sm:text-sm"><RefreshCw className="h-4 w-4 mr-1 hidden sm:inline" /> Programgyűjtő</TabsTrigger><TabsTrigger value="partners" className="text-xs sm:text-sm"><Store className="h-4 w-4 mr-1 hidden sm:inline" /> Partnerek</TabsTrigger></TabsList>
-      <TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="auto-events"><AdminAutoEvents /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="operations"><AdminOperations /></TabsContent><TabsContent value="moderation"><AdminModeration /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="outcomes"><AdminProductOutcomes /></TabsContent><TabsContent value="feature-flags"><AdminFeatureFlags /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent><TabsContent value="scraper"><AdminScraper /></TabsContent><TabsContent value="partners"><AdminPartnerPerformance /></TabsContent></Tabs></div></main>
+      <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Betöltés…</p>}><TabsContent value="catalog"><AdminCatalog /></TabsContent><TabsContent value="users"><AdminUsers /></TabsContent><TabsContent value="auto-events"><AdminAutoEvents /></TabsContent><TabsContent value="events"><AdminEvents /></TabsContent><TabsContent value="operations"><AdminOperations /></TabsContent><TabsContent value="moderation"><AdminModeration /></TabsContent><TabsContent value="metrics"><AdminMetrics /></TabsContent><TabsContent value="outcomes"><AdminProductOutcomes /></TabsContent><TabsContent value="feature-flags"><AdminFeatureFlags /></TabsContent><TabsContent value="eventbrite"><AdminEventbrite /></TabsContent><TabsContent value="common-admin"><CommonAdminPanel /></TabsContent><TabsContent value="scraper"><AdminScraper /></TabsContent><TabsContent value="partners"><AdminPartnerPerformance /></TabsContent></Suspense></Tabs></div></main>
   );
 };
 export default Admin;

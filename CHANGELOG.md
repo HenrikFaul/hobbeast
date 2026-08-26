@@ -12,6 +12,91 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.26.0] — 2026-08-26
+
+**Pontos térképi elhelyezés, önkiszolgáló programforrások, mozgóképes borítók.**
+
+### Precise map placement
+Scraped programs carry a venue NAME in `location_address` ("A38", "Dürer Kert",
+"Budapest - Átrium"), not an address — so the map could only pin them on the
+city centroid, all 503 Budapest programs on one dot.
+
+- **`geo_places`** (migration `20260826100000`): a venue gazetteer that doubles
+  as a work queue. A venue string from a newly added source resolves itself,
+  with no code change.
+- **`hu_districts`** + `hu_district_from_text()`: Budapest postal codes are
+  `1XYZ` where `XY` is the district, which makes "1075 Budapest, Király utca" a
+  lossless district signal; "VII. kerület" and "7. kerület" are read too.
+- **Placement ladder** (migration `20260826110000`): source coordinates →
+  verified venue → district → city centroid → honestly counted as unplaced.
+  It costs ~3s over the catalogue, so the map reads a materialized snapshot
+  refreshed every 10 minutes (10 ms per request) instead.
+- **`map_markers` / `map_events_list`**: one API serving whichever granularity
+  the current zoom needs. The previous `map_event_clusters` / `map_events_at`
+  are untouched, so a browser holding an older bundle survives the deploy.
+- **`scripts/geocode-places.mjs`** + the `Geocode venues` workflow: Nominatim
+  then Photon, paced at ~1 request/second.
+- Map UI: county bubbles → cities and Budapest districts → venue pins, each
+  click zooming a level deeper; the card names the door when we know it.
+
+**Result:** 2 → 179 programs pinned at their exact venue, and 121 programs that
+had no placeable city at all now land on the map through their venue.
+
+#### The gate that had to exist
+The first live run put programs at the wrong address: Photon answered
+"Országos Színháztörténeti Múzeum" for "Ferenczy Múzeum", "Vénusz Garden" for
+"Bridge Garden", "ELTE Fűvészkert" for "Dürer Kert" — each sharing only the
+building-type word. Type words no longer count as identifying, 60% of the
+identifying words must appear in the answer, and every one of those rejections
+is now a test case. A confidently wrong pin is worse than no pin.
+
+### Self-service program sources
+Adding a source used to mean writing a migration.
+
+- **`scraper-worker/src/sources/recipes.mjs`**: seven extraction recipes —
+  iCalendar feed, WordPress event API, WordPress calendar grid, schema.org
+  data, RSS, browser render, and an honest refusal for social pages — plus the
+  inspector that runs each one for real and ranks them by how many dated
+  programs they actually produced.
+- **`source-manager` Edge Function**: `inspect` / `save` / `submit` /
+  `submissions` / `review` / `verify`. The URL is caller-chosen, so every
+  redirect hop is re-checked against a private-address blocklist.
+- **Admin**: paste a link → recipe proposals with sample programs → save →
+  automatic trial run.
+- **Providers** (`/organizer` → Program sources): the same flow, but the
+  submission lands in an admin review queue (migration `20260826120000`);
+  nothing reaches the catalogue on a provider's word alone.
+- **Worker**: `recipeRunner.mjs` runs the fetch-based recipes in production.
+  Live proof: `jatszma.com` resolves to its own `/esemenyek` page and yields
+  **256** future programs from the calendar grid.
+
+A Facebook page is answered rather than half-heartedly attempted: the events
+list needs a login, and reading it with a user account breaks the platform's
+terms, so the panel says exactly that and asks for the organiser's own site.
+
+The recipe engine is one file the worker and the Edge Function both run;
+`npm run edge:check-recipes` and a test fail if the copies drift.
+
+### Editorial video backdrops
+Roughly half the catalogue arrives without a usable photo, and a gradient with
+an emoji says nothing about what the evening will be like.
+
+- **205 licence-reviewed stock clips** across 60 hobby themes
+  (`media-library/`, Pexels License, provenance per file).
+- **`scripts/build-editorial-videos.mjs`**: normalizes them to 132 silent
+  5-second 720p loops with poster frames (16.8 MB total) and generates the
+  category manifest.
+- **`EditorialVideoBackdrop`**: nothing is fetched until the card scrolls into
+  view, the clip pauses when it leaves, and a reduced-motion viewer only ever
+  gets the poster frame. The clip is chosen by a stable hash of the program id,
+  so a card never reshuffles its backdrop.
+
+### Fixed
+- Programgyűjtő titles no longer carry inline markup (`<wbr />`) into the card.
+- The map list shows a thumbnail for every program, not only those with a photo.
+
+---
+
 ## [1.25.0] — 2026-08-26
 
 **Térképes programkereső** — Booking-style map discovery. Full design brief:

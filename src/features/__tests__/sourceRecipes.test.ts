@@ -13,7 +13,8 @@ describe('iCalendar recipe', () => {
       'BEGIN:VEVENT',
       'SUMMARY:Kocsmakvíz a Játsz/Ma-ban',
       'DTSTART;TZID=Europe/Budapest:20260904T190000',
-      'LOCATION:Budapest\, Wesselényi utca 13.',
+      // A real ICS escapes the comma; the parser has to unescape it.
+      'LOCATION:Budapest\\, Wesselényi utca 13.',
       'DESCRIPTION:Csapatok 2-6 fővel',
       'END:VEVENT',
       'BEGIN:VEVENT',

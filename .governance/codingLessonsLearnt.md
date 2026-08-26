@@ -406,5 +406,40 @@
 
 ---
 
+---
+
+## 🗺️ Geokódolás: a névegyezés kapuja (2026-08-26)
+
+**Hiba:** a Photon/Nominatim fuzzy találatot ad, és a "Dürer Kert"-re
+"ELTE Fűvészkert", a "Ferenczy Múzeum"-ra "Országos Színháztörténeti Múzeum",
+a "Bridge Garden"-re "Vénusz Garden" jött vissza. Mindegyik CSAK az
+épülettípus-szót osztotta a kereséssel — a térképen viszont magabiztosan rossz
+helyre tette a programot.
+
+**Szabály:** külső geokódoló találatát SOHA nem fogadjuk el ellenőrzés nélkül.
+- az épülettípus-szavak (múzeum, kert, klub, kulturális központ, ház, terem…)
+  nem azonosítanak, ezért nem számítanak bele az egyezésbe
+- az azonosító szavak legalább 60%-ának meg kell jelennie a válaszban
+- a válasz utcája és városa is beleszámít az egyezésbe
+- a bizonytalan találat helyett a város-szintű elhelyezés a helyes válasz:
+  egy magabiztosan rossz tű rosszabb, mint a tű hiánya
+
+**Ellenőrzés:** `src/features/__tests__/geocodeNameGate.test.ts` — minden
+elutasított eset valódi éles találat volt.
+
+---
+
+## ⚠️ Git Bash heredoc: a dupla backslash összeomlik (2026-08-26)
+
+**Hiba:** `<<'PY'` idézőjeles heredocban is `\\` → `\` lett, így egy
+teszt ICS-escape-je (`Budapest\\,`) egyszerű `Budapest\,` lett — az
+ESLint `no-useless-escape` fogta meg, a teszt viszont "átment", mert a rossz
+bemenetet a rossz elvárás igazolta.
+
+**Szabály:** ha a beírandó szöveg backslasht tartalmaz, ne heredocból menjen.
+Használj `chr(92)`-t a Python payloadban, vagy a Write eszközt.
+
+*Utoljára frissítve: 2026-08-26*
+
 *Utoljára frissítve: 2026-04-01 — összevont közös tudásbázis*
 *Ez egy FOLYAMATOSAN BŐVÜLŐ fájl. Új hibákat MINDIG appendelj, SOHA ne törölj!*

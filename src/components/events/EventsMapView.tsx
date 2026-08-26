@@ -7,16 +7,33 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { trackOutboundClick } from '@/lib/outboundTracking';
+import { pickEditorialClip } from '@/features/events/EditorialVideoBackdrop';
+import { EDITORIAL_VIDEO_BASE } from '@/assets/editorial/videoLibrary';
 
-interface CountyCluster { county: string; events: number; lat: number; lon: number }
-interface CityCluster { city: string; county: string; events: number; lat: number; lon: number }
+type MarkerKind = 'county' | 'city' | 'district' | 'venue';
+
+interface MapMarker {
+  kind: MarkerKind;
+  key: string;
+  label: string;
+  sublabel: string | null;
+  events: number;
+  lat: number;
+  lon: number;
+  county: string | null;
+  city: string | null;
+  district: string | null;
+}
+
 interface CategoryCount { category: string; events: number }
 
-interface ClusterPayload {
-  counties: CountyCluster[];
-  cities: CityCluster[];
+interface MarkerPayload {
+  level: string;
+  markers: MapMarker[];
   categories: CategoryCount[];
+  counties: Array<{ county: string; events: number }>;
   placed_total: number;
+  exact_total: number;
   unplaced_total: number;
 }
 
@@ -26,9 +43,12 @@ interface MapEvent {
   event_date: string;
   event_time: string | null;
   category: string | null;
-  city: string;
-  county: string;
+  city: string | null;
+  county: string | null;
+  district: string | null;
+  venue: string | null;
   location_address: string | null;
+  placement: string;
   image_url: string | null;
   external_url: string | null;
   price_min: number | null;
@@ -40,7 +60,25 @@ interface MapEvent {
 
 /** Hungary, with a little breathing room. */
 const HU_BOUNDS: L.LatLngBoundsExpression = [[45.6, 16.0], [48.7, 23.0]];
-const CITY_ZOOM_THRESHOLD = 9;
+function editorialPoster(category: string | null, seed: string) {
+  const clip = pickEditorialClip(category, seed);
+  return clip ? `${EDITORIAL_VIDEO_BASE}/${clip}.jpg` : '/placeholder.svg';
+}
+
+/**
+ * Booking's behaviour, applied to programs: the further you zoom in, the more
+ * precisely a marker is allowed to claim to know where something happens.
+ * County bubbles, then cities (with Budapest broken into its districts), then
+ * the venues themselves.
+ */
+const CITY_ZOOM = 9;
+const VENUE_ZOOM = 12;
+
+function levelForZoom(zoom: number, county: string | null, district: string | null): 'county' | 'city' | 'venue' {
+  if (district || zoom >= VENUE_ZOOM) return 'venue';
+  if (county || zoom >= CITY_ZOOM) return 'city';
+  return 'county';
+}
 
 const numberFormat = new Intl.NumberFormat('hu-HU');
 
@@ -67,13 +105,32 @@ function bubbleSize(events: number, max: number) {
   return Math.round(38 + ratio * 34);
 }
 
-function markerHtml(label: string, count: number, size: number, selected: boolean) {
-  const ring = selected ? 'box-shadow:0 0 0 4px hsl(var(--primary)/0.35),0 10px 26px -8px rgba(0,0,0,.5);' : 'box-shadow:0 8px 22px -8px rgba(0,0,0,.45);';
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char
+  ));
+}
+
+function markerHtml(label: string, count: number, size: number, selected: boolean, isVenue: boolean) {
+  const ring = selected
+    ? 'box-shadow:0 0 0 4px hsl(var(--primary)/0.35),0 10px 26px -8px rgba(0,0,0,.5);'
+    : 'box-shadow:0 8px 22px -8px rgba(0,0,0,.45);';
+  // A venue pin shows its name, not a number — at that zoom the count is
+  // almost always 1 and the name is what the reader is looking for.
+  // A venue tack is styled inline rather than through a class: it is a handful
+  // of declarations used in exactly one place, and the global stylesheet is a
+  // budgeted asset.
+  const venueShape = isVenue
+    ? 'border-radius:999px 999px 999px 4px;transform:rotate(-45deg);background:hsl(var(--primary));'
+    : '';
+  const face = isVenue
+    ? `<span style="display:block;transform:rotate(45deg);font-size:.72rem;font-weight:800;color:hsl(var(--primary-foreground))">${count > 1 ? numberFormat.format(count) : '●'}</span>`
+    : `<span class="hb-marker__count">${numberFormat.format(count)}</span>`;
   return `
-    <div class="hb-marker" style="width:${size}px;height:${size}px;${ring}">
-      <span class="hb-marker__count">${numberFormat.format(count)}</span>
+    <div class="hb-marker" style="width:${size}px;height:${size}px;${venueShape}${ring}">
+      ${face}
     </div>
-    <span class="hb-marker__label">${label}</span>
+    <span class="hb-marker__label">${escapeHtml(label)}</span>
   `;
 }
 
@@ -82,38 +139,48 @@ export function EventsMapView() {
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
 
-  const [clusters, setClusters] = useState<ClusterPayload | null>(null);
+  const [payload, setPayload] = useState<MarkerPayload | null>(null);
   const [zoom, setZoom] = useState(7);
   const [category, setCategory] = useState<string | null>(null);
   const [county, setCounty] = useState<string | null>(null);
+  const [district, setDistrict] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [placeKey, setPlaceKey] = useState<string | null>(null);
+  const [placeLabel, setPlaceLabel] = useState<string | null>(null);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
+  const level = levelForZoom(zoom, county, district);
+
   // --- data -----------------------------------------------------------------
-  const loadClusters = useCallback(async () => {
-    const { data } = await supabase.rpc('map_event_clusters', {
+  const loadMarkers = useCallback(async () => {
+    const { data } = await supabase.rpc('map_markers', {
+      p_level: level,
       p_category: category,
       p_county: county,
+      p_city: selectedCity,
+      p_district: district,
     });
-    if (data) setClusters(data as unknown as ClusterPayload);
-  }, [category, county]);
+    if (data) setPayload(data as unknown as MarkerPayload);
+  }, [level, category, county, selectedCity, district]);
 
-  useEffect(() => { void loadClusters(); }, [loadClusters]);
+  useEffect(() => { void loadMarkers(); }, [loadMarkers]);
 
-  const loadEvents = useCallback(async (city: string | null) => {
+  const loadEvents = useCallback(async () => {
     setLoadingEvents(true);
-    const { data } = await supabase.rpc('map_events_at', {
-      p_city: city,
-      p_county: city ? null : county,
+    const { data } = await supabase.rpc('map_events_list', {
+      p_county: placeKey || selectedCity || district ? null : county,
+      p_city: placeKey || district ? null : selectedCity,
+      p_district: placeKey ? null : district,
+      p_place_key: placeKey,
       p_category: category,
       p_limit: 60,
     });
     setEvents(Array.isArray(data) ? (data as unknown as MapEvent[]) : []);
     setLoadingEvents(false);
-  }, [category, county]);
+  }, [category, county, selectedCity, district, placeKey]);
 
-  useEffect(() => { void loadEvents(selectedCity); }, [loadEvents, selectedCity]);
+  useEffect(() => { void loadEvents(); }, [loadEvents]);
 
   // --- map bootstrap --------------------------------------------------------
   useEffect(() => {
@@ -150,24 +217,28 @@ export function EventsMapView() {
   useEffect(() => {
     const map = mapRef.current;
     const layer = layerRef.current;
-    if (!map || !layer || !clusters) return;
+    if (!map || !layer || !payload) return;
     layer.clearLayers();
 
-    const showCities = zoom >= CITY_ZOOM_THRESHOLD || Boolean(county);
-    const points: Array<{ key: string; label: string; events: number; lat: number; lon: number; city?: string; countyName: string }> =
-      showCities
-        ? clusters.cities.map((c) => ({ key: `city:${c.city}`, label: c.city, events: c.events, lat: c.lat, lon: c.lon, city: c.city, countyName: c.county }))
-        : clusters.counties.map((c) => ({ key: `county:${c.county}`, label: c.county, events: c.events, lat: c.lat, lon: c.lon, countyName: c.county }));
+    const markers = payload.markers ?? [];
+    const max = markers.reduce((m, point) => Math.max(m, point.events), 0);
 
-    const max = points.reduce((m, p) => Math.max(m, p.events), 0);
+    for (const point of markers) {
+      // A venue pin says "this exact door", so it stays small and constant; a
+      // cluster bubble grows with what it hides.
+      const size = point.kind === 'venue' ? 34 : bubbleSize(point.events, max);
+      const selected = point.kind === 'venue'
+        ? point.key === placeKey
+        : point.kind === 'district'
+          ? point.district === district
+          : point.kind === 'city'
+            ? point.city === selectedCity
+            : point.county === county;
 
-    for (const point of points) {
-      const size = bubbleSize(point.events, max);
-      const selected = point.city ? point.city === selectedCity : point.countyName === county;
       const marker = L.marker([point.lat, point.lon], {
         icon: L.divIcon({
-          className: 'hb-marker-wrap',
-          html: markerHtml(point.label, point.events, size, selected),
+          className: `hb-marker-wrap hb-marker-wrap--${point.kind}`,
+          html: markerHtml(point.label, point.events, size, selected, point.kind === 'venue'),
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
         }),
@@ -176,28 +247,52 @@ export function EventsMapView() {
       });
 
       marker.on('click', () => {
-        if (point.city) {
-          setSelectedCity(point.city);
-          map.flyTo([point.lat, point.lon], Math.max(map.getZoom(), 11), { duration: 0.6 });
-        } else {
-          setCounty(point.countyName);
-          setSelectedCity(null);
-          map.flyTo([point.lat, point.lon], 10, { duration: 0.7 });
+        if (point.kind === 'venue') {
+          setPlaceKey(point.key);
+          setPlaceLabel(point.label);
+          map.flyTo([point.lat, point.lon], Math.max(map.getZoom(), 15), { duration: 0.6 });
+          return;
         }
+        setPlaceKey(null);
+        setPlaceLabel(null);
+        if (point.kind === 'district') {
+          setCounty('Budapest');
+          setSelectedCity('Budapest');
+          setDistrict(point.district);
+          map.flyTo([point.lat, point.lon], Math.max(map.getZoom(), 13), { duration: 0.6 });
+          return;
+        }
+        if (point.kind === 'city') {
+          setSelectedCity(point.city);
+          setDistrict(null);
+          map.flyTo([point.lat, point.lon], Math.max(map.getZoom(), 12), { duration: 0.6 });
+          return;
+        }
+        setCounty(point.county);
+        setSelectedCity(null);
+        setDistrict(null);
+        map.flyTo([point.lat, point.lon], 10, { duration: 0.7 });
       });
       marker.addTo(layer);
     }
-  }, [clusters, zoom, county, selectedCity]);
+  }, [payload, county, selectedCity, district, placeKey]);
 
-  const categories = clusters?.categories ?? [];
+  const categories = payload?.categories ?? [];
   const counties = useMemo(
-    () => (clusters?.counties ?? []).map((c) => c.county).sort((a, b) => a.localeCompare(b, 'hu')),
-    [clusters],
+    () => (payload?.counties ?? []).map((c) => c.county).sort((a, b) => a.localeCompare(b, 'hu')),
+    [payload],
   );
+
+  const areaLabel = placeLabel
+    || (district ? `Budapest ${district}. kerület` : null)
+    || selectedCity || county || 'Magyarország';
 
   const resetArea = () => {
     setCounty(null);
     setSelectedCity(null);
+    setDistrict(null);
+    setPlaceKey(null);
+    setPlaceLabel(null);
     mapRef.current?.flyToBounds(HU_BOUNDS, { duration: 0.7 });
   };
 
@@ -208,17 +303,18 @@ export function EventsMapView() {
         <div>
           <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">Térképes kereső</p>
           <h2 className="mt-1 font-display text-xl font-extrabold">
-            {selectedCity || county || 'Magyarország'}
+            {areaLabel}
           </h2>
-          {clusters && (
+          {payload && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {numberFormat.format(clusters.placed_total)} program a térképen
-              {clusters.unplaced_total > 0 && ` · ${numberFormat.format(clusters.unplaced_total)} országos vagy helyszín nélküli`}
+              {numberFormat.format(payload.placed_total)} program a térképen
+              {payload.exact_total > 0 && ` · ${numberFormat.format(payload.exact_total)} pontos helyszínnel`}
+              {payload.unplaced_total > 0 && ` · ${numberFormat.format(payload.unplaced_total)} országos vagy helyszín nélküli`}
             </p>
           )}
         </div>
 
-        {(county || selectedCity) && (
+        {(county || selectedCity || district || placeKey) && (
           <Button variant="outline" size="sm" className="w-fit rounded-full" onClick={resetArea}>
             <ArrowLeft className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Vissza az egész országra
           </Button>
@@ -236,6 +332,9 @@ export function EventsMapView() {
               const value = event.target.value || null;
               setCounty(value);
               setSelectedCity(null);
+              setDistrict(null);
+              setPlaceKey(null);
+              setPlaceLabel(null);
               if (!value) mapRef.current?.flyToBounds(HU_BOUNDS, { duration: 0.6 });
             }}
           >
@@ -284,12 +383,13 @@ export function EventsMapView() {
                 <li key={event.external_event_id}>
                   <article className="group overflow-hidden rounded-[1.1rem] border border-border/70 bg-background/60 transition hover:border-primary/30 hover:shadow-lg">
                     <div className="flex gap-3 p-2.5">
-                      {event.image_url && (
-                        <img
-                          src={event.image_url} alt="" width={64} height={64} loading="lazy" decoding="async"
-                          className="h-16 w-16 shrink-0 rounded-xl object-cover"
-                        />
-                      )}
+                      {/* A program without a photo still gets a thumbnail: the
+                          poster frame of its category's editorial clip. */}
+                      <img
+                        src={event.image_url || editorialPoster(event.category, event.external_event_id)}
+                        alt="" width={64} height={64} loading="lazy" decoding="async"
+                        className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                      />
                       <div className="min-w-0 flex-1">
                         <Link to={`/events/${event.external_event_id}`} className="block">
                           <h3 className="truncate text-sm font-semibold leading-snug group-hover:text-primary">{event.title}</h3>
@@ -299,7 +399,12 @@ export function EventsMapView() {
                             <CalendarDays className="h-3 w-3" aria-hidden="true" />{formatDate(event.event_date)}
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3 w-3" aria-hidden="true" />{event.city}
+                            <MapPin className="h-3 w-3" aria-hidden="true" />
+                            {/* Name the door when we know it, the district when
+                                we only know that, the city otherwise. */}
+                            {event.venue
+                              || (event.district ? `Budapest ${event.district}. ker.` : null)
+                              || event.city}
                           </span>
                           {typeof event.price_min === 'number' && event.price_min > 0 && (
                             <span className="inline-flex items-center gap-1">

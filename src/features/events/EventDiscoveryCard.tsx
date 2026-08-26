@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, Calendar, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EditorialVideoBackdrop } from '@/features/events/EditorialVideoBackdrop';
 import { Button } from '@/components/ui/button';
 import { resolveEventLocationLabel } from '@/lib/eventLocationHelper';
 import { trackOutboundClick } from '@/lib/outboundTracking';
@@ -116,9 +117,15 @@ export function EventDiscoveryCard({
           />
         ) : (
           <>
-            <span aria-hidden="true" className="absolute -left-10 -top-12 h-36 w-36 rounded-full border-[24px] border-white/30" />
-            <span aria-hidden="true" className="absolute -bottom-16 -right-8 h-48 w-48 rounded-full border-[32px] border-white/[0.35]" />
-            <span aria-hidden="true" className="relative flex h-24 w-24 rotate-[-3deg] items-center justify-center rounded-[1.7rem] border border-white/60 bg-card/[0.72] text-6xl shadow-xl shadow-foreground/10 backdrop-blur-sm transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105">
+            {/* No photo arrived with this program, so the category's own footage
+                carries the card instead of a flat gradient. */}
+            <EditorialVideoBackdrop
+              category={event.category}
+              seed={event.eventId ?? event.id ?? event.title}
+              className="absolute inset-0 h-full w-full"
+            />
+            <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/25" />
+            <span aria-hidden="true" className="relative flex h-20 w-20 rotate-[-3deg] items-center justify-center rounded-[1.5rem] border border-white/60 bg-card/[0.78] text-5xl shadow-xl shadow-foreground/10 backdrop-blur-sm transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105">
               {event.image_emoji || '🎉'}
             </span>
           </>
