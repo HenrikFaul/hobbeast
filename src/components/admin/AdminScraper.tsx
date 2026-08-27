@@ -10,6 +10,7 @@ import { AdminScraperSchedules } from '@/components/admin/AdminScraperSchedules'
 import { AdminSourceSubmissions } from '@/components/admin/AdminSourceSubmissions';
 import { SourceInspector } from '@/features/sources/SourceInspector';
 import { AdminSourceDiscovery } from '@/components/admin/AdminSourceDiscovery';
+import { AdminCrawlerControl } from '@/components/admin/AdminCrawlerControl';
 
 interface ScraperDestination {
   source_id: string;
@@ -191,6 +192,8 @@ export function AdminScraper() {
           <RefreshCw className="mr-1 h-4 w-4" /> Frissítés
         </Button>
       </div>
+
+      <AdminCrawlerControl />
 
       <AdminSourceDiscovery />
 

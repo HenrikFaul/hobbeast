@@ -1,0 +1,28 @@
+-- Operator control over the crawl, and a detailed record of what it did.
+--
+-- Applied via the Supabase MCP; this file is the record. See the live database
+-- for the authoritative definitions.
+--
+-- crawl_config    — one editable row of knobs: enabled, max_depth,
+--                   max_pages_per_run, per_host_cap, delay_ms,
+--                   auto_promote_min_score, strict_mode, allowed_countries[],
+--                   exclude_url_prefixes[], exclude_substrings[],
+--                   extra_allowed_hosts[], extra_seeds[]. NO country hardcoded;
+--                   allowed_countries is data, and a promoted source inherits
+--                   the seed's country.
+-- crawl_runs      — one row per run: trigger, status, config snapshot, and the
+--                   full counters (pages_fetched, pages_not_modified, hosts,
+--                   candidates, auto_promoted, near_duplicates, errors).
+-- crawl_page_results — one row per page the crawl looked at: url, host, depth,
+--                   http_status, outcome, content_hash/simhash, word_count,
+--                   title, is_listing, score, candidate_host, etag,
+--                   last_modified, duration — the detailed trail the operator
+--                   asked for.
+-- crawl_host_state — persistent politeness (K7): last_fetched_at, delay,
+--                   backoff, robots cache, so a restart does not forget.
+--
+-- source_discovery_candidates gains country_code so a promoted source is tagged.
+--
+-- All four tables: RLS SELECT gated on providers.manage. Full DDL is in the
+-- migration applied to the database on 2026-08-27.
+SELECT 'see live database for crawl_config / crawl_runs / crawl_page_results / crawl_host_state' AS note;

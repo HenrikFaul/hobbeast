@@ -84,6 +84,15 @@ export async function crawlFrontier({
   maxDepth = 2,
   maxPages = 40,
   perHostCap = 6,
+  // Strict mode only fetches the seed hosts plus the extra-allowed ones; every
+  // other host is left for a future, non-strict run. The operator's screen.
+  strict = false,
+  allowedHosts = [],
+  // A predicate the worker builds from the operator's exclude lists.
+  isExcluded = () => false,
+  // Telemetry: called once per page the crawl considered, with the outcome.
+  // The planner stays pure; the worker turns these into the detailed record.
+  onPage = () => {},
   log = () => {},
 } = {}) {
   if (typeof fetchPage !== 'function') throw new Error('crawlFrontier needs a fetchPage function');
@@ -91,6 +100,8 @@ export async function crawlFrontier({
   const known = knownHosts instanceof Set
     ? new Set([...knownHosts])
     : new Set([...knownHosts].map((host) => String(host).replace(/^www\./i, '').toLowerCase()));
+  const seedHosts = new Set();
+  const allowed = new Set([...allowedHosts].map((host) => String(host).replace(/^www\./i, '').toLowerCase()));
 
   const visited = new Set();
   const hostFetches = new Map();
@@ -106,9 +117,12 @@ export async function crawlFrontier({
     if (canonical) {
       queue.push({ url: canonical, depth: 0 });
       const host = hostOf(canonical);
-      if (host) known.add(host);
+      if (host) { known.add(host); seedHosts.add(host); }
     }
   }
+
+  /** In strict mode, only the seed hosts and the extra-allowed ones may be fetched. */
+  const mayFetchHost = (host) => !strict || seedHosts.has(host) || allowed.has(host);
 
   while (queue.length && pagesFetched < maxPages) {
     // Shallowest first: breadth-first keeps the crawl close to proven sources.
@@ -121,8 +135,15 @@ export async function crawlFrontier({
     const host = hostOf(url);
     if (!host) continue;
     if ((hostFetches.get(host) ?? 0) >= perHostCap) continue;
+    if (!mayFetchHost(host)) continue;
+    if (isExcluded(url)) {
+      onPage({ url, host, depth, outcome: 'skipped', error_text: 'kizárási szabály' });
+      continue;
+    }
 
+    const started = Date.now();
     if (!(await robotsAllows(url))) {
+      onPage({ url, host, depth, outcome: 'robots_disallow', duration_ms: Date.now() - started });
       log(`  crawl: robots disallow ${url}`);
       continue;
     }
@@ -131,19 +152,36 @@ export async function crawlFrontier({
     try {
       page = await fetchPage(url);
     } catch (error) {
+      onPage({ url, host, depth, outcome: 'error', duration_ms: Date.now() - started, error_text: String(error?.message || '').slice(0, 200) });
       log(`  crawl: fetch failed ${url} (${String(error?.message || '').slice(0, 60)})`);
       continue;
     }
+
+    // A conditional GET that came back 304 means the page has not changed since
+    // we last saw it — the cheapest possible freshness check (K4/K7).
+    if (page?.notModified) {
+      onPage({ url, host, depth, outcome: 'not_modified', http_status: 304, duration_ms: Date.now() - started, etag: page.etag ?? null, last_modified: page.lastModified ?? null });
+      continue;
+    }
+
     pagesFetched += 1;
     hostFetches.set(host, (hostFetches.get(host) ?? 0) + 1);
     const html = page?.html;
-    if (!html) continue;
+    if (!html) {
+      onPage({ url, host, depth, outcome: 'skipped', http_status: page?.status ?? null, duration_ms: Date.now() - started, error_text: 'nincs HTML' });
+      continue;
+    }
+
+    const text = stripTags(html);
+    const fingerprint = simhash64(text.slice(0, 20000));
+    const wordCount = (text.match(/\b[\p{L}\p{N}]+\b/gu) || []).length;
+    const title = (html.match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i)?.[1] || '').replace(/\s+/g, ' ').trim();
 
     // Near-duplicate content — a re-slugged copy of a page already seen — adds
     // nothing. K4: without fingerprint dedup the frontier floods with copies.
-    const fingerprint = simhash64(stripTags(html).slice(0, 20000));
     if (findNearDuplicate(fingerprint, fingerprints)) {
       nearDuplicatesSkipped += 1;
+      onPage({ url, host, depth, outcome: 'near_duplicate', http_status: page?.status ?? 200, content_simhash: fingerprint, word_count: wordCount, title, duration_ms: Date.now() - started, etag: page.etag ?? null, last_modified: page.lastModified ?? null });
       log(`  crawl: near-duplicate skipped ${url}`);
       continue;
     }
@@ -151,9 +189,12 @@ export async function crawlFrontier({
 
     // Outbound links to hosts we do not know are the candidates we are after.
     const leads = harvestLinks(html, url, { knownHosts: known, limit: 20 });
+    let bestLeadScore = null;
     for (const lead of leads) {
+      if (isExcluded(lead.url)) continue;
       const scored = scoreCandidate({ url: lead.url, linkText: lead.linkText ?? '' });
       if (!isWorthReviewing(scored)) continue;
+      bestLeadScore = Math.max(bestLeadScore ?? 0, scored.score);
 
       const existing = candidatesByHost.get(lead.host);
       if (existing && existing.score >= scored.score) continue;
@@ -166,15 +207,25 @@ export async function crawlFrontier({
         signals: scored.signals,
         depth: depth + 1,
         discovered_from_url: url,
-        content_simhash: null,
+        // The fingerprint of the page it was found on, so a later run can
+        // recognise the same discovery page under a changed address.
+        content_simhash: fingerprint,
       });
     }
+
+    onPage({
+      url, host, depth, outcome: 'fetched', http_status: page?.status ?? 200,
+      content_simhash: fingerprint, word_count: wordCount, title,
+      is_listing: /(esemeny|program|naptar|rendezveny|calendar|events?)/i.test(url),
+      score: bestLeadScore, duration_ms: Date.now() - started,
+      etag: page.etag ?? null, last_modified: page.lastModified ?? null,
+    });
 
     // Descend into the same host's other listing pages, up to the depth limit,
     // to reach event pages this crawl has not seen yet.
     if (depth < maxDepth) {
       for (const internal of internalListingLinks(html, url, host)) {
-        if (!visited.has(internal)) queue.push({ url: internal, depth: depth + 1 });
+        if (!visited.has(internal) && !isExcluded(internal)) queue.push({ url: internal, depth: depth + 1 });
       }
     }
   }

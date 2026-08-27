@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return jsonResponse({ error: { code: 'METHOD_NOT_ALLOWED' }, request_id: requestId }, 405);
 
   try {
-    const body = await req.json() as { action?: string; source_ids?: unknown; since?: string };
+    const body = await req.json() as { action?: string; source_ids?: unknown; since?: string; crawl?: boolean; crawl_pages?: number };
     const { user } = await requireAuthenticatedUserClient(req);
     const admin = getSupabaseAdmin(req);
 
@@ -43,6 +43,14 @@ Deno.serve(async (req) => {
       if (vaultError || !token) return jsonResponse({ error: { code: 'DISPATCH_TOKEN_MISSING' }, request_id: requestId }, 503);
 
       const inputs: Record<string, string> = ids.length ? { only: ids.join(',') } : {};
+      // A manual "run crawl now" from the admin crawler panel turns on the deep
+      // source-discovery pass for this one dispatch; the budget still comes from
+      // the crawl_config row unless the operator overrides it here.
+      if (body.crawl === true) {
+        inputs.crawl = 'true';
+        const pages = Number(body.crawl_pages);
+        if (Number.isFinite(pages) && pages > 0) inputs.crawl_pages = String(Math.min(2000, Math.trunc(pages)));
+      }
       const ghRes = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
         method: 'POST',
         headers: {

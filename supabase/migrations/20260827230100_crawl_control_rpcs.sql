@@ -1,0 +1,19 @@
+-- Reading and writing the crawl config, its telemetry, and auto-promotion.
+--
+-- Applied via the Supabase MCP; this file is the record.
+--
+--   admin_get_crawl_config()                 operator reads the row
+--   admin_update_crawl_config(...)           operator tunes it; NULL leaves a
+--                                            field unchanged; table CHECKs bound
+--                                            the ranges
+--   record_crawl_run_start / _finish         service role; opens and closes a run
+--   record_crawl_pages(run, jsonb)           service role; the detailed trail
+--   auto_promote_crawled_source(url, ...)    service role; a crawled page whose
+--                                            evidence clears the operator's
+--                                            threshold becomes a collector source,
+--                                            tagged with its country, refusing any
+--                                            host already collected
+--   admin_list_crawl_runs / _pages           operator read views for the UI
+--
+-- Full definitions are live in the database as of 2026-08-27.
+SELECT 'see live database for crawl control RPCs' AS note;

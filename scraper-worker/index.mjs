@@ -14,10 +14,9 @@
 //        --details N (detail pages per source, default 12).
 
 import { chromium } from 'playwright';
-import { fetchStatic, robotsAllows } from './src/fetch.mjs';
+import { fetchStatic, robotsAllows, fetchConditional } from './src/fetch.mjs';
 import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
 import { crawlFrontier } from './src/sources/crawlFrontier.mjs';
-import { simhash64 } from './src/sources/fingerprint.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
@@ -28,8 +27,9 @@ import {
 import { ingestEvents } from './src/ingest.mjs';
 import {
   listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
-  listKnownHosts,
-  recordSourceCandidates,
+  listKnownHosts, recordSourceCandidates,
+  getCrawlConfig, listCrawlSeeds, recordCrawlRunStart, recordCrawlRunFinish,
+  recordCrawlPages, autoPromoteCrawledSource, getUrlValidators,
 } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
@@ -43,19 +43,146 @@ const onlyIds = strFlag('--only').split(',').map((s) => s.trim()).filter((s) => 
 // How many of this run's sources also get a discovery pass. Capped on purpose:
 // a night's collection must never quietly become a crawl. `--discover 0` off.
 const discoverLimit = flag('--discover', 8);
-// A deeper BFS crawl from the sources that produced events this run, following
-// links a couple of levels out to find publishers we do not yet know. Off by
-// default (`--crawl 6` turns it on); strictly bounded when on.
-const crawlSeeds = flag('--crawl', 0);
-const crawlMaxPages = flag('--crawl-pages', 40);
+// The deep frontier crawl is driven by the editable crawl_config row, so the
+// operator tunes it live. `--crawl` forces it on for an ad-hoc run even when
+// the stored config is disabled; `--crawl-pages N` overrides the page budget.
+const forceCrawl = args.includes('--crawl');
+const crawlPagesOverride = flag('--crawl-pages', 0);
+const crawlTrigger = strFlag('--crawl-trigger') || (forceCrawl ? 'manual' : 'scheduled');
 const log = (...m) => console.log(...m);
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ctx = { supabaseUrl, serviceRoleKey };
 
 async function guardedFetch(url) {
   if (!(await robotsAllows(url))) throw new Error('robots disallow');
   return fetchStatic(url);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The deep frontier crawl, driven by the operator's crawl_config.
+ *
+ * Everything the operator asked to control lives in that row — depth, page
+ * budget, per-host cap, the politeness delay, which countries to seed from,
+ * strict mode, the exclude lists — so it is all tunable live without a deploy.
+ * The crawl runs after collection, records a detailed page-by-page trail, and
+ * auto-promotes a page whose evidence clears the operator's threshold into the
+ * collector, tagged with its country. Nothing here can fail the collection run.
+ */
+async function runCrawlPass({ provenSeeds, summary }) {
+  let config;
+  try {
+    config = await getCrawlConfig(ctx);
+  } catch {
+    config = null;
+  }
+  if (!config) {
+    if (forceCrawl) log('CRAWL: no config row; skipping'); // never guess defaults silently
+    return;
+  }
+  if (!config.enabled && !forceCrawl) return;
+
+  const maxPages = crawlPagesOverride > 0 ? crawlPagesOverride : config.max_pages_per_run;
+  const countries = Array.isArray(config.allowed_countries) ? config.allowed_countries : [];
+  const promoteCountry = countries.length === 1 ? countries[0] : null;
+
+  // Seeds: the operator's own extra seeds, this run's proven publishers, and
+  // the top event-producing sources in the chosen countries.
+  const configuredSeeds = await listCrawlSeeds({ ...ctx, countries, limit: 12 }).catch(() => []);
+  const seeds = [...new Set([...(config.extra_seeds || []), ...provenSeeds, ...configuredSeeds])].slice(0, 20);
+  if (!seeds.length) { log('CRAWL: no seeds for the chosen countries'); return; }
+
+  const excludePrefixes = config.exclude_url_prefixes || [];
+  const excludeSubstrings = config.exclude_substrings || [];
+  const isExcluded = (url) => excludePrefixes.some((p) => p && url.startsWith(p))
+    || excludeSubstrings.some((sub) => sub && url.includes(sub));
+
+  const runId = dryRun ? null : await recordCrawlRunStart(ctx, {
+    trigger: crawlTrigger,
+    config: { max_depth: config.max_depth, max_pages: maxPages, per_host_cap: config.per_host_cap,
+      delay_ms: config.delay_ms, strict: config.strict_mode, countries, auto_promote_min_score: config.auto_promote_min_score },
+    seedCount: seeds.length,
+  });
+
+  const knownHosts = await listKnownHosts(ctx).catch(() => new Set());
+  const pageRows = [];
+  const lastFetchByHost = new Map();
+  let notModified = 0;
+
+  const started = Date.now();
+  try {
+    const result = await crawlFrontier({
+      seeds,
+      knownHosts,
+      maxDepth: config.max_depth,
+      maxPages,
+      perHostCap: config.per_host_cap,
+      strict: config.strict_mode,
+      allowedHosts: config.extra_allowed_hosts || [],
+      isExcluded,
+      robotsAllows,
+      log,
+      // Conditional GET plus a per-host politeness delay from the config.
+      fetchPage: async (url) => {
+        const host = (() => { try { return new URL(url).hostname; } catch { return null; } })();
+        if (host) {
+          const wait = config.delay_ms - (Date.now() - (lastFetchByHost.get(host) ?? 0));
+          if (wait > 0) await sleep(Math.min(wait, config.delay_ms));
+          lastFetchByHost.set(host, Date.now());
+        }
+        const validators = dryRun ? {} : await getUrlValidators(ctx, url).catch(() => ({}));
+        return fetchConditional(url, { etag: validators.etag ?? null, lastModified: validators.lastModified ?? null });
+      },
+      onPage: (row) => {
+        if (row.outcome === 'not_modified') notModified += 1;
+        pageRows.push(row);
+      },
+    });
+
+    // Auto-promote the strong ones; the rest go to the review frontier.
+    const threshold = config.auto_promote_min_score;
+    let autoPromoted = 0;
+    const toReview = [];
+    for (const candidate of result.candidates) {
+      if (!dryRun && candidate.score >= threshold) {
+        const id = await autoPromoteCrawledSource(ctx, {
+          url: candidate.url,
+          publisherName: candidate.link_text || candidate.host,
+          country: promoteCountry,
+        });
+        if (id) {
+          autoPromoted += 1;
+          pageRows.push({ url: candidate.url, host: candidate.host, depth: candidate.depth,
+            outcome: 'auto_promoted', score: candidate.score, candidate_host: candidate.host,
+            discovered_from_url: candidate.discovered_from_url, content_simhash: candidate.content_simhash });
+          continue;
+        }
+      }
+      toReview.push({ ...candidate, country_code: promoteCountry });
+    }
+
+    if (!dryRun && toReview.length) {
+      summary.discovered += await recordSourceCandidates({ ...ctx, candidates: toReview });
+    }
+    if (!dryRun) {
+      await recordCrawlPages(ctx, runId, pageRows);
+      await recordCrawlRunFinish(ctx, runId, {
+        status: 'succeeded',
+        stats: { pages_fetched: result.pagesFetched, pages_not_modified: notModified,
+          hosts_seen: result.hostsSeen, candidates_found: result.candidates.length,
+          auto_promoted: autoPromoted, near_duplicates_skipped: result.nearDuplicatesSkipped,
+          errors: pageRows.filter((r) => r.outcome === 'error').length, duration_ms: Date.now() - started },
+      });
+    }
+    log(`CRAWL: ${result.pagesFetched} pages (${notModified} unchanged), ${result.hostsSeen} hosts, `
+      + `${result.nearDuplicatesSkipped} near-dup, ${result.candidates.length} candidates, ${autoPromoted} auto-promoted`);
+  } catch (e) {
+    log(`CRAWL: failed (${e.message.slice(0, 120)})`);
+    if (!dryRun) await recordCrawlRunFinish(ctx, runId, { status: 'failed', stats: { duration_ms: Date.now() - started }, error: e.message.slice(0, 400) });
+  }
 }
 
 async function main() {
@@ -150,7 +277,9 @@ async function main() {
         }).catch(() => {});
       }
 
-      if (crawlSeeds > 0 && events.length > 0 && listing && provenSeeds.length < crawlSeeds) {
+      // Sources that produced events this run are proven publishers and make
+      // the freshest crawl seeds. Capped so the seed set stays small.
+      if (events.length > 0 && listing && provenSeeds.length < 12) {
         provenSeeds.push(listing);
       }
 
@@ -197,42 +326,11 @@ async function main() {
       if (status === 'failed') summary.failed += 1;
     }
 
-    // The deep pass: a bounded frontier crawl from the sources that just
-    // produced events. Kept entirely separate from collection — it runs after
-    // the loop, respects robots, dedups by content, and cannot fail the run.
-    if (crawlSeeds > 0 && provenSeeds.length > 0) {
-      try {
-        const knownHosts = await listKnownHosts({ supabaseUrl, serviceRoleKey }).catch(() => new Set());
-        const result = await crawlFrontier({
-          seeds: provenSeeds,
-          fetchPage: async (url) => {
-            const html = await guardedFetch(url);
-            return { html, status: 200 };
-          },
-          robotsAllows,
-          knownHosts,
-          maxDepth: 2,
-          maxPages: crawlMaxPages,
-          perHostCap: 6,
-          log,
-        });
-        // Fingerprint each candidate against its own discovery page so a later
-        // run can recognise a re-slugged copy (K4 cross-run dedup).
-        const candidates = result.candidates.map((candidate) => ({
-          ...candidate,
-          content_simhash: candidate.content_simhash
-            ?? (candidate.discovered_from_url ? simhash64(candidate.discovered_from_url) : null),
-        }));
-        if (candidates.length && !dryRun) {
-          const written = await recordSourceCandidates({ supabaseUrl, serviceRoleKey, candidates });
-          summary.discovered += written;
-        }
-        log(`CRAWL: ${result.pagesFetched} pages, ${result.hostsSeen} hosts, `
-          + `${result.nearDuplicatesSkipped} near-dup skipped, ${candidates.length} candidates`);
-      } catch (e) {
-        log(`CRAWL: skipped (${e.message.slice(0, 100)})`);
-      }
-    }
+    // The deep pass: a bounded frontier crawl. Config-driven so the operator
+    // tunes depth, budget, countries and filters live from the admin screen;
+    // the CLI can still force or override for an ad-hoc run. Entirely separate
+    // from collection — it runs after the loop and cannot fail the run.
+    await runCrawlPass({ provenSeeds, summary });
   } finally {
     await browser.close();
   }

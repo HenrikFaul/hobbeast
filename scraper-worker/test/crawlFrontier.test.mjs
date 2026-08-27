@@ -146,3 +146,65 @@ describe('crawlFrontier', () => {
     await assert.rejects(() => crawlFrontier({ seeds: ['https://a.hu'] }), /fetchPage/);
   });
 });
+
+describe('operator controls and telemetry', () => {
+  const link = (href, t = 'Programok') => `<a href="${href}">${t}</a>`;
+
+  it('in strict mode never leaves the seed and allowed hosts', async () => {
+    const pages = {
+      'https://sajat.hu/programok': `<html><body>${link('https://kulso.hu/esemenyek')}${link('https://engedett.hu/esemenyek')}</body></html>`,
+    };
+    const fetched = [];
+    await crawlFrontier({
+      seeds: ['https://sajat.hu/programok'],
+      fetchPage: async (url) => { fetched.push(url); return { html: pages[url] ?? '<html><body>x</body></html>', status: 200 }; },
+      knownHosts: ['sajat.hu'],
+      strict: true,
+      allowedHosts: ['engedett.hu'],
+      maxDepth: 2,
+    });
+    // kulso.hu is neither seed nor allowed; it is a candidate but never fetched.
+    assert.ok(!fetched.some((u) => u.includes('kulso.hu')));
+  });
+
+  it('applies the operator exclude predicate to fetch and to candidates', async () => {
+    const pages = {
+      'https://a.hu/programok': `<html><body>${link('https://spam.hu/esemenyek')}${link('https://jo.hu/esemenyek')}</body></html>`,
+    };
+    const out = await crawlFrontier({
+      seeds: ['https://a.hu/programok'],
+      fetchPage: async (url) => ({ html: pages[url] ?? '', status: 200 }),
+      knownHosts: ['a.hu'],
+      isExcluded: (url) => url.includes('spam.hu'),
+    });
+    assert.ok(!out.candidates.some((c) => c.host === 'spam.hu'));
+    assert.ok(out.candidates.some((c) => c.host === 'jo.hu'));
+  });
+
+  it('reports a 304 as not-modified without counting it as a fetch', async () => {
+    const events = [];
+    const out = await crawlFrontier({
+      seeds: ['https://a.hu/programok'],
+      fetchPage: async () => ({ notModified: true, status: 304, etag: 'W/"abc"' }),
+      knownHosts: ['a.hu'],
+      onPage: (p) => events.push(p),
+    });
+    assert.equal(out.pagesFetched, 0);
+    assert.equal(events.filter((e) => e.outcome === 'not_modified').length, 1);
+  });
+
+  it('emits a telemetry row for every page, with word count and title', async () => {
+    const events = [];
+    await crawlFrontier({
+      seeds: ['https://a.hu/programok'],
+      fetchPage: async () => ({ html: '<html><head><title>Események — A</title></head><body>' + 'szó '.repeat(50) + '</body></html>', status: 200 }),
+      knownHosts: ['a.hu'],
+      onPage: (p) => events.push(p),
+    });
+    const fetched = events.find((e) => e.outcome === 'fetched');
+    assert.ok(fetched);
+    assert.equal(fetched.title, 'Események — A');
+    assert.ok(fetched.word_count >= 50);
+    assert.ok(fetched.content_simhash.length === 64);
+  });
+});

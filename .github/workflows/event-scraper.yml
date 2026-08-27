@@ -21,6 +21,14 @@ on:
         description: 'Comma-separated source_ids (manual targeted run from the admin panel)'
         required: false
         default: ''
+      crawl:
+        description: 'Run the deep source-discovery crawl after collection (true/false)'
+        required: false
+        default: 'false'
+      crawl_pages:
+        description: 'Override the crawl page budget for this run (0 = use config)'
+        required: false
+        default: '0'
 
 concurrency:
   group: event-scraper
@@ -50,4 +58,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node index.mjs --sources ${{ github.event.inputs.sources || '40' }} --details ${{ github.event.inputs.details || '40' }} --only "${{ github.event.inputs.only || '' }}"
+        run: >-
+          node index.mjs
+          --sources ${{ github.event.inputs.sources || '40' }}
+          --details ${{ github.event.inputs.details || '40' }}
+          --only "${{ github.event.inputs.only || '' }}"
+          ${{ github.event.inputs.crawl == 'true' && '--crawl' || '' }}
+          --crawl-pages ${{ github.event.inputs.crawl_pages || '0' }}

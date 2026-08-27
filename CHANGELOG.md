@@ -12,6 +12,55 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.46.0] — 2026-08-27
+
+### A crawler mostantól a te vezérlőpultod
+
+A forrásfelderítő crawlernek admin felülete lett a **Programgyűjtő** fülön.
+Minden korlát **élőben állítható, kódmódosítás nélkül** — pont ahogy kérted:
+felteszed 10-re, megnézed, aztán 100-ra, aztán vissza 50-re.
+
+- **mélység, oldal/futás, oldal/host, késleltetés, auto-felvétel pontszám** —
+  számmezőkben;
+- **ütemezett futás** kapcsoló + **„Crawl indítása most"** gomb (ugyanazon a
+  vezérlő-úton, mint a gyűjtés);
+- **szigorú mód**, kizárt URL-előtagok/szövegrészek, extra engedélyezett hostok,
+  extra seedek;
+- **legutóbbi futások** részletes számokkal.
+
+### Nincs országra égetve — több országra terjeszthető
+
+Az **országok** mező szabadon szerkeszthető (`HU, AT, SK, CZ`). A crawl csak a
+kiválasztott országok forrásaiból indul, és a felvett új forrás **örökli a seed
+országát**. Semmit nem drótoztunk be Magyarországra.
+
+### Sikeres oldal → automatikusan a gyűjtőbe
+
+Ha egy becrawlolt oldal bizonyítéka eléri a beállított **auto-felvétel
+pontszámot**, magától bekerül a gyűjtőbe (a megfelelő országgal címkézve), és
+onnantól termeljük belőle az eseményeket. Ami gyengébb, az a „Felderített
+források" listára megy emberi döntésre. A küszöb állítható; **101 = soha**.
+
+### Részletes futáseredmények az adatbázisban
+
+Minden crawl **oldalról oldalra naplózódik**: URL, host, mélység, HTTP-státusz,
+kimenetel (letöltve / nem változott / robots-tiltás / near-duplikátum / jelölt /
+auto-felvéve / hiba), szószám, cím, pontszám, ETag, időtartam. Külön run-tábla a
+összesítéssel.
+
+### K7 crawl-gate: conditional GET + perzisztens udvariasság
+
+- **Conditional GET** (ETag / If-Modified-Since → **304**) — élőben bizonyítva:
+  egy 428 KB-os oldal második lekérése **0 bájt**, ha nem változott. Éjszakánként
+  több száz listaoldalnál ez a sávszélesség nagy része.
+- **Perzisztens host-állapot** tábla (utolsó lekérés, késleltetés, backoff), hogy
+  egy újraindulás ne felejtse el az udvariassági korlátot.
+
+Ez a `C:\Work\Smartsearchtool` K4/K7 jegyzeteire és a grepsearch/hercules
+crawler-kódjára épül.
+
+---
+
 ## [1.45.0] — 2026-08-27
 
 ### Valódi crawler: a gyűjtő folyamatosan bővíti a megbízható forráslistát
