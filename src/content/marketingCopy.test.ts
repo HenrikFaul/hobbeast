@@ -78,7 +78,7 @@ describe("marketing copy registry", () => {
 
   it("locks the home H1 accessible name and CTA route contracts", () => {
     expect(HOME_MARKETING_CONTRACT).toMatchObject({
-      hero: { accessibleHeading: "A város tele van közös történetekkel." },
+      hero: { accessibleHeading: "A világ tele van közös történetekkel" },
       cta: {
         primaryAction: { accessibleName: "Ingyenes regisztráció", route: "/auth" },
         secondaryAction: { accessibleName: "Tudj meg többet", route: "/about" },

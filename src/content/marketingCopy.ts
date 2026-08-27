@@ -180,9 +180,9 @@ export function getEligibleMarketingCopy(slot: MarketingCopySlot): readonly Mark
 
 export const HOME_MARKETING_CONTRACT = {
   hero: {
-    accessibleHeading: "A város tele van közös történetekkel.",
-    headingLead: "A város tele van",
-    headingAccent: "közös történetekkel.",
+    accessibleHeading: "A világ tele van közös történetekkel",
+    headingLead: "A világ tele van",
+    headingAccent: "közös történetekkel",
   },
   cta: {
     primaryAction: {

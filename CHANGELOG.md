@@ -12,6 +12,28 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.35.0] - 2026-08-27
+
+### A terkep tobbe nem kerdez API kulcsot
+A CARTO idokozben minden csempere ratette az "API KEY REQUIRED" feliratot -
+ami tolук jogos, de a latogatonak ez csak annyit mond, hogy a terkep torott.
+Az OpenStreetMap sajat csempeire valtottunk: ingyenes, kulcs nelkuli,
+vizjel nelkuli, es cserebe csak nevesitest es merteket ker. A csempepolitikajuk
+korlatozza a tomeges hasznalatot, igy ha a terkep egyszer nagy forgalmat kap,
+ez a sor a felulvizsgalando - fizetos szolgaltatoval, nem azzal, hogy csendben
+jobban ranehezedunk egy onkentes finanszirozasu szolgaltatasra.
+
+### Mottó
+"A varos tele van kozos tortenetekkel." -> "A vilag tele van kozos tortenetekkel"
+
+### A bovitmeny nem toltodott be
+Hianyzott a `manifest.json`-ban hivatkozott ikon, es a `content_script.js` egy
+top-level `return`-nel vegzodott, ami fajlkent injektalva szintaktikai hiba -
+az injektalas csendben elbukott volna. Mindketto javitva, a `config.js` pedig
+a projekt `.env`-jebol kitoltve, igy a bovitmeny betoltes utan azonnal mukodik.
+
+---
+
 ## [1.34.0] - 2026-08-27
 
 **Negy hiba, egy athelyezes es egy bongeszobovitmeny.**

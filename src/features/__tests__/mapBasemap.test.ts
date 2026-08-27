@@ -13,17 +13,18 @@ describe('map basemap', () => {
     expect(SOURCE).not.toContain('prefers-color-scheme');
   });
 
-  it('uses the light Voyager basemap by default', () => {
-    expect(SOURCE).toContain('rastertiles/voyager');
-    // The dark tiles stay available for a future in-app theme…
-    expect(SOURCE).toContain('dark_all');
-    // …but only the `dark` class on <html> may select them.
+  it('serves tiles that need no key and carry no watermark', () => {
+    expect(SOURCE).toContain('tile.openstreetmap.org');
+    // CARTO started stamping "API KEY REQUIRED" across every tile it served.
+    expect(SOURCE).not.toContain('cartocdn.com');
+  });
+
+  it('still lets only the `dark` class on <html> pick a dark basemap', () => {
     expect(SOURCE).toContain("classList.contains('dark')");
   });
 
-  it('credits OpenStreetMap and CARTO, as their terms require', () => {
+  it('credits OpenStreetMap, as their terms require', () => {
     expect(SOURCE).toContain('openstreetmap.org/copyright');
-    expect(SOURCE).toContain('carto.com/attributions');
   });
 });
 

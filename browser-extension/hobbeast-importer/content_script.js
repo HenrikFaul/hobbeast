@@ -108,4 +108,7 @@ function extract() {
   };
 }
 
-return extract();
+// chrome.scripting.executeScript({ files: [...] }) hands back the value of the
+// LAST EXPRESSION in the file. A top-level `return` here is a syntax error and
+// the injection fails silently, so this line must stay a bare expression.
+extract();

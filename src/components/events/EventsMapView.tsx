@@ -103,13 +103,26 @@ function appIsDark() {
   return document.documentElement.classList.contains('dark');
 }
 
-// CARTO Voyager: free, no API key, and it actually looks like a map — parks in
-// green, water in blue, roads and place names legible. Positron (light_all) is
-// so washed out that the county bubbles float over nothing.
+/**
+ * OpenStreetMap's own tiles: free, no key, and no watermark.
+ *
+ * CARTO's basemaps were free when this was written and have since started
+ * stamping "API KEY REQUIRED" across every tile — which is a fair thing for
+ * them to do and a terrible thing to show a visitor. OSM standard tiles look
+ * the part (parks green, water blue, Hungarian place names) and ask only for
+ * attribution and reasonable use in return, which is what the layer below
+ * gives them.
+ *
+ * Their tile policy caps bulk use, so if the map ever gets heavy traffic this
+ * is the line to revisit — with a paid provider, not by quietly leaning
+ * harder on a volunteer-funded service.
+ */
 const TILES = {
-  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  dark: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 };
+
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 /**
  * Marker size scales with the square root of the count: Budapest's 500 programs
@@ -207,7 +220,7 @@ export function EventsMapView() {
     }).fitBounds(HU_BOUNDS);
 
     const tiles = L.tileLayer(appIsDark() ? TILES.dark : TILES.light, {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
     }).addTo(map);
 
