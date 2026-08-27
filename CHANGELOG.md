@@ -12,6 +12,39 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.42.0] — 2026-08-27
+
+### Frissítések: a résztvevő végre megtudja, mi változott
+
+Aki jelentkezett egy programra, az eseményoldalon látja a **hivatalos
+üzeneteket** és a **változásokat** — új időpont, lemondás, lezárás —, időrendben.
+
+A kártya **nem jelenik meg, ha nincs mit mondani**, tehát egy hírmentes esemény
+semmivel nem terheli az oldalt.
+
+### Amit közben találtam
+
+A küldés oldala **teljesen kész volt**: `event_messages`, címzett-tábla,
+`organizer_send_event_message_atomic` idempotencia-kulccsal, és egy bekötött
+„Messages" fül a szervezői felületen.
+
+**Amit küldtek, azt viszont a címzett nem tudta elolvasni.** A címzett-tábla
+egyetlen olvasási policy-je az *operátort* engedi be, a címzettet nem.
+
+Ezért nem a policy-t tágítottam, hanem egy **kurált** adatbázisfüggvényt
+építettem (`my_event_updates`). Ez azért fontos, mert az
+`event_operation_audits.metadata` crew user id-kat, `admin_override` jelzőket és
+belső jegyzeteket tárol — ilyet résztvevő soha nem láthat. Egy rögzített
+vetületű SECURITY DEFINER függvény ezt garantálni tudja, egy RLS policy a nyers
+táblán nem.
+
+**Élő adaton ellenőrizve, mielőtt kiment:** a résztvevő pontosan a kiküldött
+üzenetet és az időpont-változást látta; egy még **ütemezett** üzenet nem jelent
+meg; a crew-módosítás nem jelent meg; a belső metaadat egyetlen mezőbe sem
+szivárgott; aki nem jelentkezett, **nulla sort** kapott.
+
+---
+
 ## [1.41.0] — 2026-08-27
 
 ### Segítők: aki melletted dolgozik az eseményen

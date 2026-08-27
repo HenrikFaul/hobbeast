@@ -26,6 +26,7 @@ import type { ExternalEventNormalized } from '@/lib/external-events/types';
 import { EventExpectationPanel } from '@/components/events/EventExpectationPanel';
 import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard';
 import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
+import { EventUpdatesCard } from '@/components/events/EventUpdatesCard';
 import { resolveLocationPrecision, type ParticipantLifecycleStatus } from '@/lib/eventLifecycle';
 import { ExternalEventSocialIntentCard } from '@/components/events/ExternalEventSocialIntentCard';
 import { SaveAndCalendarActions } from '@/components/events/SaveAndCalendarActions';
@@ -680,6 +681,12 @@ const EventDetail = () => {
               authenticated={Boolean(user)}
               onRequestSignIn={() => navigate(`/auth?redirect=/events/${id}`)}
             />
+          )}
+
+          {/* Renders itself away when there is no news, so an event that has
+              had none costs the page nothing. */}
+          {!isSample && !isExternal && id && (
+            <EventUpdatesCard eventId={id} participating={hasJoined || isOwner} />
           )}
 
           {!isOwner && !isSample && !isExternal && hasJoined && participationStatus !== 'completed' && id && (
