@@ -12,6 +12,50 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.43.0] — 2026-08-27
+
+### A gyűjtő mostantól maga is keres új forrásokat
+
+Eddig **mind a 309 host kézzel került be**. Pedig azok az oldalak, amiket már
+olvasunk, folyamatosan mutatnak kifelé — egy helyszín felsorolja a partnereit,
+egy önkormányzat linkeli a művelődési házat —, és ezek a **legjobban minősített
+nyomok**, amik léteznek: olyan oldalról jönnek, ami már bizonyítottan magyar
+programokat közöl.
+
+**Új: „Felderített források" a Programgyűjtő fülön.** Rangsorolt lista arról,
+mit talált a gyűjtő, **miért ajánlja**, és honnan jött a nyom. Egy kattintás
+felveszi a valódi források közé, egy másik elveti.
+
+**Semmi nem kerül be automatikusan.** A pontozás csak azt dönti el, mi kerül a
+listára — a döntés emberi marad.
+
+### Hogyan viselkedik
+
+- csak olyan forrásból derít fel, ami **abban a futásban eseményt is adott**
+  (bizonyítottan publikál), és futásonként **legfeljebb 8**-ból — egy éjszakai
+  gyűjtés soha nem válhat észrevétlenül crawlolássá (`--discover 0` kikapcsolja);
+- **hostonként egy** jelölt, a programlistának tűnő hivatkozást előnyben
+  részesítve;
+- kihagyja, amit már gyűjtünk, a közösségi oldalakat (amiket a rendszer eleve
+  elutasít), a kosarat, a PDF-et és a többi zsákutcát;
+- **újra látott host nem duplikálódik**: erősödik a pontszáma és az indoklása;
+- amit egyszer elvetettél, **soha nem jön vissza**;
+- a felderítés minden hibáját elnyeli — egy ráadás menet nem törhet el egy
+  gyűjtést.
+
+### Pontozás, ami megindokolja magát
+
+Strukturált események az oldalon, naptárfolyam, dátumsűrűség, az útvonal és a
+hivatkozás szövege — a webshop-jelek pedig **levonnak**. Minden jelölt mellett
+ott áll, mi alapján került oda, hogy vitatkozni lehessen vele.
+
+*(A `E:\Work\Smartsearchtool` mappa a munka közben lecsatolódott. Amit még
+sikerült kiolvasni belőle — frontier queue mélységgel és prioritással,
+seed-root statisztika, relevancia-pontozott oldaltábla —, az beépült ebbe a
+tervbe; a mélyebb bányászat a meghajtó visszacsatolásával folytatható.)*
+
+---
+
 ## [1.42.0] — 2026-08-27
 
 ### Frissítések: a résztvevő végre megtudja, mi változott

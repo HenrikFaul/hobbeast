@@ -15,6 +15,7 @@
 
 import { chromium } from 'playwright';
 import { fetchStatic, robotsAllows } from './src/fetch.mjs';
+import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
@@ -25,6 +26,8 @@ import {
 import { ingestEvents } from './src/ingest.mjs';
 import {
   listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
+  listKnownHosts,
+  recordSourceCandidates,
 } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
@@ -35,6 +38,9 @@ const sourcesPerRun = flag('--sources', 25);
 const detailsPerSource = flag('--details', 40);
 // Manual targeted run from the admin panel: exact source ids, bypassing rotation.
 const onlyIds = strFlag('--only').split(',').map((s) => s.trim()).filter((s) => /^src_[a-f0-9]{8}$/.test(s));
+// How many of this run's sources also get a discovery pass. Capped on purpose:
+// a night's collection must never quietly become a crawl. `--discover 0` off.
+const discoverLimit = flag('--discover', 8);
 const log = (...m) => console.log(...m);
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -57,7 +63,21 @@ async function main() {
 
   // --disable-http2: some sites (eventim.hu) abort Chromium's HTTP/2 handshake.
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-http2'] });
-  const summary = { sources: 0, events: 0, inserted: 0, updated: 0, skipped: 0, duplicates: 0, failed: 0 };
+  const summary = { sources: 0, events: 0, inserted: 0, updated: 0, skipped: 0, duplicates: 0, failed: 0, discovered: 0 };
+
+  /**
+   * Source discovery: the pages we already read link outward, and those links
+   * are the best-qualified leads there are.
+   *
+   * Kept strictly separate from collection. It only looks at sources that just
+   * produced events (a proven publisher), it is capped per run so a night's
+   * work never turns into a crawl, and every failure is swallowed — a bonus
+   * pass must never be able to break a collection run.
+   */
+  const knownHosts = discoverLimit > 0
+    ? await listKnownHosts({ supabaseUrl, serviceRoleKey }).catch(() => new Set())
+    : new Set();
+  let discoveryBudget = discoverLimit;
   try {
     for (const source of targets) {
       const t0 = Date.now();
@@ -122,6 +142,40 @@ async function main() {
         }).catch(() => {});
       }
 
+      if (discoveryBudget > 0 && events.length > 0 && listing) {
+        discoveryBudget -= 1;
+        try {
+          const { body } = await guardedFetch(listing);
+          const leads = harvestLinks(body, listing, { knownHosts, limit: 15 })
+            .map((lead) => {
+              const scored = scoreCandidate({ url: lead.url, linkText: lead.linkText ?? '' });
+              return { ...lead, ...scored };
+            })
+            .filter(isWorthReviewing)
+            .map((lead) => ({
+              host: lead.host,
+              url: lead.url,
+              link_text: lead.linkText,
+              score: lead.score,
+              reasons: lead.reasons,
+              signals: lead.signals,
+              depth: 1,
+              discovered_from_source_id: source.source_id,
+              discovered_from_url: listing,
+            }));
+
+          if (leads.length && !dryRun) {
+            const written = await recordSourceCandidates({ supabaseUrl, serviceRoleKey, candidates: leads });
+            summary.discovered += written;
+            // Do not suggest the same host twice in one run.
+            for (const lead of leads) knownHosts.add(lead.host);
+            if (written) log(`  ${label}: ${written} lehetseges uj forras`);
+          }
+        } catch (e) {
+          log(`  ${label}: discovery skipped (${e.message.slice(0, 80)})`);
+        }
+      }
+
       summary.sources += 1;
       summary.events += events.length;
       summary.inserted += totals.inserted || 0;
@@ -136,7 +190,8 @@ async function main() {
 
   log(`RUN SUMMARY: ${summary.sources} sources, ${summary.events} events extracted, `
     + `+${summary.inserted} inserted, ~${summary.updated} updated, ${summary.duplicates} cross-source duplicates skipped, `
-    + `${summary.skipped} quality-skipped, ${summary.failed} failed (${Math.round((Date.now() - started) / 1000)}s)`);
+    + `${summary.skipped} quality-skipped, ${summary.failed} failed, `
+    + `${summary.discovered} new source leads (${Math.round((Date.now() - started) / 1000)}s)`);
 }
 
 main().catch((e) => { console.error('FATAL', e); process.exit(1); });

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AdminScraperSchedules } from '@/components/admin/AdminScraperSchedules';
 import { AdminSourceSubmissions } from '@/components/admin/AdminSourceSubmissions';
 import { SourceInspector } from '@/features/sources/SourceInspector';
+import { AdminSourceDiscovery } from '@/components/admin/AdminSourceDiscovery';
 
 interface ScraperDestination {
   source_id: string;
@@ -190,6 +191,8 @@ export function AdminScraper() {
           <RefreshCw className="mr-1 h-4 w-4" /> Frissítés
         </Button>
       </div>
+
+      <AdminSourceDiscovery />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[

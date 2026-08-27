@@ -44,3 +44,44 @@ export async function logScraperRun({ supabaseUrl, serviceRoleKey, sourceId, dis
   });
   if (!res.ok) console.warn(`log_scraper_run ${sourceId} failed: ${res.status}`);
 }
+
+/**
+ * The hosts the collector already knows, so discovery never suggests one of
+ * them. Read once per run rather than per source.
+ */
+export async function listKnownHosts({ supabaseUrl, serviceRoleKey }) {
+  const res = await fetch(`${supabaseUrl}/rest/v1/external_event_feed_sources?select=endpoint_url`, {
+    headers: headers(serviceRoleKey),
+  });
+  if (!res.ok) return new Set();
+  const rows = await res.json();
+  const hosts = new Set();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    try {
+      hosts.add(new URL(row.endpoint_url).hostname.replace(/^www\./i, '').toLowerCase());
+    } catch { /* a malformed endpoint simply teaches us nothing */ }
+  }
+  return hosts;
+}
+
+/**
+ * Files discovered leads. Never throws: discovery is a bonus pass, and it must
+ * not be able to fail a collection run.
+ */
+export async function recordSourceCandidates({ supabaseUrl, serviceRoleKey, candidates }) {
+  if (!candidates?.length) return 0;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/record_source_candidates`, {
+      method: 'POST', headers: headers(serviceRoleKey),
+      body: JSON.stringify({ p_candidates: candidates }),
+    });
+    if (!res.ok) {
+      console.warn(`record_source_candidates failed: ${res.status}`);
+      return 0;
+    }
+    return Number(await res.json()) || 0;
+  } catch (error) {
+    console.warn(`record_source_candidates threw: ${error.message}`);
+    return 0;
+  }
+}
