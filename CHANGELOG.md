@@ -12,6 +12,44 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.33.0] — 2026-08-27
+
+**Program egy bejegyzésből — amit elolvastál, továbbadhatod.**
+
+### A Facebookot nem gyűjtjük, és nem is fogjuk
+Kijelentkezve a platform semmit nem ad ki ezekből a posztokból; saját fiókkal
+lekérni pedig a szabályzatába ütközik, és a fiók tiltását kockáztatja. A
+forrásvarázsló eddig is felismerte a közösségi linket és visszautasította —
+ez nem változott.
+
+### Amit viszont meg lehet csinálni
+Amit elolvastál, azt továbbadhatod. Az új **admin → Bejegyzésből** fülön
+bemásolod a poszt szövegét, és ugyanúgy kiolvassuk belőle az adatokat, ahogy a
+gyűjtő olvas egy oldalt: dátum, időpont-intervallum, helyszín, cím, ár,
+regisztráció, link, telefonszám. Az űrlapot **átnézed**, mielőtt mented —
+automatikusan semmi nem kerül ki. A sor `external_source = 'manual'` jelzéssel
+megy be, így örökre megkülönböztethető a gyűjtött kínálattól.
+
+Két őr azért van, mert a katalógus saját láthatósági kapuja egyébként elfogadná
+a sort, aztán soha nem mutatná: a dátumnak jövőbelinek, a linknek `https`-nek
+kell lennie.
+
+### Tizenkét valódi poszt, egy valódi hiba
+A formátumok nem kitaláltak, hanem tizenkét beküldött bejegyzésből származnak —
+és az egyik talált egy hibát: a `2026.08.30. 18:00` **08:30-ként** olvasódott,
+mert a dátum saját `08.30`-a tökéletesen elmegy fél kilencnek. A dátumok
+mostantól kitörlődnek a szövegből, mielőtt órát keresünk benne.
+
+- A heti sorozatot **jelezzük, nem lapítjuk el**: a „Péntekenként 15:00–17:30"
+  klub, nem egy este.
+- Amit a poszt nem mond ki, azt **hiányként írjuk ki**, nem találjuk ki.
+
+### Ami magától is jön
+A `sorfesztival.hu` felkerült rendes gyűjtőforrásként — az elemző megtalálja
+rajta a fesztivált, így annak a posztnak a programja már magától érkezik.
+
+---
+
 ## [1.32.0] — 2026-08-27
 
 **Minden közösség, nem csak a sport — és folyamatosan frissen tartva.**

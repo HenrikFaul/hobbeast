@@ -694,3 +694,51 @@ dispatch-ot küld a vaultból olvasott tokennel) már bizonyított — a
 `club_refresh_schedules` szó szerint ezt másolja.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🚫 Közösségi oldalt NEM gyűjtünk — de a szöveget be lehet másolni (2026-08-27)
+
+**Tény:** Facebook/Instagram oldal posztjait kijelentkezve nem lehet lekérni (a
+platform semmit nem ad ki), saját felhasználói fiókkal lekérni pedig a
+szabályzatba ütközik és a fiók tiltását kockáztatja. A `recipes.mjs` `social`
+receptje ezért `unsupported: true`, és az `inspectSource` a közösségi URL-re
+figyelmeztetéssel válaszol, nem jelölttel.
+
+**A helyes út HÁROM lépcsős, ebben a sorrendben:**
+1. **A szervező saját oldala.** A posztok többsége hivatkozik rá
+   (`sorfesztival.hu`, `chillislandclub.hu`, `foglalas.kvizestek.hu`). Ezt a
+   forrásvarázslóval fel lehet venni — a `sorfesztival.hu`-t az elemző elsőre
+   megtalálta `page-prose`-zal.
+2. **Bejegyzés bemásolása** (`src/features/events/socialPostParser.ts` +
+   admin → Bejegyzésből): amit az operátor jogszerűen elolvasott, azt
+   továbbadhatja. Kézzel ellenőrzött, `external_source = 'manual'`.
+3. **Kézi felvétel**, ha egyik sem megy.
+
+**Amit soha:** felhasználói fiókkal scrape-elni a platformot.
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🕐 Dátumból ne olvass órát (2026-08-27)
+
+**Hiba:** a `2026.08.30. 18:00` szövegből a `08.30` lett a kezdési idő
+(08:30-ként), mert a `[:.]` szeparátoros óraminta ráillett a dátumra is.
+
+**Szabály:** időpont keresése ELŐTT törölni kell a szövegből a dátummintákat:
+
+```js
+const withoutDates = text
+  .replace(/20\d{2}[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2}\.?/g, ' ')
+  .replace(/\b20\d{2}\b/g, ' ');
+```
+
+Ez a második ilyen eset ebben a projektben (az első az ISO offset `+02:00`
+órának olvasása volt v1.27.0 előtt). Ahol dátum és idő egy sorban van, ott a
+dátum elsőbbséget élvez.
+
+**Ellenőrzés:** `src/features/__tests__/socialPostParser.test.ts` — mind a 10
+teszt valódi, beküldött bejegyzésből származik.
+
+*Utoljára frissítve: 2026-08-27*
