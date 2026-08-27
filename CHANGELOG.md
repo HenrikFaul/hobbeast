@@ -12,6 +12,31 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.38.1] - 2026-08-27
+
+### A gomb azert nem csinalt semmit, mert a popup.js nem forditodott le
+Egy szerkesztesi lepes a `'\n'`-bol **valodi sortorest** csinalt egy
+karakterlancban, es az igy keletkezett fajl **nem parse-olhato**. A Chrome
+csendben betolti, a modul viszont el sem indul - tehat a gondosan felepitett
+"mindig latszik egy kepernyo" logikabol egyetlen sor sem futott le. A popup
+orokre a "Oldal beolvasasa..." feliraton allt.
+
+Ez az en hibam volt: a szerkesztes utan nem ellenoriztem le a fajlt.
+
+### Ez tobbe nem jut el a felhasznaloig
+A bovitmenymappat semmi nem ellenorizte - nincs build, nincs lint, nincs
+typecheck, egyenesen a Chrome tolti be. Mostantol a teszteles kiterjed ra:
+
+- minden `.js` fajl **ugyanazzal a parserrel**, amivel a Chrome is olvassa,
+- a `popup.js` minden `$('id')` hivatkozasa **letezik-e** a `popup.html`-ben
+  (egy hianyzo id ugyanugy megoli a popupot, mint egy szintaktikai hiba),
+- a manifest betoltheto, es a hivatkozott fajlok leteznek,
+- nincs API-kulcs a mappaban.
+
+A guardot visszaellenorizve: a hibat visszatéve **elbukik**.
+
+---
+
 ## [1.38.0] - 2026-08-27
 
 ### A parser most tenyleg olvas

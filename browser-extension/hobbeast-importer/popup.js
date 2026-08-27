@@ -95,8 +95,7 @@ function payloadFor(page) {
   if (page.organizer) lines.push('Szervező: ' + page.organizer);
   if (page.description) lines.push('', page.description);
 
-  return { ...extras, text: lines.join('
-'), organizer: page.organizer || page.publisher || null };
+  return { ...extras, text: lines.join('\n'), organizer: page.organizer || page.publisher || null };
 }
 
 let pending = null;

@@ -873,3 +873,32 @@ nem összetett mondat).
 **Ellenőrzés:** `src/features/__tests__/socialPostParserFields.test.ts`.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🔇 Nem ellenőrzött fájl = néma hiba a felhasználónál (2026-08-27)
+
+**Hiba:** a `popup.js`-be egy szerkesztés valódi sortörést tett egy string
+literálba → a fájl **nem parse-olható** → a Chrome csendben betölti, a modul el
+sem indul → a gomb **nem csinál semmit**, hibaüzenet nélkül. A felhasználó
+többször újratöltötte a bővítményt, mire kiderült.
+
+**Szabály:** minden szerkesztett fájlt ellenőrizz le a saját eszközével,
+MÉG akkor is, ha „csak egy sort" írtál át:
+
+```bash
+node --check <fajl.js>
+```
+
+Ha egy mappát semmilyen pipeline nem érint (nincs build/lint/typecheck —
+tipikusan böngészőbővítmény, statikus asset), akkor **tesztet kell írni rá**,
+különben a felhasználó a CI.
+
+**Ellenőrzés:** `src/features/__tests__/extensionSyntax.test.ts` — parse-olja
+minden `.js`-t, és nézi, hogy a `$('id')` hivatkozások léteznek-e a HTML-ben.
+A guardot vissza kell ellenőrizni: tedd vissza a hibát, és bukjon el.
+
+**Kapcsolódó:** a bash heredoc és a Python `\n` együtt többször is elrontotta
+ugyanezt a fájlt — regexet vagy escape-et tartalmazó fájlt Write-tal írj.
+
+*Utoljára frissítve: 2026-08-27*
