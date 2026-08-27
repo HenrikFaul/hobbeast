@@ -43,11 +43,12 @@ Deno.serve(async (req) => {
       if (vaultError || !token) return jsonResponse({ error: { code: 'DISPATCH_TOKEN_MISSING' }, request_id: requestId }, 503);
 
       const inputs: Record<string, string> = ids.length ? { only: ids.join(',') } : {};
-      // A manual "run crawl now" from the admin crawler panel turns on the deep
-      // source-discovery pass for this one dispatch; the budget still comes from
-      // the crawl_config row unless the operator overrides it here.
+      // A manual "run crawl now" from the admin crawler panel runs ONLY the
+      // crawl, skipping the long collection loop, so it starts recording pages
+      // within seconds. The budget still comes from the crawl_config row unless
+      // the operator overrides it here.
       if (body.crawl === true) {
-        inputs.crawl = 'true';
+        inputs.crawl_only = 'true';
         const pages = Number(body.crawl_pages);
         if (Number.isFinite(pages) && pages > 0) inputs.crawl_pages = String(Math.min(2000, Math.trunc(pages)));
       }

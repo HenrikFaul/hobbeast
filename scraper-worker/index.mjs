@@ -29,7 +29,7 @@ import {
   listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
   listKnownHosts, recordSourceCandidates,
   getCrawlConfig, listCrawlSeeds, recordCrawlRunStart, recordCrawlRunFinish,
-  recordCrawlPages, autoPromoteCrawledSource, getUrlValidators,
+  recordCrawlPages, recordCrawlRunProgress, autoPromoteCrawledSource, getUrlValidators,
 } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
@@ -46,7 +46,9 @@ const discoverLimit = flag('--discover', 8);
 // The deep frontier crawl is driven by the editable crawl_config row, so the
 // operator tunes it live. `--crawl` forces it on for an ad-hoc run even when
 // the stored config is disabled; `--crawl-pages N` overrides the page budget.
-const forceCrawl = args.includes('--crawl');
+const forceCrawl = args.includes('--crawl') || args.includes('--crawl-only');
+// Crawl-only skips collection entirely — the fast path the admin button uses.
+const crawlOnly = args.includes('--crawl-only');
 const crawlPagesOverride = flag('--crawl-pages', 0);
 const crawlTrigger = strFlag('--crawl-trigger') || (forceCrawl ? 'manual' : 'scheduled');
 const log = (...m) => console.log(...m);
@@ -107,10 +109,35 @@ async function runCrawlPass({ provenSeeds, summary }) {
     seedCount: seeds.length,
   });
 
+  log(`CRAWL: run ${runId ?? '(dry)'} — ${seeds.length} seed, depth ${config.max_depth}, budget ${maxPages}`);
+
   const knownHosts = await listKnownHosts(ctx).catch(() => new Set());
-  const pageRows = [];
   const lastFetchByHost = new Map();
   let notModified = 0;
+  let fetched = 0;
+  let candidatesSoFar = 0;
+  let nearDupSoFar = 0;
+  let errorsSoFar = 0;
+
+  // Pages stream to the database as they are crawled, not all at the end, so
+  // the admin panel sees them appear live rather than staring at nothing for
+  // the whole run. A small buffer is flushed on a timer.
+  const buffer = [];
+  let flushing = false;
+  const flush = async () => {
+    if (flushing || (!buffer.length && !runId)) return;
+    flushing = true;
+    const batch = buffer.splice(0, buffer.length);
+    try {
+      if (batch.length) await recordCrawlPages(ctx, runId, batch);
+      await recordCrawlRunProgress(ctx, runId, {
+        pages_fetched: fetched, pages_not_modified: notModified,
+        hosts_seen: lastFetchByHost.size, candidates_found: candidatesSoFar,
+        near_duplicates_skipped: nearDupSoFar, errors: errorsSoFar,
+      });
+    } catch { /* a flush must never break the crawl */ } finally { flushing = false; }
+  };
+  const flushTimer = dryRun ? null : setInterval(() => { void flush(); }, 2500);
 
   const started = Date.now();
   try {
@@ -138,9 +165,14 @@ async function runCrawlPass({ provenSeeds, summary }) {
       },
       onPage: (row) => {
         if (row.outcome === 'not_modified') notModified += 1;
-        pageRows.push(row);
+        if (row.outcome === 'fetched') fetched += 1;
+        if (row.outcome === 'near_duplicate') nearDupSoFar += 1;
+        if (row.outcome === 'error') errorsSoFar += 1;
+        if (row.score != null && row.outcome === 'fetched') candidatesSoFar += 1;
+        buffer.push(row);
       },
     });
+    if (flushTimer) clearInterval(flushTimer);
 
     // Auto-promote the strong ones; the rest go to the review frontier.
     const threshold = config.auto_promote_min_score;
@@ -155,7 +187,7 @@ async function runCrawlPass({ provenSeeds, summary }) {
         });
         if (id) {
           autoPromoted += 1;
-          pageRows.push({ url: candidate.url, host: candidate.host, depth: candidate.depth,
+          buffer.push({ url: candidate.url, host: candidate.host, depth: candidate.depth,
             outcome: 'auto_promoted', score: candidate.score, candidate_host: candidate.host,
             discovered_from_url: candidate.discovered_from_url, content_simhash: candidate.content_simhash });
           continue;
@@ -168,26 +200,42 @@ async function runCrawlPass({ provenSeeds, summary }) {
       summary.discovered += await recordSourceCandidates({ ...ctx, candidates: toReview });
     }
     if (!dryRun) {
-      await recordCrawlPages(ctx, runId, pageRows);
+      await flush(); // the remaining buffered pages
       await recordCrawlRunFinish(ctx, runId, {
         status: 'succeeded',
         stats: { pages_fetched: result.pagesFetched, pages_not_modified: notModified,
           hosts_seen: result.hostsSeen, candidates_found: result.candidates.length,
           auto_promoted: autoPromoted, near_duplicates_skipped: result.nearDuplicatesSkipped,
-          errors: pageRows.filter((r) => r.outcome === 'error').length, duration_ms: Date.now() - started },
+          errors: errorsSoFar, duration_ms: Date.now() - started },
       });
     }
     log(`CRAWL: ${result.pagesFetched} pages (${notModified} unchanged), ${result.hostsSeen} hosts, `
       + `${result.nearDuplicatesSkipped} near-dup, ${result.candidates.length} candidates, ${autoPromoted} auto-promoted`);
   } catch (e) {
+    if (flushTimer) clearInterval(flushTimer);
     log(`CRAWL: failed (${e.message.slice(0, 120)})`);
-    if (!dryRun) await recordCrawlRunFinish(ctx, runId, { status: 'failed', stats: { duration_ms: Date.now() - started }, error: e.message.slice(0, 400) });
+    if (!dryRun) {
+      await flush().catch(() => {});
+      await recordCrawlRunFinish(ctx, runId, { status: 'failed', stats: { duration_ms: Date.now() - started }, error: e.message.slice(0, 400) });
+    }
   }
 }
 
 async function main() {
   if (!supabaseUrl || !serviceRoleKey) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required');
   const started = Date.now();
+
+  // Crawl-only: the manual "run crawl now" button. Skip the whole collection
+  // loop and the Playwright launch — the crawl uses a plain fetch — so it
+  // starts recording pages within seconds instead of after a 40-source scrape.
+  if (crawlOnly) {
+    log('Hobbeast crawl-only run');
+    const summary = { discovered: 0 };
+    await runCrawlPass({ provenSeeds: [], summary });
+    log(`CRAWL-ONLY done (${Math.round((Date.now() - started) / 1000)}s, +${summary.discovered} leads)`);
+    return;
+  }
+
   log(`Hobbeast scraper v2 (dryRun=${dryRun}, sources=${sourcesPerRun}, details=${detailsPerSource})`);
 
   const targets = onlyIds.length

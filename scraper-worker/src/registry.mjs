@@ -177,3 +177,9 @@ export async function getUrlValidators({ supabaseUrl, serviceRoleKey }, url) {
     return Array.isArray(rows) && rows.length ? { etag: rows[0].etag, lastModified: rows[0].last_modified } : {};
   } catch { return {}; }
 }
+
+export async function recordCrawlRunProgress(ctx, runId, stats) {
+  if (!runId) return;
+  try { await rpc('record_crawl_run_progress', { p_run_id: runId, p_stats: stats }, ctx); }
+  catch (e) { console.warn(`record_crawl_run_progress: ${e.message}`); }
+}

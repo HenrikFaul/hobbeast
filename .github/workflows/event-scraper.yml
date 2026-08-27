@@ -25,13 +25,19 @@ on:
         description: 'Run the deep source-discovery crawl after collection (true/false)'
         required: false
         default: 'false'
+      crawl_only:
+        description: 'Run ONLY the crawl, skipping collection — the fast manual path (true/false)'
+        required: false
+        default: 'false'
       crawl_pages:
         description: 'Override the crawl page budget for this run (0 = use config)'
         required: false
         default: '0'
 
 concurrency:
-  group: event-scraper
+  # A crawl-only run gets its own lane, so a manual crawl is not stuck queued
+  # behind a long scheduled scrape (they touch different tables anyway).
+  group: event-scraper-${{ github.event.inputs.crawl_only == 'true' && 'crawl' || 'scrape' }}
   cancel-in-progress: false
 
 jobs:
@@ -63,5 +69,5 @@ jobs:
           --sources ${{ github.event.inputs.sources || '40' }}
           --details ${{ github.event.inputs.details || '40' }}
           --only "${{ github.event.inputs.only || '' }}"
-          ${{ github.event.inputs.crawl == 'true' && '--crawl' || '' }}
+          ${{ github.event.inputs.crawl_only == 'true' && '--crawl-only' || (github.event.inputs.crawl == 'true' && '--crawl' || '') }}
           --crawl-pages ${{ github.event.inputs.crawl_pages || '0' }}
