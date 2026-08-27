@@ -28,6 +28,107 @@ const DEAD_END_PATH = /(\/wp-(admin|login|json|content\/uploads)|\/(kosar|cart|c
 /** Hosts that are never a source of their own: aggregators and infrastructure. */
 const IGNORED_HOST = /(^|\.)(google\.|googleapis\.|gstatic\.|facebook\.|fbcdn\.|instagram\.|twitter\.|x\.com|linkedin\.|youtube\.|youtu\.be|tiktok\.|pinterest\.|w3\.org|schema\.org|gravatar\.|wordpress\.org|cloudflare\.|jsdelivr\.|unpkg\.|paypal\.|maps\.)/i;
 
+/**
+ * Query parameters that never change what a page says.
+ *
+ * Taken from the crawl notes in C:\Work\Smartsearchtool (K4 — "clean-params"):
+ * tracking, session and view-state parameters are excluded from both the index
+ * and frontier expansion. Without this the same listing arrives as a dozen
+ * different candidates.
+ */
+const TRACKING_PARAM = /^(utm_|fbclid|gclid|msclkid|mc_[ce]id|_ga|_gl|yclid|igshid|ref|referrer|source|fb_action|campaign|piwik_|pk_|hsa_|s_kwcid|trk|spm)/i;
+
+/** Parameters whose value is a session or a nonce — infinite by nature. */
+const SESSION_PARAM = /^(sid|sessionid|session_id|phpsessid|jsessionid|token|nonce|csrf|_token)$/i;
+
+/**
+ * The traps K4 names, in the order they actually bite an events crawler.
+ *
+ * A calendar is the worst of them here: an events site will happily generate
+ * `?date=2031-07-04` for ever, and each one looks like a fresh listing. Left
+ * unguarded, one municipal calendar would fill the whole frontier.
+ */
+function isCrawlTrap(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+
+  const params = [...parsed.searchParams.keys()].map((key) => key.toLowerCase());
+
+  // Calendar navigation: a bottomless supply of URLs.
+  if (params.some((key) => /^(date|day|month|year|week|from|to|start|end|ev_[a-z]+|eventdate)$/.test(key))) return true;
+  if (/\/(19|20)\d{2}\/\d{1,2}(\/\d{1,2})?\/?$/.test(parsed.pathname)) return true;
+
+  // Internal search results are not a source; they are a query.
+  if (params.some((key) => /^(q|s|search|keyword|query|kereses)$/.test(key))) return true;
+  if (/\/(search|kereses|talalatok)\b/.test(parsed.pathname)) return true;
+
+  if (params.some((key) => SESSION_PARAM.test(key))) return true;
+
+  // Parameter explosion: a faceted filter combining itself.
+  if (params.length > 6) return true;
+
+  // Deep pagination is the same listing further down.
+  const page = parsed.searchParams.get('page') ?? parsed.searchParams.get('oldal');
+  if (page && Number(page) > 3) return true;
+
+  // A repeated path token means the site is generating URLs from itself.
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  if (segments.length > 8) return true;
+  const seen = new Set();
+  for (const segment of segments) {
+    if (seen.has(segment)) return true;
+    seen.add(segment);
+  }
+
+  return false;
+}
+
+/**
+ * One address for one page.
+ *
+ * K4's canonicalization rules: strip tracking parameters, sort what remains,
+ * and fold the differences that never mean anything — scheme, `www.`, a
+ * trailing slash. Two links to the same listing must become one candidate.
+ */
+export function canonicalizeCandidateUrl(input) {
+  const raw = String(input ?? '').trim();
+  // A scheme that is not the web is not a candidate. Without this check
+  // "mailto:a@b.hu" acquires an https:// prefix and parses into nonsense,
+  // because it has no "//" for the normaliser to recognise.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:\/\//i.test(raw)) return null;
+
+  const normalized = normalizeSourceUrl(raw);
+  if (!normalized) return null;
+  try {
+    const url = new URL(normalized);
+    // A host with no dot is a local name, not a site on the web.
+    if (!url.hostname.includes('.')) return null;
+    url.protocol = 'https:';
+    url.hostname = url.hostname.replace(/^www\./i, '').toLowerCase();
+    url.username = '';
+    url.password = '';
+    url.hash = '';
+
+    const kept = [...url.searchParams.entries()]
+      .filter(([key]) => !TRACKING_PARAM.test(key) && !SESSION_PARAM.test(key))
+      .sort(([a], [b]) => a.localeCompare(b));
+    url.search = '';
+    for (const [key, value] of kept) url.searchParams.append(key, value);
+
+    // A trailing slash on a path means nothing; on the root it is the norm.
+    if (url.pathname.length > 1 && url.pathname.endsWith('/')) {
+      url.pathname = url.pathname.replace(/\/+$/, '');
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 /** A link's own words, cleaned of markup. */
 function linkText(anchorHtml) {
   return stripTags(String(anchorHtml || '')).slice(0, 120).trim();
@@ -76,6 +177,13 @@ export function harvestLinks(html, pageUrl, { knownHosts = [], limit = 40 } = {}
     const path = foldHu(new URL(resolved).pathname + new URL(resolved).search);
     if (DEAD_END_PATH.test(path)) continue;
 
+    // A calendar, an internal search or a faceted filter is a bottomless
+    // supply of URLs, not a source. K4 calls these frontier guards.
+    if (isCrawlTrap(resolved)) continue;
+
+    const canonical = canonicalizeCandidateUrl(resolved);
+    if (!canonical) continue;
+
     const text = linkText(match[2]);
     const folded = foldHu(text);
 
@@ -86,7 +194,7 @@ export function harvestLinks(html, pageUrl, { knownHosts = [], limit = 40 } = {}
     if (existing && !(looksLikeListing && !existing.looksLikeListing)) continue;
 
     seen.set(host, {
-      url: normalizeSourceUrl(resolved) || resolved,
+      url: canonical,
       host,
       linkText: text || null,
       looksLikeListing,

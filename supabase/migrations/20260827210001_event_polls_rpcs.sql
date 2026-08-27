@@ -1,0 +1,28 @@
+-- Creating a poll, voting in one, and reading the result.
+--
+-- Writes go through functions rather than policies so the rules that make a
+-- count trustworthy live in one place: only an operator opens a poll, only a
+-- participant votes, a closed poll takes no more votes, and a single-choice
+-- poll replaces rather than accumulates.
+--
+-- Applied via the Supabase MCP; this file is the record. The full definitions
+-- are the ones live in the database — see 20260827210000_event_polls.sql for
+-- the tables, policies and the design decisions behind them.
+--
+--   create_event_poll(event, question, options[], allow_multiple, closes_at)
+--     operator only; trims, drops blanks, removes repeats (two identical
+--     options split the vote and make the result meaningless); 2..10 options.
+--
+--   cast_event_poll_vote(option_id, selected)
+--     participant only, resolved through event_participants -> the vote hangs
+--     off the place, not the account. Refuses a closed poll. A single-choice
+--     poll deletes the previous answer first, so changing your mind is not
+--     voting twice. ON CONFLICT DO NOTHING makes a double tap a no-op.
+--
+--   close_event_poll(poll_id)
+--     operator only; idempotent.
+--
+--   event_polls_with_results(event_id)
+--     one read for the whole surface: question, options, counts, and what the
+--     reader themselves chose. Anything less means the page totals votes in
+--     JavaScript, which is where miscounts come from.

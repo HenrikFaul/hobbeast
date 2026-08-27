@@ -12,6 +12,57 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.44.0] — 2026-08-27
+
+### Közös döntés: szavazás az eseményoldalon
+
+A képességtérkép **egyetlen valódi zöldmezője** — nem volt poll, vote vagy
+ballot tábla sehol a sémában. Pedig a csoportok folyton döntenek valamiről
+(melyik nap, melyik hely), csak eddig egy kommentfolyamban tették, amit senki
+nem tudott összeszámolni.
+
+A kártya **csendes**: ha nincs szavazás és nincs jogod indítani, meg sem
+jelenik. A szervező egyetlen gombot lát, amíg nem használja.
+
+### Négy döntés, ami mindegyik egy rosszabb változatot zár ki
+
+- **A szavazat a részvételhez tartozik, nem a fiókhoz.** Aki sosem
+  jelentkezett, annak nincs hangja; aki kilép, a szavazatát is viszi. Ettől
+  jelent valamit a végeredmény.
+- **Egy sor (opció, szavazó) párosonként**, adatbázis-megkötéssel — dupla
+  koppintással nem lehet urnát tömni.
+- **Egyválaszos szavazásnál a véleményváltás cserél, nem hozzáad** — így a
+  meggondolás nem ugyanaz, mint a kétszeri szavazás.
+- **Az eredményt mindenki látja, aki szavazhat.** Az a szavazás, aminek a
+  végeredményét csak a szervező látja, valójában közvélemény-kutatás.
+
+A számokat **egyetlen adatbázis-olvasás** adja vissza — az oldal soha nem
+összegez JavaScriptben, mert a téves számolás onnan szokott jönni.
+
+**Élőben bizonyítva:** duplikált és üres válaszok összevonva, dupla koppintás
+**1 szavazat**, véleményváltás **cserél**, kívülálló elutasítva
+(`PARTICIPATION_REQUIRED`) és **0 szavazást lát**, résztvevő látja az összesítést
+és a saját választását.
+
+### A felderítő okosabb lett — a `C:\Work\Smartsearchtool` tudásából
+
+A `K4 — Crawl · extract · dedup` jegyzet két konkrét dolgot adott hozzá:
+
+**Kanonizálás.** A követőparaméterek (`utm_*`, `fbclid`, session-azonosítók)
+leválnak, a maradék rendezetten áll, és a séma, a `www.` meg a záró perjel
+összeolvad. Ugyanaz a lista így **egy** jelölt lesz, nem tucatnyi.
+
+**Frontier-őrök.** A K4 által megnevezett csapdák — és eseménygyűjtőnél a
+naptár a legrosszabb: egy `?date=2031-07-04` a végtelenségig gyártja magát, és
+mindegyik friss listának látszik. Egyetlen önkormányzati naptár betöltené az
+egész frontiert. Kiszűrve a naptárnavigáció, a belső keresés, a session-URL,
+a szétrobbant szűrőkombináció, a mély lapozás és az önmagát ismétlő útvonal.
+
+Közben egy valódi hibát is találtam: a `mailto:` cím `https://mailto:a@b.hu`
+alakú értelmetlenséggé alakult, mert nincs benne `//`. Javítva.
+
+---
+
 ## [1.43.0] — 2026-08-27
 
 ### A gyűjtő mostantól maga is keres új forrásokat

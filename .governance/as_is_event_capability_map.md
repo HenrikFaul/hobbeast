@@ -94,7 +94,7 @@ Nincs meglévő, biztonságosan bővíthető megoldás.
 | --- | --- |
 | **B2B API / webhook / widget** (§12, §31) | Nincs publikus API-felület, nincs OpenAPI, nincs webhook-infrastruktúra, nincs idempotency-key kezelés. Zöldmezős. |
 | **Participant Event Pass** (§27) | Nincs személyes, offline-biztos csomag. A `saved_events` és a `notifications` nem ez. |
-| **Poll / Decision OS** (§6, §29) | **Nulla poll/vote/ballot tábla** az egész sémában (lekérdezéssel ellenőrizve). A `circle_suggestions` közelít, de nem szavazás. Zöldmezős. |
+| ~~**Poll / Decision OS**~~ (§6, §29) | ✅ **Megépítve 2026-08-27** (v1.44.0): `event_polls`, `event_poll_options`, `event_poll_votes`. A szavazat a **részvételhez** kötött, nem a fiókhoz. |
 | **QR check-in 2.0** (§10.1) | `check_in_audit` van, QR-token életciklus nincs. |
 | **Live Event Console** (§10.2, §30) | Nincs day-of, kivételközpontú nézet. |
 | **Universal Event Intake** (§23) | Részben megvan: a bővítmény + `socialPostParser` ezt a rést tölti, de csak Facebookra. |
@@ -107,6 +107,9 @@ Nincs meglévő, biztonságosan bővíthető megoldás.
 | --- | --- | --- |
 | 2026-08-27 | Megosztás — Facebook, Messenger, WhatsApp (v1.40.0) | nem |
 | 2026-08-27 | Crew-szerepek felülete (v1.41.0) | **nem** |
+| 2026-08-27 | Résztvevői frissítések + „mi változott?" (v1.42.0) | igen (1 kurált RPC) |
+| 2026-08-27 | Folyamatos forrásfelderítés (v1.43.0) | igen (frontier tábla) |
+| 2026-08-27 | Szavazás / Decision OS (v1.44.0) | igen (3 tábla) |
 
 ---
 

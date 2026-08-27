@@ -27,6 +27,7 @@ import { EventExpectationPanel } from '@/components/events/EventExpectationPanel
 import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard';
 import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
 import { EventUpdatesCard } from '@/components/events/EventUpdatesCard';
+import { EventPollsCard } from '@/components/events/EventPollsCard';
 import { resolveLocationPrecision, type ParticipantLifecycleStatus } from '@/lib/eventLifecycle';
 import { ExternalEventSocialIntentCard } from '@/components/events/ExternalEventSocialIntentCard';
 import { SaveAndCalendarActions } from '@/components/events/SaveAndCalendarActions';
@@ -687,6 +688,11 @@ const EventDetail = () => {
               had none costs the page nothing. */}
           {!isSample && !isExternal && id && (
             <EventUpdatesCard eventId={id} participating={hasJoined || isOwner} />
+          )}
+
+          {/* Also self-effacing: no polls and no right to start one means no card. */}
+          {!isSample && !isExternal && id && (
+            <EventPollsCard eventId={id} participating={hasJoined || isOwner} />
           )}
 
           {!isOwner && !isSample && !isExternal && hasJoined && participationStatus !== 'completed' && id && (
