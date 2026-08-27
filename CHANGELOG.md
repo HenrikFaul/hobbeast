@@ -12,6 +12,31 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.41.0] — 2026-08-27
+
+### Segítők: aki melletted dolgozik az eseményen
+
+A szervezői felületen új **Segítők** fül. Megadhatod, ki mit tehet meg helyetted
+egy eseményen — **öt külön jogosultság**, nem egyetlen „segítő" kapcsoló, mert a
+beléptetés és a pénzügyi adatok látása nem ugyanaz a döntés:
+
+**Beléptetés · Üzenetküldés · Szerkesztés · Pénzügy · Moderálás**
+
+Minden módosításhoz **indoklás kell**, és minden módosítás **naplózódik** — így
+később is látszik, ki mit kapott és miért. Bármikor visszavonható.
+
+### Ehhez egyetlen migráció sem kellett
+
+A háttér már készen volt, és soha nem lehetett elérni sehonnan: az
+`event_crew_roles` tábla, **két olvasási RLS policy**, és a
+`manage_event_crew_role_atomic` RPC — idempotencia-kulccsal, audit-bejegyzéssel,
+tulajdonos-ellenőrzéssel és replay-védelemmel.
+
+Helyesbítés a képességtérképhez: az azt állította, „nincs service". Tévedés
+volt — az RPC is megvolt. A térkép javítva.
+
+---
+
 ## [1.40.0] - 2026-08-27
 
 ### Megosztas: Facebook, Messenger, WhatsApp

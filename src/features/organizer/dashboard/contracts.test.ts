@@ -58,6 +58,9 @@ describe('organizer dashboard feature contracts', () => {
       'events:My events',
       'attendees:Attendees',
       'checkin:Check-in',
+      // Added deliberately: the crew table, its policies and its RPC already
+      // existed and had never been reachable from any screen.
+      'crew:Segítők',
       'messages:Messages',
       'analytics:Analytics',
       'sources:Program sources',

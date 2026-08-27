@@ -64,6 +64,15 @@ vi.mock('@/lib/eventLifecycle', () => ({
 
 vi.mock('@/lib/productAnalyticsClient', () => ({ trackProductEvent: vi.fn() }));
 
+// The crew list is a live read; this test is about the dashboard's tab
+// contract, not the network. The real reading path has its own tests.
+vi.mock('@/features/organizer/eventCrew', async () => {
+  const actual = await vi.importActual<typeof import('@/features/organizer/eventCrew')>(
+    '@/features/organizer/eventCrew',
+  );
+  return { ...actual, listEventCrew: vi.fn(async () => []), saveCrewRole: vi.fn() };
+});
+
 vi.mock('@/components/organizer/OrganizerAiProposalInbox', () => ({
   OrganizerAiProposalInbox: () => <div>AI proposal inbox</div>,
 }));
@@ -183,7 +192,7 @@ describe('OrganizerDashboard route characterization', () => {
     container.remove();
   });
 
-  it('keeps the route, event selection and six-tab visual contract', async () => {
+  it('keeps the route, event selection and tab-strip visual contract', async () => {
     await act(async () => {
       root.render(
         <MemoryRouter initialEntries={['/organizer?tab=events']}>
@@ -197,7 +206,9 @@ describe('OrganizerDashboard route characterization', () => {
 
     expect(document.body.textContent).toContain('Organizer mode');
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]')).map((item) => item.textContent)).toEqual([
-      'My events', 'Attendees', 'Check-in', 'Messages', 'Analytics', 'Program sources', 'Settings',
+      // 'Segítők' was added deliberately: the crew table, its read policies
+      // and its RPC all existed already and no screen could reach them.
+      'My events', 'Attendees', 'Check-in', 'Segítők', 'Messages', 'Analytics', 'Program sources', 'Settings',
     ]);
     expect(document.body.textContent).toContain('Duna-parti séta');
     expect(document.body.textContent).toContain('Budapest · 2026-09-01');
@@ -238,6 +249,21 @@ describe('OrganizerDashboard route characterization', () => {
       messageType: 'reminder',
       audienceFilter: 'going',
     }));
+
+    /**
+     * The crew tab, newly reachable. With an event selected it names that
+     * event, explains itself, and offers the five capabilities the table
+     * actually stores — never a single "helper" switch, because letting
+     * somebody check people in is not the same as showing them the money.
+     */
+    await act(async () => activateTab('Segítők'));
+    expect(document.body.textContent).toContain('Segítők — Duna-parti séta');
+    expect(document.body.textContent).toContain('Még nincs segítőd ehhez az eseményhez');
+    for (const capability of ['Beléptetés', 'Üzenetküldés', 'Szerkesztés', 'Pénzügy', 'Moderálás']) {
+      expect(document.body.textContent).toContain(capability);
+    }
+    // The reason field is not decoration: the RPC refuses a change without one.
+    expect(document.body.textContent).toContain('Indoklás');
 
     await act(async () => activateTab('Analytics'));
     expect(document.body.textContent).toContain('Join click / intent: 7');

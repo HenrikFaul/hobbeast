@@ -62,7 +62,7 @@ következő slice-okban.**
 
 | Képesség | Oszlop | Sor | Bizonyíték |
 | --- | --- | --- | --- |
-| **Crew-szerepek** | 11 | **0** | `event_crew_roles` létezik — de a `src/`-ben **kizárólag** a generált `types.ts` említi. Nincs service, nincs UI, nincs teszt. §25 (Collaborative Production Workspace) alapja készen áll. |
+| ~~**Crew-szerepek**~~ | 11 | 0 | ✅ **Bekötve 2026-08-27** (v1.41.0). Helyesbítés: ez a sor eredetileg azt állította, „nincs service" — tévedés volt. Létezett a `manage_event_crew_role_atomic` RPC is (idempotencia-kulcs, audit, tulajdonos-ellenőrzés), sőt **két olvasási RLS policy**. **Nulla migráció kellett**, csak a felület. |
 | Esemény-találkozások | 11 | **0** | `event_encounters` — nincs bekötve; a §2.1 élménygráf egyik bemenete lehetne |
 | Trip plans | 27 | **0** | `event_trip_plans` — nagy tábla, nincs UI-hivatkozás |
 | Safety profilok | 11 | — | `event_safety_profiles` + `public_event_safety` nézet — a §14 Trust & Safety alapja |
@@ -98,6 +98,15 @@ Nincs meglévő, biztonságosan bővíthető megoldás.
 | **QR check-in 2.0** (§10.1) | `check_in_audit` van, QR-token életciklus nincs. |
 | **Live Event Console** (§10.2, §30) | Nincs day-of, kivételközpontú nézet. |
 | **Universal Event Intake** (§23) | Részben megvan: a bővítmény + `socialPostParser` ezt a rést tölti, de csak Facebookra. |
+
+---
+
+## Elvégzett munka
+
+| Dátum | Mi | Kellett migráció? |
+| --- | --- | --- |
+| 2026-08-27 | Megosztás — Facebook, Messenger, WhatsApp (v1.40.0) | nem |
+| 2026-08-27 | Crew-szerepek felülete (v1.41.0) | **nem** |
 
 ---
 

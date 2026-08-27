@@ -34,6 +34,7 @@ import {
   OrganizerAnalyticsTab,
   OrganizerAttendeesTab,
   OrganizerCheckInTab,
+  OrganizerCrewTab,
   OrganizerEventsTab,
   OrganizerMessagesTab,
   OrganizerParticipantDetailSheet,
@@ -517,7 +518,7 @@ export default function OrganizerDashboard() {
           nextParams.set('tab', value);
           setSearchParams(nextParams, { replace: true });
         }}>
-          <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:grid-cols-4 lg:grid-cols-7">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:grid-cols-4 lg:grid-cols-8">
             {ORGANIZER_DASHBOARD_TABS.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
             ))}
@@ -577,6 +578,12 @@ export default function OrganizerDashboard() {
             onMessageBodyChange={setMessageBody}
             onScheduledForChange={setScheduledFor}
             onSendMessage={() => void handleSendMessage()}
+          />
+
+          <OrganizerCrewTab
+            eventId={selectedEvent?.id ?? null}
+            eventTitle={selectedEvent?.title ?? null}
+            canManage={Boolean(selectedEvent)}
           />
 
           <OrganizerAnalyticsTab analytics={analytics} />
