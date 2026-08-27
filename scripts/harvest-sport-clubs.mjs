@@ -165,13 +165,37 @@ async function fetchSport(slug, sportName) {
   return parseClubRows(await response.text(), sportName, url);
 }
 
-async function ingest(clubs) {
+function credentials() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
+  return url && key ? { url, key } : null;
+}
+
+async function callRpc(name, body) {
+  const creds = credentials();
+  if (!creds) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing');
+  const response = await fetch(`${creds.url}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      apikey: creds.key,
+      authorization: `Bearer ${creds.key}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`${name} failed: HTTP ${response.status} ${await response.text()}`);
+  }
+  return response.json();
+}
+
+async function ingest(clubs, directoryKey) {
+  const creds = credentials();
+  if (!creds) {
     process.stderr.write('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — skipping ingest.\n');
     return null;
   }
+  const { url, key } = creds;
   const totals = { inserted: 0, updated: 0, skipped: 0 };
   // Batched so one oversized request cannot fail the whole harvest.
   for (let index = 0; index < clubs.length; index += 200) {

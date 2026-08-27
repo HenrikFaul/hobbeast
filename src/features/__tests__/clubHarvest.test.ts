@@ -56,7 +56,7 @@ describe('parseClubRows', () => {
   });
 
   it('reads the postal code and city from their own columns', () => {
-    expect(clubs[2]).toMatchObject({ postal_code: '2600', city: 'Vác', sport: 'Evezés' });
+    expect(clubs[2]).toMatchObject({ postal_code: '2600', city: 'Vác', topic: 'Evezés' });
   });
 
   it('separates the website from the Facebook page', () => {
@@ -85,5 +85,62 @@ describe('SPORT_SLUGS', () => {
     expect(new Set(slugs).size).toBe(slugs.length);
     expect(SPORT_SLUGS.evezes).toBe('Evezés');
     expect(SPORT_SLUGS['wt-taekwondo']).toBe('Taekwondo');
+  });
+});
+
+describe('community club names', () => {
+  /**
+   * Community clubs have no registry, so the harvester keeps the links whose
+   * text names a club. The pattern is the whole filter, which makes these the
+   * cases that matter.
+   */
+  it('accepts the names a cultural centre actually uses', async () => {
+    const { looksLikeClubName } = await import('../../../scripts/lib/communityClubs.mjs');
+    for (const name of [
+      '„Őszikék” Nyugdíjas Klub',
+      'Nevkó Baba-Mama Klub',
+      'Hunyor Foltvarró Kör',
+      'Apáczai Sakk Klub',
+      'Társasjáték Klub',
+      'Szivárvány Fotóklub',
+      'Baranya Bokréta Népdalkör',
+      'Pécsi Origami Kör',
+      'KCSE IFI KLUB',
+    ]) {
+      expect(looksLikeClubName(name), name).toBe(true);
+    }
+  });
+
+  it('rejects page furniture and bare category words', async () => {
+    const { looksLikeClubName } = await import('../../../scripts/lib/communityClubs.mjs');
+    for (const name of [
+      'Klub', 'Klubjaink', 'Közösségeink', 'Csoportjaink',
+      'Tovább', 'Kapcsolat', 'Adatvédelmi tájékoztató',
+      'A klubunk minden kedden este várja az érdeklődőket a nagyteremben.',
+      '',
+    ]) {
+      expect(looksLikeClubName(name), name).toBe(false);
+    }
+  });
+
+  it('needs a club word, not just a proper noun', async () => {
+    const { looksLikeClubName } = await import('../../../scripts/lib/communityClubs.mjs');
+    expect(looksLikeClubName('Nyári tábor')).toBe(false);
+    expect(looksLikeClubName('Jazz koncert')).toBe(false);
+  });
+
+  it('extracts clubs from links and headings, without duplicates', async () => {
+    const { extractCommunityClubs } = await import('../../../scripts/lib/communityClubs.mjs');
+    const html = `
+      <a href="/klub/sakk">Apáczai Sakk Klub</a>
+      <h3>Nevkó Baba-Mama Klub</h3>
+      <a href="/klub/sakk">Apáczai Sakk Klub</a>
+      <a href="/tovabb">Tovább</a>
+    `;
+    const clubs = extractCommunityClubs(html, { sourceUrl: 'https://x.hu/klubjaink/', city: 'Pécs' });
+    expect(clubs.map((club) => club.name)).toEqual(['Apáczai Sakk Klub', 'Nevkó Baba-Mama Klub']);
+    expect(clubs[0].website_url).toBe('https://x.hu/klub/sakk');
+    expect(clubs[0].city).toBe('Pécs');
+    expect(clubs[0].club_type).toBe('community_club');
   });
 });
