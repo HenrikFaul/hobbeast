@@ -645,3 +645,52 @@ viselkedés.
 tipikus hívásokra, utána hasonlítsd össze. Ha nem bájtazonos, az regresszió.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🏘️ Közösségi klubot nem tart nyilván senki — a NÉV a szűrő (2026-08-27)
+
+**Helyzet:** sportklubot országos szövetség regisztrál (Nagy Sportágválasztó:
+2698 klub egy struktúrált listából). Baba-mama kört, nyugdíjas klubot,
+társasjáték-estet SENKI. Az a művelődési ház oldalán él, és ezeknek az
+oldalaknak nincs közös HTML-szerkezetük.
+
+**Ezért nem elrendezést elemzünk.** A `scripts/lib/communityClubs.mjs` a
+LINKEKET olvassa, és azokat tartja meg, amiknek a szövege klubnevet mond:
+
+- kell benne klubszó szóhatáron: `klub`, `kör`, `szakkör`, `egyesület`,
+  `műhely`, vagy tematikus jelző (`baba-mama`, `nyugdíjas`, `társasjáték`…)
+- NEM lehet mondat (pont+szóköz, vagy 10 szónál hosszabb)
+- NEM lehet a puszta kategóriaszó (`Klub`, `Klubjaink`, `Közösségeink`) — az az
+  oldal saját címe, nem klubnév
+
+Egy oldalról (pecsikult.hu) 29 valódi klub, nulla hamis találat.
+
+**A visszahívást feláldozzuk a pontosságért:** az 54-ből 29-et talál meg, mert
+a többi csak sima szövegben szerepel link és heading nélkül. Ez a jó irány —
+egy kitalált klub rosszabb, mint egy hiányzó.
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## ♻️ Katalógusból jövő adat: bélyegezni kell, nem törölni (2026-08-27)
+
+**Szabály:** külső katalógusból származó sor NEM egyszeri import. A forrás
+változik: klub megszűnik, szövetség kivezeti, az oldal átrendeződik.
+
+Amit minden futásnak csinálnia kell:
+1. `last_seen_at = now()` arra, amit MÉG megtalál (és `stale_since = NULL`)
+2. ami ugyanabból a katalógusból kimaradt: `stale_since` bélyeg (45 nap)
+3. ami régóta hiányzik: `is_active = false` (120 nap) — **de sosem DELETE**
+
+**Amihez sosem nyúlunk:** ha `owner_id IS NOT NULL` (valaki a klubtól átvette),
+vagy a `source` nem `directory` (admin vette fel / önregisztráció). A
+frissítés csak a saját adatát rendezi.
+
+**Ütemezés:** ne írj új mechanizmust. A `scraper_schedules` mintája
+(`run_at_hours` + `days_of_week` + óránkénti pg_cron tick, ami GitHub workflow
+dispatch-ot küld a vaultból olvasott tokennel) már bizonyított — a
+`club_refresh_schedules` szó szerint ezt másolja.
+
+*Utoljára frissítve: 2026-08-27*

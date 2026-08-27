@@ -12,6 +12,53 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.32.0] — 2026-08-27
+
+**Minden közösség, nem csak a sport — és folyamatosan frissen tartva.**
+
+### A klub nem sportfogalom
+Egy társasjáték-est, egy baba-mama kör, egy nyugdíjas sétálócsoport és egy
+karate dojo ugyanaz a dolog: ugyanazok az emberek, ugyanott, minden héten. Az
+első változat mégis „sportág"-ot mondott, ezért a mező átnevezve arra, ami
+mindig is volt — **téma** —, a típusok közé bekerült a **közösségi klub**, és
+vele a **célközönség** (`families`, `seniors`, `youth`), amitől a
+„Kisgyerekkel" és a „Nyugdíjasoknak" egy koppintás lett.
+
+### A közösségi klubokat nem tartja nyilván senki
+Sportklubot országos szövetség regisztrál; baba-mama kört nem. Az a művelődési
+ház oldalán él, ahol összejönnek — és ezeknek az oldalaknak nincs közös
+szerkezetük. Ezért a gyűjtő **nem elrendezést elemez, hanem linkeket olvas, és
+azokat tartja meg, amiknek a szövege klubnevet mond.** Egy klub megnevezi
+magát: „Őszikék Nyugdíjas Klub", „Hunyor Foltvarró Kör", „Nevkó Baba-Mama
+Klub". Ez a minta a teljes szűrő — ugyanaz a gondolat, mint a
+`looksLikeEventHeading` a programgyűjtőben.
+
+Egyetlen oldalról (Pécsi Kulturális Központ) **29 valódi klub**, nulla
+szeméttel. Élesben most **42 közösségi klub** van fent: nyugdíjas klub 7,
+társasjáték 5, baba-mama 3, tánc, jóga, fotózás, olvasókör.
+
+### A katalógus adat, nem kód
+Mindkét munkalista a `club_directories` táblából jön. Egy új közösségi forrás
+felvétele = **beírsz egy „Klubjaink" oldal címet az adminban** — nincs hozzá
+kódmódosítás, se deploy.
+
+### Frissítés, amit te időzítesz
+- Minden futás **`last_seen_at`-et bélyegez** arra, amit még megtalál.
+- Ami ugyanabból a katalógusból eltűnt, **elavultra jelölődik** (45 nap), majd
+  jóval később lekerül a listáról (120 nap) — **soha nem törlődik**, és ha
+  valaki a klubtól már átvette, hozzá sem nyúlunk.
+- Az órák és napok az **admin → Klubfrissítés** fülön állíthatók; egy óránkénti
+  pg_cron tick nézi meg, mi esedékes, és indítja a gyűjtést. Pontosan az a
+  mechanizmus, amivel a programgyűjtő is ütemezi magát — egy módszer, nem kettő.
+
+### Klubok, amik már megvoltak
+Egy programcím, ami hétről hétre ugyanott ismétlődik, valójában klub, nem
+sorozat. A „Játsz/Ma társasjáték klub" 49-szer szerepel a katalógusban — az egy
+keddi este, nem 49. Az így talált jelöltek **elbírálásra** kerülnek, nem
+élesednek maguktól.
+
+---
+
 ## [1.31.0] — 2026-08-27
 
 **Adott napra, időszakra és helyszínre is lehet szűrni — a régiek változatlanul.**
