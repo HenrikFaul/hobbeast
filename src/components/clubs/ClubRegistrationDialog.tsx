@@ -24,7 +24,7 @@ const ERROR_TEXT: Record<string, string> = {
 
 export function ClubRegistrationDialog({ authenticated, onClose, onSubmitted }: ClubRegistrationDialogProps) {
   const [form, setForm] = useState({
-    name: '', sport: '', city: '', clubType: 'sport_club' as ClubType,
+    name: '', topic: '', city: '', clubType: 'sport_club' as ClubType,
     postalCode: '', address: '', websiteUrl: '', contactEmail: '', contactPhone: '',
     trainingInfo: '', membershipInfo: '', description: '',
   });
@@ -39,7 +39,7 @@ export function ClubRegistrationDialog({ authenticated, onClose, onSubmitted }: 
     try {
       await submitClubRegistration({
         name: form.name.trim(),
-        sport: form.sport.trim(),
+        topic: form.topic.trim(),
         city: form.city.trim(),
         clubType: form.clubType,
         postalCode: form.postalCode.trim() || null,
@@ -92,8 +92,8 @@ export function ClubRegistrationDialog({ authenticated, onClose, onSubmitted }: 
               <Input id="reg-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="reg-sport">Sportág vagy tevékenység</Label>
-              <Input id="reg-sport" placeholder="pl. Karate, Evezés, Túra" value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value })} />
+              <Label htmlFor="reg-topic">Téma vagy tevékenység</Label>
+              <Input id="reg-topic" placeholder="pl. Karate, Társasjáték, Baba-mama" value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="reg-type">Típus</Label>
@@ -106,6 +106,7 @@ export function ClubRegistrationDialog({ authenticated, onClose, onSubmitted }: 
                 <option value="sport_club">Sportklub / egyesület</option>
                 <option value="team">Csapat</option>
                 <option value="hobby_club">Hobbiklub</option>
+                <option value="community_club">Közösségi klub</option>
               </select>
             </div>
             <div className="space-y-1.5">

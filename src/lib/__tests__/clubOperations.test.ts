@@ -24,7 +24,7 @@ describe('listClubs', () => {
       data: {
         items: [{
           id: CLUB_ID, slug: 'budapest-evezos-egyesulet-budapest',
-          name: 'Budapest Evezős Egyesület', club_type: 'sport_club', sport: 'Evezés',
+          name: 'Budapest Evezős Egyesület', club_type: 'sport_club', topic: 'Evezés',
           city: 'Budapest', postal_code: '1138', website_url: 'https://evezz.hu/',
           accepts_new_members: true, claimed: false, interested_count: 3,
         }],
@@ -32,12 +32,13 @@ describe('listClubs', () => {
       },
       error: null,
     });
-    const page = await listClubs({ sport: 'Evezés' });
+    const page = await listClubs({ topic: 'Evezés' });
     expect(rpcMock).toHaveBeenCalledWith('list_clubs_public', {
-      p_sport: 'Evezés', p_city: null, p_search: null, p_limit: 48, p_offset: 0,
+      p_topic: 'Evezés', p_city: null, p_search: null, p_limit: 48, p_offset: 0,
+      p_club_type: null, p_audience: null,
     });
     expect(page.items[0]).toMatchObject({
-      name: 'Budapest Evezős Egyesület', sport: 'Evezés', postalCode: '1138',
+      name: 'Budapest Evezős Egyesület', topic: 'Evezés', postalCode: '1138',
       claimed: false, interestedCount: 3,
     });
     expect(page.hasMore).toBe(false);
@@ -99,7 +100,7 @@ describe('setClubMembership', () => {
 describe('submitClubRegistration', () => {
   it('reports the throttle so the UI can explain it', async () => {
     rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'TOO_MANY_PENDING' } });
-    await expect(submitClubRegistration({ name: 'Klub', sport: 'Karate', city: 'Budapest' }))
+    await expect(submitClubRegistration({ name: 'Klub', topic: 'Karate', city: 'Budapest' }))
       .rejects.toThrow('TOO_MANY_PENDING');
   });
 });

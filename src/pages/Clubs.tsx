@@ -11,6 +11,18 @@ import { ClubRegistrationDialog } from '@/components/clubs/ClubRegistrationDialo
 
 const numberFormat = new Intl.NumberFormat('hu-HU');
 
+/** The groups the accessible-audiences plan named, as one-tap filters. */
+const AUDIENCES = [
+  { key: 'families', label: 'Kisgyerekkel' },
+  { key: 'seniors', label: 'Nyugdíjasoknak' },
+  { key: 'youth', label: 'Fiataloknak' },
+];
+
+const CLUB_TYPES = [
+  { key: 'community_club', label: 'Közösségi klub' },
+  { key: 'sport_club', label: 'Sportklub' },
+];
+
 const Clubs = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -23,8 +35,10 @@ const Clubs = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [search, setSearch] = useState(searchParams.get('q') || '');
 
-  const sport = searchParams.get('sport');
+  const topic = searchParams.get('topic');
   const city = searchParams.get('city');
+  const clubType = searchParams.get('type');
+  const audience = searchParams.get('audience');
 
   useEffect(() => {
     listClubFacets().then(setFacets).catch(() => setFacets(null));
@@ -34,7 +48,10 @@ const Clubs = () => {
     setLoading(true);
     setError(null);
     try {
-      const page = await listClubs({ sport, city, search: search.trim() || null, limit: 48 });
+      const page = await listClubs({
+        topic, city, clubType: clubType as never, audience,
+        search: search.trim() || null, limit: 48,
+      });
       setItems(page.items);
       setNextOffset(page.nextOffset);
     } catch {
@@ -42,7 +59,7 @@ const Clubs = () => {
     } finally {
       setLoading(false);
     }
-  }, [sport, city, search]);
+  }, [topic, city, clubType, audience, search]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 250);
@@ -53,7 +70,10 @@ const Clubs = () => {
     if (nextOffset === null) return;
     setLoadingMore(true);
     try {
-      const page = await listClubs({ sport, city, search: search.trim() || null, limit: 48, offset: nextOffset });
+      const page = await listClubs({
+        topic, city, clubType: clubType as never, audience,
+        search: search.trim() || null, limit: 48, offset: nextOffset,
+      });
       setItems((current) => [...current, ...page.items]);
       setNextOffset(page.nextOffset);
     } catch {
@@ -72,7 +92,7 @@ const Clubs = () => {
     }, { replace: true });
   };
 
-  const topSports = useMemo(() => (facets?.sports || []).slice(0, 12), [facets]);
+  const topTopics = useMemo(() => (facets?.topics || []).slice(0, 14), [facets]);
   const topCities = useMemo(() => (facets?.cities || []).slice(0, 10), [facets]);
 
   return (
@@ -90,13 +110,14 @@ const Clubs = () => {
             Ahol hétről hétre <span className="text-[#ff8f72]">ugyanazok várnak.</span>
           </h1>
           <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-white/[0.66]">
-            Karateklub, evezős egyesület, túraszakosztály. Egy program egy este; egy klub egy
-            közösség. Keresd meg a hozzád legközelebbit, és jelezd, hogy szeretnél kipróbálni.
+            Karateklub, társasjáték-est, baba-mama kör, nyugdíjas klub, túraszakosztály.
+            Egy program egy este; egy klub egy közösség. Keresd meg a hozzád legközelebbit,
+            és jelezd, hogy szeretnél kipróbálni.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             {facets && (
               <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-black/15 px-4 text-sm font-semibold text-white/[0.78]">
-                {numberFormat.format(facets.total)} klub · {facets.sports.length} sportág
+                {numberFormat.format(facets.total)} klub · {facets.topics.length} téma
               </span>
             )}
             <Button
@@ -119,17 +140,49 @@ const Clubs = () => {
             />
           </div>
 
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Sportág</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Kinek szól?</p>
           <div className="mb-4 flex flex-wrap gap-2">
-            {topSports.map((entry) => (
+            {AUDIENCES.map((entry) => (
               <Button
-                key={entry.sport}
+                key={entry.key}
                 size="sm"
-                variant={sport === entry.sport ? 'default' : 'outline'}
-                className={`rounded-full ${sport === entry.sport ? 'gradient-primary border-0 text-primary-foreground' : 'bg-card'}`}
-                onClick={() => setParam('sport', sport === entry.sport ? null : entry.sport)}
+                variant={audience === entry.key ? 'default' : 'outline'}
+                className={`rounded-full ${audience === entry.key ? 'border-0 bg-accent text-accent-foreground' : 'bg-card'}`}
+                onClick={() => setParam('audience', audience === entry.key ? null : entry.key)}
               >
-                {entry.sport}<span className="ml-1.5 text-xs opacity-70">{entry.clubs}</span>
+                {entry.label}
+                <span className="ml-1.5 text-xs opacity-70">
+                  {facets?.audiences.find((a) => a.audience === entry.key)?.clubs ?? 0}
+                </span>
+              </Button>
+            ))}
+            {CLUB_TYPES.map((entry) => (
+              <Button
+                key={entry.key}
+                size="sm"
+                variant={clubType === entry.key ? 'default' : 'outline'}
+                className={`rounded-full ${clubType === entry.key ? 'border-0 bg-accent text-accent-foreground' : 'bg-card'}`}
+                onClick={() => setParam('type', clubType === entry.key ? null : entry.key)}
+              >
+                {entry.label}
+                <span className="ml-1.5 text-xs opacity-70">
+                  {facets?.types.find((t) => t.club_type === entry.key)?.clubs ?? 0}
+                </span>
+              </Button>
+            ))}
+          </div>
+
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Téma</p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {topTopics.map((entry) => (
+              <Button
+                key={entry.topic}
+                size="sm"
+                variant={topic === entry.topic ? 'default' : 'outline'}
+                className={`rounded-full ${topic === entry.topic ? 'gradient-primary border-0 text-primary-foreground' : 'bg-card'}`}
+                onClick={() => setParam('topic', topic === entry.topic ? null : entry.topic)}
+              >
+                {entry.topic}<span className="ml-1.5 text-xs opacity-70">{entry.clubs}</span>
               </Button>
             ))}
           </div>
@@ -176,7 +229,7 @@ const Clubs = () => {
                       <h2 className="font-display font-semibold leading-snug group-hover:text-primary">{club.name}</h2>
                     </Link>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
-                      {club.sport && <span>{club.sport}</span>}
+                      {club.topic && <span>{club.topic}</span>}
                       {club.city && (
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" aria-hidden="true" />

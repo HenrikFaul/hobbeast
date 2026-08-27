@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   sport_club: 'Sportklub',
   team: 'Csapat',
   hobby_club: 'Hobbiklub',
+  community_club: 'Közösségi klub',
 };
 
 const ERROR_TEXT: Record<string, string> = {
@@ -101,8 +102,8 @@ const ClubDetail = () => {
               <Badge className="rounded-full border border-white/20 bg-white/10 text-[#dfff62] hover:bg-white/10">
                 {TYPE_LABELS[club.clubType] || 'Klub'}
               </Badge>
-              {club.sport && (
-                <Badge className="rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/10">{club.sport}</Badge>
+              {club.topic && (
+                <Badge className="rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/10">{club.topic}</Badge>
               )}
               {club.beginnerFriendly && (
                 <Badge className="rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/10">Kezdőknek is</Badge>

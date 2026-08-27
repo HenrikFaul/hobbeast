@@ -1,24 +1,30 @@
 /**
- * Sport club directory harvest.
+ * Club directory harvest — sport and community alike.
  *
- * Hungarian sport is organised in clubs, and the clubs are already listed —
- * publicly, by sport, by the national "Nagy Sportágválasztó" club finder. This
- * reads those listings and hands them to `ingest_directory_clubs`, which
- * inserts what is new and only ever fills gaps on what already exists.
+ * Sport is organised in clubs and the clubs are already listed publicly, by
+ * sport, in the national club finder. Community clubs are not: a baba-mama
+ * circle or a pensioners' choir lives on the website of the cultural centre
+ * that hosts it. Both are harvested here, and BOTH worklists come from the
+ * `club_directories` table rather than from this file, so adding a source is
+ * an admin action rather than a deploy.
  *
  * A directory row is a fact about the world, not a claim by the club: it goes
  * live unclaimed, and stays that way until somebody from the club takes it
  * over. Nothing here invents a contact, an email or a training time.
  *
  * Usage:
- *   node scripts/harvest-sport-clubs.mjs                 # harvest to stdout summary
+ *   node scripts/harvest-sport-clubs.mjs --ingest                    # everything enabled
+ *   node scripts/harvest-sport-clubs.mjs --ingest --directories pecsikult
+ *   node scripts/harvest-sport-clubs.mjs --sport evezes              # one sport, no ingest
  *   node scripts/harvest-sport-clubs.mjs --out clubs.json
- *   node scripts/harvest-sport-clubs.mjs --ingest        # needs SUPABASE_SERVICE_ROLE_KEY
- *   node scripts/harvest-sport-clubs.mjs --sport evezes  # one sport only
+ *
+ * --ingest needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY; without them the
+ * harvest still runs and reports, it just does not write.
  */
 
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { harvestCommunityDirectory } from './lib/communityClubs.mjs';
 
 const BASE = 'https://sportagvalaszto.hu/klubkereso';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -137,7 +143,7 @@ export function parseClubRows(html, sportName, sourceUrl) {
 
     rows.push({
       name,
-      sport: sportName,
+      topic: sportName,
       city: city && city.length <= 60 ? city : null,
       postal_code: postalCode,
       website_url: website,
@@ -177,7 +183,7 @@ async function ingest(clubs) {
         apikey: key,
         authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({ p_clubs: batch }),
+      body: JSON.stringify({ p_clubs: batch, p_directory_key: directoryKey ?? null }),
     });
     if (!response.ok) {
       throw new Error(`ingest failed: HTTP ${response.status} ${await response.text()}`);
@@ -195,41 +201,103 @@ async function main() {
   const only = args.includes('--sport') ? args[args.indexOf('--sport') + 1] : null;
   const outPath = args.includes('--out') ? args[args.indexOf('--out') + 1] : null;
   const shouldIngest = args.includes('--ingest');
+  const wanted = args.includes('--directories')
+    ? (args[args.indexOf('--directories') + 1] || '').split(',').map((value) => value.trim()).filter(Boolean)
+    : [];
 
-  const entries = Object.entries(SPORT_SLUGS).filter(([slug]) => !only || slug === only);
+  // --sport is the single-sport debugging path and stays local.
+  if (only) {
+    const clubs = await fetchSport(only, SPORT_SLUGS[only] || only);
+    process.stdout.write(`${only}: ${clubs.length} klub\n`);
+    if (outPath) writeFileSync(outPath, JSON.stringify(clubs), 'utf8');
+    return;
+  }
+
+  // The worklist lives in the database so a new source is an admin action.
+  let directories;
+  if (credentials()) {
+    directories = await callRpc('list_club_directories_for_harvest', {
+      p_keys: wanted.length ? wanted : null,
+    });
+  } else {
+    process.stderr.write('No credentials — falling back to the built-in sport directory only.\n');
+    directories = [{ key: 'sportagvalaszto', label: 'Nagy Sportágválasztó', harvest_kind: 'builtin' }];
+  }
+
+  const everything = [];
+  for (const directory of directories) {
+    let clubs = [];
+    try {
+      if (directory.harvest_kind === 'builtin' && directory.key === 'sportagvalaszto') {
+        clubs = await harvestSportFinder();
+      } else if (directory.harvest_kind === 'community_page') {
+        clubs = await harvestCommunityDirectory(directory);
+      } else {
+        continue;
+      }
+    } catch (error) {
+      process.stderr.write(`! ${directory.key}: ${error.message}\n`);
+      continue;
+    }
+
+    process.stdout.write(`${directory.label.padEnd(40)} ${String(clubs.length).padStart(5)} klub\n`);
+    everything.push(...clubs);
+
+    if (shouldIngest && clubs.length) {
+      const totals = await ingest(clubs, directory.key);
+      if (totals) {
+        process.stdout.write(`  → új ${totals.inserted}, frissítve ${totals.updated}, kihagyva ${totals.skipped}\n`);
+        // Anything from this directory that stopped appearing is marked, never
+        // deleted: a club missing from a listing has not left the world.
+        const stale = await callRpc('mark_stale_directory_clubs', {
+          p_directory_key: directory.key,
+          p_stale_after_days: 45,
+          p_retire_after_days: 120,
+        });
+        if (stale && (stale.marked_stale || stale.retired)) {
+          process.stdout.write(`  → elavult ${stale.marked_stale}, levéve ${stale.retired}\n`);
+        }
+      }
+    }
+  }
+
+  process.stdout.write(`\nÖsszesen ${everything.length} klub ${directories.length} katalógusból.\n`);
+  if (outPath) {
+    writeFileSync(outPath, JSON.stringify(everything), 'utf8');
+    process.stdout.write(`Kiírva: ${outPath}\n`);
+  }
+
+  // Clubs we already have without knowing it: a programme title that repeats
+  // week after week at the same place is a club, not a series.
+  if (shouldIngest && credentials()) {
+    try {
+      const derived = await callRpc('derive_clubs_from_programmes', { p_min_occurrences: 3, p_limit: 300 });
+      process.stdout.write(`Ismétlődő programokból: új ${derived.inserted}, frissítve ${derived.updated}\n`);
+    } catch (error) {
+      process.stderr.write(`! derive: ${error.message}\n`);
+    }
+  }
+}
+
+/** The national club finder, sport by sport. */
+async function harvestSportFinder() {
   const all = [];
   const seen = new Set();
-
-  for (const [slug, sportName] of entries) {
+  for (const [slug, sportName] of Object.entries(SPORT_SLUGS)) {
     const clubs = await fetchSport(slug, sportName);
-    let added = 0;
     for (const club of clubs) {
-      // The same club appears under several sports; keep the first sport and
+      // The same club appears under several sports; keep the first topic and
       // let the ingest fill gaps rather than creating a duplicate row.
       const key = `${club.name.toLowerCase()}|${(club.city || '').toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
       all.push(club);
-      added += 1;
     }
-    process.stdout.write(`${sportName.padEnd(24)} ${String(clubs.length).padStart(4)} sor, ${String(added).padStart(4)} új\n`);
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
-
-  process.stdout.write(`\nÖsszesen ${all.length} egyedi klub ${entries.length} sportágból.\n`);
-  if (outPath) {
-    writeFileSync(outPath, JSON.stringify(all, null, 0), 'utf8');
-    process.stdout.write(`Kiírva: ${outPath}\n`);
-  }
-  if (shouldIngest) {
-    const totals = await ingest(all);
-    if (totals) process.stdout.write(`Betöltve: ${JSON.stringify(totals)}\n`);
-  }
+  return all;
 }
 
-// pathToFileURL, not a hand-built file:// string: on Windows the drive letter
-// makes the naive form ("file://C:/...") differ from Node's ("file:///C:/...")
-// and the script silently does nothing.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     process.stderr.write(`${error.stack || error}\n`);

@@ -1,18 +1,23 @@
-name: Harvest sport clubs
+name: Harvest clubs
 
-# Hungarian sport is organised in clubs, and the clubs are already listed
-# publicly, by sport, in the national club finder. This reads those listings
-# and hands them to ingest_directory_clubs, which inserts what is new and only
-# ever fills gaps on what already exists — a curated club is never overwritten.
+# Sport clubs come from the national club finder; community clubs - a
+# baba-mama circle, a pensioners' choir, a board-game night - come from the
+# "Klubjaink" pages of the cultural centres that host them. Both worklists are
+# read from the club_directories table, so adding a source is an admin action
+# rather than a change to this file.
 #
-# Runs on demand, and monthly so the directory does not rot. The service-role
-# key never leaves the runner.
+# Every run stamps last_seen_at on what it still finds and marks what stopped
+# appearing as stale; nothing is deleted and a curated club is never
+# overwritten. The service-role key never leaves the runner.
+#
+# The schedule below is the safety net. The operator's own schedules live in
+# club_refresh_schedules and are dispatched hourly by run_due_club_refresh_schedules().
 
 on:
   workflow_dispatch:
     inputs:
-      sport:
-        description: 'Single sport slug (empty = all)'
+      directories:
+        description: 'Directory keys, comma separated (empty = every enabled one)'
         required: false
         default: ''
   schedule:
@@ -20,7 +25,7 @@ on:
     - cron: '20 4 3 * *'
 
 concurrency:
-  group: harvest-sport-clubs
+  group: harvest-clubs
   cancel-in-progress: false
 
 jobs:
@@ -50,8 +55,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ -n "${{ github.event.inputs.sport }}" ]; then
-            node scripts/harvest-sport-clubs.mjs --ingest --sport "${{ github.event.inputs.sport }}"
+          if [ -n "${{ github.event.inputs.directories }}" ]; then
+            node scripts/harvest-sport-clubs.mjs --ingest --directories "${{ github.event.inputs.directories }}"
           else
             node scripts/harvest-sport-clubs.mjs --ingest
           fi

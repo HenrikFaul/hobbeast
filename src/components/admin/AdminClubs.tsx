@@ -44,10 +44,11 @@ const TYPE_LABELS: Record<ClubType, string> = {
   sport_club: 'Sportklub',
   team: 'Csapat',
   hobby_club: 'Hobbiklub',
+  community_club: 'Közösségi klub',
 };
 
 const EMPTY_FORM = {
-  name: '', sport: '', city: '', clubType: 'sport_club' as ClubType,
+  name: '', topic: '', city: '', clubType: 'sport_club' as ClubType,
   postalCode: '', address: '', websiteUrl: '', facebookUrl: '',
   contactEmail: '', contactPhone: '', trainingInfo: '', membershipInfo: '',
   description: '',
@@ -121,7 +122,7 @@ export function AdminClubs() {
     setEditingId(club.id);
     setForm({
       name: club.name,
-      sport: club.sport || '',
+      topic: club.topic || '',
       city: club.city || '',
       clubType: club.clubType,
       postalCode: club.postalCode || '',
@@ -147,7 +148,7 @@ export function AdminClubs() {
       await adminUpsertClub({
         clubId: editingId,
         name: form.name.trim(),
-        sport: form.sport.trim(),
+        topic: form.topic.trim(),
         city: form.city.trim(),
         clubType: form.clubType,
         postalCode: form.postalCode.trim() || null,
@@ -246,7 +247,7 @@ export function AdminClubs() {
                       <div className="min-w-0">
                         <h3 className="font-semibold leading-snug">{club.name}</h3>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          {[club.sport, [club.postalCode, club.city].filter(Boolean).join(' '), TYPE_LABELS[club.clubType]]
+                          {[club.topic, [club.postalCode, club.city].filter(Boolean).join(' '), TYPE_LABELS[club.clubType]]
                             .filter(Boolean).join(' · ')}
                         </p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -315,8 +316,8 @@ export function AdminClubs() {
               <Input id="club-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="club-sport">Sportág</Label>
-              <Input id="club-sport" value={form.sport} placeholder="pl. Karate" onChange={(e) => setForm({ ...form, sport: e.target.value })} />
+              <Label htmlFor="club-topic">Téma</Label>
+              <Input id="club-topic" value={form.topic} placeholder="pl. Karate, Társasjáték, Baba-mama" onChange={(e) => setForm({ ...form, topic: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="club-type">Típus</Label>
@@ -329,6 +330,7 @@ export function AdminClubs() {
                 <option value="sport_club">Sportklub</option>
                 <option value="team">Csapat</option>
                 <option value="hobby_club">Hobbiklub</option>
+                <option value="community_club">Közösségi klub</option>
               </select>
             </div>
             <div className="space-y-1.5">
