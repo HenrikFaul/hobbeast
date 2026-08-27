@@ -1,7 +1,7 @@
 {
   "name": "hobbeast",
   "private": true,
-  "version": "1.35.0",
+  "version": "1.36.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,7 +22,9 @@
     "quality:performance": "node scripts/check-performance-budget.mjs",
     "test:e2e": "playwright test",
     "edge:sync-recipes": "node scripts/sync-edge-recipes.mjs",
-    "edge:check-recipes": "node scripts/sync-edge-recipes.mjs --check"
+    "edge:check-recipes": "node scripts/sync-edge-recipes.mjs --check",
+    "extension:sync": "node scripts/sync-extension-parser.mjs",
+    "extension:check": "node scripts/sync-extension-parser.mjs --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

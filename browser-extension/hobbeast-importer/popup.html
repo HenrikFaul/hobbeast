@@ -10,23 +10,42 @@
     <span class="mark">H</span>
     <div>
       <h1>Hobbeast importálás</h1>
-      <p id="source-note">Beolvasás…</p>
+      <p id="status">Oldal beolvasása…</p>
     </div>
   </header>
 
   <main>
-    <div id="setup" hidden>
+    <!-- Every screen below is a <section data-screen>. Exactly one is ever
+         shown, and `boot` is the one that is shown if all else fails, so the
+         window is never blank. -->
+    <section data-screen="boot">
+      <p class="hint">Egy pillanat…</p>
+    </section>
+
+    <section data-screen="signin" hidden>
       <p class="hint">
-        Az első használat előtt add meg a Hobbeast-belépésed. A jelszó nem
-        marad meg — csak a munkameneted tárolódik a böngésződben.
+        Jelentkezz be a Hobbeast-fiókoddal. A jelszó nem marad meg — csak a
+        munkameneted tárolódik ebben a böngészőben.
       </p>
       <label>E-mail<input id="email" type="email" autocomplete="username" /></label>
       <label>Jelszó<input id="password" type="password" autocomplete="current-password" /></label>
       <button id="sign-in" class="primary">Bejelentkezés</button>
-      <p id="setup-error" class="error" role="alert" hidden></p>
-    </div>
+    </section>
 
-    <form id="form" hidden>
+    <section data-screen="other" hidden>
+      <p class="hint">
+        Ez az oldal nem esemény és nem bejegyzés, így nincs mit beolvasni.
+      </p>
+      <p class="hint">Nyisd meg valamelyiket, és nyomd meg újra a gombot:</p>
+      <ul class="hint">
+        <li>Facebook esemény — <code>/events/…</code></li>
+        <li>Facebook bejegyzés — <code>/posts/…</code></li>
+      </ul>
+      <p class="hint muted" id="other-url"></p>
+    </section>
+
+    <form id="form" hidden data-screen="form">
+      <p id="reading" class="reading"></p>
       <label>Cím<input id="title" type="text" required /></label>
       <div class="row">
         <label>Dátum<input id="date" type="date" required /></label>
@@ -38,14 +57,18 @@
         <label>Helyszín<input id="venue" type="text" /></label>
       </div>
       <label>Leírás<textarea id="description" rows="4"></textarea></label>
-      <p id="warning" class="warning" hidden></p>
       <button id="save" class="primary" type="submit">Mentés a Hobbeastbe</button>
-      <p id="error" class="error" role="alert" hidden></p>
     </form>
 
-    <p id="not-an-event" class="hint" hidden>
-      Nyiss meg egy Facebook <strong>esemény</strong> oldalt, és nyomd meg újra a gombot.
-    </p>
+    <section data-screen="done" hidden>
+      <p class="done-mark">✓</p>
+      <p class="hint"><strong id="done-title"></strong> bekerült a katalógusba.</p>
+      <button id="again" class="secondary">Másik oldal beolvasása</button>
+    </section>
+
+    <!-- Errors are shown BESIDE the current screen, never instead of it, so a
+         failure never leaves the operator with a blank window. -->
+    <p id="error" class="error" role="alert" hidden></p>
   </main>
 
   <script src="popup.js" type="module"></script>

@@ -12,6 +12,31 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.36.0] - 2026-08-27
+
+### A bovitmeny nem mondott semmit
+A felugro ablak minden szekcioja `hidden`-nel indult, es a vegen unhidoltunk
+egyet - igy barmilyen eldobott hiba **ures ablakot** hagyott, amibol meg az sem
+derult ki, hogy egyaltalan lefutott-e. Mostantol pontosan egy kepernyo latszik,
+mindig latszik egy, es minden ut vegen ott egy mondat arrol, hogy mi tortent.
+A hibauzenet az aktualis kepernyo MELLE kerul, nem helyette.
+
+### Bejegyzeseket is beolvas
+Eddig csak `/events/` oldalt ismert, holott a legtobb program egy sima
+bejegyzesben van. A bovitmeny mostantol a `/posts/`, `/permalink/`, `/photo/`
+oldalakat is olvassa - **ugyanazzal a parserrel**, amit az admin
+"Bejegyzesbol" panelje hasznal. A `socialPostParser.ts`-bol generalodik a
+bovitmeny valtozata (`npm run extension:sync`), igy nem csuszhat szet a ketto.
+
+Ha a bejegyzesben nincs datum, a bovitmeny **nem talal ki egyet**: uresen
+hagyja a kotelezo mezot, es megirja, hogy add meg kezzel.
+
+### Visszajelzes az ikonon
+Sikeres mentes utan **OK** jelveny kerul a bovitmeny ikonjara, hogy az eredmeny
+az ablak bezarasa utan is latszodjon.
+
+---
+
 ## [1.35.0] - 2026-08-27
 
 ### A terkep tobbe nem kerdez API kulcsot

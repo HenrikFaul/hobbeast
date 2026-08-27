@@ -97,3 +97,48 @@ button.primary.done { background: var(--lime); color: var(--ink); }
   background: #fff4d6;
   color: #7a5b00;
 }
+
+/* Feedback surfaces. The popup must never be a blank window, so every screen
+   below carries a visible sentence of its own. */
+
+.muted { opacity: 0.75; word-break: break-all; }
+
+.hint code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(24, 49, 36, 0.08);
+  font-size: 11px;
+}
+
+ul.hint { margin: 0 0 12px; padding-left: 18px; }
+ul.hint li { margin-bottom: 3px; }
+
+.reading {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  background: #fff4d6;
+  color: #7a5b00;
+}
+
+.done-mark {
+  margin: 6px 0 8px;
+  font-size: 34px;
+  line-height: 1;
+  text-align: center;
+  color: #2f7d4f;
+}
+
+button.secondary {
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}

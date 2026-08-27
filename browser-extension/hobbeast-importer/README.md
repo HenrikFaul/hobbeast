@@ -1,7 +1,7 @@
 # Hobbeast eseményimportáló (Chrome bővítmény)
 
-Egy **már megnyitott** Facebook-esemény adatait olvassa be, megmutatja
-ellenőrzésre, és a te fiókoddal küldi be a Hobbeast katalógusába.
+Egy **már megnyitott** Facebook-esemény vagy -bejegyzés adatait olvassa be,
+megmutatja ellenőrzésre, és a te fiókoddal küldi be a Hobbeast katalógusába.
 
 ## Miért így
 
@@ -39,8 +39,39 @@ cp browser-extension/hobbeast-importer/config.example.js browser-extension/hobbe
 
 ## Használat
 
-Nyiss meg egy Facebook-esemény oldalt → kattints a bővítmény ikonjára →
-ellenőrizd az adatokat → **Mentés a Hobbeastbe**.
+Nyiss meg egy Facebook **eseményt** (`/events/…`) vagy **bejegyzést**
+(`/posts/…`) → kattints a bővítmény ikonjára → ellenőrizd az adatokat →
+**Mentés a Hobbeastbe**.
+
+## Mit látsz, amikor megnyomod
+
+A felugró ablak **mindig mond valamit** — nincs olyan út, ami üres ablakot ad:
+
+| Helyzet | Amit látsz |
+| --- | --- |
+| Még nem jelentkeztél be | Bejelentkező űrlap — „Előbb jelentkezz be." |
+| Nem Facebook-oldal | „Ez nem Facebook-oldal." |
+| Facebook, de nem esemény/bejegyzés | „Ez nem esemény és nem bejegyzés." + a jelenlegi cím |
+| Bejegyzés, de nem tölt be a szöveg | „Nem találtam szöveget a bejegyzésben." |
+| Esemény oldal | Kitöltött űrlap, „Esemény beolvasva — ellenőrizd." |
+| Bejegyzés oldal | Kitöltött űrlap, „Bejegyzés beolvasva — ellenőrizd." |
+| Sikeres mentés | ✓ és „…bekerült a katalógusba", plusz **OK** jelvény az ikonon |
+| Bármi hiba | A képernyő megmarad, alatta piros hibaüzenet a részletekkel |
+
+## Bejegyzések
+
+Egy Facebook-bejegyzés csak szöveg — pontosan az, amit egyébként bemásolnál az
+**admin → Bejegyzésből** panelbe. A bővítmény ezért **ugyanazt a parsert**
+használja, mint az alkalmazás: a `socialPostParser.ts`-ből generálódik a
+`vendor/socialPostParser.js`, hogy ne csússzon szét a kettő.
+
+```bash
+npm run extension:sync
+```
+
+Ha a bejegyzésben nincs dátum (mert például hirdetés), a bővítmény **nem talál
+ki egyet**: üresen hagyja a kötelező dátummezőt, és megírja, hogy add meg
+kézzel.
 
 ## Mit olvas ki, és milyen sorrendben
 

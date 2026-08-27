@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Hobbeast eseményimportáló",
-  "version": "1.0.0",
-  "description": "Egy megnyitott Facebook-esemény adatait beolvassa, megmutatja ellenőrzésre, és beküldi a Hobbeast katalógusába.",
+  "version": "1.1.0",
+  "description": "Egy megnyitott Facebook-esemény vagy -bejegyzés adatait beolvassa, megmutatja ellenőrzésre, és beküldi a Hobbeast katalógusába.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
-    "https://www.facebook.com/events/*",
-    "https://m.facebook.com/events/*",
+    "https://www.facebook.com/*",
+    "https://m.facebook.com/*",
+    "https://web.facebook.com/*",
     "https://bqdvqmpwccsxumzijspj.supabase.co/*"
   ],
   "action": {
