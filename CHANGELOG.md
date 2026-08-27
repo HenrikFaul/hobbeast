@@ -12,6 +12,53 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.34.0] - 2026-08-27
+
+**Negy hiba, egy athelyezes es egy bongeszobovitmeny.**
+
+### Tabvaltasra ujratoltodott az oldal
+A Supabase minden fokuszba keruleskor ujraellenorzi a munkamenetet, es **uj
+objektumot** ad vissza ugyanarra a bejelentkezett emberre. Ezt eddig feltetel
+nelkul allapotba irtuk, amitol a `user` identitasa megvaltozott, es **minden
+`[user]`-re figyelo effekt ujrafutott** - vagyis visszakattintva a tabra az
+egesz oldal ujratoltodott. Mostantol csak akkor irunk allapotot, ha tenyleg mas
+ember vagy mas token jott.
+
+### Uj oldal az oldal aljara navigalt
+Nem volt gorgetes-kezeles: a bongeszo visszaallitja az elozo poziciot, es egy
+SPA-ban ez arra kerul ra, ami epp megjelenik. Mostantol **uj oldal a tetejen
+kezdodik**, a **vissza gomb viszont megtartja a helyed**, `#hivatkozas` eseten
+pedig a megnevezett resz nyer.
+
+### A forrasmentes minden esetben elbukott
+A `source-manager` ellenorizte a jogosultsagodat, **majd service role-kent**
+hivta az RPC-t - ott viszont `auth.uid()` mar `NULL`, igy az RPC sajat
+ellenorzese `CAPABILITY_REQUIRED`-del elutasitott **minden mentest**. Ezert nem
+lehetett elmenteni a Durer Kertre generalt szabalyt sem. A hivas mostantol a
+felhasznalo neveben megy, igy az adatbazis marad a donteshozo.
+
+### 276 forras sema nelkuli cimmel
+Emiatt a `fetch_hosts` uresen maradt, es egy wizardbol valo ujramentes
+**masodik sort** hozott volna letre ugyanarra az oldalra. Javitva, es
+megkotessel megakadalyozva. *(A "sok esemeny nem latszik" maradek resze nem
+hiba: 248 forras soha nem gyujtott semmit, mert altalanos modban fut egy JS-es
+oldalon - ezekhez egyedi szabaly kell, amit most mar el is lehet menteni.)*
+
+### Circle-ok es Hubok az adminba
+Ures kozossegi oldal torottnek latszik. A `/community` mostantol az
+**admin > Circle & Hub** fulre visz, es a publikus menubol kikerult.
+
+### Facebook-esemenyek: bongeszobovitmeny
+`browser-extension/hobbeast-importer` - egy **mar megnyitott** esemeny oldalrol
+olvas, gombnyomasra, a te bongeszodben. Nem osztalynevekre tamaszkodik (a
+Facebooke generalt es folyton valtozik), hanem arra, amit az oldal maga allit
+magarol: **JSON-LD > OpenGraph > lathato szoveg**, es megirja, melyikbol
+dolgozott. A felugro ablakban javitasz, mielott mented; a mentes a **sajat
+fiokoddal** megy, es az adatbazis ellenorzi a jogosultsagod - a bovitmenynek
+nincs sajatja.
+
+---
+
 ## [1.33.0] — 2026-08-27
 
 **Program egy bejegyzésből — amit elolvastál, továbbadhatod.**

@@ -9,6 +9,7 @@ import { OrganizerModeProvider } from "@/hooks/useOrganizerMode";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 
 // Route-level code splitting (Sprint 1.4). Heavy admin/organizer bundles and
@@ -81,6 +82,7 @@ const App = () => (
                       aria-hidden="true"
                       className="pointer-events-none fixed -right-40 top-[42vh] -z-10 h-96 w-96 rounded-full bg-accent/10 blur-3xl"
                     />
+                    <ScrollToTop />
                     <Navbar />
                     <Suspense fallback={<RouteFallback />}>
                       <Routes>
@@ -96,7 +98,10 @@ const App = () => (
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/onboarding" element={<Onboarding />} />
                         <Route path="/members/:userId" element={<PublicMemberProfile />} />
-                        <Route path="/community" element={<Community />} />
+                        {/* Circles and hubs are an operator surface for now: they are
+                            empty until there are members to fill them, and an empty
+                            community page reads as a broken one. */}
+                        <Route path="/community" element={<Navigate to="/admin?tab=community" replace />} />
                         <Route path="/legal" element={<Legal />} />
                         <Route path="/organizer" element={<OrganizerDashboard />} />
                         <Route path="/admin" element={<Admin />} />

@@ -303,7 +303,12 @@ Deno.serve(async (req) => {
 
     if (action === 'save') {
       await requireAdmin();
-      const { data, error } = await admin.rpc('admin_upsert_scraper_source', {
+      // As the CALLER, not as the service role. admin_upsert_scraper_source
+      // checks admin_has_capability(auth.uid(), …) itself, and a service-role
+      // client carries no user, so auth.uid() is NULL there and the RPC
+      // refused every save with CAPABILITY_REQUIRED. Calling as the user lets
+      // the database stay the authority, which is where that check belongs.
+      const { data, error } = await asUser.rpc('admin_upsert_scraper_source', {
         p_endpoint_url: String(body.endpoint_url ?? ''),
         p_publisher_name: String(body.publisher_name ?? ''),
         p_strategy: String(body.strategy ?? 'render'),

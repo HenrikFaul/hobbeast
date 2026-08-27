@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionDeviceDescriptor } from '@/features/identity/sessionDevice';
@@ -19,8 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const registeredFor = useRef<string | null>(null);
+
   useEffect(() => {
-    const registerDevice = () => {
+    const registerDevice = (userId: string) => {
+      // A token refresh is not a new sign-in; registering the device again on
+      // every tab focus would be a write per glance at the page.
+      if (registeredFor.current === userId) return;
+      registeredFor.current = userId;
       const descriptor = getSessionDeviceDescriptor(window.localStorage, window.navigator.userAgent);
       window.setTimeout(() => {
         void supabase.rpc('register_my_session_device', {
@@ -31,18 +37,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 0);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    /**
+     * Supabase re-checks the session whenever the tab regains focus, and every
+     * check hands back a NEW session object for the same signed-in person.
+     * Setting state from it unconditionally changed the identity of `user`,
+     * which re-ran every `useEffect(..., [user])` in the app — so coming back
+     * to the tab looked exactly like a full page reload.
+     *
+     * State is therefore only written when the person, or the token, actually
+     * changed.
+     */
+    const applySession = (next: Session | null) => {
+      setSession((current) => (current?.access_token === next?.access_token ? current : next));
+      setUser((current) => {
+        const nextUser = next?.user ?? null;
+        if (current?.id === nextUser?.id) return current;
+        return nextUser;
+      });
       setLoading(false);
-      if (event === 'SIGNED_IN' && session) registerDevice();
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      applySession(nextSession);
+      if (event === 'SIGNED_OUT') registeredFor.current = null;
+      if (event === 'SIGNED_IN' && nextSession?.user) registerDevice(nextSession.user.id);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session) registerDevice();
+    supabase.auth.getSession().then(({ data: { session: initial } }) => {
+      applySession(initial);
+      if (initial?.user) registerDevice(initial.user.id);
     });
 
     return () => subscription.unsubscribe();
@@ -72,11 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut({ scope: 'local' });
   };
 
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  // Without this the context value is a fresh object on every render of the
+  // provider, which re-renders every consumer for no reason.
+  const value = useMemo(
+    () => ({ user, session, loading, signUp, signIn, signOut }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, session, loading],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

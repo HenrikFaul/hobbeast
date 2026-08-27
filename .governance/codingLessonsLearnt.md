@@ -742,3 +742,66 @@ dátum elsőbbséget élvez.
 teszt valódi, beküldött bejegyzésből származik.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🔁 SECURITY DEFINER RPC + service role = auth.uid() NULL (2026-08-27)
+
+**Hiba:** a `source-manager` edge function ellenőrizte a hívó
+`providers.manage` jogosultságát (`requireAdmin()`), majd **service role
+klienssel** hívta az `admin_upsert_scraper_source`-ot. Az RPC viszont maga is
+ellenőriz: `admin_has_capability(auth.uid(), …)` — és service role kliensnél
+nincs user a JWT-ben, tehát `auth.uid()` NULL → `CAPABILITY_REQUIRED`. A
+felhasználó ennyit látott: „A forrás mentése nem sikerült."
+
+**Szabály:** ha az RPC `auth.uid()`-ra épít, akkor a HÍVÓ nevében kell hívni
+(`asUser.rpc`), nem service role-lal. Service role csak ott, ahol az RPC
+kifejezetten `auth.role() = 'service_role'`-t vár.
+
+**Bizonyítás:** ugyanaz a hívás admin identitással `OK`, service role claimmel
+`42501 / CAPABILITY_REQUIRED`.
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🔄 onAuthStateChange minden fókuszra új session objektumot ad (2026-08-27)
+
+**Hiba:** tabváltás után visszatérve az egész oldal újratöltődni látszott.
+
+**Ok:** a Supabase fókuszba kerüléskor újraellenőrzi a munkamenetet, és
+`TOKEN_REFRESHED` eseménnyel ÚJ session objektumot ad ugyanarra az emberre.
+A provider ezt feltétel nélkül `setUser()`-elte → a `user` referencia
+megváltozott → MINDEN `useEffect(..., [user])` újrafutott → minden lista
+újratöltött.
+
+**Szabály:** auth állapotot csak akkor írj, ha tényleg változott — hasonlítsd
+össze a `user.id`-t és az `access_token`-t, mielőtt setState-elsz. És a context
+`value`-t `useMemo`-zd, különben a provider minden renderje újrarendereli az
+összes fogyasztót.
+
+**Ellenőrzés:** `src/features/__tests__/authSessionIdentity.test.tsx`.
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## ⬆️ SPA-ban a görgetés visszaállítását kézbe kell venni (2026-08-27)
+
+**Hiba:** hosszú lista közepéről megnyitott link a FRISS oldal aljára dobott.
+
+**Ok:** a böngésző visszaállítja az előző görgetési pozíciót, és SPA-ban ez
+arra kerül rá, ami épp megjelenik — nem arra, amiről származik.
+
+**Szabály:** `history.scrollRestoration = 'manual'`, és útvonalváltáskor
+`scrollTo(0,0)` — DE:
+
+- `POP` (vissza/előre) esetén NEM, mert ott a megjegyzett pozíció a helyes,
+- `#hivatkozás` esetén a megnevezett elem nyer,
+- a query stringre NE figyelj: az események oldal gépelés közben írja a
+  szűrőket az URL-be, és minden leütésre a tetejére ugrani rosszabb lenne,
+  mint az eredeti hiba.
+
+**Ellenőrzés:** `src/features/__tests__/scrollToTop.test.tsx`.
+
+*Utoljára frissítve: 2026-08-27*

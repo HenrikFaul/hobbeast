@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Hobbeast eseményimportáló",
+  "version": "1.0.0",
+  "description": "Egy megnyitott Facebook-esemény adatait beolvassa, megmutatja ellenőrzésre, és beküldi a Hobbeast katalógusába.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://www.facebook.com/events/*",
+    "https://m.facebook.com/events/*",
+    "https://bqdvqmpwccsxumzijspj.supabase.co/*"
+  ],
+  "action": {
+    "default_title": "Hobbeast importálás",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

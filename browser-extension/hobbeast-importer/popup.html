@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>Hobbeast importálás</title>
+</head>
+<body>
+  <header>
+    <span class="mark">H</span>
+    <div>
+      <h1>Hobbeast importálás</h1>
+      <p id="source-note">Beolvasás…</p>
+    </div>
+  </header>
+
+  <main>
+    <div id="setup" hidden>
+      <p class="hint">
+        Az első használat előtt add meg a Hobbeast-belépésed. A jelszó nem
+        marad meg — csak a munkameneted tárolódik a böngésződben.
+      </p>
+      <label>E-mail<input id="email" type="email" autocomplete="username" /></label>
+      <label>Jelszó<input id="password" type="password" autocomplete="current-password" /></label>
+      <button id="sign-in" class="primary">Bejelentkezés</button>
+      <p id="setup-error" class="error" role="alert" hidden></p>
+    </div>
+
+    <form id="form" hidden>
+      <label>Cím<input id="title" type="text" required /></label>
+      <div class="row">
+        <label>Dátum<input id="date" type="date" required /></label>
+        <label>Kezdés<input id="time" type="time" /></label>
+      </div>
+      <label>Hivatkozás<input id="url" type="url" required /></label>
+      <div class="row">
+        <label>Város<input id="city" type="text" /></label>
+        <label>Helyszín<input id="venue" type="text" /></label>
+      </div>
+      <label>Leírás<textarea id="description" rows="4"></textarea></label>
+      <p id="warning" class="warning" hidden></p>
+      <button id="save" class="primary" type="submit">Mentés a Hobbeastbe</button>
+      <p id="error" class="error" role="alert" hidden></p>
+    </form>
+
+    <p id="not-an-event" class="hint" hidden>
+      Nyiss meg egy Facebook <strong>esemény</strong> oldalt, és nyomd meg újra a gombot.
+    </p>
+  </main>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
