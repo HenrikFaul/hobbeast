@@ -58,6 +58,9 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Install Playwright Chromium
+        # A crawl-only run uses a plain fetch, never the browser — so it skips
+        # the multi-minute Chromium install and starts crawling sooner.
+        if: github.event.inputs.crawl_only != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run scraper

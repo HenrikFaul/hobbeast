@@ -12,6 +12,34 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.46.1] — 2026-08-27
+
+### A crawl másodperceken belül elindul, és streameli az oldalakat
+
+A „Crawl indítása most" gomb sokáig **semmi láthatót** nem csinált, mert a crawl
+egy teljes, 40-forrásos, Playwright-es gyűjtés **legvégén** futott (15–50 perc),
+és az oldalait csak a végén naplózta. A vezérlőpultból halottnak tűnt.
+
+Három javítás:
+
+- **crawl-only mód** — a gomb mostantól csak a crawlt futtatja, a gyűjtést és a
+  böngészőindítást kihagyva (a crawl plain fetch-et használ), így **másodpercek
+  alatt** elkezd naplózni;
+- **folyamatos streamelés** — az oldalak 2,5 mp-enként a DB-be kerülnek, a run
+  számlálói élőben nőnek, nem a végén;
+- **külön futássáv** — a manuális crawl nem áll sorban egy ütemezett scrape
+  mögött, és a Playwright-telepítést is átugorja.
+
+Az admin panel **4 mp-enként frissül** futás közben, „fut…" jelzéssel és növekvő
+számokkal.
+
+**Élőben végigmérve:** a `pages_fetched` futás közben `1 → 5 → 15` kúszott, a
+run `running → succeeded` lett, **53 mp** alatt 15 oldal, 2 near-dup, 2 hiba
+(a `jegy.hu` blokkolta a botot — naplózva, nem állította meg), és **2 valódi
+jelölt** (dumatv.hu, ticketswap.hu) került a felülvizsgálati listára.
+
+---
+
 ## [1.46.0] — 2026-08-27
 
 ### A crawler mostantól a te vezérlőpultod
