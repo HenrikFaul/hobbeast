@@ -12,6 +12,35 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.37.0] - 2026-08-27
+
+### A bovitmeny nem tud es nem is akar bejelentkezni
+Az elozo valtozat e-mail-jelszo parossal lepett be a Supabase-be. Ez **eleve
+lehetetlen**, ha a Hobbeast-fiok Google-fiok: nincs jelszo, amit meg lehetne
+adni - a Google-jelszo pedig nem a Supabase jelszava. Radasul API-kulcsot
+kellett a bovitmeny mappajaba masolni.
+
+A bovitmeny mostantol **nem ir az adatbazisba**. Beolvassa az oldalt, es
+atadja a szoveget a Hobbeast admin feluletenek egy uj lapon, ahol mar be vagy
+jelentkezve - barhogy jelentkeztel is be. Igy **nincs kulcsa, nincs fiokja es
+nincs sajat jogosultsaga**; a `config.js` egyetlen sora a cim, ami nem titok.
+
+Az adat az URL **fragmentjeben** utazik, amit a bongeszo soha nem kuld el a
+szervernek, igy nem kerul kereslogba.
+
+### A lejart munkamenet nem nyeli el az atadott bejegyzest
+Ha nem voltal bejelentkezve, az `/auth`-ra iranyitas **eldobta a fragmentet**,
+es az atadott szoveg elveszett. A hand-off mostantol az alkalmazas
+indulasakor kerul biztonsagba, meg mielott barmi iranyitana - igy tulveszi a
+kerulout a bejelentkezesen, Google-lel egyutt -, es az admin oldal utana
+oda vezet vissza, ahova indultal.
+
+### Google bejelentkezes: a Supabase-projekt neve latszik
+Ez **nem a kodban van**, ezert nem is javithato innen: a Google Cloud Console
+OAuth consent screen "App name" mezoje. A README-ben lepesrol lepesre.
+
+---
+
 ## [1.36.0] - 2026-08-27
 
 ### A bovitmeny nem mondott semmit

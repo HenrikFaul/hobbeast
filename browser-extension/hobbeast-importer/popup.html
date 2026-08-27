@@ -15,58 +15,47 @@
   </header>
 
   <main>
-    <!-- Every screen below is a <section data-screen>. Exactly one is ever
-         shown, and `boot` is the one that is shown if all else fails, so the
-         window is never blank. -->
+    <!-- Every screen is a <section data-screen>. Exactly one is ever shown,
+         and `boot` is what shows if all else fails, so the window is never
+         blank. -->
     <section data-screen="boot">
       <p class="hint">Egy pillanat…</p>
     </section>
 
-    <section data-screen="signin" hidden>
-      <p class="hint">
-        Jelentkezz be a Hobbeast-fiókoddal. A jelszó nem marad meg — csak a
-        munkameneted tárolódik ebben a böngészőben.
-      </p>
-      <label>E-mail<input id="email" type="email" autocomplete="username" /></label>
-      <label>Jelszó<input id="password" type="password" autocomplete="current-password" /></label>
-      <button id="sign-in" class="primary">Bejelentkezés</button>
-    </section>
-
     <section data-screen="other" hidden>
       <p class="hint">
-        Ez az oldal nem esemény és nem bejegyzés, így nincs mit beolvasni.
+        Ezen az oldalon nincs mit beolvasni. Nyisd meg valamelyiket, és nyomd
+        meg újra a gombot:
       </p>
-      <p class="hint">Nyisd meg valamelyiket, és nyomd meg újra a gombot:</p>
       <ul class="hint">
         <li>Facebook esemény — <code>/events/…</code></li>
         <li>Facebook bejegyzés — <code>/posts/…</code></li>
       </ul>
       <p class="hint muted" id="other-url"></p>
+      <button id="retry" class="secondary">Újra</button>
     </section>
 
-    <form id="form" hidden data-screen="form">
-      <p id="reading" class="reading"></p>
-      <label>Cím<input id="title" type="text" required /></label>
-      <div class="row">
-        <label>Dátum<input id="date" type="date" required /></label>
-        <label>Kezdés<input id="time" type="time" /></label>
-      </div>
-      <label>Hivatkozás<input id="url" type="url" required /></label>
-      <div class="row">
-        <label>Város<input id="city" type="text" /></label>
-        <label>Helyszín<input id="venue" type="text" /></label>
-      </div>
-      <label>Leírás<textarea id="description" rows="4"></textarea></label>
-      <button id="save" class="primary" type="submit">Mentés a Hobbeastbe</button>
-    </form>
-
-    <section data-screen="done" hidden>
-      <p class="done-mark">✓</p>
-      <p class="hint"><strong id="done-title"></strong> bekerült a katalógusba.</p>
-      <button id="again" class="secondary">Másik oldal beolvasása</button>
+    <section data-screen="ready" hidden>
+      <p class="kind" id="preview-kind"></p>
+      <p class="preview-title" id="preview-title"></p>
+      <p class="hint muted" id="preview-url"></p>
+      <pre class="preview-text" id="preview-text"></pre>
+      <button id="open" class="primary">Megnyitás a Hobbeastben</button>
+      <p class="hint">
+        A Hobbeast admin felületén nyílik meg, kitöltött űrlappal — ott
+        ellenőrzöd és mented. Nem kell külön bejelentkezned ide.
+      </p>
     </section>
 
-    <!-- Errors are shown BESIDE the current screen, never instead of it, so a
+    <section data-screen="sent" hidden>
+      <p class="done-mark">→</p>
+      <p class="hint">
+        Megnyitottam a Hobbeast admin felületén, <strong>Bejegyzésből</strong>
+        fülön. Ott ellenőrizd az adatokat, és mentsd el.
+      </p>
+    </section>
+
+    <!-- Errors render beside the current screen, never instead of it, so a
          failure never leaves the operator with a blank window. -->
     <p id="error" class="error" role="alert" hidden></p>
   </main>

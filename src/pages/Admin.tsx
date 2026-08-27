@@ -37,7 +37,9 @@ const Admin = () => {
   useEffect(() => {
     if (authLoading || adminLoading) return;
     if (!user) {
-      navigate('/auth');
+      // Come back to the tab they were headed for — an extension hand-off
+      // is waiting in session storage and belongs on that tab.
+      navigate('/auth?redirect=' + encodeURIComponent('/admin' + window.location.search));
       return;
     }
     if (!isAdmin) {

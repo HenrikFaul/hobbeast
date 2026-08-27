@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ClipboardPaste, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { parseSocialPost } from '@/features/events/socialPostParser';
+import { takePostImportHandoff } from '@/features/events/postImportHandoff';
 
 /**
  * A programme entered from a post the operator read.
@@ -47,15 +48,19 @@ export function AdminPostImport() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [handoffUrl, setHandoffUrl] = useState<string | null>(null);
+
   const draft = useMemo(() => (raw.trim() ? parseSocialPost(raw) : null), [raw]);
 
-  const applyDraft = () => {
+  const applyDraft = (fallbackUrl?: string) => {
     if (!draft) return;
     setForm({
       title: draft.title || '',
       eventDate: draft.eventDate || '',
       eventTime: draft.eventTime || '',
-      url: draft.url || '',
+      // A post rarely links to itself; the page it came from is the honest
+      // fallback so the catalogue entry has somewhere to point.
+      url: draft.url || fallbackUrl || '',
       city: draft.city || '',
       address: draft.address || '',
       venue: draft.venue || '',
@@ -67,6 +72,32 @@ export function AdminPostImport() {
     setParsed(true);
     setError(null);
   };
+
+  /**
+   * A hand-off from the extension fills the box and reads it straight away, so
+   * the operator lands on a filled form rather than on a panel holding an
+   * unexplained blob of text. The fragment is cleared once taken: a reload
+   * must not silently re-import something already filed.
+   */
+  const handoffTaken = useRef(false);
+  useEffect(() => {
+    if (handoffTaken.current) return;
+    const handoff = takePostImportHandoff();
+    if (!handoff) return;
+    handoffTaken.current = true;
+    setRaw(handoff.text);
+    setHandoffUrl(handoff.url || null);
+  }, []);
+
+  // `draft` only exists on the render after `raw` is set, so the parse is
+  // applied here rather than in the effect above.
+  const handoffApplied = useRef(false);
+  useEffect(() => {
+    if (!handoffTaken.current || handoffApplied.current || !draft) return;
+    handoffApplied.current = true;
+    applyDraft(handoffUrl || undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, handoffUrl]);
 
   const save = async () => {
     setSaving(true);
@@ -153,7 +184,7 @@ export function AdminPostImport() {
                 </ul>
               )}
 
-              <Button size="sm" className="mt-3" onClick={applyDraft}>
+              <Button size="sm" className="mt-3" onClick={() => applyDraft()}>
                 <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Átveszem az űrlapra
               </Button>
             </div>

@@ -51,5 +51,3 @@ instaposztokhoz/media/
 __pycache__/
 *.pyc
 
-# The extension's local Supabase config (copied from config.example.js).
-browser-extension/hobbeast-importer/config.js

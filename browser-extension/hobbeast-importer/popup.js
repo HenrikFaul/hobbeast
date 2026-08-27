@@ -1,21 +1,21 @@
 /**
- * The review step, and the only place this extension shows its work.
+ * Reads the page, shows what it found, and hands it to Hobbeast.
  *
- * Design rule learned the hard way: EVERY path ends on a visible screen with a
- * sentence explaining what happened. The first version started with every
- * section hidden and unhid one only at the end, so a single thrown error left
- * the operator staring at an empty window with no way to tell whether the
- * extension had even run. show() and the top-level catch exist to make that
- * impossible.
+ * It deliberately does NOT write to the database itself. The first version
+ * signed in with an email and a password, which fails outright for an operator
+ * whose Hobbeast account is a Google account — there is no password to give —
+ * and it meant shipping an API key inside the extension folder. Handing the
+ * text to the admin page instead solves both: the operator is already signed
+ * in there, however they signed in, and the extension holds no key, no
+ * account and no privilege of its own.
  *
- * Nothing reaches Hobbeast without passing through the form: the content
- * script reports what the page says, the operator corrects it, and the write
- * runs as their own account through admin_create_external_event, which checks
- * their providers.manage capability. The extension holds no privilege of its
- * own.
+ * The other rule this file follows: EVERY path ends on a visible screen with a
+ * sentence explaining what happened. The version before this one started with
+ * every section hidden and unhid one at the end, so a single thrown error left
+ * an empty window that could not be told apart from an extension that had not
+ * run at all.
  */
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
-import { parseSocialPost } from './vendor/socialPostParser.js';
+import { HOBBEAST_ORIGIN } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const statusLine = $('status');
@@ -34,64 +34,6 @@ function fail(message, detail) {
   errorBox.hidden = false;
 }
 
-const SOURCE_NOTE = {
-  jsonld: 'Az esemény saját, gépi olvasásra szánt adataiból.',
-  opengraph: 'A megosztási adatokból — a dátumot mindenképp ellenőrizd.',
-  dom: 'Csak a látható szövegből. Nézz át mindent.',
-  'post-text': 'A bejegyzés szövegéből kiolvasva — nézd át.',
-};
-
-async function loadSession() {
-  const { session } = await chrome.storage.local.get('session');
-  return session?.access_token ? session : null;
-}
-
-async function authRequest(grant, body) {
-  const response = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=' + grant, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', apikey: SUPABASE_PUBLISHABLE_KEY },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) return null;
-  return response.json();
-}
-
-async function callRpc(name, body, session) {
-  const send = (token) => fetch(SUPABASE_URL + '/rest/v1/rpc/' + name, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      authorization: 'Bearer ' + token,
-    },
-    body: JSON.stringify(body),
-  });
-
-  let response = await send(session.access_token);
-  if (response.status === 401) {
-    const renewed = await authRequest('refresh_token', { refresh_token: session.refresh_token });
-    if (!renewed) {
-      await chrome.storage.local.remove('session');
-      throw new Error('SESSION_EXPIRED');
-    }
-    await chrome.storage.local.set({ session: renewed });
-    response = await send(renewed.access_token);
-  }
-  if (!response.ok) throw new Error((await response.text()) || ('HTTP ' + response.status));
-  return response.json();
-}
-
-function splitTimestamp(value) {
-  if (!value) return { date: '', time: '' };
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return { date: '', time: '' };
-  const pad = (n) => String(n).padStart(2, '0');
-  return {
-    date: parsed.getFullYear() + '-' + pad(parsed.getMonth() + 1) + '-' + pad(parsed.getDate()),
-    time: pad(parsed.getHours()) + ':' + pad(parsed.getMinutes()),
-  };
-}
-
 async function readActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('NO_TAB');
@@ -106,60 +48,58 @@ async function readActiveTab() {
   return injected.result;
 }
 
-/** A post is just text, and the app's own parser already reads that text. */
-function draftFromPost(page) {
-  if (!page.text) return null;
-  const parsed = parseSocialPost(page.text);
-  return {
-    title: parsed.title || page.publisher || '',
-    date: parsed.eventDate || '',
-    time: parsed.eventTime || '',
-    url: parsed.url || page.url,
-    city: parsed.city || '',
-    venue: parsed.venue || '',
-    description: parsed.description || page.text,
-    source: 'post-text',
-  };
+/**
+ * The hand-off travels in the URL FRAGMENT, which browsers never send to the
+ * server — so the post text stays out of request logs on the way over.
+ */
+function handoffUrl(payload) {
+  const json = JSON.stringify(payload);
+  const base64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_');
+  return HOBBEAST_ORIGIN + '/admin?tab=post-import#import=' + base64;
 }
 
-function draftFromEvent(page) {
-  const { date, time } = splitTimestamp(page.startsAt);
-  return {
-    title: page.title || '',
-    date,
-    time,
-    url: page.url,
-    city: page.city || '',
-    venue: page.venue || '',
-    description: page.description || '',
-    source: page.source,
-  };
+/**
+ * An event page states its own date and place, so those are written into the
+ * text as the labelled lines the parser on the other side already reads. A
+ * post is simply its own text.
+ */
+function payloadFor(page) {
+  if (page.kind === 'post') {
+    return { text: page.text, url: page.url };
+  }
+  const lines = [page.title || ''];
+  if (page.startsAt) {
+    const at = new Date(page.startsAt);
+    if (!Number.isNaN(at.getTime())) {
+      const pad = (n) => String(n).padStart(2, '0');
+      lines.push('Időpont: ' + at.getFullYear() + '.' + pad(at.getMonth() + 1) + '.'
+        + pad(at.getDate()) + '. ' + pad(at.getHours()) + ':' + pad(at.getMinutes()));
+    }
+  }
+  if (page.venue || page.city) {
+    lines.push('Helyszín: ' + [page.venue, page.city].filter(Boolean).join(', '));
+  }
+  if (page.description) lines.push('', page.description);
+  return { text: lines.filter((line) => line !== null).join('\n'), url: page.url };
 }
 
-function fillForm(draft, kindLabel) {
-  $('title').value = draft.title;
-  $('date').value = draft.date;
-  $('time').value = draft.time;
-  $('url').value = draft.url;
-  $('city').value = draft.city;
-  $('venue').value = draft.venue;
-  $('description').value = draft.description;
+let pending = null;
 
-  const notes = [SOURCE_NOTE[draft.source] || ''];
-  if (!draft.date) notes.push('Dátumot nem találtam — add meg kézzel.');
-  $('reading').textContent = notes.filter(Boolean).join(' ');
-  show('form', kindLabel + ' beolvasva — ellenőrizd.');
+function preview(page) {
+  pending = payloadFor(page);
+  const isPost = page.kind === 'post';
+  $('preview-kind').textContent = isPost ? 'Facebook bejegyzés' : 'Facebook esemény';
+  $('preview-title').textContent = (page.title || page.publisher || '').trim() || '(cím nélkül)';
+  $('preview-url').textContent = page.url;
+  $('preview-text').textContent = pending.text.slice(0, 400) + (pending.text.length > 400 ? '…' : '');
+  show('ready', isPost ? 'Bejegyzés beolvasva.' : 'Esemény beolvasva.');
 }
 
 async function start() {
   errorBox.hidden = true;
-
-  if (!(await loadSession())) {
-    show('signin', 'Előbb jelentkezz be.');
-    return;
-  }
-
   show('boot', 'Oldal beolvasása…');
+
   const page = await readActiveTab();
 
   if (page.kind === 'other') {
@@ -168,88 +108,26 @@ async function start() {
     return;
   }
 
-  if (page.kind === 'post') {
-    const draft = draftFromPost(page);
-    if (!draft) {
-      $('other-url').textContent = 'Görgess rá a bejegyzésre, hogy betöltsön, és nyomd meg újra.';
-      show('other', 'Nem találtam szöveget a bejegyzésben.');
-      return;
-    }
-    fillForm(draft, 'Bejegyzés');
+  if (page.kind === 'post' && !page.text) {
+    $('other-url').textContent = 'Görgess rá a bejegyzésre, hogy betöltsön, és nyomd meg újra.';
+    show('other', 'Nem találtam szöveget a bejegyzésben.');
     return;
   }
 
-  fillForm(draftFromEvent(page), 'Esemény');
+  preview(page);
 }
 
-$('sign-in').addEventListener('click', async () => {
-  errorBox.hidden = true;
-  $('sign-in').disabled = true;
+$('open').addEventListener('click', async () => {
+  if (!pending) return;
   try {
-    const session = await authRequest('password', {
-      email: $('email').value.trim(),
-      password: $('password').value,
-    });
-    if (!session?.access_token) {
-      fail('A bejelentkezés nem sikerült.');
-      return;
-    }
-    await chrome.storage.local.set({ session });
-    // The password is never stored; only the session Supabase handed back.
-    $('password').value = '';
-    await start();
+    await chrome.tabs.create({ url: handoffUrl(pending) });
+    show('sent', 'Átadva a Hobbeastnek.');
   } catch (error) {
-    fail('A bejelentkezés nem sikerült.', error.message);
-  } finally {
-    $('sign-in').disabled = false;
+    fail('Nem sikerült megnyitni a Hobbeastet.', String(error.message || '').slice(0, 80));
   }
 });
 
-$('form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  errorBox.hidden = true;
-  $('save').disabled = true;
-  statusLine.textContent = 'Mentés…';
-  try {
-    const session = await loadSession();
-    if (!session) {
-      show('signin', 'Lejárt a munkamenet — jelentkezz be újra.');
-      return;
-    }
-    await callRpc('admin_create_external_event', {
-      p_title: $('title').value.trim(),
-      p_event_date: $('date').value,
-      p_event_time: $('time').value || null,
-      p_external_url: $('url').value.trim(),
-      p_city: $('city').value.trim() || null,
-      p_venue: $('venue').value.trim() || null,
-      p_description: $('description').value.trim() || null,
-      p_source_note: 'Facebookról, kézzel ellenőrizve',
-    }, session);
-
-    $('done-title').textContent = $('title').value.trim();
-    show('done', 'Kész.');
-    // A mark on the icon, so the result is still visible after this closes.
-    void chrome.action.setBadgeText({ text: 'OK' });
-    void chrome.action.setBadgeBackgroundColor({ color: '#183124' });
-  } catch (error) {
-    const detail = String(error.message || '');
-    fail(
-      detail.includes('CAPABILITY_REQUIRED') ? 'Ehhez a fiókodnak providers.manage jogosultság kell.'
-        : detail.includes('DATE_IN_PAST') ? 'A dátum már elmúlt.'
-          : detail.includes('HTTPS_URL_REQUIRED') ? 'https:// kezdetű hivatkozás kell.'
-            : detail.includes('SESSION_EXPIRED') ? 'Lejárt a munkamenet — jelentkezz be újra.'
-              : 'A mentés nem sikerült.',
-      detail.slice(0, 80),
-    );
-    statusLine.textContent = 'A mentés nem sikerült.';
-    $('save').disabled = false;
-  }
-});
-
-$('again').addEventListener('click', () => {
-  void chrome.action.setBadgeText({ text: '' });
-  $('save').disabled = false;
+$('retry').addEventListener('click', () => {
   void start();
 });
 

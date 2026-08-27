@@ -805,3 +805,29 @@ arra kerül rá, ami épp megjelenik — nem arra, amiről származik.
 **Ellenőrzés:** `src/features/__tests__/scrollToTop.test.tsx`.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🔑 Bővítmény ne autentikáljon: adja át a webalkalmazásnak (2026-08-27)
+
+**Hiba:** a Chrome-bővítmény e-mail–jelszó párossal lépett be a Supabase-be.
+Az operátor Google-fiókkal regisztrált → **nincs jelszava**, amit megadhatna.
+A Google-jelszó pedig nem a Supabase jelszava, így a `password` grant mindig
+`invalid_grant`-tel bukott. Ráadásul API-kulcsot kellett a bővítménybe másolni.
+
+**Szabály:** egy bővítmény ne legyen önálló API-kliens. Olvassa be, amit kell,
+és **adja át a webalkalmazásnak**, ahol a felhasználó már be van jelentkezve —
+bármilyen módszerrel. Így nincs kulcs, nincs második bejelentkezés, és a
+meglévő, már ellenőrzött admin UI végzi a mentést.
+
+**Átadás:** URL **fragmentben** (`#import=<base64url>`), amit a böngésző soha
+nem küld el a szervernek — nem kerül kéreslogba.
+
+**Buktató, amibe bele is futottunk:** ha a munkamenet lejárt, az `/auth`-ra
+irányítás **eldobja a fragmentet**. Ezért a hand-offot az alkalmazás
+indulásakor kell `sessionStorage`-be menteni (`src/main.tsx`), nem abban a
+komponensben, amelyik felhasználja — az már a redirect után mountolódik.
+
+**Ellenőrzés:** `src/features/__tests__/postImportHandoff.test.ts`.
+
+*Utoljára frissítve: 2026-08-27*
