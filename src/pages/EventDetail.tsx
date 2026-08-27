@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Share2, Tag, Settings } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, ArrowLeft, ExternalLink, Edit2, Tag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ShareMenu } from "@/components/sharing/ShareMenu";
 import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { MapyTripPlanner } from '@/components/MapyTripPlanner';
@@ -630,12 +631,14 @@ const EventDetail = () => {
                 Csatlakozom
               </Button>
             )}
-            <Button variant="outline" size="icon" aria-label="Esemény hivatkozásának másolása" className="h-12 w-12 rounded-full bg-card" onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              toast.success('Link másolva!');
-            }}>
-              <Share2 className="h-4 w-4" />
-            </Button>
+            <ShareMenu
+              subject={{
+                title: event.title,
+                when: [formatDate(event.event_date), event.event_time?.slice(0, 5)]
+                  .filter(Boolean).join(', ') || null,
+                where: event.location_city || event.location_address || null,
+              }}
+            />
           </div>
 
           <div className="mt-4">

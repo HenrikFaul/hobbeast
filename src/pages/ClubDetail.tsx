@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarClock, ExternalLink, Facebook, Loader2, Mail, MapPin
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ShareMenu } from '@/components/sharing/ShareMenu';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { getClub, setClubMembership, type ClubDetail as ClubDetailData } from '@/lib/clubOperations';
@@ -109,7 +110,16 @@ const ClubDetail = () => {
                 <Badge className="rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/10">Kezdőknek is</Badge>
               )}
             </div>
-            <h1 className="font-display text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{club.name}</h1>
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="font-display text-3xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-4xl">{club.name}</h1>
+              <ShareMenu
+                subject={{
+                  title: club.name,
+                  where: [club.city, club.address].filter(Boolean).join(', ') || null,
+                }}
+                className="h-11 w-11 shrink-0 rounded-full border-white/25 bg-white/10 text-white hover:bg-white/20"
+              />
+            </div>
             {(club.city || club.address) && (
               <p className="mt-3 flex items-center gap-2 text-white/[0.7]">
                 <MapPin className="h-4 w-4 text-[#dfff62]" aria-hidden="true" />

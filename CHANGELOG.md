@@ -12,6 +12,30 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.40.0] - 2026-08-27
+
+### Megosztas: Facebook, Messenger, WhatsApp
+Az esemenyoldalon eddig egyetlen ikon volt, ami **csak a linket masolta**.
+Ugyanaz az egy ikon maradt - a lap nem lett zsufoltabb -, de most menut nyit:
+
+- **telefonon eloszor a keszulek sajat megosztas-lapja nyilik** (egy koppintas,
+  minden alkalmazas, amit a felhasznalo tenyleg hasznal), a menu csak akkor jon,
+  ha a keszulek ezt nem tamogatja;
+- **Facebook** - csak a cimet kuldjuk, mert a Facebook a sajat OpenGraph
+  tagjeinkbol epiti az elonezetet es minden atadott szoveget eldob;
+- **Messenger** - deep linkkel, es **kizarolag telefonon jelenik meg**: asztali
+  gepen a deep link nem csinal semmit, a webes dialogus pedig regisztralt
+  Facebook app id-t igenyelne. Egy nem mukodo gomb rosszabb, mint a hianya.
+- **WhatsApp** - a cim a szoveg **vegen**, mert csak igy keszit elonezetet;
+- **Link masolasa** - visszajelzessel.
+
+A megosztas a **klubok oldalan** is ott van, a cim mellett.
+
+Elesben ellenorizve: asztali gepen harom elem (Messenger nelkul), mobil
+emulacioban negy, es mindharom halozat a helyes cimet nyitja meg.
+
+---
+
 ## [1.39.0] - 2026-08-27
 
 ### A Google branding-panasz jogos volt
