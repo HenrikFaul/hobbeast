@@ -7,9 +7,9 @@
     <link rel="icon" type="image/svg+xml" href="/hobbeast-mark.svg" />
     <meta name="description" content="A Hobbeast összeköt hasonló érdeklődésű embereket. Fedezz fel új hobbikat, csatlakozz eseményekhez vagy hozz létre te magad és építs valódi barátságokat közös élmények által.">
     <meta name="author" content="Hobbeast" />
+    <link rel="canonical" href="https://expericentre.com/" />
 
-    
-    
+
     <meta property="og:type" content="website" />
 
     <meta name="twitter:card" content="summary_large_image" />
@@ -23,6 +23,40 @@
 
   <body>
     <div id="root"></div>
+
+    <!--
+      What a fetcher without JavaScript sees.
+
+      Google's OAuth branding review does not run scripts, so it received an
+      empty React shell — 86 characters of visible text — and reported the home
+      page as "unresponsive". The site was answering in 100ms; there was simply
+      nothing in the document to read.
+
+      React replaces #root on mount, so this block never reaches a person with
+      scripting on. It is also the honest fallback for anyone without it.
+    -->
+    <noscript>
+      <main lang="hu" style="max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem;font-family:system-ui,sans-serif;color:#183124;line-height:1.6">
+        <h1 style="font-size:1.75rem;margin:0 0 .5rem">Hobbeast — van társaságod</h1>
+        <p style="margin:0 0 1.5rem;font-size:1.05rem">
+          A Hobbeast összeköt hasonló érdeklődésű embereket. Fedezz fel új hobbikat,
+          csatlakozz eseményekhez vagy hozz létre te magad, és építs valódi
+          barátságokat közös élmények által.
+        </p>
+        <h2 style="font-size:1.15rem;margin:0 0 .5rem">Mit találsz nálunk</h2>
+        <ul style="margin:0 0 1.5rem;padding-left:1.25rem">
+          <li><a href="/events">Események</a> — több ezer magyarországi program egy helyen, térképpel és szűrőkkel.</li>
+          <li><a href="/explore">Hobbik</a> — böngéssz téma szerint, és találd meg, ami tényleg érdekel.</li>
+          <li><a href="/klubok">Klubok</a> — rendszeresen találkozó közösségek a környékeden.</li>
+          <li><a href="/about">Rólunk</a> — kik vagyunk, és miért csináljuk.</li>
+        </ul>
+        <p style="margin:0;color:#6b6f68;font-size:.95rem">
+          Az oldal teljes használatához JavaScript szükséges.
+          Kapcsolat: <a href="mailto:hello@expericentre.com">hello@expericentre.com</a>
+        </p>
+      </main>
+    </noscript>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

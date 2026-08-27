@@ -12,6 +12,41 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.39.0] - 2026-08-27
+
+### A Google branding-panasz jogos volt
+Az `expericentre.com` valoban valaszol - HTTP 200, 0,1 masodperc -, de a Google
+branding-ellenorzese **nem futtat JavaScriptet**, es a kiszolgalt HTML-ben
+osszesen **86 karakter lathato szoveg** volt: egy ures React-vaz. Innen nezve
+az oldal tenyleg "unresponsive".
+
+A dokumentum mostantol `<noscript>` blokkban leirja, mi a Hobbeast, es
+atvezet a fo szakaszokra. **86 -> 1192 karakter.** A React a `#root`-ot
+csereli, igy JavaScripttel senki nem lat belole semmit - viszont a crawler,
+a linkelonezet es a JS nelkuli latogato igen. Bekerult a `canonical` link is.
+
+A masodik panasz ("not registered to you") **nem kodkerdes**: Search Console
+tulajdonos-igazolas kell hozza, es a site-on jelenleg nincs semmilyen
+verifikacios token.
+
+### Ultimate Event Engine - Slice A
+A terv §20-a es §34-e kotelezoen ezzel kezdodik: bizonyitek-alapu felmeres,
+majd karakterizacio. Mindketto elkeszult.
+
+**[As-Is Event Capability Map](.governance/as_is_event_capability_map.md)** -
+ot kategoriaba sorolva, kod- es elo adatbazis-bizonyitekkal. A legfontosabb
+megallapitas: **a platform lenyegesen tobbet tud, mint amennyit a terv
+feltetelez** (77 hivott RPC, 72 esemenyhez kapcsolodo tabla), es a valodi hiany
+mashol van, mint ahol a terv keresi.
+
+**Reszveteli allapotgep teljes karakterizacioja** - 14 uj teszt, amely a
+8x8-as atmenetmatrixot aktoronkent rogziti. A teszt irasa kozben harom
+feltetelezesem megdolt; a dokumentalt igazsag: csak a `completed` vegleges,
+a `cancelled` es a `no_show` **visszaforditható, de kizarolag szervezo altal**,
+es aki mar becsekkolt, **nem tudja magat visszavonni**.
+
+---
+
 ## [1.38.1] - 2026-08-27
 
 ### A gomb azert nem csinalt semmit, mert a popup.js nem forditodott le
