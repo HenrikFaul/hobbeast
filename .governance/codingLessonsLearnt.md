@@ -902,3 +902,33 @@ A guardot vissza kell ellenőrizni: tedd vissza a hibát, és bukjon el.
 ugyanezt a fájlt — regexet vagy escape-et tartalmazó fájlt Write-tal írj.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🕷️ Crawler-tudás a Smartsearchtool-ból (2026-08-27)
+
+**Forrás:** `C:\Work\Smartsearchtool` — működő scraping/crawling kód és
+tudásbázis (`SEARCHFORGE/knowledge/K4_crawl_extract.md`, grepsearch
+`crawler.server.ts`, hercules `crawler_actions.ts`).
+
+**Amit átvettünk a Hobbeast forrásfelderítőjébe:**
+
+- **SimHash near-dedup** (`scraper-worker/src/sources/fingerprint.mjs`) — a
+  hercules 64-bites SimHash-e + Hamming-távolság. Küszöb: 3 bit VALÓS
+  oldalhosszon (~20k karakter); rövid stringen a SimHash-nek túl kevés az
+  entrópiája, ott a teszt is valósághű hosszal dolgozzon.
+- **Frontier-crawl** (`crawlFrontier.mjs`) — mélységkorlátos BFS, per-host cap,
+  összoldal-büdzsé, robots minden lekérésnél. A fetch és a robots **injektált**,
+  így hálózat nélkül tesztelhető fake site-gráffal.
+- **Tartalom-minőség** (`contentQuality`) — a QSDM nyelvfüggetlen fele. JSON-LD
+  eseményt tartalmazó oldalt SOHA ne büntess vékonyságért — az is tartalom.
+- **URL-kanonizálás** (K4 clean-params) + **crawl-trap őrök** (naptár, belső
+  keresés, session-URL, szűrőrobbanás, mély lapozás, önismétlő útvonal).
+
+**Szabály:** felderítés ≠ crawl ≠ index (K4). A promóció a valódi források közé
+**emberi döntés** marad; a pontozás csak azt dönti el, mi kerül a listára.
+
+**Buktató:** a meghajtó menet közben lecsatolódhat (`E:` → `C:`); ha a
+felhasználó másik utat ad, onnan olvass tovább.
+
+*Utoljára frissítve: 2026-08-27*

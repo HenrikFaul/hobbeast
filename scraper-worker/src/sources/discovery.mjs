@@ -25,8 +25,19 @@ const LISTING_PATH = /(esemeny|esemenyek|program|programok|programnaptar|naptar|
 /** Paths that never lead to a listing, however many events the site has. */
 const DEAD_END_PATH = /(\/wp-(admin|login|json|content\/uploads)|\/(kosar|cart|checkout|fiok|account|login|bejelentkez|regisztr|adatvedelem|privacy|impresszum|imprint|aszf|terms|cookie|kapcsolat|contact|rolunk|about)\b|\.(pdf|jpe?g|png|gif|webp|svg|zip|docx?|xlsx?|mp[34]|avi|mov)$)/;
 
-/** Hosts that are never a source of their own: aggregators and infrastructure. */
+/**
+ * Platform infrastructure and the social networks the collector refuses anyway
+ * — matched as a token anywhere in the host.
+ */
 const IGNORED_HOST = /(^|\.)(google\.|googleapis\.|gstatic\.|facebook\.|fbcdn\.|instagram\.|twitter\.|x\.com|linkedin\.|youtube\.|youtu\.be|tiktok\.|pinterest\.|w3\.org|schema\.org|gravatar\.|wordpress\.org|cloudflare\.|jsdelivr\.|unpkg\.|paypal\.|maps\.)/i;
+
+/**
+ * Large international institutions and global aggregators, matched as a host
+ * SUFFIX. These turn up as policy, cookie and footer links — europa.eu and the
+ * like matched the listing-path heuristic on `/events` and became noise a human
+ * then had to clear by hand. None is ever a Hungarian programme publisher.
+ */
+const IGNORED_INSTITUTION = /(^|\.)(europa\.eu|wikipedia\.org|wikimedia\.org|un\.org|who\.int|apple\.com|microsoft\.com|mozilla\.org|adobe\.com|booking\.com|tripadvisor\.com|eventbrite\.com|meetup\.com)$/i;
 
 /**
  * Query parameters that never change what a page says.
@@ -171,7 +182,7 @@ export function harvestLinks(html, pageUrl, { knownHosts = [], limit = 40 } = {}
 
     const host = hostOf(resolved);
     if (!host || known.has(host)) continue;
-    if (IGNORED_HOST.test(host)) continue;
+    if (IGNORED_HOST.test(host) || IGNORED_INSTITUTION.test(host)) continue;
     if (isSocialUrl(resolved)) continue;
 
     const path = foldHu(new URL(resolved).pathname + new URL(resolved).search);
@@ -210,6 +221,39 @@ export function harvestLinks(html, pageUrl, { knownHosts = [], limit = 40 } = {}
 }
 
 /**
+ * Whether a page reads like real content or like an empty shell.
+ *
+ * Adapted from the QSDM page-quality features in C:\Work\Smartsearchtool
+ * (hercules crawler_actions.ts, after Bendersky et al.). The original is tuned
+ * for English retrieval and leans on a stopword list; this keeps only the
+ * language-agnostic half — how much visible text there is, and how much of the
+ * markup is that text rather than tags — because it must judge Hungarian pages
+ * too. It answers one question: is there a page here, or just a nav bar and a
+ * cookie banner?
+ *
+ * Returns a small signed adjustment, not a verdict: it nudges a candidate that
+ * is otherwise borderline, and never overrides the events-specific signals.
+ */
+export function contentQuality(html) {
+  const body = String(html || '');
+  if (body.length < 200) return { adjustment: -8, reason: 'Nagyon kevés tartalom' };
+
+  const text = stripTags(body);
+  const visibleWords = (text.match(/\b[\p{L}\p{N}]+\b/gu) || []).length;
+
+  // The ratio of visible text to raw markup: a real article is text-heavy, a
+  // shell is nearly all tags and scripts. K4 calls this info-to-noise.
+  const density = text.length / body.length;
+
+  if (visibleWords < 40) return { adjustment: -6, reason: 'Alig van olvasható szöveg' };
+  if (density < 0.04) return { adjustment: -4, reason: 'Szinte csak vázszerkezet, kevés szöveg' };
+  if (visibleWords > 300 && density > 0.08) {
+    return { adjustment: 6, reason: 'Tartalomgazdag oldal' };
+  }
+  return { adjustment: 0, reason: null };
+}
+
+/**
  * How likely a page is to be a programme listing, 0–100, with the reasons.
  *
  * The reasons matter as much as the number: an operator deciding whether to
@@ -230,7 +274,10 @@ export function scoreCandidate({ url = '', title = '', html = '', linkText = '' 
   })();
 
   if (LISTING_PATH.test(path)) {
-    score += 25;
+    // The URL path is the strongest signal available before fetching a page,
+    // and a bare "/esemenyek" link is worth a human's glance on its own — so
+    // it clears the review bar even with nothing else to go on.
+    score += 30;
     reasons.push('A cím útvonala programlistára utal');
   }
   if (LISTING_PATH.test(foldHu(linkText))) {
@@ -274,6 +321,19 @@ export function scoreCandidate({ url = '', title = '', html = '', linkText = '' 
   if (/(kosarba|kosarba tesz|add to cart|termek\b|webshop)/.test(foldHu(body).slice(0, 20000))) {
     score -= 15;
     reasons.push('Webshop jelek — lehet, hogy nem programoldal');
+  }
+
+  // The content-quality nudge, only when there is a page to judge — and never
+  // a penalty when the page already states structured events. Machine-readable
+  // content is still content; docking it for having little prose would punish
+  // exactly the pages that are the best sources.
+  if (body) {
+    const quality = contentQuality(body);
+    const apply = quality.adjustment > 0 || jsonLdEvents === 0;
+    if (apply && quality.adjustment !== 0) {
+      score += quality.adjustment;
+      if (quality.reason) reasons.push(quality.reason);
+    }
   }
 
   return {

@@ -200,3 +200,18 @@ describe('frontier guards', () => {
     assert.equal(found[0].url, 'https://mas.hu/esemenyek?kategoria=zene');
   });
 });
+
+describe('institutional noise', () => {
+  const harvest = (href) => harvestLinks(`<a href="${href}">Events</a>`, 'https://sajat.hu/', { knownHosts: ['sajat.hu'] });
+
+  it('never suggests europa.eu or a global aggregator on a listing path', () => {
+    // These matched /events and became leads a human had to clear by hand.
+    assert.equal(harvest('https://ec.europa.eu/info/events_en').length, 0);
+    assert.equal(harvest('https://www.eventbrite.com/d/hungary/events/').length, 0);
+    assert.equal(harvest('https://www.meetup.com/find/events/').length, 0);
+  });
+
+  it('still keeps a genuine Hungarian venue on the same path', () => {
+    assert.equal(harvest('https://muveszetimalom.hu/events').length, 1);
+  });
+});

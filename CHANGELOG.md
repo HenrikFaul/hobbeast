@@ -12,6 +12,48 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.45.0] — 2026-08-27
+
+### Valódi crawler: a gyűjtő folyamatosan bővíti a megbízható forráslistát
+
+Eddig a felderítés **egy oldalt, egy ugrást** nézett. Mostantól van egy
+**mélységkorlátos frontier-crawl**, ami a bizonyított forrásokból (amelyek abban
+a futásban eseményt adtak) indul, és **két szintig követi a hivatkozásokat**,
+hogy olyan programközlőket találjon, akiket még nem ismerünk.
+
+Ez a `C:\Work\Smartsearchtool` mappában felépített, működő crawler-tudásra épül
+(K4 — URL frontier, per-host részsorok, mélység szerinti prioritás; a
+grepsearch `crawlOne`/`crawlBatch`; a hercules SimHash és minőségpontozás).
+
+**Élőben bizonyítva** — 2 valódi forrásból (`programturizmus.hu`, `obuda.hu`)
+**5 igazi magyar jelölt** jött ki: Veres 1 Színház, Székesfehérvár turizmus,
+Mézesvölgyi Nyár és mások — miközben a near-dup dedup 3 templated oldalt
+kiszűrt, egy fetch-hiba nem állította meg, a robots és a per-host korlát
+betartva.
+
+### Ami a `Smartsearchtool`-ból bekerült
+
+- **SimHash near-dedup** (`fingerprint.mjs`) — ugyanaz a lista más slug alatt
+  ismét közzétéve **egy** jelölt, nem tíz. A kanonizálás a query stringet fogja
+  meg, a SimHash a újraközlést, amit URL-ből nem lehet látni. A fingerprintet
+  elmentjük (`content_simhash` oszlop), hogy egy későbbi futás is felismerje.
+- **Tartalom-minőség** (`contentQuality`, a hercules QSDM nyelvfüggetlen fele) —
+  a nagyon vékony, csak-váz oldalak lejjebb pontoznak, a tartalomgazdagok
+  feljebb. Strukturált eseményt tartalmazó oldalt **soha nem büntet**, mert a
+  gépi olvashatóság is tartalom.
+- **Intézményi zajszűrés** — az `europa.eu`, `eventbrite`, `meetup` és társaik
+  `/events` útvonala eddig téves jelölt lett; most kizárva.
+
+### Korlátok — szándékosan
+
+Egy crawl, ami nem tud kimerülni, az már nem felderítés, hanem elszabadult bot:
+összoldal-büdzsé, per-host cap, mélységkorlát, robots minden lekérésnél,
+near-dup kihagyás. Alapból **kikapcsolva** (`--crawl 6` kapcsolja be), és a
+gyűjtéstől teljesen elkülönül — a futás után fut, és semmilyen hibája nem
+törheti el a gyűjtést.
+
+---
+
 ## [1.44.0] — 2026-08-27
 
 ### Közös döntés: szavazás az eseményoldalon

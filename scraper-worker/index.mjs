@@ -16,6 +16,8 @@
 import { chromium } from 'playwright';
 import { fetchStatic, robotsAllows } from './src/fetch.mjs';
 import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
+import { crawlFrontier } from './src/sources/crawlFrontier.mjs';
+import { simhash64 } from './src/sources/fingerprint.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
@@ -41,6 +43,11 @@ const onlyIds = strFlag('--only').split(',').map((s) => s.trim()).filter((s) => 
 // How many of this run's sources also get a discovery pass. Capped on purpose:
 // a night's collection must never quietly become a crawl. `--discover 0` off.
 const discoverLimit = flag('--discover', 8);
+// A deeper BFS crawl from the sources that produced events this run, following
+// links a couple of levels out to find publishers we do not yet know. Off by
+// default (`--crawl 6` turns it on); strictly bounded when on.
+const crawlSeeds = flag('--crawl', 0);
+const crawlMaxPages = flag('--crawl-pages', 40);
 const log = (...m) => console.log(...m);
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -78,6 +85,7 @@ async function main() {
     ? await listKnownHosts({ supabaseUrl, serviceRoleKey }).catch(() => new Set())
     : new Set();
   let discoveryBudget = discoverLimit;
+  const provenSeeds = [];
   try {
     for (const source of targets) {
       const t0 = Date.now();
@@ -142,6 +150,10 @@ async function main() {
         }).catch(() => {});
       }
 
+      if (crawlSeeds > 0 && events.length > 0 && listing && provenSeeds.length < crawlSeeds) {
+        provenSeeds.push(listing);
+      }
+
       if (discoveryBudget > 0 && events.length > 0 && listing) {
         discoveryBudget -= 1;
         try {
@@ -183,6 +195,43 @@ async function main() {
       summary.skipped += totals.skipped || 0;
       summary.duplicates += totals.duplicates || 0;
       if (status === 'failed') summary.failed += 1;
+    }
+
+    // The deep pass: a bounded frontier crawl from the sources that just
+    // produced events. Kept entirely separate from collection — it runs after
+    // the loop, respects robots, dedups by content, and cannot fail the run.
+    if (crawlSeeds > 0 && provenSeeds.length > 0) {
+      try {
+        const knownHosts = await listKnownHosts({ supabaseUrl, serviceRoleKey }).catch(() => new Set());
+        const result = await crawlFrontier({
+          seeds: provenSeeds,
+          fetchPage: async (url) => {
+            const html = await guardedFetch(url);
+            return { html, status: 200 };
+          },
+          robotsAllows,
+          knownHosts,
+          maxDepth: 2,
+          maxPages: crawlMaxPages,
+          perHostCap: 6,
+          log,
+        });
+        // Fingerprint each candidate against its own discovery page so a later
+        // run can recognise a re-slugged copy (K4 cross-run dedup).
+        const candidates = result.candidates.map((candidate) => ({
+          ...candidate,
+          content_simhash: candidate.content_simhash
+            ?? (candidate.discovered_from_url ? simhash64(candidate.discovered_from_url) : null),
+        }));
+        if (candidates.length && !dryRun) {
+          const written = await recordSourceCandidates({ supabaseUrl, serviceRoleKey, candidates });
+          summary.discovered += written;
+        }
+        log(`CRAWL: ${result.pagesFetched} pages, ${result.hostsSeen} hosts, `
+          + `${result.nearDuplicatesSkipped} near-dup skipped, ${candidates.length} candidates`);
+      } catch (e) {
+        log(`CRAWL: skipped (${e.message.slice(0, 100)})`);
+      }
     }
   } finally {
     await browser.close();
