@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { parseSocialPost } from '@/features/events/socialPostParser';
-import { takePostImportHandoff } from '@/features/events/postImportHandoff';
+import { takePostImportHandoff, type PostImportHandoff } from '@/features/events/postImportHandoff';
 
 /**
  * A programme entered from a post the operator read.
@@ -38,7 +38,8 @@ const ERROR_TEXT: Record<string, string> = {
 
 const EMPTY = {
   title: '', eventDate: '', eventTime: '', url: '', city: '', address: '',
-  venue: '', category: '', organizer: '', description: '', isFree: null as boolean | null,
+  venue: '', category: '', organizer: '', description: '', imageUrl: '',
+  isFree: null as boolean | null,
 };
 
 export function AdminPostImport() {
@@ -48,11 +49,13 @@ export function AdminPostImport() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [handoffUrl, setHandoffUrl] = useState<string | null>(null);
+  // What the extension carried over that the post's text cannot say for
+  // itself: the cover picture and the page it came from.
+  const [handoff, setHandoff] = useState<PostImportHandoff | null>(null);
 
   const draft = useMemo(() => (raw.trim() ? parseSocialPost(raw) : null), [raw]);
 
-  const applyDraft = (fallbackUrl?: string) => {
+  const applyDraft = (carried?: PostImportHandoff | null) => {
     if (!draft) return;
     setForm({
       title: draft.title || '',
@@ -60,13 +63,16 @@ export function AdminPostImport() {
       eventTime: draft.eventTime || '',
       // A post rarely links to itself; the page it came from is the honest
       // fallback so the catalogue entry has somewhere to point.
-      url: draft.url || fallbackUrl || '',
+      url: draft.url || carried?.url || '',
       city: draft.city || '',
       address: draft.address || '',
       venue: draft.venue || '',
       category: '',
-      organizer: '',
+      // The post's own "Szervező:" line wins; the page that published it is
+      // the fallback, and it is right far more often than an empty box.
+      organizer: draft.organizer || carried?.organizer || carried?.publisher || '',
       description: draft.description,
+      imageUrl: carried?.imageUrl || '',
       isFree: draft.isFree,
     });
     setParsed(true);
@@ -82,11 +88,11 @@ export function AdminPostImport() {
   const handoffTaken = useRef(false);
   useEffect(() => {
     if (handoffTaken.current) return;
-    const handoff = takePostImportHandoff();
-    if (!handoff) return;
+    const carried = takePostImportHandoff();
+    if (!carried) return;
     handoffTaken.current = true;
-    setRaw(handoff.text);
-    setHandoffUrl(handoff.url || null);
+    setRaw(carried.text);
+    setHandoff(carried);
   }, []);
 
   // `draft` only exists on the render after `raw` is set, so the parse is
@@ -95,9 +101,9 @@ export function AdminPostImport() {
   useEffect(() => {
     if (!handoffTaken.current || handoffApplied.current || !draft) return;
     handoffApplied.current = true;
-    applyDraft(handoffUrl || undefined);
+    applyDraft(handoff);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, handoffUrl]);
+  }, [draft, handoff]);
 
   const save = async () => {
     setSaving(true);
@@ -116,6 +122,12 @@ export function AdminPostImport() {
         p_is_free: form.isFree,
         p_organizer_name: form.organizer.trim() || null,
         p_source_note: 'Közösségi bejegyzésből, kézzel ellenőrizve',
+        p_image_url: form.imageUrl.trim() || null,
+        // Remembers the page so its future posts can be found again on
+        // purpose. It is a watchlist, not a collector target: Facebook cannot
+        // be fetched lawfully, so nothing will try.
+        p_publisher_url: handoff?.publisherUrl || null,
+        p_publisher_name: handoff?.publisher || null,
       });
       if (rpcError) {
         const code = Object.keys(ERROR_TEXT).find((key) => rpcError.message.includes(key));
@@ -126,6 +138,7 @@ export function AdminPostImport() {
       setRaw('');
       setForm(EMPTY);
       setParsed(false);
+      setHandoff(null);
     } finally {
       setSaving(false);
     }
@@ -236,6 +249,51 @@ export function AdminPostImport() {
                   <Input id="post-organizer" value={form.organizer} onChange={(e) => setForm({ ...form, organizer: e.target.value })} />
                 </div>
               </div>
+
+              {/* The picture the post carried. Shown rather than described,
+                  because a wrong cover is obvious at a glance and invisible
+                  as a URL in a text box. */}
+              {form.imageUrl && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="post-image">Borítókép</Label>
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={form.imageUrl}
+                      alt=""
+                      className="h-20 w-32 shrink-0 rounded-lg border object-cover"
+                      onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                    />
+                    <div className="flex-1 space-y-1.5">
+                      <Input
+                        id="post-image"
+                        value={form.imageUrl}
+                        onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      />
+                      <Button
+                        type="button" size="sm" variant="ghost"
+                        onClick={() => setForm({ ...form, imageUrl: '' })}
+                      >
+                        Kép elhagyása
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {handoff?.publisherUrl && (
+                <p className="text-sm text-muted-foreground">
+                  Mentéskor megjegyezzük a kiadó oldalt is —{' '}
+                  <a
+                    href={handoff.publisherUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="font-medium underline underline-offset-2"
+                  >
+                    {handoff.publisher || handoff.publisherUrl}
+                  </a>
+                  {' '}— hogy később vissza tudj térni az újabb programjaihoz.
+                </p>
+              )}
 
               {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 

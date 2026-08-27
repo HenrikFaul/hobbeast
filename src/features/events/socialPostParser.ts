@@ -22,6 +22,8 @@
  *   Részvételi díj: 25000Ft/hó
  */
 
+import { readLine, stripDecoration, type PostField } from './socialPostFields';
+
 const HU_MONTHS: Record<string, number> = {
   januar: 1, februar: 2, marcius: 3, aprilis: 4, majus: 5, junius: 6,
   julius: 7, augusztus: 8, szeptember: 9, oktober: 10, november: 11, december: 12,
@@ -72,6 +74,9 @@ export interface SocialPostDraft {
   registrationRequired: boolean;
   url: string | null;
   phone: string | null;
+  email: string | null;
+  /** Who is putting it on, when the post says so. */
+  organizer: string | null;
   /** "Péntekenként 15:00" — a club, not a one-off programme. */
   recurring: boolean;
   description: string;
@@ -151,30 +156,142 @@ function findTimes(text: string): { start: string | null; end: string | null } {
   return { start: times[0], end: times[1] && times[1] !== times[0] ? times[1] : null };
 }
 
-const LABELLED = [
-  { key: 'venue', pattern: /(?:^|\n)[^\n]*?helysz[ií]n\s*[:：]\s*([^\n]+)/i },
-  { key: 'price', pattern: /(?:^|\n)[^\n]*?(?:r[eé]szv[eé]teli\s+d[ií]j|bel[eé]p[oő]|[aá]r)\s*[:：]\s*([^\n]+)/i },
-] as const;
 
-function labelled(text: string, key: 'venue' | 'price'): string | null {
-  const rule = LABELLED.find((entry) => entry.key === key);
-  const match = rule ? text.match(rule.pattern) : null;
-  return match ? cleanLine(match[1]) || null : null;
+/**
+ * A Hungarian street address: postcode, town, then the street line.
+ * Kept as one source of truth so the address and the town agree.
+ */
+const ADDRESS_RE = /\b(\d{4})\s+([A-ZÁÉÍÓÖŐÚÜŰ][^\n,]{2,40}),\s*([^\n]{4,60})/;
+
+/**
+ * Towns worth recognising without a postcode.
+ *
+ * Every county seat, every town over about twenty thousand people, and the
+ * resort towns that put on most of the summer programmes — because a post
+ * saying "Ráckeve – Kis-Duna" names its town and nothing else.
+ */
+const CITIES = [
+  'Budapest', 'Debrecen', 'Szeged', 'Miskolc', 'Pécs', 'Győr', 'Nyíregyháza',
+  'Kecskemét', 'Székesfehérvár', 'Szombathely', 'Szolnok', 'Tatabánya', 'Kaposvár',
+  'Békéscsaba', 'Érd', 'Veszprém', 'Zalaegerszeg', 'Sopron', 'Eger', 'Nagykanizsa',
+  'Dunaújváros', 'Hódmezővásárhely', 'Salgótarján', 'Cegléd', 'Baja', 'Ózd',
+  'Vác', 'Mosonmagyaróvár', 'Szigetszentmiklós', 'Gyula', 'Kiskunfélegyháza',
+  'Ajka', 'Gödöllő', 'Pápa', 'Gyöngyös', 'Kazincbarcika', 'Hajdúböszörmény',
+  'Szentendre', 'Dunakeszi', 'Jászberény', 'Orosháza', 'Komló', 'Kiskunhalas',
+  'Esztergom', 'Békés', 'Törökszentmiklós', 'Várpalota', 'Siófok', 'Keszthely',
+  'Balatonfüred', 'Hévíz', 'Ráckeve', 'Szentes', 'Mohács', 'Hatvan', 'Bonyhád',
+  'Tapolca', 'Sárvár', 'Bük', 'Zamárdi', 'Balatonlelle', 'Balatonboglár',
+  'Fonyód', 'Velence', 'Gárdony', 'Visegrád', 'Eger', 'Szekszárd', 'Kőszeg',
+  'Makó', 'Mezőtúr', 'Karcag', 'Berettyóújfalu', 'Püspökladány', 'Tiszaújváros',
+  'Sátoraljaújhely', 'Sárospatak', 'Kisvárda', 'Mátészalka', 'Nagykőrös',
+];
+
+// The boundaries must be escaped twice: inside a template literal a lone \b is
+// the backspace character, and the town names then matched nothing at all.
+const CITY_RE = new RegExp(`\\b(${CITIES.join('|')})\\b`, 'i');
+
+/** The town a line names, in the spelling this project uses. */
+function findCity(value: string): string | null {
+  const match = value.match(CITY_RE);
+  if (!match) return null;
+  const folded = foldHu(match[1]);
+  return CITIES.find((city) => foldHu(city) === folded) ?? match[1];
 }
 
-/** The first line that reads like a name rather than a sentence. */
-function findTitle(lines: string[]): string | null {
+/** The first web address in a fragment, with a bare "www." made absolute. */
+function firstUrl(value: string): string | null {
+  const absolute = value.match(/https?:\/\/[^\s)<>"']+/)?.[0];
+  if (absolute) return absolute;
+  const bare = value.match(/\b(?:www\.)[a-z0-9-]+\.[a-z]{2,}[^\s)<>"']*/i)?.[0];
+  return bare ? `https://${bare}` : null;
+}
+
+/**
+ * Every labelled line in the post, by what it labels.
+ *
+ * The first line to claim a field wins: posts repeat themselves at the bottom
+ * ("bővebben: …") and the headline block is the one that means it. A word
+ * label always beats a bare emoji, whichever came first.
+ */
+function collectLabelled(lines: string[]): Map<PostField, string> {
+  const found = new Map<PostField, string>();
+  const fromWordLabel = new Set<PostField>();
+
   for (const line of lines) {
-    const clean = cleanLine(line);
-    if (clean.length < 6 || clean.length > 110) continue;
-    if (/[:：]\s*$/.test(clean)) continue;
-    // A question or a full sentence is marketing copy, not the name.
-    if (/[?!]$/.test(clean)) continue;
-    if (clean.split(/\s+/).length > 14) continue;
-    if (/^(https?:|www\.)/i.test(clean)) continue;
-    return clean;
+    const read = readLine(line);
+    if (!read.field || !read.value) continue;
+    if (read.explicit) {
+      if (fromWordLabel.has(read.field)) continue;
+      found.set(read.field, read.value);
+      fromWordLabel.add(read.field);
+      continue;
+    }
+    if (!found.has(read.field)) found.set(read.field, read.value);
   }
-  return null;
+  return found;
+}
+
+/**
+ * A line that is only a bullet in a list of who it suits — "Családoknak",
+ * "Pároknak" — is not a title, however early it appears. A real advert came
+ * through titled "Családoknak" because it was simply the first short line.
+ */
+const AUDIENCE_BULLET = /^(csal[aá]dokna?k|p[aá]rokna?k|bar[aá]ti\s+t[aá]rsas[aá]gokna?k|id[oő]sebbekne?k|kezd[oő]kne?k|halad[oó]kna?k|gyerekekne?k|feln[oő]tteknek|mindenkine?k|di[aá]kokna?k|nyugd[ií]jasokna?k)$/i;
+
+/** A line that is plainly a fact about the event, not its name. */
+function looksLikeField(line: string): boolean {
+  const read = readLine(line);
+  if (read.field) return true;
+  if (/^(https?:|www\.)/i.test(line)) return true;
+  if (/^\+?\d[\d\s/-]{6,}$/.test(line)) return true;
+  return false;
+}
+
+/**
+ * The headline.
+ *
+ * The first substantial line of a post is the headline far more often than
+ * not, and it is allowed to be a shout — "HÉTVÉGI VÍZI KALAND? IRÁNY
+ * RÁCKEVE!" is the name of the thing, not marketing filler, even though it
+ * ends in an exclamation mark. The previous version rejected any line ending
+ * in ? or !, which is exactly how that advert ended up titled "Családoknak".
+ *
+ * A line ENDING in a question mark is the exception: "Te is várod már, hogy
+ * újra megteljen sörrel a fesztiválpoharad?" is a hook written to pull the
+ * reader in, and the name is the line underneath it.
+ */
+function findTitle(lines: string[]): string | null {
+  const candidates: Array<{ text: string; score: number }> = [];
+
+  lines.forEach((raw, index) => {
+    const clean = stripDecoration(raw);
+    if (clean.length < 5 || clean.length > 120) return;
+    if (AUDIENCE_BULLET.test(clean)) return;
+    if (looksLikeField(raw)) return;
+    if (/[:：]\s*$/.test(clean)) return;
+    if (clean.split(/\s+/).length > 16) return;
+
+    let score = 0;
+    // Position: the headline is at the top.
+    score += Math.max(0, 12 - index * 3);
+    // Shouting and decoration are how a headline announces itself.
+    if (raw !== clean) score += 3;
+    if (clean === clean.toUpperCase() && /\p{L}/u.test(clean)) score += 4;
+    // A full stop mid-line means prose — but only after a WORD. Hungarian
+    // event names are routinely numbered ("10. Belvárosi Sörfesztivál"), and
+    // penalising that ordinal handed the title to the line below it.
+    if (/\p{L}\.\s+\p{Lu}/u.test(clean)) score -= 5;
+    // A numbered edition is a strong sign of a name rather than a sentence.
+    if (/^\d{1,3}\.\s+\p{Lu}/u.test(clean)) score += 4;
+    // A line that ENDS in a question is a hook, and the name follows it.
+    if (/\?\s*$/.test(clean)) score -= 10;
+    if (clean.split(/\s+/).length > 10) score -= 2;
+    candidates.push({ text: clean, score });
+  });
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0].text;
 }
 
 export function parseSocialPost(input: string, today: Date = new Date()): SocialPostDraft {
@@ -183,37 +300,55 @@ export function parseSocialPost(input: string, today: Date = new Date()): Social
   const folded = foldHu(text);
   const warnings: string[] = [];
 
-  const dates = findDates(text, today);
-  const times = findTimes(text);
-  const url = text.match(/https?:\/\/[^\s)<>"']+/)?.[0]
+  const fields = collectLabelled(lines);
+
+  const dates = findDates(fields.get('date') || text, today);
+  const datesFallback = dates.start ? dates : findDates(text, today);
+  const times = findTimes(fields.get('time') || fields.get('date') || text);
+  const timesFallback = times.start ? times : findTimes(text);
+  const url = firstUrl(fields.get('url') || fields.get('registration') || '')
+    || text.match(/https?:\/\/[^\s)<>"']+/)?.[0]
     || (text.match(/\b(?:www\.)[a-z0-9-]+\.[a-z]{2,}[^\s)<>"']*/i)?.[0]
       ? `https://${text.match(/\b(?:www\.)[a-z0-9-]+\.[a-z]{2,}[^\s)<>"']*/i)?.[0]}`
       : null);
   const phone = text.match(/(\+36[\s\d/-]{7,}|\b06[\s\d/-]{7,})/)?.[0]?.trim() || null;
 
-  const venue = labelled(text, 'venue');
-  const priceText = labelled(text, 'price');
-  const address = text.match(/\b(\d{4})\s+([A-ZÁÉÍÓÖŐÚÜŰ][^\n,]{2,40}),\s*([^\n]{4,60})/)?.[0] || null;
+  // A labelled line is a statement; the loose scan of the whole text is a
+  // guess. The statement wins wherever there is one.
+  const venue = fields.get('venue') || null;
+  const priceText = fields.get('price') || fields.get('ticket') || null;
+  const organizer = fields.get('organizer') || null;
+  const email = fields.get('email')?.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0]
+    || text.match(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i)?.[0]
+    || null;
+
+  const address = ADDRESS_RE.exec(fields.get('address') || fields.get('venue') || text)?.[0]
+    || ADDRESS_RE.exec(text)?.[0]
+    || null;
+
+  // A venue line often carries the town too — "Ráckeve – Kis-Duna".
   const city = address?.match(/\b\d{4}\s+([A-ZÁÉÍÓÖŐÚÜŰ][\wÁÉÍÓÖŐÚÜŰáéíóöőúüű-]+)/)?.[1]
-    || text.match(/\b(Budapest|Debrecen|Szeged|P[eé]cs|Gy[oő]r|Miskolc|Kecskem[eé]t|Sz[eé]kesfeh[eé]rv[aá]r|Veszpr[eé]m|R[aá]ckeve|Velence|G[oö]d)\b/)?.[1]
+    || findCity(fields.get('venue') || '')
+    || findCity(fields.get('address') || '')
+    || findCity(text)
     || null;
 
   const free = /ingyenes|d[ií]jmentes|a r[eé]szv[eé]tel ingyenes/i.test(text);
   const paid = /\b\d{3,6}\s?(ft|huf)\b/i.test(text) || /bel[eé]p[oő]\s*[:：]/i.test(text);
   const recurring = WEEKDAY_RECURRENCE.test(folded);
 
-  if (!dates.start) warnings.push('Nem találtam dátumot — add meg kézzel.');
-  if (!times.start && !recurring) warnings.push('Nem találtam kezdési időpontot.');
+  if (!datesFallback.start) warnings.push('Nem találtam dátumot — add meg kézzel.');
+  if (!timesFallback.start && !recurring) warnings.push('Nem találtam kezdési időpontot.');
   if (!venue && !address) warnings.push('Nem találtam helyszínt.');
   if (recurring) warnings.push('Ez ismétlődő alkalomnak tűnik — lehet, hogy inkább klubként érdemes felvenni.');
   if (free && paid) warnings.push('A poszt ingyenességet és árat is említ — nézd át.');
 
   return {
     title: findTitle(lines),
-    eventDate: dates.start,
-    endDate: dates.end,
-    eventTime: times.start,
-    endTime: times.end,
+    eventDate: datesFallback.start,
+    endDate: datesFallback.end,
+    eventTime: timesFallback.start,
+    endTime: timesFallback.end,
     venue,
     city,
     address,
@@ -222,6 +357,8 @@ export function parseSocialPost(input: string, today: Date = new Date()): Social
     registrationRequired: /regisztr[aá]ci[oó]|jelentkez[eé]s|foglal[aá]s|bejelentkez[eé]s/i.test(text),
     url,
     phone,
+    email,
+    organizer,
     recurring,
     description: text.trim().slice(0, 4000),
     warnings,

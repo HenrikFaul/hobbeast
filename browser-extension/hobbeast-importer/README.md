@@ -62,6 +62,16 @@ annyira megbízva benne, amennyire az állítás gépi:
 
 A kiolvasott szöveget az admin oldal **ugyanazzal a parserrel** dolgozza fel,
 amit kézi bemásolásnál is használ — nincs külön logika, ami elcsúszhatna.
+Eseménynél a bővítmény a strukturált adatokat is **címkézett sorokká** írja
+(`Időpont:`, `Helyszín:`, `Cím:`, `Szervező:`), hogy ugyanaz az egy parser
+dolgozza fel mindkét esetet.
+
+A szövegen kívül átjön még:
+
+- a **borítókép** (`og:image`), amit a mentés előtt látsz és elhagyhatsz,
+- az **esemény vagy bejegyzés linkje**, megtisztítva a követőparaméterektől,
+- a **szervező**, ha a poszt megnevezi — különben a közzétevő oldal neve,
+- a **közzétevő Facebook-oldala**, amit a Hobbeast megjegyez.
 
 Ha a bejegyzésben nincs dátum (mert például hirdetés), **nem talál ki egyet**:
 a dátummező üresen marad, és az admin oldal kéri, hogy add meg.
@@ -72,6 +82,21 @@ A szöveg az URL **fragmentjében** (`#import=…`) megy át, amit a böngésző
 **soha nem küld el a szervernek** — így nem kerül bele semmilyen kéréslogba.
 Az admin oldal beolvassa, majd azonnal kitörli a címsorból, hogy egy frissítés
 ne importáljon újra.
+
+## A közzétevő oldalak
+
+Minden importnál megjegyezzük, melyik Facebook-oldalról jött — hányszor
+importáltál róla, és mikor legutóbb.
+
+**Ez nem automatikus gyűjtés, és nem is lehet az.** A gyűjtő letöltéssel
+dolgozik, a Facebook viszont kijelentkezve semmit nem ad ki, fiókkal lekérni
+pedig a szabályzatába ütközik és kockáztatja a fiókot — a forrásvarázsló épp
+ezért utasítja el a közösségi címeket. Egy ilyen forrás minden éjjel elhasalna.
+
+Amit helyette kapsz: egy **listát azokról az oldalakról, amelyek tényleg adnak
+programot** — a legtöbbet adóval az élén. Ezeket egy kattintással megnyitod, és
+a bővítménnyel újra beolvasod, amit találtál. Az emlékezést levesszük rólad, a
+döntést nem.
 
 ## Amit nem csinál
 

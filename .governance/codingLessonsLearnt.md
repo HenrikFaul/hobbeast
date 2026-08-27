@@ -831,3 +831,45 @@ komponensben, amelyik felhasználja — az már a redirect után mountolódik.
 **Ellenőrzés:** `src/features/__tests__/postImportHandoff.test.ts`.
 
 *Utoljára frissítve: 2026-08-27*
+
+---
+
+## 💥 `\b` template literálban backspace, nem szóhatár (2026-08-27)
+
+**Hiba:** `new RegExp(`\b(${CITIES.join('|')})\b`, 'i')` — a városnevek
+**semmire nem illeszkedtek**. Template literálban a `\b` a **backspace
+karakter** (U+0008), nem regex szóhatár. A regex forrása `JSON.stringify`-jal
+kiíratva ugyanúgy `"\b"`-nek látszik, mert a JSON is így escape-eli — ezért
+szemre nem lehet észrevenni.
+
+**Szabály:** `new RegExp` template literálban MINDEN escape duplázandó:
+`\b`, `\d`, `\s`. Regex literálban (`/\b/`) nem.
+
+**Ellenőrzés:** `grep -rPn "\x08" src/` — üres kell legyen (a bináris
+képfájlokat leszámítva).
+
+**Külön csapda:** bash heredocon át írt fájl (`<<'EOF'`) **elnyelheti a
+backslasheket**, így a helyesen megírt `\b` is `\b`-vé, majd backspace-szé
+válhat. Regexet tartalmazó fájlt ne bash heredoccal írj — használj Write-ot.
+
+*Utoljára frissítve: 2026-08-27*
+
+---
+
+## 🏷️ Közösségi posztban az emoji IS címke (2026-08-27)
+
+**Hiba:** a `📍 Ráckeve – Kis-Duna` sorból nem lett helyszín, mert az emojit
+dekorációként levágtuk, mielőtt bármi ránézett volna — és „Helyszín:" felirat
+nélkül nem maradt mit illeszteni.
+
+**Szabály:** előbb olvasd ki az emojit mint címkét, és csak utána strippeld.
+Szócímke mindig veri az emojit (`📍 Időpont: 18:00` az időpontról szól).
+
+**Buktató:** a `🌍` és a `🗺` ugyanolyan gyakran nyit marketingmondatot, mint
+amilyen gyakran helyet jelöl — ezeket ne vedd címkének. Emojival bevezetett
+sort csak akkor fogadj el értéknek, ha értékre hasonlít (rövid, nem kérdés,
+nem összetett mondat).
+
+**Ellenőrzés:** `src/features/__tests__/socialPostParserFields.test.ts`.
+
+*Utoljára frissítve: 2026-08-27*

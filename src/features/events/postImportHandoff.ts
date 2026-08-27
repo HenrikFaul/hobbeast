@@ -21,6 +21,13 @@ const STORAGE_KEY = 'hobbeast.postImportHandoff';
 export interface PostImportHandoff {
   text: string;
   url: string;
+  /** The post's own cover picture, so the entry is not a blank card. */
+  imageUrl: string | null;
+  /** Who put it on, when the page said so outright. */
+  organizer: string | null;
+  /** The page that published it, remembered for a future visit. */
+  publisher: string | null;
+  publisherUrl: string | null;
 }
 
 function decode(encoded: string): PostImportHandoff | null {
@@ -31,7 +38,18 @@ function decode(encoded: string): PostImportHandoff | null {
     const parsed = JSON.parse(new TextDecoder().decode(bytes));
     const text = typeof parsed?.text === 'string' ? parsed.text : '';
     if (!text.trim()) return null;
-    return { text, url: typeof parsed?.url === 'string' ? parsed.url : '' };
+    const str = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+    // Only https pictures: anything else renders as a broken image, which
+    // looks worse on a card than no picture at all.
+    const image = str(parsed?.imageUrl);
+    return {
+      text,
+      url: typeof parsed?.url === 'string' ? parsed.url : '',
+      imageUrl: image && /^https:\/\//i.test(image) ? image : null,
+      organizer: str(parsed?.organizer),
+      publisher: str(parsed?.publisher),
+      publisherUrl: str(parsed?.publisherUrl),
+    };
   } catch {
     return null;
   }

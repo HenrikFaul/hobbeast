@@ -65,10 +65,22 @@ function handoffUrl(payload) {
  * post is simply its own text.
  */
 function payloadFor(page) {
+  const extras = {
+    url: page.url,
+    imageUrl: page.imageUrl || null,
+    publisher: page.publisher || null,
+    publisherUrl: page.publisherUrl || null,
+  };
+
   if (page.kind === 'post') {
-    return { text: page.text, url: page.url };
+    return { ...extras, text: page.text, organizer: page.publisher || null };
   }
-  const lines = [page.title || ''];
+
+  // An event states its date and place outright, so those are written as the
+  // labelled lines the parser on the other side already reads. That keeps ONE
+  // parser in the project rather than a second one living out here.
+  const lines = [];
+  if (page.title) lines.push(page.title);
   if (page.startsAt) {
     const at = new Date(page.startsAt);
     if (!Number.isNaN(at.getTime())) {
@@ -77,11 +89,14 @@ function payloadFor(page) {
         + pad(at.getDate()) + '. ' + pad(at.getHours()) + ':' + pad(at.getMinutes()));
     }
   }
-  if (page.venue || page.city) {
-    lines.push('Helyszín: ' + [page.venue, page.city].filter(Boolean).join(', '));
-  }
+  if (page.venue) lines.push('Helyszín: ' + page.venue);
+  if (page.address) lines.push('Cím: ' + page.address);
+  else if (page.city) lines.push('Cím: ' + page.city);
+  if (page.organizer) lines.push('Szervező: ' + page.organizer);
   if (page.description) lines.push('', page.description);
-  return { text: lines.filter((line) => line !== null).join('\n'), url: page.url };
+
+  return { ...extras, text: lines.join('
+'), organizer: page.organizer || page.publisher || null };
 }
 
 let pending = null;
@@ -93,6 +108,19 @@ function preview(page) {
   $('preview-title').textContent = (page.title || page.publisher || '').trim() || '(cím nélkül)';
   $('preview-url').textContent = page.url;
   $('preview-text').textContent = pending.text.slice(0, 400) + (pending.text.length > 400 ? '…' : '');
+
+  // What is coming across besides the text, so there is no doubt about it.
+  const carried = [];
+  if (pending.imageUrl) carried.push('kép');
+  if (pending.organizer) carried.push('szervező: ' + pending.organizer);
+  if (pending.publisherUrl) carried.push('az oldal megjegyezve');
+  $('preview-extras').textContent = carried.length ? 'Átjön még: ' + carried.join(' · ') : '';
+  $('preview-extras').hidden = !carried.length;
+
+  const cover = $('preview-image');
+  cover.hidden = !pending.imageUrl;
+  if (pending.imageUrl) cover.src = pending.imageUrl;
+
   show('ready', isPost ? 'Bejegyzés beolvasva.' : 'Esemény beolvasva.');
 }
 

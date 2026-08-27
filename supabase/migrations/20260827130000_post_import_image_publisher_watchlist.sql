@@ -1,0 +1,23 @@
+-- Applied via the Supabase MCP; this file is the record.
+--
+-- 1. admin_create_external_event now takes p_image_url, p_publisher_url and
+--    p_publisher_name. external_events.image_url was always there and the
+--    catalogue renders it, but the RPC never filled it - so every programme
+--    entered from a post was a blank card next to the collected ones.
+--
+-- 2. social_publisher_watchlist records the page an import came from.
+--
+--    The ask was to add that Facebook page to the collector sources so its
+--    future events keep arriving. That cannot be done honestly:
+--    external_event_feed_sources feeds a worker that FETCHES, and Facebook
+--    serves nothing logged out while fetching it with an account breaks its
+--    terms and risks the account. The source wizard already refuses social
+--    URLs for exactly that reason (recipes.mjs SOCIAL_HOSTS), so a row there
+--    would only be a source that fails every night.
+--
+--    A watchlist is the lawful, useful half: every page imported from, with
+--    how much came from it and when it was last looked at, so revisiting the
+--    productive ones is one click rather than a thing to remember.
+--
+-- See the migrations post_import_image_and_publisher and
+-- social_publisher_watchlist for the executed statements.
