@@ -25,6 +25,37 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.52.1] — 2026-08-28
+
+### A B2B API letesztelve az APIMaster/SwaggerMaster workbenchen + CORS
+
+A `C:\Work\api-workbench-pro` workbench **saját motormoduljaival** (a valódi
+Import Studio, SwaggerMaster és API Explorer kód) végigfuttatva az **élő** API-n:
+
+- **Import Studio** (`loadSpecFromUrl` + `buildImportSummary`): az OpenAPI URL-ről
+  betöltve — „Hobbeast Organizer API", 4 végpont, 4 séma, 3 enum, 1 szerver,
+  `apiKey` séma. A **gyengeség-osztályozó** most tisztán fut.
+- **SwaggerMaster** (`buildReferenceModel`): mind a 4 művelet a leírásaival és
+  `auth:apiKey`-vel.
+- **API Explorer** él futtatás: `GET /v1/organization`→200, `GET /v1/events`→200,
+  `POST /v1/events`→201, ismételt `Idempotency-Key`→`replayed:true` azonos id,
+  rossz kulcs→401 `API_KEY_INVALID`.
+
+**CORS.** A nyilvános API mostantól válaszol a preflightra és `Access-Control-
+Allow-Origin: *`-ot ad (a hitelesítő az `x-api-key` fejléc, nem süti, így a
+wildcard biztonságos) — így a partner-dashboardok és a workbench böngészőből is
+hívhatják. A felderítő dokumentumok (`/openapi.json`, `/openapi-index.json`)
+továbbra is kulcs nélkül elérhetők.
+
+**Spec-gazdagítás az osztályozóhoz.** Minden komponens-sémának lett leírása, és
+minden 2xx válasznak példája (a `noExample` 5→0, a `vagueDescription` 4→0). A
+megmaradt `missingEnum:2` a `category` mező — ez az API-ban szándékosan nyílt
+(a create RPC bármilyen kategóriát elfogad), ezért nem kap kényszerített enumot.
+Új vitest-assertök rögzítik a séma-leírásokat és a 2xx-példákat a visszacsúszás
+ellen. Additív; a végpontok viselkedése változatlan.
+
+---
+
 ## [1.52.0] — 2026-08-28
 
 ### Nyilvános B2B API (O-G szelet) — APIMaster/SwaggerMaster-kompatibilisen

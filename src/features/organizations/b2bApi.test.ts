@@ -74,6 +74,27 @@ describe('OpenAPI document', () => {
         .toBe('#/components/schemas/Error');
     }
   });
+
+  // The APIMaster / SwaggerMaster weakness classifier flags schemas without a
+  // description and 2xx responses without an example. Pin both so the spec keeps
+  // scoring clean in the workbench.
+  it('describes every component schema', () => {
+    const schemas = doc.components.schemas as Record<string, { description?: string }>;
+    for (const [name, schema] of Object.entries(schemas)) {
+      expect(schema.description, `description for schema ${name}`).toBeTruthy();
+    }
+  });
+
+  it('gives every 2xx response an example', () => {
+    for (const op of operations()) {
+      for (const [code, response] of Object.entries(op.responses)) {
+        if (!code.startsWith('2')) continue;
+        const json = (response as { content: Record<string, { example?: unknown }> })
+          .content['application/json'];
+        expect(json.example, `example for 2xx ${op.operationId}`).toBeDefined();
+      }
+    }
+  });
 });
 
 describe('error envelope', () => {
