@@ -1,0 +1,23 @@
+-- Slice O-A: organizations as a first-class B2B entity, plus the team.
+-- Applied via the Supabase MCP; this file is the record. See the live database
+-- for authoritative DDL, and .governance/organization_b2b_plan.md for the plan.
+--
+--   organizations           brand profile: slug, name, kind, logo/cover, tagline,
+--                           description, brand colour + default emoji, website +
+--                           social, city/country, categories, event defaults
+--                           (location, cancellation policy), verification_status,
+--                           visibility, follower_count. RLS: members read the full
+--                           row; a public/verified org is readable by anyone.
+--   organization_members    team: role owner|admin|editor|checkin|viewer, status
+--                           invited|active|removed, unique per (org, user).
+--   organization_followers  follow relation for the public brand page (later slice).
+--   is_organization_member(org, min_role)  membership authority, SECURITY DEFINER.
+--   events.organization_id  NULLABLE, additive — an event may belong to an org;
+--                           created_by stays the authority on who made it.
+--   is_event_operator       gains ONE additive org branch (an org member operates
+--                           the org's events, capability mapped from role); every
+--                           existing branch (owner, admin, crew) is byte-for-byte
+--                           unchanged. Proven live: private-event permissions are
+--                           identical, and the org branch grants edit-not-finance
+--                           to an editor.
+SELECT 'see live database for organizations / organization_members / is_event_operator' AS note;

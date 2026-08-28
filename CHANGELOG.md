@@ -25,6 +25,50 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.50.0] — 2026-08-28
+
+### Szervezeti (B2B) profilok — a terv, és az első szelet
+
+A kérésre előbb **részletes tervdokumentáció** készült
+([`.governance/organization_b2b_plan.md`](.governance/organization_b2b_plan.md)) —
+kódbázis- és élő adatbázis-felmérésre és **versenytárs-kutatásra** (Eventbrite
+szervezői profilok és szerepek, Luma kalendáriumok, Meetup Pro) alapozva —, és
+csak utána indult a kód.
+
+**A megállapítás:** az egyéni szervező-váz megvan (`is_organizer`, crew-szerepek,
+kereslet-jelzések), de a **szervezet mint entitás zöldmező** volt — nincs
+szervezeti profil, csapat, verifikáció, nyilvános brand-oldal, követés.
+
+### Slice O-A — szervezeti entitás + csapat (a gerinc)
+
+- **`organizations`** — a szervezet mint elsőrendű entitás: név, slug, logó,
+  borító, tagline, leírás, márka-szín/emoji, web/social, város, kategóriák,
+  eseménylétrehozó-alapértékek, verifikációs állapot, láthatóság, követőszám.
+- **`organization_members`** — csapat öt szerepkörrel: **tulajdonos, admin,
+  szerkesztő, beléptető, megfigyelő**. Meghívás → elfogadás → aktív.
+- **Profilon: „Szervezeteim"** — létrehozás (a létrehozó tulajdonos lesz),
+  meghívó elfogadása, és tulajdonosként/adminként **csapatkezelés** (meghívás,
+  szerepváltás, eltávolítás).
+
+### Nem-regresszív — élőben bizonyítva
+
+A `is_event_operator` **egyetlen additív ággal bővült** (a szervezet tagja
+operátora a szervezet eseményeinek, a szerepből leképezett joggal); minden
+meglévő ág (tulajdonos, admin, crew) **bájtról bájtra változatlan**. Élő próba:
+- a magánszemély-esemény jogosultságai **azonosak** (tulajdonos igen, kívülálló nem);
+- a szerkesztő szerkeszti az org eseményét, de a **pénzügyhöz nem fér**;
+- az **utolsó tulajdonost** nem lehet lefokozni/eltávolítani;
+- nem tag **nem** kezelhet csapatot.
+
+Az `events.organization_id` **nullable és additív** — a meglévő magánszemély-út
+érintetlen. 762 teszt zöld (16 új), lint tiszta.
+
+*A következő szeletek: szervezeti profil-szerkesztő és márka-alapértékek (O-B),
+nyilvános brand-oldal + követés (O-C), szervezethez kötött esemény a composerben
+(O-D), verifikáció (O-E), professzionális analitika (O-F).*
+
+---
+
 ## [1.49.0] — 2026-08-28
 
 ### Eseménylétrehozás — most már WOW-élmény ✨

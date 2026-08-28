@@ -1,0 +1,17 @@
+-- Slice O-A membership RPCs. Applied via MCP.
+--
+--   create_organization(name, kind, slug?)   creator becomes owner; slug folded
+--                                             from the name (Hungarian accents
+--                                             translated — no unaccent extension),
+--                                             made unique with a numeric suffix.
+--   update_organization(...)                  owner/admin; NULL leaves a field.
+--   list_my_organizations()                   the caller's orgs + their role.
+--   invite_org_member / accept_org_invite     invite adds 'invited'; the invitee
+--                                             accepts to become 'active'. owner is
+--                                             not invitable.
+--   set_org_member_role / remove_org_member   owner/admin; both refuse to strand
+--                                             the last owner (LAST_OWNER).
+--
+-- Proven live: create→owner, invite→accept→active, editor edits but not finance,
+-- outsider refused, last owner protected.
+SELECT 'see live database for organization membership RPCs' AS note;
