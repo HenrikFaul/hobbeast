@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { BarChart3, Calendar, Check, Globe, Heart, Loader2, MapPin, Settings2, ShieldCheck } from 'lucide-react';
+import { BarChart3, Calendar, Check, Copy, Globe, Heart, KeyRound, Loader2, MapPin, Plus, Settings2, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,12 +10,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import {
+  API_SCOPES,
+  B2B_API_BASE,
+  createApiKey,
   followOrganization,
   getOrganizationAnalytics,
   getOrganizationPublic,
+  listApiKeys,
   requestVerification,
+  revokeApiKey,
   updateOrganization,
   type OrgAnalytics,
+  type OrgApiKey,
   type OrgPublic,
 } from '@/features/organizations/organizations';
 
@@ -31,6 +37,135 @@ function MetricTile({ label, value }: { label: string; value: number | string })
     <div className="rounded-xl bg-secondary/40 p-3 text-center">
       <p className="text-xl font-bold tabular-nums">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+/**
+ * The developer surface (Slice O-G): mint, list and revoke the organization's
+ * public API keys, and point at the live OpenAPI document. The key is shown once
+ * at mint time — after that only its prefix survives, because the server stores
+ * only a hash. Every call here is admin-gated in the database.
+ */
+function ApiKeysSection({ org }: { org: OrgPublic }) {
+  const [keys, setKeys] = useState<OrgApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('');
+  const [scopes, setScopes] = useState<string[]>(['events:read']);
+  const [busy, setBusy] = useState(false);
+  const [minted, setMinted] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setKeys(await listApiKeys(org.id));
+    setLoading(false);
+  }, [org.id]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const toggleScope = (value: string) =>
+    setScopes((current) => (current.includes(value) ? current.filter((s) => s !== value) : [...current, value]));
+
+  const mint = async () => {
+    setBusy(true);
+    const result = await createApiKey(org.id, name, scopes);
+    setBusy(false);
+    if (result.ok === false) { toast.error(result.message); return; }
+    setMinted(result.key);
+    setName('');
+    toast.success('API kulcs létrehozva — másold ki most, később már nem látszik.');
+    await load();
+  };
+
+  const revoke = async (keyId: string) => {
+    if (!(await revokeApiKey(keyId))) { toast.error('A visszavonás nem sikerült.'); return; }
+    toast.success('Kulcs visszavonva.');
+    await load();
+  };
+
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text);
+    toast.success('Vágólapra másolva.');
+  };
+
+  const active = keys.filter((k) => !k.revoked_at);
+
+  return (
+    <div className="rounded-xl border border-border/60 p-3">
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" /> Fejlesztői API
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Kösd be a szervezeted saját rendszerét: olvasd ki és tedd közzé az eseményeket
+        programozottan. A hitelesítés az <code className="rounded bg-secondary/60 px-1">x-api-key</code> fejléccel megy.
+      </p>
+
+      {/* The freshly minted key — shown once. */}
+      {minted && (
+        <div className="mt-2 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
+          <p className="text-xs font-medium text-primary">Az új kulcsod — most mentsd el, később már nem jelenik meg:</p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <code className="flex-1 break-all rounded bg-background px-2 py-1 font-mono text-xs">{minted}</code>
+            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => copy(minted)}>
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" /><span className="sr-only">Kulcs másolása</span>
+            </Button>
+          </div>
+          <Button size="sm" variant="ghost" className="mt-1 h-7 text-xs" onClick={() => setMinted(null)}>Elmentettem</Button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Kulcsok betöltése…
+        </p>
+      ) : active.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {active.map((key) => (
+            <li key={key.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-secondary/40 px-2.5 py-1.5 text-xs">
+              <span className="flex items-center gap-2">
+                <span className="font-medium">{key.name}</span>
+                <code className="font-mono text-muted-foreground">{key.key_prefix}…</code>
+                <span className="text-muted-foreground/80">{key.scopes.join(', ')}</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-muted-foreground/70">
+                  {key.last_used_at ? 'utoljára használva ' + new Date(key.last_used_at).toLocaleDateString('hu-HU') : 'még nem használt'}
+                </span>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => void revoke(key.id)}>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /><span className="sr-only">{key.name} visszavonása</span>
+                </Button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">Még nincs aktív kulcs.</p>
+      )}
+
+      {/* Mint a new key. */}
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <div className="flex-1">
+          <Label htmlFor="api-key-name" className="text-xs text-muted-foreground">Kulcs neve</Label>
+          <Input id="api-key-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pl. Weboldal integráció" className="mt-1 h-8 text-sm" />
+        </div>
+        <div className="flex items-center gap-2 pb-1">
+          {API_SCOPES.map((scope) => (
+            <label key={scope.value} className="flex items-center gap-1 text-xs">
+              <input type="checkbox" checked={scopes.includes(scope.value)} onChange={() => toggleScope(scope.value)} />
+              {scope.label}
+            </label>
+          ))}
+        </div>
+        <Button size="sm" disabled={busy || name.trim().length < 2} onClick={() => void mint()}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <span className="ml-1">Kulcs</span>
+        </Button>
+      </div>
+
+      <a href={`${B2B_API_BASE}/openapi.json`} target="_blank" rel="noopener noreferrer"
+         className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+        <Globe className="h-3.5 w-3.5" aria-hidden="true" /> OpenAPI dokumentáció (Swagger/APIMaster importhoz)
+      </a>
     </div>
   );
 }
@@ -130,6 +265,8 @@ function ManagePanel({ org, onChanged }: { org: OrgPublic; onChanged: () => void
             )}
           </div>
         )}
+
+        <ApiKeysSection org={org} />
       </CardContent>
     </Card>
   );

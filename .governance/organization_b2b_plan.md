@@ -221,11 +221,26 @@ karakterizáció → append-only migráció → RLS → RPC → UI → teszt →
       **változatlanok** (karakterizációs teszt zöld).
 - [ ] 754+ app-teszt zöld, lint tiszta, budgetek PASS.
 
+### Slice O-G — Nyilvános B2B API (APIMaster/SwaggerMaster-kompatibilis) — KÉSZ (v1.52.0)
+
+A „jöhet mind" kérésre elkészült. Új `api-b2b` edge function `x-api-key`
+hitelesítéssel; `GET /openapi.json` (OpenAPI 3.1, `apiKey` scheme, enumok,
+példák), `GET /openapi-index.json` a Workbench tömeges importjához, kanonikus
+hibaboríték (`business|technical|validation|auth|rate_limit|dependency`);
+`GET/POST /v1/events`, `GET /v1/organization`, `GET /v1/events/{id}`; a
+`POST /v1/events` idempotens (`Idempotency-Key`). Kulcsok: `organization_api_keys`
+tábla, sha256-hash tárolás, egyszeri felfedés, scope-ok (`events:read`/`write`),
+admin-gated RPC-k. UI a brand-oldal „Kezelés" szekciójában. Élőben és HTTP-n
+bizonyítva; a spec/boríték-invariánsokat vitest-teszt őrzi.
+
 ## 8. Amit ez a terv NEM tartalmaz (szándékosan, későbbre)
 
-- Saját fizetőkapu / jegyértékesítés (a Hobbeast modell a kimenő kattintás).
-- Több-márka egy szervezet alatt (előbb az egy-szervezet legyen szilárd).
-- Nyilvános szervezeti API (a B2B API a §31 külön vonala).
+- Saját fizetőkapu / jegyértékesítés — **a „jöhet mind" kérésre soron
+  következő** (O-H); a Hobbeast alapmodell továbbra is a kimenő kattintás marad,
+  a saját jegyértékesítés opcionális kiegészítés.
+- Több-márka egy szervezet alatt — **a „jöhet mind" kérésre soron következő**
+  (O-I); előbb az egy-szervezet legyen szilárd.
+- ~~Nyilvános szervezeti API~~ → **elkészült, lásd Slice O-G.**
 
 ---
 

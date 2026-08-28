@@ -931,4 +931,35 @@ tudásbázis (`SEARCHFORGE/knowledge/K4_crawl_extract.md`, grepsearch
 **Buktató:** a meghajtó menet közben lecsatolódhat (`E:` → `C:`); ha a
 felhasználó másik utat ad, onnan olvass tovább.
 
-*Utoljára frissítve: 2026-08-27*
+## Nyilvános B2B API (O-G) — pgcrypto, séma-feltevések, tiszta modul
+
+- **pgcrypto az `extensions` sémában van, nem a `public`-ban.** A
+  `gen_random_bytes` / `digest` hívó SECURITY DEFINER függvények `search_path`-ja
+  tartalmazza az `extensions`-t is (`SET search_path TO 'public','extensions',
+  'pg_temp'`), különben futásidőben `function ... does not exist`. A
+  `CREATE EXTENSION IF NOT EXISTS pgcrypto` önmagában nem elég, mert nem a
+  keresési úton lévő sémába telepít.
+- **Az `events` táblán NINCS `source_payload` oszlop** — az a külső-események
+  staging tábláé. Az `events`-nek van viszont `external_id` (text, unique index
+  nélkül), ami külső eredetű eseményekhez való: az API-idempotenciát ide tesszük
+  `b2b_api:<org_id>:<key>` alakban namespace-elve (org-onként egyedi, cross-org
+  ütközés nélkül). **Tanulság:** minden beszúrt oszlopot előbb az élő
+  `information_schema.columns`-ból igazolj — a részleges egyezés (14/15) csendben
+  átcsúszhat, amíg a hiányzó oszlop futásidőben el nem hasal.
+- **API-kulcsok: soha ne tárold a nyers kulcsot.** `hbk_live_<40hex>`, tárolva
+  csak `sha256` hash + rövid előtag; a teljes kulcs egyszer, létrehozáskor jön
+  vissza. A `resolve_api_key` `service_role`-only és a hash alapján keres — egy
+  kiszivárgott adatbázissor nem ad használható kulcsot.
+- **Tiszta modul az edge + a teszt között** — az OpenAPI-dokumentumot és a
+  hibaborítékot Deno-mentes `openapi.ts` építi, amit az `index.ts` (Deno.serve)
+  ÉS a vitest is importál. Az `index.ts` közvetlen importja tesztből tilos
+  (`Deno.serve` importkor lefutna). A CI csak `src/**`-t futtat vitesttel; a
+  Deno-tesztek (`*.test.ts` a functions alatt) manuálisak — a CI-védelemhez a
+  tesztet `src/` alá tedd, a tiszta modult `.ts` kiterjesztéssel importálva
+  (`allowImportingTsExtensions: true`, nincs `rootDir`, így a határon átnyúló
+  import nem gond).
+- **A MCP edge-deploy `verify_jwt=true`-t erőltet; nyilvános, x-api-key-es
+  funkcióhoz a Supabase CLI kell** (`npx supabase functions deploy …`), ami a
+  `config.toml` `[functions.api-b2b] verify_jwt=false`-át tiszteli.
+
+*Utoljára frissítve: 2026-08-28*
