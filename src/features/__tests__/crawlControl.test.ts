@@ -19,6 +19,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 const {
   getCrawlConfig, updateCrawlConfig, runCrawlNow, linesToArray, arrayToLines,
+  runSeeds, listSeedStats,
 } = await import('@/features/admin/crawlControl');
 
 beforeEach(() => {
@@ -87,5 +88,25 @@ describe('running a crawl now', () => {
   it('reports a dispatch failure rather than pretending it started', async () => {
     invokeMock.mockResolvedValue({ data: { dispatched: false }, error: null });
     expect(await runCrawlNow()).toEqual({ ok: false, message: 'A crawl indítása nem sikerült.' });
+  });
+});
+
+describe('run detail and seed memory', () => {
+  it('pulls the seeds a run set off from out of its config snapshot', () => {
+    const run = { config_snapshot: { seeds: ['https://a.hu/', 'https://b.hu/', 42] } } as never;
+    // Non-string entries are ignored rather than rendered as junk.
+    expect(runSeeds(run)).toEqual(['https://a.hu/', 'https://b.hu/']);
+  });
+
+  it('treats a run with no stored seeds as an empty direction list', () => {
+    expect(runSeeds({ config_snapshot: {} } as never)).toEqual([]);
+    expect(runSeeds({ config_snapshot: { seeds: 'nope' } } as never)).toEqual([]);
+  });
+
+  it('reads the seed-memory stats, or nothing when it may not', async () => {
+    rpcMock.mockResolvedValue({ data: [{ host: 'a38.hu', candidates_total: 3 }], error: null });
+    expect((await listSeedStats())[0].host).toBe('a38.hu');
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'CAPABILITY_REQUIRED' } });
+    expect(await listSeedStats()).toEqual([]);
   });
 });

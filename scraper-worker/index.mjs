@@ -28,7 +28,7 @@ import { ingestEvents } from './src/ingest.mjs';
 import {
   listScraperTargets, listScraperTargetsByIds, logScraperRun, recordDiscoveredEndpoint,
   listKnownHosts, recordSourceCandidates,
-  getCrawlConfig, listCrawlSeeds, recordCrawlRunStart, recordCrawlRunFinish,
+  getCrawlConfig, nextCrawlSeeds, recordCrawlSeedOutcomes, recordCrawlRunStart, recordCrawlRunFinish,
   recordCrawlPages, recordCrawlRunProgress, autoPromoteCrawledSource, getUrlValidators,
 } from './src/registry.mjs';
 
@@ -91,11 +91,16 @@ async function runCrawlPass({ provenSeeds, summary }) {
   const countries = Array.isArray(config.allowed_countries) ? config.allowed_countries : [];
   const promoteCountry = countries.length === 1 ? countries[0] : null;
 
-  // Seeds: the operator's own extra seeds, this run's proven publishers, and
-  // the top event-producing sources in the chosen countries.
-  const configuredSeeds = await listCrawlSeeds({ ...ctx, countries, limit: 12 }).catch(() => []);
-  const seeds = [...new Set([...(config.extra_seeds || []), ...provenSeeds, ...configuredSeeds])].slice(0, 20);
+  // Seeds: the operator's own extra seeds, this run's proven publishers, and a
+  // MEMORY-AWARE rotation of the country's sources — never-tried first, then
+  // what worked before, then the longest-untried — so each run sets off in a
+  // different direction rather than re-walking the same paths.
+  const rotated = await nextCrawlSeeds(ctx, { countries, limit: 12 }).catch(() => []);
+  const rotatedUrls = rotated.map((r) => r.url);
+  const seeds = [...new Set([...(config.extra_seeds || []), ...provenSeeds, ...rotatedUrls])].slice(0, 20);
   if (!seeds.length) { log('CRAWL: no seeds for the chosen countries'); return; }
+
+  const seedHostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./i, '').toLowerCase(); } catch { return null; } };
 
   const excludePrefixes = config.exclude_url_prefixes || [];
   const excludeSubstrings = config.exclude_substrings || [];
@@ -104,15 +109,20 @@ async function runCrawlPass({ provenSeeds, summary }) {
 
   const runId = dryRun ? null : await recordCrawlRunStart(ctx, {
     trigger: crawlTrigger,
+    // The snapshot remembers exactly where this run set off, so a barren run is
+    // explainable after the fact and the operator can steer the next one.
     config: { max_depth: config.max_depth, max_pages: maxPages, per_host_cap: config.per_host_cap,
-      delay_ms: config.delay_ms, strict: config.strict_mode, countries, auto_promote_min_score: config.auto_promote_min_score },
+      delay_ms: config.delay_ms, strict: config.strict_mode, countries,
+      auto_promote_min_score: config.auto_promote_min_score, seeds },
     seedCount: seeds.length,
   });
 
   log(`CRAWL: run ${runId ?? '(dry)'} — ${seeds.length} seed, depth ${config.max_depth}, budget ${maxPages}`);
+  log(`CRAWL: seeds → ${seeds.slice(0, 6).join(', ')}${seeds.length > 6 ? ` (+${seeds.length - 6})` : ''}`);
 
   const knownHosts = await listKnownHosts(ctx).catch(() => new Set());
   const lastFetchByHost = new Map();
+  const pagesByHost = new Map(); // how many pages each host contributed, for seed memory
   let notModified = 0;
   let fetched = 0;
   let candidatesSoFar = 0;
@@ -169,6 +179,7 @@ async function runCrawlPass({ provenSeeds, summary }) {
         if (row.outcome === 'near_duplicate') nearDupSoFar += 1;
         if (row.outcome === 'error') errorsSoFar += 1;
         if (row.score != null && row.outcome === 'fetched') candidatesSoFar += 1;
+        if (row.host) pagesByHost.set(row.host, (pagesByHost.get(row.host) ?? 0) + 1);
         buffer.push(row);
       },
     });
@@ -199,7 +210,23 @@ async function runCrawlPass({ provenSeeds, summary }) {
     if (!dryRun && toReview.length) {
       summary.discovered += await recordSourceCandidates({ ...ctx, candidates: toReview });
     }
+
+    // Seed memory: how each starting point did this run, so the rotation can
+    // steer away from barren directions and back toward productive ones. A
+    // candidate is credited to the seed host it was found under (the crawl only
+    // descends within-host, so the discovery page's host is a seed host).
+    const candidatesBySeedHost = new Map();
+    for (const candidate of result.candidates) {
+      const seedHost = seedHostOf(candidate.discovered_from_url || '');
+      if (seedHost) candidatesBySeedHost.set(seedHost, (candidatesBySeedHost.get(seedHost) ?? 0) + 1);
+    }
+    const seedOutcomes = seeds.map((url) => {
+      const host = seedHostOf(url);
+      return host ? { host, country_code: promoteCountry, pages: pagesByHost.get(host) ?? 0, candidates: candidatesBySeedHost.get(host) ?? 0 } : null;
+    }).filter(Boolean);
+
     if (!dryRun) {
+      await recordCrawlSeedOutcomes(ctx, runId, seedOutcomes);
       await flush(); // the remaining buffered pages
       await recordCrawlRunFinish(ctx, runId, {
         status: 'succeeded',

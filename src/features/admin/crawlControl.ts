@@ -110,9 +110,30 @@ export async function listCrawlRuns(limit = 15): Promise<CrawlRun[]> {
   return error || !Array.isArray(data) ? [] : (data as CrawlRun[]);
 }
 
-export async function listCrawlPages(runId: string, limit = 200): Promise<CrawlPage[]> {
+export async function listCrawlPages(runId: string, limit = 300): Promise<CrawlPage[]> {
   const { data, error } = await rpc.rpc('admin_list_crawl_pages', { p_run_id: runId, p_limit: limit });
   return error || !Array.isArray(data) ? [] : (data as CrawlPage[]);
+}
+
+export interface SeedStat {
+  host: string;
+  country_code: string | null;
+  times_seeded: number;
+  pages_total: number;
+  candidates_total: number;
+  last_seeded_at: string | null;
+}
+
+/** Which starting directions have been productive, so the operator can steer. */
+export async function listSeedStats(limit = 50): Promise<SeedStat[]> {
+  const { data, error } = await rpc.rpc('admin_list_crawl_seed_stats', { p_limit: limit });
+  return error || !Array.isArray(data) ? [] : (data as SeedStat[]);
+}
+
+/** The seeds a run set off from, pulled out of its config snapshot. */
+export function runSeeds(run: CrawlRun): string[] {
+  const seeds = (run.config_snapshot as { seeds?: unknown })?.seeds;
+  return Array.isArray(seeds) ? seeds.filter((s): s is string => typeof s === 'string') : [];
 }
 
 /** Dispatches a crawl run now, through the same control plane as a scrape run. */

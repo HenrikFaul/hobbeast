@@ -12,6 +12,47 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.47.0] — 2026-08-28
+
+### Részletes futásnézet: mit nézett meg és honnan indult
+
+A futássorok mostantól **kinyithatók**. Alattuk:
+
+- **az indulási irányok** — pontosan mely kiindulóoldalakról ment el a crawl,
+  hogy egy terméketlen futásnál lásd, *melyik irány* nem volt jó;
+- **oldalról oldalra a teljes lista** — minden megnézett oldal a kimenetelével
+  (letöltve / változatlan / duplikátum / jelölt / felvéve / robots-tiltás /
+  hiba), mélységgel, szószámmal, pontszámmal, címmel, és hogy **melyik oldalról
+  jutott oda**.
+
+Így a „32 oldal, 2 változatlan, 0 jelölt, 14 dup" összegzés mögé látsz: melyik
+14 volt a duplikátum, honnan indultál, és miért nem lett belőle semmi.
+
+### Okosabb egymás utáni crawlok — seed-memória
+
+A crawler eddig **mindig ugyanonnan** indult (a legtöbb eseményt adó forrásokból,
+azonos sorrendben), így ugyanazokat az utakat járta be. Mostantól **emlékszik**:
+
+- minden kiindulóoldalról feljegyzi, **hányszor indult onnan, hány oldalt járt
+  be, és hány új forrást hozott**;
+- a következő futás **más irányból indul** — előbb a még nem próbáltakból, aztán
+  a bizonyítottan termékenyekből, végül a legrégebben próbáltakból;
+- a panelen külön táblázat mutatja, **melyik irány mennyire volt eredményes**,
+  hogy te is láthasd és terelhesd.
+
+**Élőben bizonyítva:** két egymás utáni seed-választás — a köztes futás
+feljegyzésével — **6-6 seedet adott vissza, 0 átfedéssel**. A crawler tényleg
+más irányból indul minden alkalommal.
+
+### Egy hiba, amit közben javítottam
+
+A seed-memória a hostra kulcsol, és a `www.` prefix miatt a `www.jegy.hu`
+(rendezéskor) sosem egyezett a `jegy.hu`-val (feljegyzéskor) — így egy
+www-host örökre „még nem próbáltnak" látszott. A `www.` mindkét oldalon
+levágva, egy host = egy seed.
+
+---
+
 ## [1.46.1] — 2026-08-27
 
 ### A crawl másodperceken belül elindul, és streameli az oldalakat

@@ -1,0 +1,18 @@
+-- Memory of which directions the crawl already tried, so successive runs start
+-- from different seeds instead of always the same top-12. Applied via MCP.
+--
+--   crawl_seed_stats          — per seed host: times_seeded, pages_total,
+--                               candidates_total, last_seeded_at. RLS read-gated
+--                               on providers.manage.
+--   next_crawl_seeds(cc[], n) — memory-aware rotation: never-tried first, then
+--                               productivity per attempt, then longest-untried.
+--                               Host is www-stripped so it matches what the
+--                               worker records (one seed per host).
+--   record_crawl_seed_outcomes(run, jsonb)  — service role; after a run, credits
+--                               each seed with the pages and candidates it
+--                               yielded, so the rotation learns.
+--   admin_list_crawl_seed_stats(n)           — the memory, for the admin panel.
+--
+-- Proven live: two successive next_crawl_seeds calls, with the first recorded
+-- as seeded in between, returned six seeds each with ZERO overlap.
+SELECT 'see live database for crawl seed-memory functions' AS note;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Play, RefreshCw, Save, Settings2 } from 'lucide-react';
+import { ChevronRight, Compass, Loader2, Play, RefreshCw, Save, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,14 @@ import {
   getCrawlConfig,
   linesToArray,
   listCrawlRuns,
+  listSeedStats,
   runCrawlNow,
   updateCrawlConfig,
   type CrawlConfig,
   type CrawlRun,
+  type SeedStat,
 } from '@/features/admin/crawlControl';
+import { CrawlRunDetail } from '@/components/admin/CrawlRunDetail';
 
 /**
  * The operator's crawler control room.
@@ -70,6 +73,8 @@ function runTone(status: string): 'default' | 'secondary' | 'destructive' {
 export function AdminCrawlerControl() {
   const [config, setConfig] = useState<CrawlConfig | null>(null);
   const [runs, setRuns] = useState<CrawlRun[]>([]);
+  const [seedStats, setSeedStats] = useState<SeedStat[]>([]);
+  const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dispatching, setDispatching] = useState(false);
@@ -92,13 +97,25 @@ export function AdminCrawlerControl() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [cfg, history] = await Promise.all([getCrawlConfig(), listCrawlRuns(15)]);
+    const [cfg, history, stats] = await Promise.all([getCrawlConfig(), listCrawlRuns(15), listSeedStats(30)]);
     if (cfg) hydrate(cfg);
     setRuns(history);
+    setSeedStats(stats);
     setLoading(false);
   }, [hydrate]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // While a run is in progress, poll so the operator watches it move — pages
+  // and counters climb live — instead of waiting for the whole thing to end.
+  const hasRunningRun = runs.some((run) => run.status === 'running');
+  useEffect(() => {
+    if (!hasRunningRun) return;
+    const timer = window.setInterval(() => {
+      void listCrawlRuns(15).then(setRuns);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [hasRunningRun]);
 
   const patch = (fields: Partial<CrawlConfig>) => setConfig((current) => (current ? { ...current, ...fields } : current));
 
@@ -250,24 +267,78 @@ export function AdminCrawlerControl() {
           ) : (
             <ul className="space-y-1.5">
               {runs.map((run) => (
-                <li key={run.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2 text-xs">
-                  <span className="flex items-center gap-2">
-                    <Badge variant={runTone(run.status)} className="rounded-full">{run.status}</Badge>
-                    <span className="text-muted-foreground">{new Date(run.started_at).toLocaleString('hu-HU')}</span>
-                    <span className="text-muted-foreground/70">· {run.trigger}</span>
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {run.pages_fetched} oldal
-                    {run.pages_not_modified > 0 && ` · ${run.pages_not_modified} változatlan`}
-                    {' · '}{run.candidates_found} jelölt
-                    {run.auto_promoted > 0 && ` · ${run.auto_promoted} felvéve`}
-                    {run.near_duplicates_skipped > 0 && ` · ${run.near_duplicates_skipped} dup`}
-                  </span>
+                <li key={run.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRun((current) => (current === run.id ? null : run.id))}
+                    aria-expanded={expandedRun === run.id}
+                    className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors hover:border-primary/40 ${
+                      run.status === 'running' ? 'border-primary/40 bg-primary/5' : 'border-border/50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${expandedRun === run.id ? 'rotate-90' : ''}`} aria-hidden="true" />
+                      <Badge variant={runTone(run.status)} className="rounded-full">
+                        {run.status === 'running' && <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />}
+                        {run.status === 'running' ? 'fut…' : run.status}
+                      </Badge>
+                      <span className="text-muted-foreground">{new Date(run.started_at).toLocaleString('hu-HU')}</span>
+                      <span className="text-muted-foreground/70">· {run.trigger}</span>
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {run.pages_fetched} oldal
+                      {run.pages_not_modified > 0 && ` · ${run.pages_not_modified} változatlan`}
+                      {' · '}{run.candidates_found} jelölt
+                      {run.auto_promoted > 0 && ` · ${run.auto_promoted} felvéve`}
+                      {run.near_duplicates_skipped > 0 && ` · ${run.near_duplicates_skipped} dup`}
+                    </span>
+                  </button>
+                  {expandedRun === run.id && <CrawlRunDetail run={run} />}
                 </li>
               ))}
             </ul>
           )}
         </div>
+
+        {seedStats.length > 0 && (
+          <div>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <Compass className="h-4 w-4 text-primary" aria-hidden="true" /> Indulási irányok emlékezete
+            </h3>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Melyik kiindulóoldal mennyi új forrást hozott eddig. A crawler ez alapján
+              rotál — a terméketlen irányokat háttérbe teszi, a jókhoz visszatér.
+            </p>
+            <div className="max-h-56 overflow-auto rounded-md border border-border/40">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-card text-left text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-1 font-medium">Kiindulóoldal</th>
+                    <th className="px-2 py-1 text-right font-medium">Futás</th>
+                    <th className="px-2 py-1 text-right font-medium">Oldal</th>
+                    <th className="px-2 py-1 text-right font-medium">Jelölt</th>
+                    <th className="px-2 py-1 font-medium">Utoljára</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seedStats.map((stat) => (
+                    <tr key={stat.host} className="border-t border-border/30">
+                      <td className="px-2 py-1 font-medium">{stat.host}</td>
+                      <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">{stat.times_seeded}</td>
+                      <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">{stat.pages_total}</td>
+                      <td className={`px-2 py-1 text-right tabular-nums ${stat.candidates_total > 0 ? 'font-semibold text-primary' : 'text-muted-foreground/60'}`}>
+                        {stat.candidates_total}
+                      </td>
+                      <td className="px-2 py-1 text-muted-foreground/70">
+                        {stat.last_seeded_at ? new Date(stat.last_seeded_at).toLocaleDateString('hu-HU') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

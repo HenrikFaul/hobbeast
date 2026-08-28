@@ -183,3 +183,27 @@ export async function recordCrawlRunProgress(ctx, runId, stats) {
   try { await rpc('record_crawl_run_progress', { p_run_id: runId, p_stats: stats }, ctx); }
   catch (e) { console.warn(`record_crawl_run_progress: ${e.message}`); }
 }
+
+/**
+ * Memory-aware seed selection: the sources to crawl from THIS run, ordered so
+ * each run tries a different direction — never-tried first, then the ones that
+ * historically produced leads, then the longest-untried. Falls back to the
+ * plain top-by-events list if the rotation RPC is unavailable.
+ */
+export async function nextCrawlSeeds({ supabaseUrl, serviceRoleKey }, { countries = [], limit = 12 }) {
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/next_crawl_seeds`, {
+      method: 'POST', headers: headers(serviceRoleKey),
+      body: JSON.stringify({ p_countries: countries.length ? countries : null, p_limit: limit }),
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return (Array.isArray(rows) ? rows : []).map((r) => ({ url: r.endpoint_url, host: r.host }));
+  } catch { return []; }
+}
+
+export async function recordCrawlSeedOutcomes(ctx, runId, seeds) {
+  if (!runId || !seeds?.length) return;
+  try { await rpc('record_crawl_seed_outcomes', { p_run_id: runId, p_seeds: seeds }, ctx); }
+  catch (e) { console.warn(`record_crawl_seed_outcomes: ${e.message}`); }
+}
