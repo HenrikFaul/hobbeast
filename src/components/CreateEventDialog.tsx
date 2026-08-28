@@ -29,6 +29,9 @@ import {
 } from '@/features/events/createEvent';
 import { CreateEventErrorBoundary } from '@/features/events/CreateEventErrorBoundary';
 import { CreateEventExpectationsFields } from '@/features/events/CreateEventExpectationsFields';
+import { EventReadinessMeter } from '@/components/events/EventReadinessMeter';
+import { EventLivePreview } from '@/components/events/EventLivePreview';
+import { suggestEmoji, suggestTags, type ReadinessDraft } from '@/features/events/eventReadiness';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -293,6 +296,25 @@ useEffect(() => {
     }
   };
 
+  // The live drafts that feed the premium rail — readiness + "no surprise"
+  // preview — rebuilt on every keystroke from the fields already in state.
+  const readinessDraft: ReadinessDraft = useMemo(() => ({
+    title, description, category: selectedCategory?.name ?? '',
+    hasDate: Boolean(eventDate), eventTime,
+    hasLocation: locationType === 'free' ? Boolean(locationFreeText.trim()) : Boolean(locationCity.trim() || locationAddress.trim()),
+    imageEmoji, maxAttendees, beginnerFriendly, activityIntensity, equipmentRequired, tags,
+  }), [title, description, selectedCategory, eventDate, eventTime, locationType, locationFreeText,
+    locationCity, locationAddress, imageEmoji, maxAttendees, beginnerFriendly, activityIntensity, equipmentRequired, tags]);
+
+  const previewDraft = useMemo(() => ({
+    title, emoji: imageEmoji, category: selectedCategory?.name ?? '',
+    dateLabel: eventDate ? eventDate.toLocaleDateString('hu-HU', { month: 'long', day: 'numeric', weekday: 'short' }) : null,
+    timeLabel: eventTime || null,
+    locationLabel: [locationCity, locationAddress, locationFreeText].map((s) => s.trim()).filter(Boolean)[0] || null,
+    description, maxAttendees,
+    tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+  }), [title, imageEmoji, selectedCategory, eventDate, eventTime, locationCity, locationAddress, locationFreeText, description, maxAttendees, tags]);
+
   return (
     <CreateEventErrorBoundary onClose={onClose}>
       <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-foreground/25 p-4 backdrop-blur-sm" onClick={handleBackdropClick}>
@@ -309,7 +331,44 @@ useEffect(() => {
           <Button aria-label="Eseménylétrehozó bezárása" variant="ghost" size="icon" onClick={handleRequestClose}><X className="h-4 w-4" /></Button>
         </div>
 
-        <form onSubmit={handleCreate} className="space-y-4">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-6">
+        {/* The premium rail: attendee preview + live readiness. First in the DOM
+            so it sits at the top on mobile, ordered to the right on desktop. */}
+        <aside className="order-first mb-4 space-y-4 lg:order-last lg:mb-0 lg:sticky lg:top-2">
+          <EventLivePreview draft={previewDraft} />
+          {(() => {
+            // A gentle copilot: one emoji that fits, a few tag ideas. Deterministic,
+            // no AI cost — one tap applies it. Shown only when it has something to add.
+            const catName = selectedCategory?.name ?? '';
+            const emojiPick = catName || title ? suggestEmoji(catName, title) : null;
+            const tagPicks = catName ? suggestTags(catName, tags) : [];
+            const showEmoji = emojiPick && emojiPick !== imageEmoji;
+            if (!showEmoji && tagPicks.length === 0) return null;
+            return (
+              <div className="rounded-2xl border border-primary/20 bg-primary/[0.03] p-3">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Ötletek egy kattintásra</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {showEmoji && (
+                    <button type="button" onClick={() => setImageEmoji(emojiPick)}
+                      className="rounded-full border border-border/70 bg-card px-2.5 py-1 text-sm transition-colors hover:border-primary/50">
+                      {emojiPick} emoji
+                    </button>
+                  )}
+                  {tagPicks.map((tag) => (
+                    <button key={tag} type="button"
+                      onClick={() => setTags((current) => (current.trim() ? `${current.replace(/,\s*$/, '')}, ${tag}` : tag))}
+                      className="rounded-full border border-border/70 bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/50">
+                      + {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          <EventReadinessMeter draft={readinessDraft} />
+        </aside>
+
+        <form onSubmit={handleCreate} className="space-y-4 lg:order-first">
           {/* Template selector + Save as template */}
           <div className="flex flex-wrap items-center gap-2">
             <EventTemplateSelector onSelect={(tpl) => {
@@ -635,6 +694,7 @@ useEffect(() => {
             {loading ? 'Létrehozás...' : 'Esemény létrehozása'}
           </Button>
         </form>
+        </div>
       </motion.div>
     </div>
     </CreateEventErrorBoundary>

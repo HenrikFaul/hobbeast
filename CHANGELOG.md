@@ -25,6 +25,39 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.49.0] — 2026-08-28
+
+### Eseménylétrehozás — most már WOW-élmény ✨
+
+A létrehozó eddig egy 30+ mezős falforma volt, haladásérzet nélkül. Most **él**:
+egy prémium jobb oldali sáv kíséri végig, ami a spec §7-et és §22-t valósítja meg
+— úgy, hogy **egyetlen meglévő mezőt vagy contractot sem érint** (additív).
+
+**„Így fogják látni" élő előnézet (§7.4 — no surprise publish).** A pontos
+eseménykártya, ahogy a résztvevők meglátják, **minden leütésre újraépül** —
+emoji, cím, időpont, helyszín, létszám, leírás, címkék. Ami hiányzik, halvány
+helykitöltőként jelenik meg, így a kártya mindig kártyának néz ki.
+
+**Élő „készültségi" mérő (§7.3 — élő segítség, nem büntetés).** Egy gyűrű, ami
+**animálva töltődik** ahogy formálódik az esemény, bátorító főcímmel („Zseniális
+esemény — csak nyomj a Közzétételre! 🚀") és **egyetlen, legfontosabb következő
+tippel**. Sosem blokkol — csak a négy alapelem (cím, időpont, helyszín,
+kategória) van *-gal jelölve.
+
+**Copilot ötletek egy kattintásra (§7.2 — javasol, nem dönt helyetted).** A
+kategóriából illő **emoji** és pár **címke** — egy koppintás alkalmazza.
+Determinisztikus, nincs AI-költség.
+
+**Progressive disclosure.** Desktopon a sáv oldalt ragad, mobilon felül — így az
+első percben csak a lényeg vezet, a részletek a helyükön maradnak.
+
+A logika tiszta és tesztelt (8 teszt: az üres draft alacsonyan indul de megmondja
+a következő lépést, a négy alapelem publikálhatóvá teszi, a teljes draft „great"
+szintet ér, az emoji a kategóriához illeszkedik). 754 teszt zöld, nulla
+regresszió.
+
+---
+
 ## [1.48.0] — 2026-08-28
 
 ### Új csatorna: programok kiolvasása hírlevelekből
