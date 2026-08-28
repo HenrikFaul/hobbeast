@@ -138,3 +138,86 @@ export async function removeMember(orgId: string, userId: string): Promise<{ ok:
 export function canManage(role: OrgRole): boolean {
   return role === 'owner' || role === 'admin';
 }
+
+// --- O-C: public brand page + follow ---------------------------------------
+
+export interface OrgPublicEvent {
+  id: string; title: string; event_date: string | null; event_time: string | null;
+  city: string | null; emoji: string | null; category: string | null;
+}
+
+export interface OrgPublic {
+  id: string; slug: string; name: string; kind: string;
+  tagline: string | null; description: string | null;
+  logo_url: string | null; cover_url: string | null; brand_color: string | null;
+  website_url: string | null; social: Record<string, string>; city: string | null;
+  categories: string[]; verification_status: string; follower_count: number;
+  is_following: boolean; is_member: boolean; events: OrgPublicEvent[];
+}
+
+export async function getOrganizationPublic(slug: string): Promise<OrgPublic | null> {
+  const { data, error } = await rpc.rpc('get_organization_public', { p_slug: slug });
+  return error || !data ? null : (data as OrgPublic);
+}
+
+export async function followOrganization(
+  orgId: string, follow: boolean,
+): Promise<{ following: boolean; follower_count: number } | null> {
+  const { data, error } = await rpc.rpc('follow_organization', { p_org_id: orgId, p_follow: follow });
+  return error || !data ? null : (data as { following: boolean; follower_count: number });
+}
+
+// --- O-E: verification ------------------------------------------------------
+
+export async function requestVerification(
+  orgId: string, website: string, social: string, note: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await rpc.rpc('request_org_verification', {
+    p_org_id: orgId, p_website: website, p_social: social, p_note: note,
+  });
+  return error ? { ok: false, message: readable(error.message) } : { ok: true };
+}
+
+export interface OrgVerificationRequest {
+  id: string; organization_id: string; org_name: string; org_slug: string;
+  website_url: string | null; social_proof: string | null; note: string | null; created_at: string;
+}
+
+export async function listVerificationRequests(): Promise<OrgVerificationRequest[]> {
+  const { data, error } = await rpc.rpc('admin_list_org_verification_requests');
+  return error || !Array.isArray(data) ? [] : (data as OrgVerificationRequest[]);
+}
+
+export async function reviewVerification(
+  requestId: string, decision: 'verified' | 'rejected', note?: string,
+): Promise<boolean> {
+  const { error } = await rpc.rpc('admin_review_org_verification', {
+    p_request_id: requestId, p_decision: decision, p_note: note ?? null,
+  });
+  return !error;
+}
+
+// --- O-F: organization analytics -------------------------------------------
+
+export interface OrgAnalytics {
+  events_total: number; upcoming: number; participants_total: number;
+  views_total: number; follower_count: number;
+}
+
+export async function getOrganizationAnalytics(orgId: string): Promise<OrgAnalytics | null> {
+  const { data, error } = await rpc.rpc('get_organization_analytics', { p_org_id: orgId });
+  return error || !data ? null : (data as OrgAnalytics);
+}
+
+// --- O-D: attach a created event to an organization ------------------------
+
+export async function assignEventToOrganization(eventId: string, orgId: string): Promise<void> {
+  const { error } = await rpc.rpc('assign_event_organization', { p_event_id: eventId, p_org_id: orgId });
+  if (error) throw new Error(error.message);
+}
+
+/** The organizations the caller may create events under (editor and above). */
+export async function listOrganizationsICanPublishAs(): Promise<MyOrganization[]> {
+  const orgs = await listMyOrganizations();
+  return orgs.filter((o) => o.member_status === 'active' && ['owner', 'admin', 'editor'].includes(o.my_role));
+}

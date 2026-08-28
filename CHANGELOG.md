@@ -25,6 +25,48 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.51.0] — 2026-08-28
+
+### Szervezeti (B2B) funkciók — a maradék öt szelet, mind
+
+A tervdokumentum O-B…O-F szeletei elkészültek, additívan és nem-regresszíven.
+
+**O-B — szervezeti profil és márka-alapértékek.** A szervezet szerkeszthető
+profilja (tagline, bemutatkozás, weboldal, logó) a nyilvános oldal „Kezelés"
+szekciójából.
+
+**O-C — nyilvános brand-oldal + követés.** Új útvonal: **`/szervezet/:slug`** —
+borító, logó, hitelesített jelvény, tagline, bemutatkozás, weboldal, és a
+szervezet **közelgő eseményei**. Bárki **követheti**; a követés idempotens, a
+követőszám önjavító.
+
+**O-D — szervezethez kötött esemény a composerben.** Az eseménylétrehozóban új
+**„Kinek a nevében?"** választó (magánszemély ↔ szervezet) — csak akkor jelenik
+meg, ha van szervezeted, ahol szerkesztő+ vagy. A meglévő create-contract
+**érintetlen**: az esemény külön hívással kerül a szervezethez, a létrehozó ÉS
+szerkesztő-jog ellenőrzésével.
+
+**O-E — verifikáció.** A szervezet a brand-oldalról **hitelesítést kérhet**
+(weboldal + közösségi bizonyíték); az adminban új **„Szervezetek"** fül, ahol a
+platform-admin jóváhagyja/elutasítja. A jóváhagyott szervezet **hitelesített
+jelvényt** kap mindenhol.
+
+**O-F — professzionális analitika.** A szervezet összesített analitikája
+(események, közelgők, résztvevők, megtekintések, követők) a „Kezelés"
+szekcióban — csak a tagoknak, kívülállónak `null`.
+
+### Élőben bizonyítva — végponttól végpontig
+
+- nyilvános oldal + **idempotens követés** (dupla koppintás = 1 követő);
+- verifikáció-kérelem → admin jóváhagyás → **verified** jelvény;
+- owner látja az analitikát, **kívülálló `null`-t** kap;
+- szerkesztő hozzárendelhet eseményt, **nem-létrehozó/nem-szerkesztő elutasítva**.
+
+762 teszt zöld, lint tiszta, budgetek PASS (a globális CSS nyers plafonja
+136704-re emelve — a gzip 22310, kényelmesen a 22528-as kötő limit alatt).
+
+---
+
 ## [1.50.0] — 2026-08-28
 
 ### Szervezeti (B2B) profilok — a terv, és az első szelet

@@ -13,10 +13,10 @@
     {
       "id": "global-css",
       "pattern": "^index-[A-Za-z0-9_-]+\\.css$",
-      "maxRawBytes": 135168,
+      "maxRawBytes": 136704,
       "maxGzipBytes": 22528,
       "required": true,
-      "note": "Raw ceiling raised from 131072 in v1.26.0: the previous limit left 52 bytes of headroom, so any new component broke it. Gzip stays at 22528 and is the binding constraint — that is what crosses the network."
+      "note": "Raw ceiling raised to 136704 in v1.51.0 (from 135168): the B2B organization surfaces added utility classes for 108 raw bytes over the old ceiling while gzip stayed at 22310, under limit. Gzip stays at 22528 and is the binding constraint — that is what crosses the network."
     },
     {
       "id": "events-route",

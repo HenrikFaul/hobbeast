@@ -182,18 +182,20 @@ export function OrganizationsCard() {
             {orgs.map((org) => (
               <li key={org.id} className="rounded-xl border border-border/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((c) => (c === org.id ? null : org.id))}
-                    className="flex items-center gap-2 text-left"
-                  >
-                    <span className="font-medium">{org.name}</span>
-                    {org.verification_status === 'verified' && (
-                      <ShieldCheck className="h-4 w-4 text-primary" aria-label="Hitelesített szervező" />
-                    )}
-                    <Badge variant="secondary" className="rounded-full text-[10px]">{ROLE_LABEL[org.my_role]}</Badge>
-                    <span className="text-xs text-muted-foreground">{ORG_KIND_LABEL[org.kind] ?? org.kind}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((c) => (c === org.id ? null : org.id))}
+                      className="flex items-center gap-2 text-left"
+                    >
+                      <span className="font-medium">{org.name}</span>
+                      {org.verification_status === 'verified' && (
+                        <ShieldCheck className="h-4 w-4 text-primary" aria-label="Hitelesített szervező" />
+                      )}
+                      <Badge variant="secondary" className="rounded-full text-[10px]">{ROLE_LABEL[org.my_role]}</Badge>
+                    </button>
+                    <a href={`/szervezet/${org.slug}`} className="text-xs text-primary hover:underline">oldal ↗</a>
+                  </div>
                   {org.member_status === 'invited' && (
                     <Button size="sm" variant="outline" onClick={() => void accept(org.id)}>
                       <Check className="mr-1 h-4 w-4" /> Meghívó elfogadása

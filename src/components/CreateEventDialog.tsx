@@ -32,6 +32,7 @@ import { CreateEventExpectationsFields } from '@/features/events/CreateEventExpe
 import { EventReadinessMeter } from '@/components/events/EventReadinessMeter';
 import { EventLivePreview } from '@/components/events/EventLivePreview';
 import { suggestEmoji, suggestTags, type ReadinessDraft } from '@/features/events/eventReadiness';
+import { assignEventToOrganization, listOrganizationsICanPublishAs, type MyOrganization } from '@/features/organizations/organizations';
 
 const LOCATION_TYPES = [
   { value: 'city', label: 'Város' },
@@ -73,6 +74,17 @@ export function CreateEventDialog({ onClose, onCreated, circleId }: CreateEventD
   const [distance, setDistance] = useState('');
   const [skillLevel, setSkillLevel] = useState('');
   const [loading, setLoading] = useState(false);
+  const [organizationId, setOrganizationId] = useState('');
+  const [myOrgs, setMyOrgs] = useState<MyOrganization[]>([]);
+
+  // The organizations this person may publish under (editor and above). Loaded
+  // once when the composer opens; the "In whose name?" selector only appears
+  // when there is at least one, so a private organizer never sees it.
+  useEffect(() => {
+    let cancelled = false;
+    void listOrganizationsICanPublishAs().then((orgs) => { if (!cancelled) setMyOrgs(orgs); });
+    return () => { cancelled = true; };
+  }, []);
   const [tripPlan, setTripPlan] = useState<TripPlanDraft | null>(null);
   const [tripPlannerOpen, setTripPlannerOpen] = useState(false);
   const [venueSearchHint, setVenueSearchHint] = useState('');
@@ -266,6 +278,17 @@ useEffect(() => {
 
       const eventId = createdEvent.id;
 
+      // O-D: if the event is being made under an organization, attach it. A
+      // separate call so the create contract stays untouched; failure here does
+      // not undo the event.
+      if (organizationId) {
+        try {
+          await assignEventToOrganization(eventId, organizationId);
+        } catch {
+          toast.warning('Az esemény létrejött, de nem sikerült a szervezethez rendelni.');
+        }
+      }
+
       let circleLinked = !circleId;
       if (circleId) {
         try {
@@ -423,6 +446,26 @@ useEffect(() => {
               eventTime={eventTime}
             />
           </div>
+
+          {myOrgs.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+              <Label htmlFor="event-org" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kinek a nevében?</Label>
+              <select
+                id="event-org"
+                value={organizationId}
+                onChange={(e) => setOrganizationId(e.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Magánszemélyként (én)</option>
+                {myOrgs.map((org) => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground/80">
+                Ha szervezetet választasz, az esemény annak a brandjét viseli, és a szervezet csapata is kezelheti.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Esemény neve *</Label>

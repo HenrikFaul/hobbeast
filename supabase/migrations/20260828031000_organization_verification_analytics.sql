@@ -1,0 +1,22 @@
+-- Slice O-E (verification) and O-F (analytics + entitlement link). Applied via MCP.
+--   organization_verification_requests      evidence + admin decision. RLS: org
+--                                           admins and platform admins read.
+--   request_org_verification(...)           org admin submits -> status 'pending'.
+--   admin_review_org_verification(...)      providers.manage approves/rejects ->
+--                                           stamps the org verified/rejected.
+--   admin_list_org_verification_requests()  the pending queue for the admin panel.
+--   get_organization_analytics(org)         member-only aggregate across the org's
+--                                           events (events, upcoming, participants,
+--                                           views, followers); null for outsiders.
+--   entitlement_grants.organization_id      additive: a plan can attach to an org.
+--
+-- Slice O-D:
+--   assign_event_organization(event, org)   attaches a created event to an org;
+--                                           caller must be the event creator AND
+--                                           an org editor+. Separate from create,
+--                                           so the create contract is untouched.
+--
+-- Proven live: public page + idempotent follow; verification request -> admin
+-- approve -> verified badge; owner analytics vs outsider null; editor may assign,
+-- non-creator/non-editor refused.
+SELECT 'see live database' AS note;
