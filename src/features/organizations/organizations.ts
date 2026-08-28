@@ -221,3 +221,47 @@ export async function listOrganizationsICanPublishAs(): Promise<MyOrganization[]
   const orgs = await listMyOrganizations();
   return orgs.filter((o) => o.member_status === 'active' && ['owner', 'admin', 'editor'].includes(o.my_role));
 }
+
+// --- O-G: public B2B API keys ----------------------------------------------
+
+/** The scopes a key can carry. Read is always granted; write is opt-in. */
+export const API_SCOPES: Array<{ value: string; label: string }> = [
+  { value: 'events:read', label: 'Események olvasása' },
+  { value: 'events:write', label: 'Események létrehozása' },
+];
+
+export interface OrgApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export async function listApiKeys(orgId: string): Promise<OrgApiKey[]> {
+  const { data, error } = await rpc.rpc('list_org_api_keys', { p_org_id: orgId });
+  return error || !Array.isArray(data) ? [] : (data as OrgApiKey[]);
+}
+
+/** Mint a key. The full key is returned exactly once — surface it, then forget it. */
+export async function createApiKey(
+  orgId: string, name: string, scopes: string[],
+): Promise<{ ok: true; id: string; key: string; prefix: string } | { ok: false; message: string }> {
+  const { data, error } = await rpc.rpc('create_org_api_key', {
+    p_org_id: orgId, p_name: name, p_scopes: scopes.length ? scopes : ['events:read'],
+  });
+  if (error || !data) return { ok: false, message: readable(error?.message ?? '') };
+  const row = data as { id: string; key: string; prefix: string };
+  return { ok: true, id: row.id, key: row.key, prefix: row.prefix };
+}
+
+export async function revokeApiKey(keyId: string): Promise<boolean> {
+  const { error } = await rpc.rpc('revoke_org_api_key', { p_key_id: keyId });
+  return !error;
+}
+
+/** The public API base — the same origin the OpenAPI document is served from. */
+export const B2B_API_BASE =
+  'https://bqdvqmpwccsxumzijspj.supabase.co/functions/v1/api-b2b';

@@ -79,3 +79,12 @@ verify_jwt = false
 
 [functions.email-inbound]
 verify_jwt = false
+
+# --- Public B2B API ---
+# JWT verify is OFF: the credential is the organization's x-api-key header, not a
+# Supabase JWT. Every request is authenticated inside the handler via
+# resolve_api_key and scoped to that organization; the /openapi.json and
+# /openapi-index.json discovery documents are intentionally public so the
+# APIMaster / SwaggerMaster workbench can import the spec by URL.
+[functions.api-b2b]
+verify_jwt = false

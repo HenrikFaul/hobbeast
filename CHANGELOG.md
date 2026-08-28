@@ -25,6 +25,56 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ---
 
+## [1.52.0] — 2026-08-28
+
+### Nyilvános B2B API (O-G szelet) — APIMaster/SwaggerMaster-kompatibilisen
+
+A hitelesített szervezetek mostantól **programozottan** olvashatják és tehetik
+közzé a saját eseményeiket. Az API a `C:\Work\api-workbench-pro`-ban fejlesztett
+**apimaster.dev / SwaggerMaster** konvencióihoz igazodik, így a Run Monitorban és
+a SwaggerMasterben is látszik a működése és leírása.
+
+**Új edge function: `api-b2b`** (`/functions/v1/api-b2b`, `verify_jwt=false` — a
+hitelesítés az `x-api-key` fejléc, nem Supabase-JWT):
+
+- `GET /openapi.json` — gazdag **OpenAPI 3.1** dokumentum: `apiKey`
+  security-scheme (`x-api-key` fejléc), globális `security`, minden művelethez
+  `operationId`, összefoglaló, leírás, példák és enumok (a SwaggerMaster
+  gyengeség-osztályozója ezekre épít).
+- `GET /openapi-index.json` — felderítő dokumentum a Workbench **tömeges
+  importjához** (`{ "hobbeast": "…/openapi.json" }`).
+- `GET /v1/organization`, `GET /v1/events`, `POST /v1/events`,
+  `GET /v1/events/{id}` — minden hívás a kulcs szervezetére szűkítve.
+- **Kanonikus hibaboríték** minden hibán:
+  `{ error: { code, httpStatus, category, message, retryable, retryAfterSec?, traceId } }`,
+  ahol a `category` a `business|technical|validation|auth|rate_limit|dependency`
+  halmazból való.
+- A `POST /v1/events` **idempotens**: `Idempotency-Key` fejléccel az újrapróbált
+  kérés ugyanazt az eseményt adja vissza (`replayed: true`), nem duplikál.
+
+**API-kulcsok (új `organization_api_keys` tábla + RPC-k).** A kulcsok `hbk_live_`
+előtaggal, **egyszer** jelennek meg létrehozáskor; a szerver csak **sha256
+hasht** és rövid előtagot tárol, így egy kiszivárgott adatbázissor nem ad
+használható kulcsot. A kezelő RPC-k (`create_org_api_key`, `list_org_api_keys`,
+`revoke_org_api_key`) **admin-joghoz kötöttek**; a `resolve_api_key` csak
+`service_role`. A kulcshoz **scope** tartozik (`events:read`, `events:write`) —
+íráshoz külön jog kell.
+
+**Fejlesztői felület.** A szervezet nyilvános oldalának „Kezelés" szekciójában új
+**Fejlesztői API** blokk: kulcs létrehozása (scope-választással, egyszeri
+felfedéssel és másolással), aktív kulcsok listája (előtag, scope, utolsó
+használat), visszavonás, és közvetlen link az élő OpenAPI dokumentációra.
+
+**Bizonyítva.** A teljes életciklus élőben végigfuttatva (kulcs mintázás →
+resolve → esemény létrehozás → idempotens ismétlés → list → get → cross-org
+izoláció → visszavonás utáni elutasítás), majd a **dróton át** HTTP-n is
+(nyilvános felderítés kulcs nélkül, 401/422 kanonikus borítékkal, 201-es
+létrehozás). Az OpenAPI-dokumentum és a hibaboríték invariánsait vitest-teszt
+őrzi. Additív és nem-regresszív: az egyéni és a meglévő szervezeti utak
+érintetlenek.
+
+---
+
 ## [1.51.0] — 2026-08-28
 
 ### Szervezeti (B2B) funkciók — a maradék öt szelet, mind
