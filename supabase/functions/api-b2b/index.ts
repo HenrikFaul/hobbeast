@@ -19,19 +19,35 @@ import { type ErrorCategory, errorBody, openapiDocument } from './openapi.ts';
 
 const BASE = 'https://bqdvqmpwccsxumzijspj.supabase.co/functions/v1/api-b2b';
 
+// A public API is meant to be called from browsers (partner dashboards, the
+// APIMaster / SwaggerMaster workbench's live try-out), so it must answer CORS.
+// The credential is a request header (x-api-key), never a cookie, so a wildcard
+// origin is safe — no credentialed requests are involved.
+const CORS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, apikey, x-api-key, content-type, idempotency-key',
+  'access-control-max-age': '86400',
+};
+
 function errorResponse(code: string, httpStatus: number, category: ErrorCategory, message: string, extra: Record<string, unknown> = {}) {
   return new Response(JSON.stringify(errorBody(code, httpStatus, category, message, crypto.randomUUID(), extra)),
-    { status: httpStatus, headers: { 'content-type': 'application/json' } });
+    { status: httpStatus, headers: { 'content-type': 'application/json', ...CORS } });
 }
 
 function ok(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
 }
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   // The path after /functions/v1/api-b2b
   const path = url.pathname.replace(/^.*\/api-b2b/, '') || '/';
+
+  // CORS preflight — answer before auth so a browser can probe any endpoint.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS });
+  }
 
   // Discovery documents are public — no key needed, so the Workbench can import.
   if (req.method === 'GET' && (path === '/openapi.json' || path === '/')) {

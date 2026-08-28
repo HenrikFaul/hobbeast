@@ -961,5 +961,24 @@ felhasználó másik utat ad, onnan olvass tovább.
 - **A MCP edge-deploy `verify_jwt=true`-t erőltet; nyilvános, x-api-key-es
   funkcióhoz a Supabase CLI kell** (`npx supabase functions deploy …`), ami a
   `config.toml` `[functions.api-b2b] verify_jwt=false`-át tiszteli.
+- **CORS kell a böngészőből hívható nyilvános API-hoz.** A `C:\Work\api-workbench-pro`
+  workbench (Import Studio `loadSpecFromUrl`, API Explorer live send) **böngésző-
+  oldali `fetch`-csel** dolgozik, így CORS nélkül elakad. Megoldás: `OPTIONS`
+  preflight → 204, és `access-control-allow-origin: *` minden válaszon. Wildcard
+  biztonságos, mert a hitelesítő az `x-api-key` **fejléc**, nem süti (nincs
+  credentialed kérés).
+- **Az APIMaster gyengeség-osztályozó pontos szabályai** (`src/domain/openapi-parser.ts`
+  a workbenchben): `no_example` = nincs `example`/`examples` a 2xx válaszon VAGY a
+  sémán (sémánál a property-szint is számít, de sekélyen); `vague_description` =
+  a séma `description`-je hiányzik/általános; `missing_enum` = `status|state|type|
+  kind|category` nevű string property enum nélkül; a kritikusak (`weak_error_response`
+  = csak 2xx; `sparse_response_coverage` = nincs válasz; `noAuthDetail` = nincs
+  security scheme; `unresolved_ref`) 0-n tartandók. Bizonyítás: a workbench SAJÁT
+  motormoduljait (`loadSpecFromUrl`, `buildImportSummary`, `buildReferenceModel`,
+  `buildTryOutRequest`, `extractAuthDefaults`) egy eldobható bun-szkriptből az ÉLŐ
+  spec-URL-en futtatva — hűbb, mint a rejtett böngészőpanelt driftolni.
+- **A böngészőpanel elrejtve throttle-ol**: a `read_page`/`javascript_tool` (DOM)
+  megy, de a `screenshot`/`form_input`/`computer` kompozitálást vár, és time-outol.
+  Rejtett panelnél a motor-modulokat futtasd közvetlenül, ne a UI-t klikkeld.
 
 *Utoljára frissítve: 2026-08-28*
