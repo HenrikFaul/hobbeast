@@ -1,0 +1,19 @@
+-- RPCs for the newsletter ingestion channel. Applied via MCP.
+--
+--   record_inbound_email(jsonb)            service role (the webhook); idempotent
+--                                          by Message-ID, matches sender->source.
+--   claim_unparsed_emails(n)               service role (the worker); matched,
+--                                          unparsed mail with its source info.
+--   mark_email_parsed(id, count, error)    service role; closes a mail and bumps
+--                                          the source's totals.
+--   get_email_webhook_secret()             service role; the webhook reads this to
+--                                          verify callers.
+--   admin_get/update_email_ingest_config, admin_rotate secret (via update),
+--   admin_upsert/delete/list_email_source, admin_list_inbound_emails
+--                                          operator surface, providers.manage.
+--
+-- Proven live end to end: a JSON-LD newsletter POSTed to the email-inbound
+-- function returned 200/matched, a wrong secret 401, a repeat "duplicate";
+-- claim_unparsed_emails returned it with its source; and the worker's parser
+-- read "Nyitókoncert a Nagyszínpadon / 2026-09-12 19:00 / Fesztivál" out of it.
+SELECT 'see live database for email ingest RPCs' AS note;

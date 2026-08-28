@@ -17,6 +17,7 @@ import { chromium } from 'playwright';
 import { fetchStatic, robotsAllows, fetchConditional } from './src/fetch.mjs';
 import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
 import { crawlFrontier } from './src/sources/crawlFrontier.mjs';
+import { parseEmailEvents } from './src/sources/emailEvents.mjs';
 import { scrapeGenericSource, normalizeEndpointUrl } from './src/sources/generic.mjs';
 import { scrapeRssSource } from './src/sources/rss.mjs';
 import { scrapeTribeSource } from './src/sources/tribe.mjs';
@@ -30,6 +31,7 @@ import {
   listKnownHosts, recordSourceCandidates,
   getCrawlConfig, nextCrawlSeeds, recordCrawlSeedOutcomes, recordCrawlRunStart, recordCrawlRunFinish,
   recordCrawlPages, recordCrawlRunProgress, autoPromoteCrawledSource, getUrlValidators,
+  claimUnparsedEmails, markEmailParsed,
 } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
@@ -49,6 +51,8 @@ const discoverLimit = flag('--discover', 8);
 const forceCrawl = args.includes('--crawl') || args.includes('--crawl-only');
 // Crawl-only skips collection entirely — the fast path the admin button uses.
 const crawlOnly = args.includes('--crawl-only');
+// Emails-only reads newsletters and exits — no browser, no collection.
+const emailsOnly = args.includes('--emails-only');
 const crawlPagesOverride = flag('--crawl-pages', 0);
 const crawlTrigger = strFlag('--crawl-trigger') || (forceCrawl ? 'manual' : 'scheduled');
 const log = (...m) => console.log(...m);
@@ -63,6 +67,49 @@ async function guardedFetch(url) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The email channel: read events out of the newsletters that arrived on the
+ * technical inbox, with the same engine the crawler runs on a web page.
+ *
+ * Kept, like the crawl, entirely separate from web collection — it reads
+ * already-received mail, needs no browser, and swallows every failure so one
+ * malformed newsletter cannot break the run. Each mail is marked done with the
+ * count it produced, so it is read exactly once.
+ */
+async function processInboundEmails({ summary }) {
+  let emails;
+  try {
+    emails = await claimUnparsedEmails(ctx, 30);
+  } catch {
+    return;
+  }
+  if (!emails?.length) return;
+  log(`EMAILS: ${emails.length} newsletter(s) to read`);
+
+  for (const email of emails) {
+    try {
+      const events = parseEmailEvents(
+        { html: email.html_body, text: email.text_body, subject: email.subject },
+        {
+          publisherName: email.publisher_name,
+          categories: email.categories,
+          strategy: email.strategy,
+          sourceKey: email.source_id,
+        },
+      );
+      if (events.length && !dryRun) {
+        const totals = await ingestEvents(events, { supabaseUrl, serviceRoleKey, log: () => {} });
+        summary.emailEvents = (summary.emailEvents ?? 0) + (totals.inserted || 0);
+      }
+      if (!dryRun) await markEmailParsed(ctx, email.id, events.length, null);
+      log(`  ${email.publisher_name}: ${events.length} event(s) from "${String(email.subject || '').slice(0, 50)}"`);
+    } catch (e) {
+      if (!dryRun) await markEmailParsed(ctx, email.id, 0, e.message.slice(0, 300));
+      log(`  ${email.publisher_name}: FAILED ${e.message.slice(0, 80)}`);
+    }
+  }
+}
 
 /**
  * The deep frontier crawl, driven by the operator's crawl_config.
@@ -252,6 +299,15 @@ async function main() {
   if (!supabaseUrl || !serviceRoleKey) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required');
   const started = Date.now();
 
+  // Emails-only: read the newsletters and exit. No browser, no collection.
+  if (emailsOnly) {
+    log('Hobbeast emails-only run');
+    const summary = {};
+    await processInboundEmails({ summary });
+    log(`EMAILS-ONLY done (${Math.round((Date.now() - started) / 1000)}s, +${summary.emailEvents ?? 0} events)`);
+    return;
+  }
+
   // Crawl-only: the manual "run crawl now" button. Skip the whole collection
   // loop and the Playwright launch — the crawl uses a plain fetch — so it
   // starts recording pages within seconds instead of after a 40-source scrape.
@@ -406,6 +462,9 @@ async function main() {
     // the CLI can still force or override for an ad-hoc run. Entirely separate
     // from collection — it runs after the loop and cannot fail the run.
     await runCrawlPass({ provenSeeds, summary });
+
+    // The email channel: read any newsletters that arrived since the last run.
+    await processInboundEmails({ summary });
   } finally {
     await browser.close();
   }

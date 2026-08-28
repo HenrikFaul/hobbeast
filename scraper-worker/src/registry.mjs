@@ -207,3 +207,18 @@ export async function recordCrawlSeedOutcomes(ctx, runId, seeds) {
   try { await rpc('record_crawl_seed_outcomes', { p_run_id: runId, p_seeds: seeds }, ctx); }
   catch (e) { console.warn(`record_crawl_seed_outcomes: ${e.message}`); }
 }
+
+// --- email ingestion --------------------------------------------------------
+
+/** Matched, unparsed newsletter emails with what the parser needs. */
+export async function claimUnparsedEmails(ctx, limit = 20) {
+  try {
+    return await rpc('claim_unparsed_emails', { p_limit: limit }, ctx);
+  } catch (e) { console.warn(`claim_unparsed_emails: ${e.message}`); return []; }
+}
+
+export async function markEmailParsed(ctx, emailId, eventsFound, error = null) {
+  try {
+    await rpc('mark_email_parsed', { p_email_id: emailId, p_events_found: eventsFound, p_error: error }, ctx);
+  } catch (e) { console.warn(`mark_email_parsed: ${e.message}`); }
+}

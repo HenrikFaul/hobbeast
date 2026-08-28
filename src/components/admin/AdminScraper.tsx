@@ -11,6 +11,7 @@ import { AdminSourceSubmissions } from '@/components/admin/AdminSourceSubmission
 import { SourceInspector } from '@/features/sources/SourceInspector';
 import { AdminSourceDiscovery } from '@/components/admin/AdminSourceDiscovery';
 import { AdminCrawlerControl } from '@/components/admin/AdminCrawlerControl';
+import { AdminEmailSources } from '@/components/admin/AdminEmailSources';
 
 interface ScraperDestination {
   source_id: string;
@@ -194,6 +195,8 @@ export function AdminScraper() {
       </div>
 
       <AdminCrawlerControl />
+
+      <AdminEmailSources />
 
       <AdminSourceDiscovery />
 

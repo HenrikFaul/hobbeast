@@ -10,6 +10,59 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ## [Unreleased]
 
+### Instagram-posztszövegek pozitív alternatívái
+
+- A három `instaposztokhoz/Hobbeast_Instagram_*.xlsx` tervben összesen 50
+  posztsor kapott 3-3 új, teljes magyar szövegalternatívát (150 új szöveg).
+- Az eredeti oszlopok és cellaértékek változatlanok maradtak; az új oszlopok a
+  munkalapok jobb szélén, az eredeti zöld/lila/narancs fejlécstílust folytatva
+  jelentek meg.
+- A szövegek a kapcsolódást hozzáadott lehetőségként mutatják be, és nem
+  értékelik le a városi életet, a konditermet, az egyéni sportot, a digitális
+  kikapcsolódást, az otthoni pihenést vagy más élvezhető tevékenységeket.
+- Mindhárom munkafüzet export-visszaolvasási, cellaegyezési, képlethiba- és
+  vizuális olvashatósági ellenőrzése sikeres.
+
+---
+
+## [1.48.0] — 2026-08-28
+
+### Új csatorna: programok kiolvasása hírlevelekből
+
+Sok forrás **csak email-hírlevélben** küldi a programokat, weboldalon soha. Ezt
+most be tudjuk gyűjteni: egy **technikai postafiók** feliratkozik a hírlevelekre,
+a beérkező leveleket egy webhook ide továbbítja, és a rendszer **ugyanazzal a
+motorral olvassa ki belőlük az eseményeket**, mint a weboldalakból.
+
+**A teljes lánc, élőben bizonyítva:**
+- egy JSON-LD-t tartalmazó hírlevél a webhookra POST-olva **200 / matched**,
+  rossz titokkal **401**, ismételve **„duplicate"** (idempotens a Message-ID-ra);
+- a worker a levélből kiolvasta: **„Nyitókoncert a Nagyszínpadon", 2026-09-12
+  19:00, Nagyszínpad, Fesztivál** — és ugyanabba az ingestbe küldi, mint minden
+  más eseményt.
+
+### Hogyan olvassa a leveleket
+
+A meglévő oldal-parsert használja, a levél „ígéretessége" szerinti sorrendben:
+**JSON-LD** → **címsor-szekciók** (h2/h3 + dátum, a tipikus programajánló
+hírlevél) → **egyetlen prózai esemény**. A múlt heti kiadás (múltbeli dátum) és a
+dátum nélküli hírblokk **nem lesz esemény**. Minden levelet **pontosan egyszer**
+olvas fel (Message-ID).
+
+### Admin felület
+
+Programgyűjtő fül → **Email-begyűjtés**: a technikai cím, a **webhook URL a
+titkos kulccsal** (másolható, cserélhető), a **feladó → kiadó** párosítások
+(pontos cím vagy teljes domain, ország, kategóriák, olvasási mód), és a
+**beérkezett levelek naplója**.
+
+### Amit be kell állítani
+
+A levelek fogadásához egy **inbound-email szolgáltató** kell (SendGrid Inbound
+Parse, Mailgun Routes, Postmark, …), ami a technikai címre érkező leveleket a
+webhook URL-re POST-olja — a webhook az összes elterjedt formátumot érti. A
+DNS/MX beállítás a te oldaladon; a Hobbeast a webhookot adja.
+
 ---
 
 ## [1.47.0] — 2026-08-28

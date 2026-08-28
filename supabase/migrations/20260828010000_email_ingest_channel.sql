@@ -1,0 +1,12 @@
+-- Reading programmes out of newsletter emails. Applied via the Supabase MCP;
+-- this file is the record. See the live database for the authoritative DDL.
+--
+--   email_ingest_config   — singleton: inbox_address, webhook_secret, enabled.
+--   email_ingest_sources  — which sender (exact address or whole domain) maps to
+--                           which publisher, plus country, categories and how to
+--                           read it (auto / jsonld / prose). RLS read-gated on
+--                           providers.manage.
+--   inbound_emails        — every mail received on the technical inbox, its match
+--                           and its outcome; unique on Message-ID so a delivery
+--                           is processed exactly once.
+SELECT 'see live database for email ingest tables' AS note;

@@ -76,3 +76,6 @@ verify_jwt = false
 
 [functions.address-manager-worker]
 verify_jwt = false
+
+[functions.email-inbound]
+verify_jwt = false
