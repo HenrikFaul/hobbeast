@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hobbeast</string>
+    <string name="title_activity_main">Hobbeast</string>
+    <string name="package_name">com.expericentre.hobbeast</string>
+    <string name="custom_url_scheme">com.expericentre.hobbeast</string>
+</resources>

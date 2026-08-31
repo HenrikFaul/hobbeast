@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { NativeBootstrap } from "@/integrations/native/NativeBootstrap";
 import Index from "./pages/Index";
 
 // Route-level code splitting (Sprint 1.4). Heavy admin/organizer bundles and
@@ -69,6 +70,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <NativeBootstrap />
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
