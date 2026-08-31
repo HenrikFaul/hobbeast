@@ -234,3 +234,22 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
 - **Prevention**: Every major visual round must run the full unit suite plus responsive route,
   overflow, mobile-menu and query-handoff E2E checks. Preserve the compressed asset budgets; if
   richer UI grows raw source, lazy-load below-fold code before considering any transfer increase.
+
+## Mobil (Capacitor) — kettős lockfile és a natív build-bizonyíték
+
+- **Symptom**: Capacitor telepítése `npm install`-lal frissíti a `package.json`-t és a
+  `package-lock.json`-t, de a `bun.lock` érintetlen marad. A repó CI-je
+  (`ci.yml`) `bun install --frozen-lockfile` után `git diff --exit-code -- package.json
+  bun.lock`-ot futtat, ezért a fagyasztott bun-telepítés vagy a diff-ellenőrzés
+  megbukna — némán megtörve egy addig zöld pipeline-t.
+- **Root cause**: A projekt egyszerre követi a `bun.lock`-ot ÉS a `package-lock.json`-t;
+  a CI a bun-t tekinti mérvadónak. Bármely npm-mel hozzáadott függőség két lockfile
+  közül csak az egyiket frissíti.
+- **Fix**: npm-es függőség-hozzáadás után mindig futtass `bun install`-t is, hogy a
+  `bun.lock` szinkronba kerüljön; ellenőrizd, hogy a `git diff -- package.json` csak a
+  szándékolt csomagokat mutatja (a rendezés-átmozgatás ártalmatlan).
+- **Prevention**: Natív mobil build-bizonyítéknál a build-skill szerint csak a ténylegesen
+  lefordított artifact számít: `gradlew assembleDebug` → `app-debug.apk`, `aapt dump badging`
+  a package/label/SDK igazolására, `unzip -l` az `assets/public/` web-bundle meglétére, majd
+  `adb install` + `am start` + `screencap` a valódi UI és a Supabase-kötés (`sb-<ref>-auth-token`
+  a logcatben) igazolására. A dev-szerver sikere NEM kiadási bizonyíték.

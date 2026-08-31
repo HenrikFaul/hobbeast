@@ -10,6 +10,98 @@ Historical append snippets and upload READMEs from earlier release cycles are pr
 
 ## [Unreleased]
 
+### Natív mobilalkalmazás (Android + iOS) — Capacitor alap
+
+Elindult a Google Playre és az App Store-ba szánt **natív mobilalkalmazás**
+fejlesztése. A választott megközelítés **Capacitor 7**: a meglévő, működő
+React/Vite web-kódbázist csomagolja natív iOS/Android héjba, így a design, a
+funkciók és a backend **megegyeznek a webbel**, minimális újraírással.
+
+- **Új függőségek:** `@capacitor/core`, `@capacitor/android`, `@capacitor/ios`
+  (`^7.6.8`) + `@capacitor/cli` (dev). Mindkét lockfile (`bun.lock`,
+  `package-lock.json`) szinkronban frissült, hogy a meglévő
+  `bun install --frozen-lockfile` CI-lépés zöld maradjon.
+- **Új fájlok:** `capacitor.config.ts` (appId `com.expericentre.hobbeast`,
+  appName `Hobbeast`, webDir `dist`, opcionális dev live-reload),
+  `docs/MOBILE_APP_PLAN.md` (teljes terv M0–M4 mérföldkövekkel),
+  `.github/workflows/mobile-build.yml` (reprodukálható Android APK/AAB +
+  iOS aláíratlan archívum felhő-CI).
+- **Generált natív projektek:** `android/` és `ios/` (`npx cap add`). A
+  `cap sync` által másolt web-asset gitignore-olt, mert a buildből regenerálódik.
+- **Bizonyíték (helyi Android):** `gradlew assembleDebug` → **BUILD SUCCESSFUL
+  (3m 12s)**, `app-debug.apk` (29 MB, package `com.expericentre.hobbeast`,
+  label „Hobbeast", minSdk 23 / targetSdk 35 / compileSdk 35). Az APK **454**
+  bundle-elt web-assetet tartalmaz (`assets/public/`). Emulátorra telepítve és
+  indítva a **valódi Hobbeast kezdőoldal renderelődik**, és a Supabase auth
+  kliens ugyanahhoz a `bqdvqmpwccsxumzijspj` projekthez kapcsolódik → azonos
+  backend.
+- **iOS:** projekt legenerálva; a `.ipa` build+aláírás felhő-CI-ben
+  (macOS runner), mert Windowson nincs helyi iOS toolchain. Az aláírás/store
+  feltöltés Apple Developer fiókhoz kötött, külön gate.
+- A **webalkalmazás változatlan**: a Capacitor csak új build-célt ad hozzá,
+  meglévő működő funkció nem sérült.
+
+### Mobil app: teljes natív funkciók + APK-benchmark iteráció
+
+A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-benchmark`
+(MONOLITH) launchpaddal.
+
+- **Branded ikon + splash:** a `hobbeast-mark.svg`-ből `@capacitor/assets`-szel
+  136 Android + 13 iOS + 7 PWA méret (adaptive ikon, light/dark splash),
+  `#183124` márkaháttérrel.
+- **Deep linkek:** Android App Links (`expericentre.com`, `www.expericentre.com`,
+  `autoVerify=true`) + custom scheme (`com.expericentre.hobbeast://`) az
+  `AndroidManifest`-ben; iOS Universal Links + AASA; a `/.well-known/`
+  ellenőrzőfájlok a web `public/`-jában. A bejövő linket a routerbe kötő
+  `src/integrations/native/NativeBootstrap.tsx` kezeli (`useNavigate`).
+- **Értesítések:** `@capacitor/local-notifications` (esemény-emlékeztetők,
+  külső szolgáltatás nélkül) + `@capacitor/push-notifications` (FCM/APNs-gate-elt);
+  `POST_NOTIFICATIONS` jogosultság. A rendszer engedély-promptja futásidőben
+  igazolt az emulátoron.
+- **Natív héj:** státuszsáv, splash-elrejtés a React csatlakozása után,
+  hardveres vissza-gomb, mind a `NativeBootstrap`-ben; `@capacitor/app`,
+  `@capacitor/status-bar`, `@capacitor/splash-screen`.
+- **Release build keményítés (benchmark-vezérelt):** `targetSdk`/`compileSdk`
+  **35→36** (GP-81); R8 `minifyEnabled`+`shrinkResources` és Capacitor keep-rules
+  (GP-10, debuggable, M8); `allowBackup=false`; `network_security_config.xml`
+  cleartext-tiltással (GDPR-SECURITY-02). A release APK aláírás
+  `keystore.properties`-ből olvasva (production upload key), annak hiányában a
+  debug kulcsra esik vissza, hogy a build elemezhető maradjon.
+- **Bizonyíték:** aláírt release APK (27 MB, R8-obfuszkált, `targetSdk 36`,
+  debuggable=false) telepítve és **futtatva** — a valódi UI renderel, az R8 nem
+  tört el semmit. MONOLITH: gyors statikus (debug) **63.6/100 (L2)** → release
+  statikus **72.3/100** → release **tiszta dinamikus crawl 73.0/100 (L3 Solid)**;
+  tech 63.6→73.0. A sikeres crawl után a GP-2 (cold start) és GP-51 (flow)
+  hamis-blokkolók megszűntek („0 crash/ANR").
+- A megmaradt benchmark-blokkolók zöme **nem kód**: Play Console Data Safety
+  űrlap + publikus adatvédelmi URL (a tartalom a `/legal`-on kész), store-listing
+  egyeztetés. A fióktörlés/adatexport (GP-27/GDPR-ERASURE) **már implementált**
+  (`DeleteAccountCard` + `data_subject_requests`), csak a statikus/crawl-vak
+  elemzés nem látta.
+
+### Mobil app: production aláírás + időtálló kiadási lánc
+
+- **Production upload keystore** generálva (`android/keystores/hobbeast-upload.jks`,
+  RSA 2048, 10000 nap; a kulcs és jelszó `keystore.properties`-ben, **gitignore-olva**
+  `*.jks`/`*.keystore`-ral együtt). A release APK+AAB mostantól **production-aláírt**
+  (`CN=Expericentre …`, SHA256 `50:2D:BB:…:75:C8`), nem debug-cert.
+- `public/.well-known/assetlinks.json` a valós upload-kulcs ujjlenyomatával (App Links
+  verifikáció). Play App Signing esetén a Google app-signing kulcs SHA256-át is hozzá kell adni.
+- **CI aláírás:** `mobile-build.yml` production-aláírással buildel a GitHub secretekből
+  (`ANDROID_KEYSTORE_BASE64` + jelszavak), és egy kapu **elbukik, ha a release debuggable**.
+- **Kiadási runbook:** `docs/mobile/RELEASE_RUNBOOK.md` (kulcs-backup, Play App Signing,
+  Console Data Safety/URL-ek, iOS Apple-fiók, FCM/APNs, benchmark-parancs).
+- Artifactok: `app-release.apk` (27.8 MB), `app-release.aab` (28.1 MB) production-aláírva;
+  debug APK teszteléshez.
+- **Záró benchmark (production-aláírt, tiszta dinamikus crawl):** ~**70–73/100
+  (L3 Solid)** stabilan több futáson át. A Security **49** változatlan maradt a
+  debug→production aláírás-váltás után is → bizonyítottan **nem** a cert hajtja,
+  hanem két defenzív találat: a kliensbe égetett Supabase **anon/publishable kulcs**
+  (tervezésből publikus, RLS védi) és egy **hamis-pozitív cleartext** (csak SVG
+  namespace-ek + `http://localhost` string; az NSC futásidőben tiltja a cleartextet).
+  A maradék „do-not-ship" blokkolók így Console/jogi teendők (GP-21 privacy URL,
+  GP-23/93 Data Safety, GP-80 listing) — a kód oldal kész.
+
 ### Instagram-posztszövegek pozitív alternatívái
 
 - A három `instaposztokhoz/Hobbeast_Instagram_*.xlsx` tervben összesen 50

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.expericentre.hobbeast",
+      "sha256_cert_fingerprints": [
+        "50:2D:BB:7E:59:3D:A3:38:BD:9E:82:EF:66:DE:A9:55:47:E2:D8:26:D8:DF:08:51:20:E3:0F:32:17:35:75:C8"
+      ]
+    }
+  }
+]
