@@ -1,0 +1,24 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.expericentre.hobbeast"],
+        "components": [
+          { "/": "/events/*", "comment": "event detail deep links" },
+          { "/": "/klubok/*", "comment": "club detail deep links" },
+          { "/": "/szervezet/*", "comment": "organization pages" },
+          { "/": "/members/*", "comment": "public member profiles" },
+          { "/": "/explore" },
+          { "/": "/events" },
+          { "/": "/about" },
+          { "/": "/legal" },
+          { "/": "/" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAMID.com.expericentre.hobbeast"]
+  }
+}
