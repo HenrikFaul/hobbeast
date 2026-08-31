@@ -28,9 +28,10 @@
     {
       "id": "event-detail-route",
       "pattern": "^EventDetail-[A-Za-z0-9_-]+\\.js$",
-      "maxRawBytes": 81920,
+      "maxRawBytes": 90112,
       "maxGzipBytes": 30720,
-      "required": true
+      "required": true,
+      "note": "Raw ceiling raised to 90112 in v1.54.0: the ticketing UI (EventTickets — attendee reserve + operator management) lands in this lazy route chunk, ~2.7 KiB raw over the old 81920. Gzip is 23924, well under the 30720 ceiling and unchanged as the binding constraint."
     },
     {
       "id": "admin-route",

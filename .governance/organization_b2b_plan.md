@@ -243,13 +243,25 @@ analitika, API-kulcs) újrahasznosul. Az `is_organization_member` egyetlen addit
 és a szülőn át elérhető márkákat is visszaadja. UI: „Márkák" panel a
 Szervezeteim kártyán. Élőben bizonyítva; nem-regresszív.
 
+### Slice O-H — Saját jegyértékesítés / fizetős események — KÉSZ (v1.54.0)
+
+Opcionális, additív jegyréteg: `ticket_types` / `ticket_orders` / `tickets`,
+sorzáras helyfoglalás (túlfoglalás-védelem), egyedi `HB-…` belépőkód, idempotens
+beléptetés. Ingyenes → azonnali kiadás; fizetős → függő rendelés, majd
+szervezői/webhook megerősítés (`confirm_order_payment` a fizetés-szeám —
+**bankkártyát/pénzmozgást a rendszer NEM kezel**). Menedzsment a `finance`,
+beléptetés a `check_in` képességhez kötve. UI: Jegyek szekció az esemény oldalán +
+Jegyeim a profilon. Élőben bizonyítva; nem-regresszív.
+
 ## 8. Amit ez a terv NEM tartalmaz (szándékosan, későbbre)
 
-- Saját fizetőkapu / jegyértékesítés — **a „jöhet mind" kérésre most készül**
-  (O-H); a Hobbeast alapmodell továbbra is a kimenő kattintás marad, a saját
-  jegyértékesítés opcionális kiegészítés.
+- ~~Saját fizetőkapu / jegyértékesítés~~ → **elkészült, lásd Slice O-H** (a
+  valódi fizetési szolgáltató-integráció a dokumentált `confirm_order_payment`
+  szeámon keresztül köthető be később).
 - ~~Több-márka egy szervezet alatt~~ → **elkészült, lásd Slice O-I.**
 - ~~Nyilvános szervezeti API~~ → **elkészült, lásd Slice O-G.**
+
+**A „jöhet mind" hármas (O-G API, O-I több-márka, O-H jegyértékesítés) elkészült.**
 
 ---
 
