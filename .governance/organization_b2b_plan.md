@@ -233,13 +233,22 @@ tábla, sha256-hash tárolás, egyszeri felfedés, scope-ok (`events:read`/`writ
 admin-gated RPC-k. UI a brand-oldal „Kezelés" szekciójában. Élőben és HTTP-n
 bizonyítva; a spec/boríték-invariánsokat vitest-teszt őrzi.
 
+### Slice O-I — Több-márka egy szervezet alatt — KÉSZ (v1.53.0)
+
+Egy márka = egy szervezet szülővel (`organizations.parent_organization_id`), így
+minden meglévő szervezeti felület (nyilvános oldal, követés, verifikáció,
+analitika, API-kulcs) újrahasznosul. Az `is_organization_member` egyetlen additív
+ággal örökli a szülő csapatát a márkákra. Új RPC-k: `create_brand`,
+`list_organization_brands`; a `list_my_organizations` a `parent_organization_id`-t
+és a szülőn át elérhető márkákat is visszaadja. UI: „Márkák" panel a
+Szervezeteim kártyán. Élőben bizonyítva; nem-regresszív.
+
 ## 8. Amit ez a terv NEM tartalmaz (szándékosan, későbbre)
 
-- Saját fizetőkapu / jegyértékesítés — **a „jöhet mind" kérésre soron
-  következő** (O-H); a Hobbeast alapmodell továbbra is a kimenő kattintás marad,
-  a saját jegyértékesítés opcionális kiegészítés.
-- Több-márka egy szervezet alatt — **a „jöhet mind" kérésre soron következő**
-  (O-I); előbb az egy-szervezet legyen szilárd.
+- Saját fizetőkapu / jegyértékesítés — **a „jöhet mind" kérésre most készül**
+  (O-H); a Hobbeast alapmodell továbbra is a kimenő kattintás marad, a saját
+  jegyértékesítés opcionális kiegészítés.
+- ~~Több-márka egy szervezet alatt~~ → **elkészült, lásd Slice O-I.**
 - ~~Nyilvános szervezeti API~~ → **elkészült, lásd Slice O-G.**
 
 ---

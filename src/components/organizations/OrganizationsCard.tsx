@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, Check, Loader2, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Building2, Check, Loader2, Plus, ShieldCheck, Sparkles, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,17 @@ import {
   ROLE_LABEL,
   acceptInvite,
   canManage,
+  createBrand,
   createOrganization,
   inviteMember,
   listMyOrganizations,
   listOrgMembers,
+  listOrganizationBrands,
   removeMember,
   setMemberRole,
+  topLevelOrganizations,
   type MyOrganization,
+  type OrgBrand,
   type OrgMember,
 } from '@/features/organizations/organizations';
 
@@ -126,6 +130,83 @@ function TeamManager({ org }: { org: MyOrganization }) {
   );
 }
 
+function BrandManager({ org }: { org: MyOrganization }) {
+  const [brands, setBrands] = useState<OrgBrand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState('community');
+  const [busy, setBusy] = useState(false);
+  const manage = canManage(org.my_role);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setBrands(await listOrganizationBrands(org.id));
+    setLoading(false);
+  }, [org.id]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const create = async () => {
+    setBusy(true);
+    const result = await createBrand(org.id, name, kind);
+    setBusy(false);
+    if (result.ok === false) { toast.error(result.message); return; }
+    setName(''); setCreating(false);
+    toast.success('Márka létrehozva — külön arculatú aloldalt kapott.');
+    await load();
+  };
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-border/50 pt-3">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Márkák — külön arculatú aloldalak, közös csapattal
+      </p>
+      {loading ? (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Márkák betöltése…
+        </p>
+      ) : brands.length > 0 ? (
+        <ul className="space-y-1.5">
+          {brands.map((brand) => (
+            <li key={brand.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-secondary/40 px-2.5 py-1.5 text-sm">
+              <span className="flex items-center gap-2">
+                <span className="font-medium">{brand.name}</span>
+                {brand.verification_status === 'verified' && (
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-label="Hitelesített márka" />
+                )}
+                <span className="text-xs text-muted-foreground">{brand.events_total} esemény · {brand.follower_count} követő</span>
+              </span>
+              <a href={`/szervezet/${brand.slug}`} className="text-xs text-primary hover:underline">oldal ↗</a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">Még nincs márka ehhez a szervezethez.</p>
+      )}
+
+      {manage && (creating ? (
+        <div className="space-y-2 rounded-lg border border-border/60 p-2.5">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="A márka neve, pl. Nyári Fesztivál" className="h-8 text-sm" />
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Márka típusa" className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm">
+            {KINDS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busy || name.trim().length < 2} onClick={() => void create()}>
+              {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} Létrehozás
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setName(''); }}>Mégse</Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+          <Plus className="mr-1 h-4 w-4" /> Új márka
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export function OrganizationsCard() {
   const [orgs, setOrgs] = useState<MyOrganization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,13 +254,13 @@ export function OrganizationsCard() {
           <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Betöltés…
           </p>
-        ) : orgs.length === 0 && !creating ? (
+        ) : topLevelOrganizations(orgs).length === 0 && !creating ? (
           <p className="rounded-xl border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">
             Még nincs szervezeted. Hozz létre egyet, és profi szervezői eszközöket kapsz.
           </p>
         ) : (
           <ul className="space-y-2">
-            {orgs.map((org) => (
+            {topLevelOrganizations(orgs).map((org) => (
               <li key={org.id} className="rounded-xl border border-border/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -202,7 +283,12 @@ export function OrganizationsCard() {
                     </Button>
                   )}
                 </div>
-                {expanded === org.id && org.member_status === 'active' && <TeamManager org={org} />}
+                {expanded === org.id && org.member_status === 'active' && (
+                  <>
+                    <TeamManager org={org} />
+                    <BrandManager org={org} />
+                  </>
+                )}
               </li>
             ))}
           </ul>

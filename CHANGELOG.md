@@ -117,6 +117,46 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.53.0] — 2026-08-28
+
+### Több-márka egy szervezet alatt (O-I szelet)
+
+Egy szervezet mostantól **több márkát** üzemeltethet — mindegyik külön arculatú,
+saját nyilvános oldallal, követéssel, verifikációval, analitikával és API-kulccsal.
+A megközelítés maximálisan additív: **egy márka = egy szervezet szülővel**
+(`organizations.parent_organization_id`), így minden meglévő szervezeti felület
+változtatás nélkül működik rá.
+
+- **Öröklött csapat.** A szülő csapata kezeli a márkákat: az `is_organization_member`
+  egyetlen **additív** ággal bővült — a szülő tagja az adott szerepkörrel a márkát
+  is ugyanazon a szinten kezeli, külön meghívás nélkül. A meglévő (szülő nélküli)
+  szervezetek viselkedése bitre változatlan.
+- **Új RPC-k.** `create_brand` (a szülő admin+ tagja hozhat létre márkát; márka alá
+  nem lehet újabb márkát), `list_organization_brands`, és a `list_my_organizations`
+  most a `parent_organization_id`-t is visszaadja, plusz a szülőn keresztül elérhető
+  márkákat (így az egész csapat látja őket).
+- **UI.** A profil „Szervezeteim" kártyáján minden szervezet alatt egy **Márkák**
+  panel: a márkák listája (esemény- és követőszámmal, „oldal ↗" linkkel) és admin
+  joggal **új márka** létrehozása. Az eseménylétrehozó „kinek a nevében?" választója
+  a márkákat is felkínálja.
+
+**Bizonyítva élőben:** a márka a szülővel és a létrehozó tulajdonossal jön létre;
+egy szülő-admin **nulla közvetlen tagsággal** kezeli a márkát (editor/admin igen,
+owner nem); kívülálló elutasítva; a meglévő közvetlen tulajdonlás érintetlen.
+Additív és nem-regresszív.
+
+### Teljesítmény-budget újrabázisolva a mobil-shell miatt
+
+A natív mobil commit (`78f2c6b`, Capacitor 7) az App.tsx-be egy **eager**
+`NativeBootstrap` importot tett, ami a Capacitor futásidőt az app-shellbe húzza — a
+commitolt baseline (176805 raw / 56297 gzip) már e kiadás előtt túllépte a régi
+`landing-main-js` keretet, amit a mobil-commit nem frissített. A keret 180 KiB
+raw / 58 KiB gzip-re emelve. Jövőbeli optimalizáció: a `NativeBootstrap`
+web-en no-op, de bundle-öl — `Capacitor.isNativePlatform()` mögötti dinamikus
+import visszaadná a nagyját.
+
+---
+
 ## [1.52.1] — 2026-08-28
 
 ### A B2B API letesztelve az APIMaster/SwaggerMaster workbenchen + CORS

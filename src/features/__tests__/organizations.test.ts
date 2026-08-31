@@ -19,6 +19,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 const {
   createOrganization, updateOrganization, inviteMember, setMemberRole, removeMember,
   listMyOrganizations, canManage, ASSIGNABLE_ROLES,
+  createBrand, listOrganizationBrands, topLevelOrganizations,
 } = await import('@/features/organizations/organizations');
 
 beforeEach(() => {
@@ -77,5 +78,36 @@ describe('reading and roles', () => {
     expect(canManage('editor')).toBe(false);
     expect(canManage('checkin')).toBe(false);
     expect(canManage('viewer')).toBe(false);
+  });
+});
+
+describe('multi-brand (O-I)', () => {
+  it('creates a brand under a parent organization', async () => {
+    rpcMock.mockResolvedValue({ data: { id: 'b1', slug: 'nyari-fesztival' }, error: null });
+    const result = await createBrand('parent-1', '  Nyári Fesztivál ', 'community');
+    expect(rpcMock).toHaveBeenCalledWith('create_brand', {
+      p_parent_org_id: 'parent-1', p_name: '  Nyári Fesztivál ', p_kind: 'community',
+    });
+    expect(result).toEqual({ ok: true, id: 'b1', slug: 'nyari-fesztival' });
+  });
+
+  it('turns the nested-brand refusal into a clear message', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'BRAND_CANNOT_HAVE_BRANDS' } });
+    expect(await createBrand('b1', 'Al-márka', 'community')).toEqual({
+      ok: false, message: 'Márka alá nem hozható létre újabb márka.',
+    });
+  });
+
+  it('returns an empty brand list rather than throwing', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'x' } });
+    expect(await listOrganizationBrands('parent-1')).toEqual([]);
+  });
+
+  it('separates top-level organizations from brands', () => {
+    const orgs = [
+      { id: 'p1', parent_organization_id: null },
+      { id: 'b1', parent_organization_id: 'p1' },
+    ] as Parameters<typeof topLevelOrganizations>[0];
+    expect(topLevelOrganizations(orgs).map((o) => o.id)).toEqual(['p1']);
   });
 });
