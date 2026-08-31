@@ -28,6 +28,7 @@ import { PostEventFeedbackCard } from '@/components/events/PostEventFeedbackCard
 import { ArrivalConfidenceCard } from '@/components/events/ArrivalConfidenceCard';
 import { EventUpdatesCard } from '@/components/events/EventUpdatesCard';
 import { EventPollsCard } from '@/components/events/EventPollsCard';
+import { EventTickets } from '@/features/tickets/EventTickets';
 import { resolveLocationPrecision, type ParticipantLifecycleStatus } from '@/lib/eventLifecycle';
 import { ExternalEventSocialIntentCard } from '@/components/events/ExternalEventSocialIntentCard';
 import { SaveAndCalendarActions } from '@/components/events/SaveAndCalendarActions';
@@ -693,6 +694,13 @@ const EventDetail = () => {
           {/* Also self-effacing: no polls and no right to start one means no card. */}
           {!isSample && !isExternal && id && (
             <EventPollsCard eventId={id} participating={hasJoined || isOwner} />
+          )}
+
+          {/* Tickets — invisible unless the event sells them or you operate it. */}
+          {!isSample && !isExternal && id && (
+            <div className="mt-6">
+              <EventTickets eventId={id} />
+            </div>
           )}
 
           {!isOwner && !isSample && !isExternal && hasJoined && participationStatus !== 'completed' && id && (

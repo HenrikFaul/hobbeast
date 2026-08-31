@@ -117,6 +117,53 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.54.0] — 2026-08-28
+
+### Saját jegyértékesítés / fizetős események (O-H szelet)
+
+Egy szervező mostantól **jegyeket** adhat az eseményéhez — ingyeneset és fizetőset
+egyaránt. Opcionális, additív réteg: a Hobbeast alapmodellje továbbra is a
+közösségi részvétel; a jegyek csak akkor jelennek meg, ha a szervező létrehoz
+jegytípust.
+
+**Fizetési korlát (fontos).** A rendszer **nem kezel bankkártyát és nem mozgat
+pénzt**. Az ingyenes jegyek azonnal kiadódnak. A fizetős jegyek **függő**
+rendelést hoznak létre, és a jegy akkor adódik ki, amikor a fizetés **igazolást
+nyer** — vagy a szervező igazolja a beérkezett átutalást (a gyakori magyar
+folyamat), vagy egy jövőbeli fizetési webhook `service_role`-ként. A
+`confirm_order_payment` az a csatlakozási pont, ahol egy valódi fizetési
+szolgáltató bekötne.
+
+- **Táblák:** `ticket_types` (ár, pénznem, darabszám, per-rendelés limit,
+  értékesítési ablak, aktív), `ticket_orders` (pending/paid/cancelled/refunded),
+  `tickets` (egyedi `HB-…` belépőkód, issued/checked_in/void). RLS mindenhol; az
+  írások SECURITY DEFINER RPC-ken mennek.
+- **Túlfoglalás-védelem:** a foglalás sorzárral (`FOR UPDATE`) **azonnal lefoglalja
+  a helyeket**, így párhuzamos vevők nem tudnak túlfoglalni — élőben `SOLD_OUT`-tal
+  bizonyítva.
+- **RPC-k:** `create_ticket_type`, `set_ticket_type_active`,
+  `list_ticket_types_public/admin`, `reserve_tickets`, `confirm_order_payment`,
+  `cancel_ticket_order`, `my_tickets`, `check_in_ticket` (idempotens),
+  `get_event_ticket_summary`, `list_event_pending_orders`. A menedzsment a
+  `finance`, a beléptetés a `check_in` képességhez kötött (`is_event_operator`).
+- **UI:** az esemény oldalán **Jegyek** szekció — bárki foglalhat (ingyenes →
+  azonnali kód, fizetős → fizetési tájékoztató), a szervező pedig jegytípusokat
+  hoz létre, összegzést lát (eladott, kiadott, beléptetve, bevétel), igazolja a
+  függő átutalásokat és **beléptet** kóddal. A profilon **Jegyeim** kártya.
+
+**Bizonyítva élőben:** ingyenes kiadás; fizetős pending→igazolás→kiadás; 3 jegy a
+vevőnél; idempotens beléptetés; túlfoglalás blokkolva; nem-operátor menedzsmentje
+elutasítva (`FINANCE_REQUIRED`), miközben a vevő foglalhat és a saját rendelését
+lemondhatja; a bevétel-összeg helyes.
+
+### Teljesítmény-budget — esemény-oldal chunk
+
+Az `event-detail-route` raw kerete 88 KiB-re emelve: a jegy-UI ebbe a lazy
+route-chunkba kerül (~2,7 KiB raw), a gzip (23924) bőven a 30720-as kereten belül
+és változatlanul ez a kötő korlát.
+
+---
+
 ## [1.53.0] — 2026-08-28
 
 ### Több-márka egy szervezet alatt (O-I szelet)

@@ -15,6 +15,7 @@ import { DeleteAccountCard } from '@/components/DeleteAccountCard';
 import { NotificationPreferencesCard } from '@/components/NotificationPreferencesCard';
 import { FavoriteEventCategoriesCard } from '@/components/FavoriteEventCategoriesCard';
 import { OrganizationsCard } from '@/components/organizations/OrganizationsCard';
+import { MyTicketsCard } from '@/features/tickets/MyTicketsCard';
 import { PrivacyConsentCard } from '@/components/PrivacyConsentCard';
 import { ArrowLeft, User, Save, Camera, MapPin, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -359,6 +360,10 @@ const Profile = () => {
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <OrganizationsCard />
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+              <MyTicketsCard />
             </motion.div>
           </div>
 
