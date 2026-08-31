@@ -24,6 +24,8 @@ export interface MyOrganization {
   my_role: OrgRole;
   member_status: 'active' | 'invited';
   follower_count: number;
+  /** Set when this organization is a brand under a parent (O-I multi-brand). */
+  parent_organization_id: string | null;
 }
 
 export interface OrgMember {
@@ -66,7 +68,8 @@ const rpc = supabase as unknown as {
 function readable(message: string): string {
   if (message.includes('ORG_ADMIN_REQUIRED')) return 'Ehhez adminisztrátori jog kell a szervezetben.';
   if (message.includes('LAST_OWNER')) return 'Az utolsó tulajdonost nem lehet lefokozni vagy eltávolítani.';
-  if (message.includes('NAME_TOO_SHORT')) return 'A szervezet neve túl rövid.';
+  if (message.includes('NAME_TOO_SHORT')) return 'A név túl rövid.';
+  if (message.includes('BRAND_CANNOT_HAVE_BRANDS')) return 'Márka alá nem hozható létre újabb márka.';
   if (message.includes('INVALID_ROLE')) return 'Érvénytelen szerepkör.';
   if (message.includes('AUTH_REQUIRED')) return 'Előbb jelentkezz be.';
   return 'A művelet nem sikerült.';
@@ -265,3 +268,38 @@ export async function revokeApiKey(keyId: string): Promise<boolean> {
 /** The public API base — the same origin the OpenAPI document is served from. */
 export const B2B_API_BASE =
   'https://bqdvqmpwccsxumzijspj.supabase.co/functions/v1/api-b2b';
+
+// --- O-I: multiple brands under one organization ---------------------------
+
+export interface OrgBrand {
+  id: string;
+  slug: string;
+  name: string;
+  kind: string;
+  logo_url: string | null;
+  verification_status: string;
+  follower_count: number;
+  events_total: number;
+}
+
+/** Create a brand (a child organization) under a parent. Admin+ of the parent. */
+export async function createBrand(
+  parentOrgId: string, name: string, kind: string,
+): Promise<{ ok: true; id: string; slug: string } | { ok: false; message: string }> {
+  const { data, error } = await rpc.rpc('create_brand', {
+    p_parent_org_id: parentOrgId, p_name: name, p_kind: kind,
+  });
+  if (error || !data) return { ok: false, message: readable(error?.message ?? '') };
+  const row = data as { id: string; slug: string };
+  return { ok: true, id: row.id, slug: row.slug };
+}
+
+export async function listOrganizationBrands(parentOrgId: string): Promise<OrgBrand[]> {
+  const { data, error } = await rpc.rpc('list_organization_brands', { p_parent_org_id: parentOrgId });
+  return error || !Array.isArray(data) ? [] : (data as OrgBrand[]);
+}
+
+/** Top-level organizations only (not brands) — for the "my organizations" list. */
+export function topLevelOrganizations(orgs: MyOrganization[]): MyOrganization[] {
+  return orgs.filter((o) => !o.parent_organization_id);
+}
