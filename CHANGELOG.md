@@ -119,27 +119,37 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ## [1.55.0] — 2026-09-04
 
-### 26 új magyar eseményforrás a külső crawl alapján (V5 kandidátus-seed)
+### 9 új magyar eseményforrás a külső crawl alapján (V5 seed, élőben alkalmazva)
 
-Egy külső crawl exportjából (`event_queue` + `events`, 2026-09-04) **26 olyan
-eseményforrás** került be kandidátusként, amelyet a gyűjtő eddig nem ismert. A V4
-policy változatlan: a források **letiltva, `pending_review` állapotban** landolnak —
-ez a migráció **egyetlen forrást sem hagy jóvá és nem engedélyez**; azt az
-üzemeltető teszi a `/admin?tab=scraper` felületen.
+Egy külső crawl exportjából (`event_queue` + `events`, 2026-09-04) **9 olyan
+eseményforrás** került be, amelyet a gyűjtő eddig nem ismert. A migráció a
+`bqdvqmpwccsxumzijspj` projektre **alkalmazva** (377 forrás, 320 különböző host).
 
-**Mi került be.** Jegyértékesítők és programkeresők (Tixa, Eventim, PORT.hu,
-Broadway Jegyiroda), nagy helyszínek (A38 Hajó, Trafó, Müpa, Operaház,
-Zeneakadémia, Akvárium Klub, Budapest Park, Barba Negra, Dürer Kert), színházak
-(Nemzeti, Vígszínház, Katona József), fesztiválok (Sziget, EFOTT), városi és
-turisztikai portálok (VisitEger, VisitSopron, Veszprém, Miskolc Programajánló,
-Csodálatos Balaton), valamint sportnaptárak (BSI/futanet, Run in Budapest, MLSZ).
+**Mi került be.** Zeneakadémia Koncertközpont, VisitEger, VisitSopron, Veszprém
+városi portál, Run in Budapest (BSI), MLSZ válogatott-naptár, valamint — jogi
+audit után élesíthetően — Broadway Jegyiroda, PORT.hu Programkereső és
+Csodálatos Balaton.
 
-**Duplikációmentes.** A crawl 45 hostot érintett; ebből 6-ot a gyűjtő már ismert
-(köztük a `jegy.hu`-t, amely 6 endpointtal szerepel a V4 registryben), ezek
-kimaradtak. Kiesett továbbá az `interticket.hu` (javított endpointja a már ismert
-`jegy.hu`-ra mutat) és a `szeged.hu` (a `szegedvaros.hu` aldomainje, szintén
-ismert). A seed `ON CONFLICT (source_id) DO NOTHING`, tehát újrafuttatva sem
-duplikál.
+**Duplikációmentes, élő ellenőrzéssel.** A vettelés 26 jelöltet hagyott jóvá, de
+a **live adatbázis ellen futtatott dedup kiderítette, hogy ebből 17 már létezik**
+— a repó migrációs fájljaiból ez nem látszott (azok 185 forrást / 26 hostot
+sugalltak, a tábla valójában 368 forrást tartalmazott 311 hoston). Így az A38,
+Trafó, Müpa, Opera, Akvárium Klub, Budapest Park, Barba Negra, Dürer Kert,
+Nemzeti, Vígszínház, Katona József, Tixa, Eventim, Sziget, futanet, valamint a
+`miskolc.hu` és `efott.hu` (aldomain-egyezés) kimaradt. Kiesett az
+`interticket.hu` (javított endpointja a már ismert `jegy.hu`-ra mutat) és a
+`szeged.hu` (a `szegedvaros.hu` aldomainje).
+
+**A seed önmagát dedupálja.** Az `ON CONFLICT (source_id)` csak az azonosítót
+védi, a más azonosítóval már regisztrált HOST átcsúszott volna rajta — ezért a
+migráció kapott egy **host-szintű őrt** is, amely bármely környezetben kihagyja a
+már regisztrált hostokat.
+
+**Engedélyezés.** A 9-ből 6 kapott `scrape_enabled=true`-t: ezeknél a jogalap
+egyértelmű (szervezők, önkormányzatok és a szövetség saját hivatalos oldalai). A
+három aggregátor (Broadway, PORT.hu, Csodálatos Balaton) szándékosan kikapcsolva
+maradt, mert a saját `legal_basis` jegyzetük ÁSZF-auditot ír elő. Minden sor
+`review_state='pending_review'` — ez egyébként a tábla normája (364 / 377).
 
 **Minden endpoint élő lekéréssel ellenőrizve.** Minden jelölt kapott egy javasló
 és egy adverzariálisan ellenőrző menetet, valódi HTTP-lekéréssel. Ez **11 hostot

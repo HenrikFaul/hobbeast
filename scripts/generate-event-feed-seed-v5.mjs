@@ -169,6 +169,16 @@ BEGIN
     NULL,
     false
   FROM jsonb_array_elements(v_candidates) AS source(candidate)
+  -- Host-level guard: ON CONFLICT only protects the source_id, so a candidate whose
+  -- HOST is already registered under a different id would still slip in as a duplicate
+  -- source. Skip those, in whatever state the target database happens to be.
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM public.external_event_feed_sources existing
+    WHERE existing.endpoint_url IS NOT NULL
+      AND lower(regexp_replace(split_part(regexp_replace(existing.endpoint_url, '^https?://', ''), '/', 1), '^www\\.', ''))
+        = lower(regexp_replace(split_part(regexp_replace(candidate ->> 'endpoint_url', '^https?://', ''), '/', 1), '^www\\.', ''))
+  )
   ON CONFLICT (source_id) DO NOTHING;
 END;
 $migration$;
