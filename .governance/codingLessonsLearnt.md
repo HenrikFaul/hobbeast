@@ -1014,4 +1014,35 @@ felhasználó másik utat ad, onnan olvass tovább.
   `ON CONFLICT (source_id) DO NOTHING`. A seed soha nem engedélyez — az
   üzemeltető dönt a `/admin?tab=scraper` felületen.
 
+## Sebezhetőség-audit: a fát nézd, ne a hibaüzenetet (2026-09-04)
+
+- **A `bun audit` a KÖZVETLEN fogyasztót nevezi meg, nem a valódi okozót.** A CI
+  „`@capacitor/cli › tar`" néven jelentette a hibát, amiből úgy tűnt, a
+  felső szintű `@capacitor/cli`-t kell bumpolni. Valójában a felső szintű `tar`
+  már `7.5.22` volt (javított); a sebezhető `tar@6.2.1` a
+  **`@capacitor/assets`** alatt beágyazott, ősi `@capacitor/cli@^5.3.0`-ból jött.
+  Mindig nézd meg a lemezen, melyik példány hányas verzió:
+  `find node_modules -path "*/<pkg>/package.json"`.
+- **Bumpolás nem mindig létezik.** A `@capacitor/assets@3.0.5` a *legfrissebb*
+  kiadás, és pont az fixálja egzaktul a `sharp: 0.32.6`-ot — nincs hova frissíteni.
+- **Az `overrides`/`resolutions` itt rosszabb, mint a törlés.** Egy karbantartatlan
+  csomagba major-verziót átnyomni (sharp 0.32→0.35, tar 6→7) törési határokon át
+  (a sharp 0.33 platform-specifikus opcionális csomagokra váltott, a tar 7 API-t
+  változtatott) — olyan eszközért, amit sosem hívunk meg.
+- **A megoldás a függőségi gráf szűkítése volt.** A `@capacitor/assets` egyszer
+  lefuttatott ikon-generátor: egyetlen script sem hívja, a `mobile-build.yml`
+  `bunx cap sync android` + gradle úton megy, a `@capacitor/cli` nem függ tőle, és
+  a kimenete (136 Android + 13 iOS + 7 PWA méret) verziózva van. Egy sor törlése a
+  `devDependencies`-ből mind a 10 advisory-t megszüntette. Igény szerint továbbra is
+  futtatható: `bunx @capacitor/assets generate`.
+- **Hamis zöld veszélye:** a `bun install` a manifestből törli a csomagot, de a
+  `node_modules` alatt ottfelejti a könyvtárat. Az audit a LOCKFILE-t olvassa, ezért
+  zöldet mond, miközben a lemezen még ott a sebezhető példány. Ellenőrizd a
+  lockfile-t is (`grep -c '"sharp' bun.lock`), ne csak az audit kimenetét.
+- **A CI-nek lockfile-integritás kapuja van:** `bun install --frozen-lockfile` után
+  `git diff --exit-code -- package.json bun.lock`. Ezért (a) a lockfile-t a CI-vel
+  AZONOS bun verzióval kell regenerálni (jelenleg **1.3.14**), és (b) ellenőrizni
+  kell, hogy a frozen install nem írja-e újra (md5 előtte/utána). A repó két
+  lockfile-t tart — a `package-lock.json`-t is szinkronizálni kell.
+
 *Utoljára frissítve: 2026-09-04*

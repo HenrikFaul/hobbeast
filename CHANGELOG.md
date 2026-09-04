@@ -117,6 +117,44 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.55.1] — 2026-09-04
+
+### CI zöldre: 10 sebezhetőség megszűnt a `@capacitor/assets` eltávolításával
+
+A CI a „Dependency vulnerability audit" lépésnél bukott (`bun audit
+--audit-level=high`): **1 kritikus + 9 magas** besorolású advisory. A hiba a
+natív mobil commit (`2997634`) óta állt fenn, és független volt a v1.53–v1.55
+munkától.
+
+**A valódi ok más volt, mint amit a hibaüzenet sugallt.** Az audit
+„`@capacitor/cli › tar`" néven jelentette, de a felső szintű `tar` már `7.5.22`
+(javított) volt. Mindkét advisory-csoport **egyetlen csomagra** vezetett vissza: a
+`@capacitor/assets@3.0.5` egzaktul fixálja a `sharp: 0.32.6`-ot, és egy ősi
+`@capacitor/cli@^5.3.0`-t húz be, amely alatt `tar@6.2.1` ül.
+
+**Verziófrissítés nem volt lehetséges:** a `@capacitor/assets@3.0.5` a legfrissebb
+kiadás. Az `overrides` sem volt jó megoldás — major-verziókat (sharp 0.32→0.35,
+tar 6→7) kellett volna törési határokon át egy karbantartatlan csomagba
+kényszeríteni, egy olyan eszköz kedvéért, amit sosem hívunk.
+
+**Ezért a csomag került ki.** A `@capacitor/assets` egyszer lefuttatott
+ikon-generátor: egyetlen script sem hívja, a mobil build `bunx cap sync android` +
+gradle úton megy, a `@capacitor/cli` nem függ tőle, és a kimenete (136 Android +
+13 iOS + 7 PWA méret) verziózva van. Egyetlen sor törlése a `devDependencies`-ből
+mind a 10 advisory-t megszüntette. Igény szerint továbbra is futtatható:
+`bunx @capacitor/assets generate`.
+
+**Bizonyítva.** `bun audit --audit-level=high` most 0-val tér vissza; a lockfile
+nulla hivatkozást tartalmaz a `@capacitor/assets`, `sharp` és `@trapezedev/project`
+csomagokra, és csak `tar@7.5.22`-t (tehát valódi zöld, nem elavult
+`node_modules`-maradvány). A `bun install --frozen-lockfile` fut és **bitre
+változatlanul hagyja** a `bun.lock`-ot, így a CI lockfile-integritás kapuja is
+átmegy; mindkét lockfile a CI-vel azonos **bun 1.3.14**-gyel készült. Az Android
+build sértetlen: `cap sync android` mind az 5 plugint feloldotta, a
+`gradlew assembleRelease` **BUILD SUCCESSFUL** (27,8 MB release APK).
+
+---
+
 ## [1.55.0] — 2026-09-04
 
 ### 9 új magyar eseményforrás a külső crawl alapján (V5 seed, élőben alkalmazva)

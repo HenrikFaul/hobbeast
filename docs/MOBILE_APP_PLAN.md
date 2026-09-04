@@ -85,7 +85,9 @@ támogatja: a meglévő, működő webes funkciók érintetlenül maradnak.
 
 ### M1 — Android (helyi build-bizonyíték)
 - [ ] Debug APK fordítása helyben: `gradlew assembleDebug` → futtatható artifact
-- [ ] App-ikon és splash generálása a `hobbeast-mark.svg` alapból (`@capacitor/assets`)
+- [ ] App-ikon és splash generálása a `hobbeast-mark.svg` alapból — igény szerint
+      futtatva: `bunx @capacitor/assets generate` (nem állandó devDependency, mert
+      elavult `sharp`/`tar` tranzitívokat húzna be; a generált méretek verziózva vannak)
 - [ ] Alap natív gate-ek: indulás, offline állapot, vissza-gomb, státuszsáv/safe-area
 - [ ] Supabase auth (Google OAuth) redirect natív sémán — deep link whitelist
 

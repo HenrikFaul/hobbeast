@@ -5,7 +5,10 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // "dist" is the web build. The native build outputs are gitignored, so CI never
+  // sees them — but a local `gradlew assemble*` drops generated JS (native-bridge.js)
+  // under android/**/build/, which then fails `bun run lint` locally for no reason.
+  { ignores: ["dist", "android/**/build/**", "ios/**/build/**", "ios/App/Pods/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
