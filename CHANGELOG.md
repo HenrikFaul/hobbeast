@@ -117,6 +117,55 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.55.0] — 2026-09-04
+
+### 26 új magyar eseményforrás a külső crawl alapján (V5 kandidátus-seed)
+
+Egy külső crawl exportjából (`event_queue` + `events`, 2026-09-04) **26 olyan
+eseményforrás** került be kandidátusként, amelyet a gyűjtő eddig nem ismert. A V4
+policy változatlan: a források **letiltva, `pending_review` állapotban** landolnak —
+ez a migráció **egyetlen forrást sem hagy jóvá és nem engedélyez**; azt az
+üzemeltető teszi a `/admin?tab=scraper` felületen.
+
+**Mi került be.** Jegyértékesítők és programkeresők (Tixa, Eventim, PORT.hu,
+Broadway Jegyiroda), nagy helyszínek (A38 Hajó, Trafó, Müpa, Operaház,
+Zeneakadémia, Akvárium Klub, Budapest Park, Barba Negra, Dürer Kert), színházak
+(Nemzeti, Vígszínház, Katona József), fesztiválok (Sziget, EFOTT), városi és
+turisztikai portálok (VisitEger, VisitSopron, Veszprém, Miskolc Programajánló,
+Csodálatos Balaton), valamint sportnaptárak (BSI/futanet, Run in Budapest, MLSZ).
+
+**Duplikációmentes.** A crawl 45 hostot érintett; ebből 6-ot a gyűjtő már ismert
+(köztük a `jegy.hu`-t, amely 6 endpointtal szerepel a V4 registryben), ezek
+kimaradtak. Kiesett továbbá az `interticket.hu` (javított endpointja a már ismert
+`jegy.hu`-ra mutat) és a `szeged.hu` (a `szegedvaros.hu` aldomainje, szintén
+ismert). A seed `ON CONFLICT (source_id) DO NOTHING`, tehát újrafuttatva sem
+duplikál.
+
+**Minden endpoint élő lekéréssel ellenőrizve.** Minden jelölt kapott egy javasló
+és egy adverzariálisan ellenőrző menetet, valódi HTTP-lekéréssel. Ez **11 hostot
+ki is szűrt**: `ticketportal.hu` („Ticketportal HU closing" közlemény),
+`voltfestival.hu` (DNS-feloldás sikertelen), `mmc.hu` (domain-parkoltatóra
+irányít), `muzeumokejszakaja.hu` (tanúsítvány-eltérés), `balatonsound.com`
+(2024-en befagyott, elmaradt kiadás), `fesztivalkalendarium.hu` (nem elérhető),
+`szinhaz.hu` (a `/musor` nem létezik), `strand.hu` (strandkereső, nem
+eseménylista), `gyor.hu`, `vasarnap.hu`, `funzine.hu` (hírfolyam, nem
+eseménylista). Két host javított címre került: `akvarium.hu` → `akvariumklub.hu`
+(az eredeti domain nem válaszol), `zeneakademia.hu` → `koncert.zeneakademia.hu`.
+
+**Az eseményekről.** Az export 1614 jövőbeli eseményéből **1531 (95%) a már
+regisztrált `jegy.hu`-ról** származik, ezért nyers importjuk épp duplikációt
+okozna; ténylegesen új lefedettség 83 esemény, jórészt a `tixa.hu`-ról, ami
+forrásként bekerülve magától és folyamatosan hozza őket. Események továbbra is
+kizárólag a scraper workeren át kerülnek be
+(`ingest_scraped_external_events`) — ez a kiadás egyetlen eseménysort sem ír.
+
+**Eszközök.** Új `scripts/generate-event-feed-seed-v5.mjs` (a V4 generátor
+érintetlen marad, az a saját 185-ös pillanatképére van rögzítve), új
+`supabase/seeds/hungarian_event_feed_sources_v5.json`, és az
+`event-feeds:validate` lánc immár a V5 migráció drift-ellenőrzését is futtatja.
+
+---
+
 ## [1.54.0] — 2026-08-28
 
 ### Saját jegyértékesítés / fizetős események (O-H szelet)

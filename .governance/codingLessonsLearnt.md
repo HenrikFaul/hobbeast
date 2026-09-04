@@ -981,4 +981,37 @@ felhasználó másik utat ad, onnan olvass tovább.
   megy, de a `screenshot`/`form_input`/`computer` kompozitálást vár, és time-outol.
   Rejtett panelnél a motor-modulokat futtasd közvetlenül, ne a UI-t klikkeld.
 
-*Utoljára frissítve: 2026-08-28*
+## Külső crawl-export beolvasztása forrásokká (V5, 2026-09-04)
+
+- **A forrás a nyeremény, nem a nyers esemény.** Egy 2025 soros esemény-export
+  95%-a egyetlen, már regisztrált hostról (`jegy.hu`) jött. Ilyet importálni épp
+  duplikációt gyárt. A helyes lépés a *host* felvétele forrásként — onnantól a
+  worker folyamatosan hozza az eseményeket. Események amúgy is kizárólag az
+  `ingest_scraped_external_events` RPC-n át léphetnek be, amit csak a
+  `scraper-worker/src/ingest.mjs` hív.
+- **A dedupot a VÉGLEGES endpointra kell futtatni, nem a bejövő host-névre.**
+  Az `interticket.hu` vettelés után `www.jegy.hu/event/category/all`-ra javult —
+  vagyis egy már ismert hostra. Ha a bejövő nevet dedupálod, ez átcsúszik. Ugyanígy
+  a `szeged.hu` → `api.szegediprogramok.szegedvaros.hu` a már ismert
+  `szegedvaros.hu` aldomainje.
+- **A crawl `found_events=0` értéke gyakran hamis negatív.** Az `a38.hu` 170
+  URL-en 0 találatot adott, valójában teljes értékű programnaptára ÉS nyilvános
+  iCal feedje van. A hostot ne a crawl hozama alapján ítéld meg, hanem élő
+  lekéréssel.
+- **Élő fetch-es ellenőrzés nélkül ne vegyél fel forrást.** 39 jelöltből 11 bukott
+  el valós okkal: megszűnt szolgáltatás (`ticketportal.hu`), DNS-hiba
+  (`voltfestival.hu`), domain-parkoltató (`mmc.hu`), tanúsítvány-eltérés
+  (`muzeumokejszakaja.hu`), befagyott/elmaradt fesztivál (`balatonsound.com`),
+  nem létező útvonal (`szinhaz.hu/musor`), illetve hírfolyam eseménylista helyett
+  (`gyor.hu`, `vasarnap.hu`, `funzine.hu`). Kettő pedig csak javított címen él:
+  `akvarium.hu` → `akvariumklub.hu`, `zeneakademia.hu` → `koncert.zeneakademia.hu`.
+- **A V4 generátor be van fagyasztva** a saját 185-ös pillanatképére (a
+  `validate-event-feed-registry.mjs` és a `--check` is pontosan 185-öt vár), ezért
+  új forráskör csak ÚJ registry + ÚJ generátor mellé mehet
+  (`*_v5.json` + `generate-event-feed-seed-v5.mjs`). A V4 fájlok érintetlenek.
+- **Policy:** minden új forrás `review_state='pending_review'`,
+  `legal_review_status='pending'`, `enabled=false`, és
+  `ON CONFLICT (source_id) DO NOTHING`. A seed soha nem engedélyez — az
+  üzemeltető dönt a `/admin?tab=scraper` felületen.
+
+*Utoljára frissítve: 2026-09-04*

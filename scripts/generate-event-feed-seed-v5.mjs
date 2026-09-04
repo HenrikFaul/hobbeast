@@ -1,0 +1,187 @@
+// Generates the V5 candidate seed migration from supabase/seeds/hungarian_event_feed_sources_v5.json.
+//
+// V5 holds the event sources discovered by the external crawl of 2026-09-04 that the
+// collector did not already know. Same policy as V4: these are DISABLED, pending-review
+// candidates. This generator never approves or enables a source — an operator does that
+// in /admin?tab=scraper.
+//
+// The V4 generator is frozen against its own 185-row snapshot and is left untouched.
+// Run: node scripts/generate-event-feed-seed-v5.mjs [--check]
+
+import fs from 'node:fs';
+import net from 'node:net';
+import path from 'node:path';
+
+const root = process.cwd();
+const registryPath = path.join(root, 'supabase', 'seeds', 'hungarian_event_feed_sources_v5.json');
+const migrationPath = path.join(root, 'supabase', 'migrations', '20260904120000_seed_hungarian_event_feed_sources_v5.sql');
+const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+const checkOnly = process.argv.includes('--check');
+
+if (
+  registry.schema_version !== 1
+  || registry.activation_policy !== 'candidate_only_pending_review_disabled'
+  || !Array.isArray(registry.sources)
+  || registry.sources.length !== registry.source_count
+) {
+  throw new Error('V5 registry header does not match its own contents.');
+}
+
+const sourceIds = new Set();
+for (const [index, source] of registry.sources.entries()) {
+  const row = index + 1;
+  const sourceId = String(source.source_id || '').trim();
+  const publisherName = String(source.publisher_name || '').trim();
+  const countryCode = source.country_code == null ? null : String(source.country_code);
+  const containsControlCharacter = Object.values(source).some((value) => typeof value === 'string' && [...value].some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return code <= 8 || code === 11 || code === 12 || (code >= 14 && code <= 31);
+  }));
+  if (!/^src_[a-f0-9]{8}$/.test(sourceId) || sourceIds.has(sourceId)) {
+    throw new Error(`Invalid or duplicate source_id at entry ${row}.`);
+  }
+  if (publisherName.length < 2 || publisherName.length > 300) {
+    throw new Error(`Publisher name violates the database contract at entry ${row}.`);
+  }
+  if (countryCode !== null && !/^[A-Z]{2}$/.test(countryCode)) {
+    throw new Error(`Country code violates the database contract at entry ${row}.`);
+  }
+  if (containsControlCharacter) {
+    throw new Error(`Control character cannot be represented safely at entry ${row}.`);
+  }
+  sourceIds.add(sourceId);
+}
+
+function approvedUrlCandidate(raw) {
+  try {
+    const url = new URL(String(raw || '').trim());
+    const host = url.hostname.toLowerCase().replace(/\.$/, '');
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || (url.port && url.port !== '443')
+      || net.isIP(host)
+      || !host.includes('.')
+      || host === 'localhost'
+      || host.endsWith('.localhost')
+      || host.endsWith('.local')
+      || host.endsWith('.internal')
+      || host.endsWith('.lan')
+    ) return null;
+    return { url: url.toString(), host };
+  } catch {
+    return null;
+  }
+}
+
+function categories(value) {
+  return [...new Set(String(value || '').split(/[,;]+/).map((item) => item.trim()).filter(Boolean))];
+}
+
+const candidates = registry.sources.map((source) => {
+  const approved = approvedUrlCandidate(source.endpoint_url);
+  const priorityMatch = /^P(\d+)$/i.exec(String(source.dedupe_priority || '').trim());
+  return {
+    source_id: source.source_id,
+    publisher_name: source.publisher_name,
+    publisher_type: source.publisher_type || null,
+    city: source.city || null,
+    country_code: source.country_code || null,
+    endpoint_url: approved?.url || null,
+    original_endpoint_url: String(source.endpoint_url || '').trim(),
+    format: source.format || null,
+    categories: categories(source.categories),
+    legal_basis: source.legal_basis || null,
+    audit_status: source.audit_status || null,
+    dedupe_priority: priorityMatch ? Number(priorityMatch[1]) : null,
+    parser_strategy: source.parser_strategy || null,
+    notes: source.notes || null,
+    fetch_hosts: approved ? [approved.host] : [],
+  };
+});
+
+// Unlike V4 (a historical workbook with mixed-quality links), every V5 candidate was
+// vetted against a live fetch, so all of them must survive the strict HTTPS gate.
+const rejected = candidates.filter((candidate) => !candidate.endpoint_url);
+if (rejected.length > 0) {
+  throw new Error(`V5 requires every endpoint to pass the strict HTTPS gate; rejected: ${rejected.map((r) => r.source_id).join(', ')}`);
+}
+
+const hosts = new Set(candidates.map((candidate) => candidate.fetch_hosts[0]));
+if (hosts.size !== candidates.length) {
+  throw new Error('V5 expects one candidate per host; duplicate hosts found.');
+}
+
+const json = JSON.stringify(candidates);
+if (json.includes('$feed_v5$')) throw new Error('Unexpected SQL delimiter in feed registry.');
+
+const sql = `-- Generated by scripts/generate-event-feed-seed-v5.mjs from the V5 crawl snapshot (2026-09-04).
+-- These are disabled, pending-review candidates. This migration never approves or enables a source.
+
+DO $migration$
+DECLARE
+  v_candidates jsonb := $feed_v5$${json}$feed_v5$::jsonb;
+BEGIN
+  IF jsonb_array_length(v_candidates) <> ${candidates.length} THEN
+    RAISE EXCEPTION 'EVENT_FEED_V5_SEED_COUNT_INVALID';
+  END IF;
+
+  INSERT INTO public.external_event_feed_sources (
+    source_id,
+    publisher_name,
+    publisher_type,
+    city,
+    country_code,
+    endpoint_url,
+    original_endpoint_url,
+    format,
+    categories,
+    legal_basis,
+    audit_status,
+    dedupe_priority,
+    parser_strategy,
+    notes,
+    fetch_hosts,
+    review_state,
+    legal_review_status,
+    robots_allowed,
+    enabled
+  )
+  SELECT
+    candidate ->> 'source_id',
+    candidate ->> 'publisher_name',
+    NULLIF(candidate ->> 'publisher_type', ''),
+    NULLIF(candidate ->> 'city', ''),
+    NULLIF(candidate ->> 'country_code', ''),
+    NULLIF(candidate ->> 'endpoint_url', ''),
+    candidate ->> 'original_endpoint_url',
+    NULLIF(candidate ->> 'format', ''),
+    ARRAY(SELECT jsonb_array_elements_text(candidate -> 'categories')),
+    NULLIF(candidate ->> 'legal_basis', ''),
+    NULLIF(candidate ->> 'audit_status', ''),
+    NULLIF(candidate ->> 'dedupe_priority', '')::integer,
+    NULLIF(candidate ->> 'parser_strategy', ''),
+    NULLIF(candidate ->> 'notes', ''),
+    ARRAY(SELECT jsonb_array_elements_text(candidate -> 'fetch_hosts')),
+    'pending_review',
+    'pending',
+    NULL,
+    false
+  FROM jsonb_array_elements(v_candidates) AS source(candidate)
+  ON CONFLICT (source_id) DO NOTHING;
+END;
+$migration$;
+`;
+
+if (checkOnly) {
+  const current = fs.existsSync(migrationPath) ? fs.readFileSync(migrationPath, 'utf8') : '';
+  if (current !== sql) {
+    console.error('V5 seed migration is out of date. Run: node scripts/generate-event-feed-seed-v5.mjs');
+    process.exit(1);
+  }
+  console.log(`V5 seed migration is current (${candidates.length} candidates, ${hosts.size} hosts).`);
+} else {
+  fs.writeFileSync(migrationPath, sql);
+  console.log(`Wrote ${migrationPath} (${candidates.length} candidates, ${hosts.size} hosts).`);
+}
