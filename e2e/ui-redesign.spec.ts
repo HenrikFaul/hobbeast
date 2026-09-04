@@ -21,7 +21,10 @@ for (const viewport of viewports) {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.evaluate(async () => { await document.fonts.ready; });
-    await expect(page.getByRole('heading', { name: 'A város tele van közös történetekkel.' })).toBeVisible();
+    // Matches HOME_MARKETING_CONTRACT.hero.accessibleHeading in src/content/marketingCopy.ts.
+    // A regex, not a literal: this assertion silently rotted from v1.35.0 (when the motto
+    // changed "város" -> "világ") until 2026-09-04, because CI never reached the E2E step.
+    await expect(page.getByRole('heading', { name: /A világ tele van közös történetekkel/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Programot keresek/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 

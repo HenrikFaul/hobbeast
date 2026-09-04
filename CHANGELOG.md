@@ -117,6 +117,30 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.55.2] — 2026-09-04
+
+### Elavult E2E-állítás javítva — a motto v1.35.0 óta más
+
+A v1.55.1 zöldre vitte a függőség-auditot, és ezzel a CI **először jutott el az
+E2E lépésig** hónapok óta. Ott azonnal kibukott egy régi hiba: az
+`e2e/ui-redesign.spec.ts` a **régi** mottót várta („A **város** tele van közös
+történetekkel."), miközben az alkalmazás a v1.35.0 (`818877e`) óta „A **világ**
+tele van közös történetekkel" szöveget rendereli.
+
+Az állítás tehát **v1.35.0 óta csendben rothadt** — nem azért maradt észrevétlen,
+mert senki nem futtatta, hanem mert a CI a natív mobil commit óta ~20 másodperc
+alatt elhasalt az audit lépésen, és soha nem ért el idáig. A
+`marketingCopy.test.ts` unit teszt egyébként végig az ÚJ szöveget ellenőrizte és
+zöld volt; csak az E2E maradt le.
+
+Ez a 4 bukó teszteset (ugyanaz a teszt négy nézetméreten) adta a teljes E2E
+hibát; a másik 11 végig zöld volt. A javítás a fájlban már használt regex-idiómát
+követi (`/Programot keresek/i`, `/Események/i`), így a központozás elcsúszása sem
+töri el újra. Helyben ellenőrizve: `playwright test e2e/ui-redesign.spec.ts` →
+**8/8 zöld**.
+
+---
+
 ## [1.55.1] — 2026-09-04
 
 ### CI zöldre: 10 sebezhetőség megszűnt a `@capacitor/assets` eltávolításával
