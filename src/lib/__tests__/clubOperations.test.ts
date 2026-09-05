@@ -35,7 +35,7 @@ describe('listClubs', () => {
     const page = await listClubs({ topic: 'Evezés' });
     expect(rpcMock).toHaveBeenCalledWith('list_clubs_public', {
       p_topic: 'Evezés', p_city: null, p_search: null, p_limit: 48, p_offset: 0,
-      p_club_type: null, p_audience: null,
+      p_club_type: null, p_audience: null, p_countries: null,
     });
     expect(page.items[0]).toMatchObject({
       name: 'Budapest Evezős Egyesület', topic: 'Evezés', postalCode: '1138',
@@ -122,5 +122,31 @@ describe('adminListClubs', () => {
   it('reports a missing capability rather than a generic failure', async () => {
     rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'CAPABILITY_REQUIRED' } });
     await expect(adminListClubs()).rejects.toThrow('CAPABILITY_REQUIRED');
+  });
+});
+
+/**
+ * v1.70.0 added the country filter to the clubs listing. Omitting it must keep
+ * meaning "every country", and an empty selection must go as NULL — an empty
+ * array would be indistinguishable from "no countries at all" and could only
+ * ever return nothing.
+ */
+describe('club country filter', () => {
+  it('sends NULL when nothing is selected', async () => {
+    rpcMock.mockResolvedValueOnce({ data: {}, error: null });
+    await listClubs({ countries: [] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toBeNull();
+  });
+
+  it('passes a selection through, uppercased and de-duplicated', async () => {
+    rpcMock.mockResolvedValueOnce({ data: {}, error: null });
+    await listClubs({ countries: ['hu', 'AT', 'hu'] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toEqual(['HU', 'AT']);
+  });
+
+  it('drops blank entries rather than sending them', async () => {
+    rpcMock.mockResolvedValueOnce({ data: {}, error: null });
+    await listClubs({ countries: ['', '   ', 'sk'] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toEqual(['SK']);
   });
 });

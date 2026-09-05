@@ -1,7 +1,7 @@
 {
   "name": "hobbeast",
   "private": true,
-  "version": "1.69.0",
+  "version": "1.70.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
     "event-feeds:validate": "node scripts/validate-event-feed-registry.mjs && node scripts/generate-event-feed-seed.mjs --check && node scripts/generate-event-feed-seed-v5.mjs --check",
     "release:validate": "node scripts/validate-release.mjs",
     "release:sbom": "node scripts/generate-sbom.mjs",
+    "i18n:check": "node scripts/check-i18n-hardcoded-copy.mjs",
     "security:audit": "node scripts/audit-security-definer.mjs",
     "security:secrets": "node scripts/scan-secrets.mjs",
     "db:verify": "node scripts/verify-database.mjs",

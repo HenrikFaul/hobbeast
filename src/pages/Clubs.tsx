@@ -6,7 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
-import { listClubFacets, listClubs, type ClubFacets, type ClubListItem } from '@/lib/clubOperations';
+import { listClubCountries, listClubFacets, listClubs, type ClubFacets, type ClubListItem } from '@/lib/clubOperations';
+import { CountryFilterBar } from '@/components/events/CountryFilterBar';
+import {
+  readStoredSelection, resolveDefaultCountry, selectionToCountries, writeStoredSelection,
+  type CountrySelection,
+} from '@/features/events/countryFilter';
+import { useI18n } from '@/i18n/I18nProvider';
 import { ClubRegistrationDialog } from '@/components/clubs/ClubRegistrationDialog';
 
 const numberFormat = new Intl.NumberFormat('hu-HU');
@@ -26,6 +32,14 @@ const CLUB_TYPES = [
 const Clubs = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { t } = useI18n();
+  // The SAME stored selection the events listing and the map use, so a member
+  // picks a country once and it means the same thing across the product.
+  const [countrySelection, setCountrySelection] = useState<CountrySelection>(
+    () => readStoredSelection(resolveDefaultCountry()),
+  );
+  const [countryCounts, setCountryCounts] = useState<Record<string, number>>({});
+  const queryCountries = useMemo(() => selectionToCountries(countrySelection), [countrySelection]);
   const [items, setItems] = useState<ClubListItem[]>([]);
   const [facets, setFacets] = useState<ClubFacets | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +56,9 @@ const Clubs = () => {
 
   useEffect(() => {
     listClubFacets().then(setFacets).catch(() => setFacets(null));
+    listClubCountries()
+      .then((rows) => setCountryCounts(Object.fromEntries(rows.map((r) => [r.countryCode, r.events]))))
+      .catch(() => setCountryCounts({}));
   }, []);
 
   const load = useCallback(async () => {
@@ -50,6 +67,7 @@ const Clubs = () => {
     try {
       const page = await listClubs({
         topic, city, clubType: clubType as never, audience,
+        countries: queryCountries,
         search: search.trim() || null, limit: 48,
       });
       setItems(page.items);
@@ -59,7 +77,7 @@ const Clubs = () => {
     } finally {
       setLoading(false);
     }
-  }, [topic, city, clubType, audience, search]);
+  }, [topic, city, clubType, audience, search, queryCountries]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 250);
@@ -171,6 +189,15 @@ const Clubs = () => {
               </Button>
             ))}
           </div>
+
+          {/* Country comes FIRST: it decides what the topic and city chips below
+              are even counting. Shared selection with the events listing. */}
+          <CountryFilterBar
+            selection={countrySelection}
+            onChange={(next) => { setCountrySelection(next); writeStoredSelection(next); setParam('city', null); }}
+            counts={countryCounts}
+            label={t('clubs.countryLabel')}
+          />
 
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Téma</p>
           <div className="mb-4 flex flex-wrap gap-2">

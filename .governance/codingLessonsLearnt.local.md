@@ -19,3 +19,50 @@
 - Re-read `HEAD`, `origin/main` and the worktree immediately before committing. If a
   concurrent process has already committed and published the owned slice, never
   duplicate or amend that shared history; append a factual closure commit instead.
+
+## 2026-09-05 — v1.70.0 i18n, külföldi térképpontok, klub-országszűrő
+
+- **Az i18n forrásnyelve legyen a termék jelenlegi nyelve, ne az angol.** A `hu`
+  katalógusba karakterre pontosan az került, ami eddig be volt drótozva, a
+  fallback pedig `választott → forrás → kulcs`. Így a migráció a meglévő
+  felhasználók számára láthatatlan, és egy hiányzó fordítás sem tud üres
+  feliratot vagy nyers kulcsot kirakni. Angol forrásnyelv esetén az első nap
+  minden magyar szöveg megváltozott volna — az már regresszió.
+- **A `useI18n()` működjön a provideren kívül is.** Egy izoláltan renderelt
+  komponens (unit teszt, preview) különben a hiányzó kontextuson hasal el, és a
+  hiba a komponensről szól, nem a hiányzó providerről.
+- **Bedrótozott szöveg ellen racsni kell, nem globális tiltás.** 355 fájlban
+  ~1769 magyar literál van; egy mindenre kiterjedő szabály az első futáskor
+  elbukna, és két napon belül kikapcsolnák. A `scripts/check-i18n-hardcoded-copy.mjs`
+  csak a MIGRATED listán szereplő fájlokat nézi, és az a lista csak nőhet.
+- **`flyTo`/`flyToBounds` némán nem csinál semmit, ha a rAF nem fut le.** Háttérbe
+  tett fülön vagy `prefers-reduced-motion` mellett a Leaflet animációja soha nem
+  indul el, és nincs hiba: érvényes bounds, élő térkép, a középpont és a zoom
+  bitre azonos marad. Ahol a kameramozgásnak GARANTÁLTAN meg kell történnie,
+  `fitBounds(..., { animate: false })` a helyes hívás. Csempekoordinátán mérj,
+  ne a hívás visszatérési értékén.
+- **`translate()` ELŐTT `lower()`, sosem fordítva.** A `translate()` kisbetűs
+  forráskészletet kap, ezért a `lower()` utáni futtatás az egyetlen sorrend, ami
+  az ékezetes NAGYBETŰKET is lehajtogatja. A fordított sorrend a `Warszawa`,
+  `Praha`, `Wien` példákon jól viselkedik (ékezet nélkül kezdődnek), ezért a
+  mérés zöldet mutat — a hibát csak `Österreichweit`-tel vagy `ČR`-rel lehet
+  kimérni. Ékezet-hajtogatást MINDIG nagybetűs, ékezetes bemenettel tesztelj.
+- **Az élő ACL elsodródhat a repótól.** A `fold_city_label`/`canonical_city`
+  fájlban revoke-olt volt, élesben mégis `anon=X` állt. Kiadás előtt olvasd ki a
+  `pg_proc.proacl`-t a ténylegesen érintett függvényekre, ne csak a migrációs
+  fájlt hidd el.
+- **Új nyilvános RPC-nél is kell explicit REVOKE + GRANT pár.** A revoke-nak
+  nevesítenie kell az `anon`-t (a Supabase közvetlenül neki ad EXECUTE-ot
+  létrehozáskor), és a `security:audit` racsni akkor is elbukik, ha a függvény
+  szándékosan publikus — ez a szándék kimondását kényszeríti ki.
+- **Meglévő RPC bővítésekor a régi aláírást el kell DOBNI.** A PostgREST a
+  paraméterek NEVE alapján old fel túlterhelést; két, azonos névhalmazt elfogadó
+  változat futásidejű „could not choose the best candidate function" hibát ad,
+  amit egyetlen teszt sem fog ki.
+- **Nyitott, nem ebben a kiadásban javított megfigyelés:** a Supabase
+  alapértelmezett jogosultságai miatt az `anon` szerepnek projektszinten
+  TRUNCATE joga van a `public` séma tábláin (megnézve: `external_events`,
+  `clubs`, `geo_places`, `hu_settlements`, `city_aliases`, `city_coordinates` —
+  mind egyforma). A TRUNCATE **nem esik RLS alá**. Ma nem elérhető, mert a
+  PostgREST nem ad ki TRUNCATE-et és az anon nem tud nyers kapcsolatot nyitni,
+  de ez egyetlen réteg. Külön, minden táblát érintő kiadásba való.

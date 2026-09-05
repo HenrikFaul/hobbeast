@@ -7,6 +7,7 @@ import {
   type CountryCode,
   type CountrySelection,
 } from '@/features/events/countryFilter';
+import { useI18n } from '@/i18n/I18nProvider';
 
 export interface CountryCounts {
   [code: string]: number;
@@ -30,8 +31,13 @@ interface Props {
  * past Praha and Warszawa to find Budapest, which is what the old row of
  * capital-city chips made them do.
  */
-export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Ország' }: Props) {
+export function CountryFilterBar({ selection, onChange, counts = {}, label }: Props) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(selection.foreign.length > 0);
+  // Country names come from the catalogue, so "Ausztria" becomes "Austria",
+  // "Österreich" or "Rakousko" with the rest of the page.
+  const name = (code: string) => t(`country.names.${code}`);
+  const sectionLabel = label ?? t('country.label');
 
   const home = countryMeta(selection.home);
   const foreignCountries = useMemo(
@@ -51,14 +57,14 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
   return (
     <div className="mb-5 rounded-[1.2rem] border border-primary/10 bg-secondary/40 p-4">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">{sectionLabel}</p>
         {selection.foreign.length > 0 && (
           <button
             type="button"
             className="text-xs font-semibold text-primary hover:underline"
             onClick={() => onChange({ ...selection, foreign: [] })}
           >
-            Csak {home?.label ?? selection.home}
+            {t('country.onlyHome', { country: name(selection.home) })}
           </button>
         )}
       </div>
@@ -72,7 +78,7 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
           data-testid="country-home"
         >
           <span aria-hidden="true">{home?.flag}</span>
-          {home?.label ?? selection.home}
+          {name(selection.home)}
           {counts[selection.home] != null && (
             <span className="ml-0.5 text-xs opacity-70">{counts[selection.home]}</span>
           )}
@@ -89,7 +95,7 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
           data-testid="country-foreign-toggle"
         >
           <Globe2 size={14} className="mr-1.5" aria-hidden="true" />
-          Külföldi programok
+          {t('country.foreign')}
           {selection.foreign.length > 0
             ? <span className="ml-1.5 text-xs opacity-80">{selection.foreign.length}</span>
             : foreignTotal > 0 && <span className="ml-1.5 text-xs opacity-70">{foreignTotal}</span>}
@@ -105,7 +111,7 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
           const meta = countryMeta(code);
           return (
             <span key={code} className="rounded-full bg-card px-2.5 py-1 text-xs text-muted-foreground">
-              {meta?.flag} {meta?.label ?? code}
+              {meta?.flag} {name(code)}
             </span>
           );
         })}
@@ -114,7 +120,7 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
       {expanded && (
         <div id="country-drilldown" className="mt-3 rounded-[0.9rem] bg-card/70 p-3">
           <p className="mb-2 text-xs text-muted-foreground">
-            Több országot is kiválaszthatsz — a listához hozzáadódnak a hazai programok mellé.
+            {t('country.multiHint')}
           </p>
           <div className="flex flex-wrap gap-2">
             {foreignCountries.map((c) => {
@@ -141,7 +147,7 @@ export function CountryFilterBar({ selection, onChange, counts = {}, label = 'Or
                   {on
                     ? <Check size={14} aria-hidden="true" />
                     : <span aria-hidden="true">{c.flag}</span>}
-                  {c.label}
+                  {name(c.code)}
                   {n != null && <span className="text-xs opacity-70">{n}</span>}
                 </button>
               );

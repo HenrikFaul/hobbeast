@@ -97,9 +97,15 @@ export async function listClubs(input: {
   search?: string | null;
   clubType?: ClubType | null;
   audience?: string | null;
+  countries?: readonly string[] | null;
   limit?: number;
   offset?: number;
 } = {}): Promise<ClubPage> {
+  // An empty selection must go as NULL, not as an empty array: the RPC reads
+  // NULL as "every country", and [] would be indistinguishable from a
+  // deliberate "no countries at all", which can only ever return nothing.
+  const countries = (input.countries ?? [])
+    .map((c) => String(c ?? '').trim().toUpperCase()).filter(Boolean);
   const { data, error } = await rpc.rpc('list_clubs_public', {
     p_topic: input.topic ?? null,
     p_city: input.city ?? null,
@@ -108,6 +114,7 @@ export async function listClubs(input: {
     p_offset: Math.max(0, Math.trunc(input.offset ?? 0) || 0),
     p_club_type: input.clubType ?? null,
     p_audience: input.audience ?? null,
+    p_countries: countries.length ? Array.from(new Set(countries)) : null,
   });
   if (error) throw new Error('CLUB_LIST_FAILED');
   const payload = data && typeof data === 'object' && !Array.isArray(data)
@@ -534,4 +541,19 @@ export async function deriveClubsFromProgrammes(): Promise<{ inserted: number; u
   if (error) throw clubError(error, 'CLUB_DERIVE_FAILED');
   const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
   return { inserted: Number(payload.inserted) || 0, updated: Number(payload.updated) || 0 };
+}
+
+/** How many approved clubs each country has, for the shared country control. */
+export async function listClubCountries(): Promise<Array<{ countryCode: string; events: number }>> {
+  const { data, error } = await rpc.rpc('list_club_countries', {});
+  if (error) throw new Error('CLUB_COUNTRIES_FAILED');
+  return Array.isArray(data)
+    ? data
+      .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+      .map((row) => ({
+        countryCode: String(row.country_code ?? '').toUpperCase(),
+        events: Number(row.events) || 0,
+      }))
+      .filter((row) => row.countryCode)
+    : [];
 }

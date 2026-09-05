@@ -7,16 +7,19 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizerMode } from "@/hooks/useOrganizerMode";
+import { useI18n } from "@/i18n/I18nProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const navLinks = [
-  { to: "/", label: "Főoldal" },
-  { to: "/events", label: "Események" },
-  { to: "/explore", label: "Hobbik" },
-  { to: "/klubok", label: "Klubok" },
-  { to: "/about", label: "Rólunk" },
+  { to: "/", labelKey: "nav.home" },
+  { to: "/events", labelKey: "nav.events" },
+  { to: "/explore", labelKey: "nav.hobbies" },
+  { to: "/klubok", labelKey: "nav.clubs" },
+  { to: "/about", labelKey: "nav.about" },
 ];
 
 const Navbar = () => {
+  const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -64,7 +67,7 @@ const Navbar = () => {
                       : "text-muted-foreground hover:bg-white/80 hover:text-foreground"
                   }`}
                 >
-                  {link.label}
+                  {t(link.labelKey)}
                 </Link>
               );
             })}
@@ -80,6 +83,10 @@ const Navbar = () => {
             </Button>
           )}
 
+          {/* The language control sits before the account actions: someone who
+              cannot read the page needs it before anything else. */}
+          <LanguageSwitcher className="ml-1 hidden sm:inline-flex" />
+
           {!loading &&
             (user ? (
               <div className="ml-1 flex items-center gap-2">
@@ -88,7 +95,7 @@ const Navbar = () => {
               </div>
             ) : (
               <Button size="sm" className="ml-1 rounded-full border-[#dfff62] bg-[#dfff62] px-5 text-[#183124] shadow-none hover:bg-[#e7ff8b]" onClick={() => navigate("/auth")}>
-                Csatlakozz
+                {t('nav.join')}
               </Button>
             ))}
         </div>
@@ -123,7 +130,7 @@ const Navbar = () => {
                     isActive ? "bg-[#183124] text-white" : "text-foreground hover:bg-[#edf0e7]"
                   }`}
                 >
-                  {link.label}
+                  {t(link.labelKey)}
                 </Link>
               );
             })}

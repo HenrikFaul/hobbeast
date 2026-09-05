@@ -12,7 +12,6 @@ import { EDITORIAL_VIDEO_BASE } from '@/assets/editorial/videoLibrary';
 import { CountryFilterBar } from '@/components/events/CountryFilterBar';
 import {
   boundsForCountries,
-  countryLabel,
   readStoredSelection,
   resolveDefaultCountry,
   selectionToCountries,
@@ -20,6 +19,19 @@ import {
   type CountrySelection,
 } from '@/features/events/countryFilter';
 import { listEventCountries } from '@/lib/eventOperations';
+import { useI18n } from '@/i18n/I18nProvider';
+
+/**
+ * The generated Supabase types are stale and cannot name this additive RPC yet.
+ * Declaring the exact contract here keeps the call type-checked instead of
+ * widening the whole client to `any` — the same approach the sibling projects
+ * use for a not-yet-regenerated schema.
+ */
+interface ForeignMarkerRpc {
+  rpc: (name: 'map_foreign_markers', args: { p_countries: string[] | null; p_category: string | null }) =>
+    PromiseLike<{ data: unknown; error: unknown }>;
+}
+const foreignMarkerClient = supabase as unknown as ForeignMarkerRpc;
 import { getTodayDateString } from '@/features/events/discoveryModel';
 
 type MarkerKind = 'county' | 'city' | 'district' | 'venue';
@@ -189,10 +201,14 @@ export function EventsMapView() {
   const [placeLabel, setPlaceLabel] = useState<string | null>(null);
   // The map answers "where are the programmes" — so it has to say WHICH country
   // it is answering for, and move there when that changes.
+  const { t } = useI18n();
   const [countrySelection, setCountrySelection] = useState<CountrySelection>(
     () => readStoredSelection(resolveDefaultCountry()),
   );
   const [countryCounts, setCountryCounts] = useState<Record<string, number>>({});
+  const [foreign, setForeign] = useState<{
+    markers: MapMarker[]; placed: number; nationwide: number; uncoordinated: number; total: number;
+  } | null>(null);
   const queryCountries = useMemo(() => selectionToCountries(countrySelection), [countrySelection]);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -212,6 +228,29 @@ export function EventsMapView() {
   }, [level, category, county, selectedCity, district]);
 
   useEffect(() => { void loadMarkers(); }, [loadMarkers]);
+
+  // A SEPARATE call rather than a branch inside map_markers(): that function is
+  // the working Hungarian surface built on geo_places, and it stays untouched.
+  const loadForeignMarkers = useCallback(async () => {
+    if (!countrySelection.foreign.length) { setForeign(null); return; }
+    const { data } = await foreignMarkerClient.rpc('map_foreign_markers', {
+      p_countries: countrySelection.foreign,
+      p_category: category ?? null,
+    });
+    const payloadIn = data as unknown as {
+      markers?: MapMarker[]; placed_total?: number; nationwide_total?: number;
+      uncoordinated_total?: number; total?: number;
+    } | null;
+    setForeign(payloadIn ? {
+      markers: Array.isArray(payloadIn.markers) ? payloadIn.markers : [],
+      placed: Number(payloadIn.placed_total) || 0,
+      nationwide: Number(payloadIn.nationwide_total) || 0,
+      uncoordinated: Number(payloadIn.uncoordinated_total) || 0,
+      total: Number(payloadIn.total) || 0,
+    } : null);
+  }, [countrySelection.foreign, category]);
+
+  useEffect(() => { void loadForeignMarkers(); }, [loadForeignMarkers]);
 
   const loadEvents = useCallback(async () => {
     setLoadingEvents(true);
@@ -266,9 +305,11 @@ export function EventsMapView() {
     const map = mapRef.current;
     const layer = layerRef.current;
     if (!map || !layer || !payload) return;
+    // `foreign` is in the dependency list below so the layer redraws when the
+    // country selection changes, not only when the Hungarian payload does.
     layer.clearLayers();
 
-    const markers = payload.markers ?? [];
+    const markers = [...(payload.markers ?? []), ...(foreign?.markers ?? [])];
     const max = markers.reduce((m, point) => Math.max(m, point.events), 0);
 
     for (const point of markers) {
@@ -323,7 +364,7 @@ export function EventsMapView() {
       });
       marker.addTo(layer);
     }
-  }, [payload, county, selectedCity, district, placeKey]);
+  }, [payload, foreign, county, selectedCity, district, placeKey]);
 
   const categories = payload?.categories ?? [];
   const counties = useMemo(
@@ -357,11 +398,12 @@ export function EventsMapView() {
   // 2026-09-05: 0 of them). So a foreign country can be selected and framed, but
   // it has no pins yet. Saying that plainly beats showing an empty map and
   // letting someone conclude the page is broken.
-  const foreignWithoutPlacement = countrySelection.foreign.filter((c) => (countryCounts[c] ?? 0) > 0);
+  const foreignNames = countrySelection.foreign.map((c) => t(`country.names.${c}`)).join(', ');
+  const foreignUnplaced = foreign ? foreign.nationwide + foreign.uncoordinated : 0;
 
   const areaLabel = placeLabel
     || (district ? `Budapest ${district}. kerület` : null)
-    || selectedCity || county || countryLabel(countrySelection.home);
+    || selectedCity || county || t(`country.names.${countrySelection.home}`);
 
   const resetArea = () => {
     setCounty(null);
@@ -380,7 +422,7 @@ export function EventsMapView() {
       {/* Sidebar: filters + results, Booking-style */}
       <aside className="order-2 flex max-h-[70vh] flex-col gap-3 overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/95 p-4 shadow-elevated lg:order-1 lg:max-h-none lg:h-full">
         <div>
-          <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">Térképes kereső</p>
+          <p className="text-[0.66rem] font-extrabold uppercase tracking-[0.15em] text-primary">{t('map.kicker')}</p>
           <h2 className="mt-1 font-display text-xl font-extrabold">
             {areaLabel}
           </h2>
@@ -397,21 +439,18 @@ export function EventsMapView() {
           selection={countrySelection}
           onChange={setCountrySelection}
           counts={countryCounts}
-          label="Melyik országot nézzük?"
+          label={t('country.mapLabel')}
         />
 
-        {foreignWithoutPlacement.length > 0 && (
+        {foreign && foreign.total > 0 && foreignUnplaced > 0 && (
           <p className="rounded-[0.9rem] bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
-            A térkép a kiválasztott országra ugrik, de{' '}
-            {foreignWithoutPlacement.map(countryLabel).join(', ')} programjaihoz még nincs
-            térképi elhelyezés — a helyszínnévtár egyelőre magyar, és a külföldi
-            programokhoz nem érkezik koordináta. A listás nézetben mind ott vannak.
+            {t('map.coverageNotice', { countries: foreignNames, placed: foreign.placed })}
           </p>
         )}
 
         {(county || selectedCity || district || placeKey) && (
           <Button variant="outline" size="sm" className="w-fit rounded-full" onClick={resetArea}>
-            <ArrowLeft className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Vissza az egész országra
+            <ArrowLeft className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {t('map.backToCountry')}
           </Button>
         )}
 
