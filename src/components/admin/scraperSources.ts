@@ -22,6 +22,11 @@ export interface ScraperDestination {
   access: string;
   active_events: number;
   expired_events: number;
+  /** Collection-frontier progress from admin_scraper_stats; null when the stats predate the frontier. */
+  frontier_pending: number | null;
+  frontier_done: number | null;
+  frontier_error: number | null;
+  frontier_events: number | null;
 }
 
 export const STRATEGY_LABELS: Record<string, string> = {
@@ -52,7 +57,7 @@ export function countryLabel(code: string | null): string {
 
 export type SortKey =
   | 'publisher_name' | 'country_code' | 'scrape_strategy' | 'categories'
-  | 'access' | 'last_run_at' | 'total_events' | 'active_events' | 'status';
+  | 'access' | 'last_run_at' | 'total_events' | 'frontier' | 'active_events' | 'status';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -60,6 +65,19 @@ export type SortDir = 'asc' | 'desc';
 export function statusOf(d: ScraperDestination): string {
   if (d.active_events > 0) return 'termel';
   return d.last_run_at ? 'nincs találat' : 'várakozik';
+}
+
+/**
+ * The collection frontier's progress as the three buckets an operator filters
+ * on: URLs still waiting, everything fetched, or nothing to show yet (the
+ * source never ran with the frontier on, or the stats predate the column).
+ */
+export function frontierBucketOf(d: ScraperDestination): string {
+  const pending = d.frontier_pending ?? 0;
+  const done = d.frontier_done ?? 0;
+  if (pending > 0) return 'van hátralék';
+  if (done > 0) return 'kész';
+  return 'nincs adat';
 }
 
 /** The distinct values a categorical column offers, in display order. */
@@ -76,6 +94,8 @@ export function distinctValues(rows: ScraperDestination[], key: SortKey): string
       if (row.country_code) seen.add(row.country_code);
     } else if (key === 'last_run_at') {
       seen.add(row.last_run_at ? 'futott már' : 'még nem futott');
+    } else if (key === 'frontier') {
+      seen.add(frontierBucketOf(row));
     } else {
       const v = row[key as keyof ScraperDestination];
       if (typeof v === 'string' && v) seen.add(v);
@@ -92,6 +112,7 @@ function matchesColumn(row: ScraperDestination, key: SortKey, chosen: Set<string
   if (key === 'scrape_strategy') return chosen.has(row.scrape_strategy || 'render');
   if (key === 'country_code') return row.country_code ? chosen.has(row.country_code) : false;
   if (key === 'last_run_at') return chosen.has(row.last_run_at ? 'futott már' : 'még nem futott');
+  if (key === 'frontier') return chosen.has(frontierBucketOf(row));
   const v = row[key as keyof ScraperDestination];
   return typeof v === 'string' ? chosen.has(v) : false;
 }
@@ -103,6 +124,9 @@ function compare(a: ScraperDestination, b: ScraperDestination, key: SortKey): nu
       return a.total_events - b.total_events;
     case 'active_events':
       return a.active_events - b.active_events;
+    case 'frontier':
+      return ((a.frontier_done ?? 0) - (b.frontier_done ?? 0))
+        || ((a.frontier_pending ?? 0) - (b.frontier_pending ?? 0));
     case 'last_run_at': {
       const av = a.last_run_at ? Date.parse(a.last_run_at) : -Infinity;
       const bv = b.last_run_at ? Date.parse(b.last_run_at) : -Infinity;

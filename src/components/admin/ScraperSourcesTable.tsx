@@ -11,8 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
  * The scraper source registry table: sortable on every column, and filterable
  * on every column by whatever that column actually holds — a multi-select of
  * the distinct values for the categorical ones (country, method, categories,
- * access, state), a free-text match for the source itself, and range-free
- * ordering for the numeric and date ones. Filters combine with AND across
+ * access, frontier progress, state), a free-text match for the source itself,
+ * and range-free ordering for the numeric and date ones. Filters combine with AND across
  * columns and OR inside a column, which is what a "show me only these" pick
  * means in practice.
  *
@@ -178,7 +178,7 @@ export function ScraperSourcesTable({ destinations, selected, onToggle, onSelect
         )}
       </div>
 
-      <table className="w-full min-w-[1100px] text-sm">
+      <table className="w-full min-w-[1200px] text-sm">
         <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
           <th className="py-2 pr-2 w-8">
             <Checkbox
@@ -194,6 +194,7 @@ export function ScraperSourcesTable({ destinations, selected, onToggle, onSelect
           {head('access', 'Hozzáférés')}
           {head('last_run_at', 'Utolsó futás')}
           {head('total_events', 'Utolsó · összes', false)}
+          {head('frontier', 'Frontier')}
           {head('active_events', 'Aktív / Lejárt', false)}
           {head('status', 'Állapot')}
         </tr></thead>
@@ -237,6 +238,7 @@ export function ScraperSourcesTable({ destinations, selected, onToggle, onSelect
             <td className="py-2 pr-3 text-xs">{d.access}</td>
             <td className="py-2 pr-3">{formatWhen(d.last_run_at)}</td>
             <td className="py-2 pr-3">{d.last_events} · {d.total_events}</td>
+            <td className="py-2 pr-3 whitespace-nowrap">{frontierCell(d)}</td>
             <td className="py-2 pr-3">
               <span className="font-semibold text-emerald-600">{d.active_events}</span>
               {' / '}
@@ -273,6 +275,28 @@ function formatWhen(value: string | null) {
   } catch {
     return value;
   }
+}
+
+/**
+ * The frontier column: `done/total` URLs of the source's persistent queue, a
+ * muted error count when there is one, and a dash while the stats carry no
+ * frontier at all (the source never ran with it on). A render helper, not a
+ * component, so the file stays single-export.
+ */
+function frontierCell(d: ScraperDestination) {
+  if (d.frontier_done == null && d.frontier_pending == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const done = d.frontier_done ?? 0;
+  const pending = d.frontier_pending ?? 0;
+  const errors = d.frontier_error ?? 0;
+  const title = `${done} lekérve, ${pending} hátra, ${errors} hiba · ${d.frontier_events ?? 0} esemény a frontierből`;
+  return (
+    <span title={title}>
+      {`${done}/${done + pending}`}
+      {errors > 0 && <span className="ml-1 text-xs text-muted-foreground">(err {errors})</span>}
+    </span>
+  );
 }
 
 export default ScraperSourcesTable;

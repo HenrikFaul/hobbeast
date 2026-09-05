@@ -32,6 +32,8 @@ import {
   getCrawlConfig, nextCrawlSeeds, recordCrawlSeedOutcomes, recordCrawlRunStart, recordCrawlRunFinish,
   recordCrawlPages, recordCrawlRunProgress, autoPromoteCrawledSource, getUrlValidators,
   claimUnparsedEmails, markEmailParsed,
+  enqueueCollectionUrls, claimCollectionUrls, finishCollectionUrl, releaseCollectionUrls,
+  noteHostBackoff, clearHostBackoff,
 } from './src/registry.mjs';
 
 const args = process.argv.slice(2);
@@ -331,6 +333,12 @@ async function main() {
     : await listScraperTargets({ supabaseUrl, serviceRoleKey, limit: sourcesPerRun });
   log(`Targets from registry: ${targets.length}${onlyIds.length ? ' (targeted manual run)' : ''}`);
 
+  // The operator's crawl_config, read ONCE per run: the collection frontier's
+  // kill switch (collection_frontier_enabled) lives in that row. An unreadable
+  // config leaves the frontier on — it fails safe to the sampling path by
+  // itself when its RPCs are unavailable.
+  const crawlCfg = await getCrawlConfig(ctx).catch(() => null);
+
   // --disable-http2: some sites (eventim.hu) abort Chromium's HTTP/2 handshake.
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-http2'] });
   const summary = { sources: 0, events: 0, inserted: 0, updated: 0, skipped: 0, duplicates: 0, failed: 0, discovered: 0 };
@@ -387,6 +395,32 @@ async function main() {
           browser, fetchStatic: guardedFetch, maxDetails, log,
           ...(crawlDelayMs ? { delayMs: crawlDelayMs } : {}),
         };
+        // The persistent per-source detail frontier (see scrapeGenericSource).
+        // Off in a dry run — it writes queue state — and switchable live from
+        // crawl_config.collection_frontier_enabled. Only the generic strategy
+        // reads it; every other strategy ignores the key. When it is on but
+        // its RPCs are unavailable, generic.mjs falls back to sampling.
+        const frontierOn = !dryRun && (crawlCfg?.collection_frontier_enabled !== false);
+        if (frontierOn) {
+          opts.frontier = {
+            queue: {
+              enqueue: (sid, rows) => enqueueCollectionUrls(ctx, sid, rows),
+              claim: (sid, limit) => claimCollectionUrls(ctx, sid, limit),
+              finish: (id, patch) => finishCollectionUrl(ctx, id, patch),
+              release: (ids) => releaseCollectionUrls(ctx, ids),
+              hostBackoff: (host, s) => noteHostBackoff(ctx, host, s),
+              clearBackoff: (host) => clearHostBackoff(ctx, host),
+            },
+            // The same robots gate the sampling path uses, plus conditional GET
+            // so an unchanged page answers 304 and is never re-parsed. A non-2xx
+            // throws Error('HTTP <status>'), which the planner reads for 429/503.
+            fetchDetail: async (url, v) => {
+              if (!(await robotsAllows(url))) throw new Error('robots disallow');
+              return fetchConditional(url, { etag: v?.etag ?? null, lastModified: v?.lastModified ?? null });
+            },
+            timeBudgetMs: DETAIL_TIME_BUDGET_MS, maxDepth: 2,
+          };
+        }
         const adapter = strategy === 'site' ? adapterForSource(source) : null;
         ({ events, httpStatus, discoveredUrl = null } = adapter
           ? await adapter(source, opts)

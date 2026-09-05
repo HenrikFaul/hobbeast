@@ -20,6 +20,10 @@ import {
   localeFor, localeEventPathRe, localeMonthPattern,
   parseLocaleTextDate, isLocaleNavigationTitle,
 } from './locales.mjs';
+// The persistent per-source detail queue. A planner in the crawlFrontier.mjs
+// mould — pure, injectable, no network of its own — the worker supplies the
+// queue and the fetch through the `frontier` option of scrapeGenericSource.
+import { runCollectionFrontier } from './collectionFrontier.mjs';
 
 export { foldHu, parseHuTextDate };
 
@@ -656,6 +660,38 @@ export function extractAnchorWindowEvents(html, listingUrl, { locale, isEventPat
   return out;
 }
 
+/**
+ * Same-host event-looking links on a DETAIL page, for the collection frontier
+ * to enqueue one level deeper. Applies the listing filter in
+ * scrapeGenericSource verbatim — same host, never the page itself, a real
+ * path, worthFetching — so the frontier can only ever hold a URL the sampling
+ * path would have fetched too. Regex over raw markup, because a detail page is
+ * a static fetch rather than a rendered DOM. Capped hard: descending is a
+ * privilege, not an obligation.
+ */
+export function sameHostEventLinks(html, pageUrl, listingHost, worthFetching, { limit = 200 } = {}) {
+  const out = [];
+  if (!html || !pageUrl) return out;
+  const self = String(pageUrl).split('#')[0].split('?')[0];
+  const seen = new Set();
+  for (const m of String(html).matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["']/gi)) {
+    if (out.length >= limit) break;
+    let url;
+    try { url = new URL(decodeEntities(m[1]), pageUrl); } catch { continue; }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') continue;
+    if (url.host.replace(/^www\./, '') !== listingHost) continue;
+    url.hash = '';
+    const u = url.toString();
+    if (u.split('?')[0] === self) continue;
+    if (url.pathname.length <= 6) continue;
+    if (!worthFetching(url.pathname)) continue;
+    if (seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
 /** Fisher-Yates: rotate WHICH details we fetch when a listing has more links
  * than the per-run budget, so repeated runs converge to full coverage instead
  * of re-reading the same first N. */
@@ -668,7 +704,7 @@ export function shuffled(list) {
   return arr;
 }
 
-export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {}, allowHubRetry = true }) {
+export async function scrapeGenericSource(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {}, allowHubRetry = true, frontier = null }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
   if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
@@ -728,6 +764,38 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       return worthFetching(url.pathname);
     } catch { return false; }
   });
+
+  // The persistent per-source frontier, when the worker supplies one. The
+  // sampling path below forgets everything at the end of a run, so an
+  // over-budget listing is re-sampled every night; the frontier remembers
+  // which detail URLs were fetched and converges on full coverage instead.
+  // It wraps the DETAIL-FETCH step only — every extractor stays as it was —
+  // and if it is absent, disabled or errors, the sampling path runs
+  // unchanged. That is the regression guarantee. Skipped when the Crawl-delay
+  // budget bought zero details: the queue floors a claim at one URL, and
+  // "listing only" must mean exactly that.
+  let frontierEvents = null;
+  if (frontier && maxDetails > 0) {
+    try {
+      const res = await runCollectionFrontier({
+        sourceId: source.source_id, listingUrl, listingHost,
+        candidateUrls: detailUrls, // ALL of them, not a sample
+        queue: frontier.queue,
+        fetchDetail: frontier.fetchDetail, // robots-gated conditional GET, supplied by the worker
+        extractFromDetail: (html, url) => extractDetailEvents(html, url),
+        harvestLinks: (html, pageUrl) => sameHostEventLinks(html, pageUrl, listingHost, worthFetching),
+        // Item pages first: a date or an opaque id in the path, or a long slug.
+        isDetailShaped: (p) => DATED_LINK_RE.test(p) || NUMERIC_ID_LINK_RE.test(p) || /\/[^/]{19,}-[^/]*$/.test(p),
+        maxDetails, maxDepth: frontier.maxDepth ?? 2, delayMs, timeBudgetMs: frontier.timeBudgetMs ?? 240000, log,
+      });
+      frontierEvents = res.events;
+      log(`    frontier: fetched ${res.fetched}, 304 ${res.notModified}, enqueued ${res.enqueued}, released ${res.released}, errors ${res.errors}`);
+      detailUrls = []; // the sequential loop below must NOT run as well
+    } catch (e) {
+      log(`    frontier unavailable (${String(e?.message ?? e).slice(0, 60)}); falling back to sampling`);
+      // Fall through to the sampling path, unchanged.
+    }
+  }
   // Over-budget listings: shuffle so each run samples a DIFFERENT subset.
   if (detailUrls.length > maxDetails) detailUrls = shuffled(detailUrls).slice(0, maxDetails);
 
@@ -739,6 +807,10 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   };
   // The LISTING page itself may already carry Event JSON-LD (some sites inline it).
   for (const ev of extractJsonLdEvents(listingHtml)) push(ev, listingUrl);
+
+  // Detail events the frontier fetched, in the slot the sequential loop below
+  // fills on the sampling path, so event order is the same either way.
+  if (frontierEvents) for (const { ev, detailUrl } of frontierEvents) push(ev, detailUrl);
 
   for (const url of detailUrls) {
     try {

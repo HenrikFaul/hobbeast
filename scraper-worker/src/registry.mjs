@@ -222,3 +222,62 @@ export async function markEmailParsed(ctx, emailId, eventsFound, error = null) {
     await rpc('mark_email_parsed', { p_email_id: emailId, p_events_found: eventsFound, p_error: error }, ctx);
   } catch (e) { console.warn(`mark_email_parsed: ${e.message}`); }
 }
+
+// --- collection frontier ----------------------------------------------------
+//
+// The persistent per-source detail queue (public.collection_frontier, plus the
+// existing crawl_host_state for backoff). Only the two calls the planner
+// cannot proceed without — enqueue and claim — are allowed to throw, so
+// generic.mjs can fall back to the sampling path; the rest are bookkeeping
+// and never fail a source.
+
+/** A void RPC: success is the status code, there is no body worth parsing. */
+async function rpcVoid(name, body, { supabaseUrl, serviceRoleKey }) {
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
+    method: 'POST', headers: headers(serviceRoleKey), body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${name} ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+/** rows: [{url, host, depth, priority, discovered_from}]. Returns rows inserted. THROWS. */
+export async function enqueueCollectionUrls(ctx, sourceId, rows) {
+  if (!rows?.length) return 0;
+  return Number(await rpc('enqueue_collection_urls', { p_source_id: sourceId, p_urls: rows }, ctx)) || 0;
+}
+
+/** The next URLs to fetch for this source, already marked running. THROWS. */
+export async function claimCollectionUrls(ctx, sourceId, limit) {
+  const rows = await rpc('claim_collection_urls', { p_source_id: sourceId, p_limit: limit }, ctx);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function finishCollectionUrl(ctx, id, { status, foundEvents, error, etag, lastModified } = {}) {
+  try {
+    await rpcVoid('finish_collection_url', {
+      p_id: id, p_status: status,
+      // null means "keep what the row has" (COALESCE on the SQL side).
+      p_found_events: Number.isInteger(foundEvents) ? foundEvents : null,
+      p_error: error ?? null, p_etag: etag ?? null, p_last_modified: lastModified ?? null,
+    }, ctx);
+  } catch (e) { console.warn(`finish_collection_url: ${e.message}`); }
+}
+
+/** running -> pending for the given ids (the time budget ran out). Returns the count. */
+export async function releaseCollectionUrls(ctx, ids) {
+  if (!ids?.length) return 0;
+  try {
+    return Number(await rpc('release_collection_urls', { p_ids: ids }, ctx)) || 0;
+  } catch (e) { console.warn(`release_collection_urls: ${e.message}`); return 0; }
+}
+
+export async function noteHostBackoff(ctx, host, seconds) {
+  try {
+    // p_seconds is an integer column; the planner may hand over a fraction.
+    await rpcVoid('note_host_backoff', { p_host: host, p_seconds: Math.max(1, Math.round(Number(seconds) || 0)) }, ctx);
+  } catch (e) { console.warn(`note_host_backoff: ${e.message}`); }
+}
+
+export async function clearHostBackoff(ctx, host) {
+  try { await rpcVoid('clear_host_backoff', { p_host: host }, ctx); }
+  catch (e) { console.warn(`clear_host_backoff: ${e.message}`); }
+}

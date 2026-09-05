@@ -3,6 +3,7 @@ import {
   applyQuery,
   countryLabel,
   distinctValues,
+  frontierBucketOf,
   statusOf,
   type ScraperDestination,
 } from '@/components/admin/scraperSources';
@@ -18,14 +19,15 @@ function row(over: Partial<ScraperDestination> & { source_id: string }): Scraper
     publisher_name: 'X', endpoint_url: 'https://x.test/', city: null, country_code: 'HU',
     scrape_enabled: true, scrape_priority: 100, last_run_at: null, last_events: 0,
     total_events: 0, scrape_strategy: 'render', scrape_note: null, categories: [],
-    access: 'ingyenes', active_events: 0, expired_events: 0, ...over,
+    access: 'ingyenes', active_events: 0, expired_events: 0,
+    frontier_pending: null, frontier_done: null, frontier_error: null, frontier_events: null, ...over,
   };
 }
 
 const ROWS: ScraperDestination[] = [
-  row({ source_id: 'a', publisher_name: 'A38', country_code: 'HU', total_events: 50, active_events: 5, categories: ['Koncert'], last_run_at: '2026-09-01T10:00:00Z', scrape_strategy: 'render' }),
+  row({ source_id: 'a', publisher_name: 'A38', country_code: 'HU', total_events: 50, active_events: 5, categories: ['Koncert'], last_run_at: '2026-09-01T10:00:00Z', scrape_strategy: 'render', frontier_pending: 10, frontier_done: 40, frontier_error: 2, frontier_events: 35 }),
   row({ source_id: 'b', publisher_name: 'Ticketmaster PL', country_code: 'PL', total_events: 300, active_events: 0, categories: ['Koncert', 'Színház'], last_run_at: null, scrape_strategy: 'jsonld' }),
-  row({ source_id: 'c', publisher_name: 'Prague.eu', country_code: 'CZ', total_events: 120, active_events: 9, categories: ['Fesztivál'], last_run_at: '2026-09-03T10:00:00Z', scrape_strategy: 'render' }),
+  row({ source_id: 'c', publisher_name: 'Prague.eu', country_code: 'CZ', total_events: 120, active_events: 9, categories: ['Fesztivál'], last_run_at: '2026-09-03T10:00:00Z', scrape_strategy: 'render', frontier_pending: 0, frontier_done: 120, frontier_error: 0, frontier_events: 200 }),
 ];
 
 describe('statusOf', () => {
@@ -36,9 +38,26 @@ describe('statusOf', () => {
   });
 });
 
+describe('frontierBucketOf', () => {
+  it('derives the three buckets the frontier filter offers', () => {
+    expect(frontierBucketOf(ROWS[0])).toBe('van hátralék');   // URLs still pending
+    expect(frontierBucketOf(ROWS[2])).toBe('kész');           // fetched, nothing pending
+    expect(frontierBucketOf(ROWS[1])).toBe('nincs adat');     // nulls: the stats carry no frontier
+    expect(frontierBucketOf(row({ source_id: 'd', frontier_pending: 0, frontier_done: 0 }))).toBe('nincs adat');
+  });
+
+  it('counts a pending backlog as backlog even when nothing is done yet', () => {
+    expect(frontierBucketOf(row({ source_id: 'e', frontier_pending: 3, frontier_done: 0 }))).toBe('van hátralék');
+  });
+});
+
 describe('distinctValues', () => {
   it('lists the countries present', () => {
     expect(distinctValues(ROWS, 'country_code')).toEqual(['CZ', 'HU', 'PL']);
+  });
+
+  it('offers the frontier as its three buckets', () => {
+    expect(distinctValues(ROWS, 'frontier')).toEqual(['kész', 'nincs adat', 'van hátralék']);
   });
 
   it('flattens the categories array rather than treating it as one value', () => {
@@ -78,6 +97,13 @@ describe('filtering', () => {
     expect(applyQuery(ROWS, '', { status: new Set(['várakozik']) }, null).map((r) => r.source_id)).toEqual(['b']);
   });
 
+  it('filters on the frontier bucket', () => {
+    expect(applyQuery(ROWS, '', { frontier: new Set(['van hátralék']) }, null).map((r) => r.source_id)).toEqual(['a']);
+    expect(applyQuery(ROWS, '', { frontier: new Set(['kész']) }, null).map((r) => r.source_id)).toEqual(['c']);
+    const rest = applyQuery(ROWS, '', { frontier: new Set(['kész', 'nincs adat']) }, null);
+    expect(rest.map((r) => r.source_id).sort()).toEqual(['b', 'c']);
+  });
+
   it('searches name, url and city with the free-text box', () => {
     expect(applyQuery(ROWS, 'prague', {}, null).map((r) => r.source_id)).toEqual(['c']);
     expect(applyQuery(ROWS, 'NINCS ILYEN', {}, null)).toEqual([]);
@@ -100,6 +126,25 @@ describe('sorting', () => {
   it('orders countries alphabetically', () => {
     const asc = applyQuery(ROWS, '', {}, { key: 'country_code', dir: 'asc' });
     expect(asc.map((r) => r.country_code)).toEqual(['CZ', 'HU', 'PL']);
+  });
+
+  it('orders the frontier numerically on done, nulls as zero', () => {
+    const asc = applyQuery(ROWS, '', {}, { key: 'frontier', dir: 'asc' });
+    expect(asc.map((r) => r.source_id)).toEqual(['b', 'a', 'c']);   // null -> 0, 40, 120
+    const desc = applyQuery(ROWS, '', {}, { key: 'frontier', dir: 'desc' });
+    expect(desc.map((r) => r.source_id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('breaks a frontier tie on done by the pending count', () => {
+    const tie = [
+      row({ source_id: 'p', frontier_done: 40, frontier_pending: 5 }),
+      row({ source_id: 'q', frontier_done: 40, frontier_pending: 25 }),
+      row({ source_id: 'r', frontier_done: 9, frontier_pending: 999 }),
+    ];
+    const desc = applyQuery(tie, '', {}, { key: 'frontier', dir: 'desc' });
+    expect(desc.map((r) => r.source_id)).toEqual(['q', 'p', 'r']);
+    const asc = applyQuery(tie, '', {}, { key: 'frontier', dir: 'asc' });
+    expect(asc.map((r) => r.source_id)).toEqual(['r', 'p', 'q']);
   });
 
   it('does not mutate the input array', () => {
