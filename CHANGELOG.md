@@ -117,6 +117,61 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.70.2] — 2026-09-05
+
+### Helyesbítés: a v1.70.0 nem volt láthatatlan a magyar látogatóknak
+
+A v1.70.0 bejegyzése azt állította, hogy „egy magyar látogató számára semmi nem
+változik". **Ez pontatlan volt**, és a CI E2E lépése bizonyította be: a
+`detectInitialLocale()` a böngésző nyelvét követi, a GitHub futtatói angolul
+beszélnek, így a navigáció csendben **„Hobbies"** lett „Hobbik" helyett, és a
+mobil menü tesztje 90 másodperc után időtúllépéssel elhasalt — mindenféle
+utalás nélkül arra, hogy a nyelv az ok.
+
+Mérve, a kész buildből, három böngészőnyelvvel:
+
+| böngésző | `html lang` | mobil navigáció |
+|---|---|---|
+| `en-US` | `en` | Home, Events, Hobbies, Clubs, About |
+| `hu-HU` | `hu` | Főoldal, Események, Hobbik, Klubok, Rólunk |
+| `de-DE` | `de` | Startseite, Veranstaltungen, Hobbys, Klubs, Über uns |
+
+**A viselkedés marad, mert ez az i18n lényege** — egy osztrák vagy lengyel
+látogatónak a saját nyelvén kell megszólalnia a felület. De ki kell mondani:
+**egy magyar felhasználó, akinek angol nyelvű a böngészője, mostantól angol
+felületet kap**, amíg egy kattintással át nem állítja. Magyarországon ez sokakat
+érint. Ha ez nem kívánt, egyetlen sor a `detectInitialLocale()`-ban visszaállítja
+a magyar alapértelmezést — a nyelvválasztó és a megőrzött választás attól
+függetlenül működik.
+
+### A tesztek premisszája mostantól ki van mondva
+
+- **`playwright.config.ts`: `locale: "hu-HU"`.** Az E2E csomag minden állítása a
+  magyar felületre íródott; eddig azt a nyelvet tesztelte, amit a futtató
+  történetesen preferált. A rögzítés nem elfedi a hibát, hanem kimondja, mit
+  mérünk.
+- **`e2e/i18n.spec.ts` (4 új teszt)** — mert a rögzítés önmagában az ELLENTÉTES
+  hibát rejtené el (hogy mindenki magyart kap). Szándékosan más nyelvű
+  böngészőkontextusokkal bizonyítja: angol böngésző → angol navigáció és
+  `html lang="en"`; **`de-AT`** → német (az országrész nem akaszthatja meg a
+  nyelv feloldását, és Ausztria olyan ország, ahonnan gyűjtünk); `fr-FR` → a
+  forrásnyelvre esik vissza, és **nem** rak ki nyers kulcsot (`nav.hobbies`,
+  `country.foreign`) a lapra; végül hogy egy kézzel választott nyelv legyőzi a
+  böngészőt és **túléli az újratöltést**.
+
+### Bizonyíték
+
+- **E2E a CI módján, saját dev szerverrel: 19 zöld, 1 kihagyott, 0 bukott** —
+  köztük a mobil navigációs teszt, ami a v1.70.1-en elhasalt.
+- 883/883 unit teszt, lint 0 hiba, `quality:performance` mind a hat tételre PASS,
+  `release:validate`, `security:audit`, `i18n:check`, `security:secrets` zöld.
+- Mérési tanulság, ami a hibakeresés közben derült ki: a `hero-together-*.mp4`
+  állítás **csak akkor bukik**, ha a csomagot a produkciós `dist` ellen futtatjuk
+  (ott hash-elt a fájlnév). A CI dev szerverrel fut, ezért ez nem regresszió — de
+  ez a különbség eddig sehol nem volt leírva.
+
+---
+
 ## [1.70.1] — 2026-09-05
 
 ### Az app shell kisebb lett, nem nagyobb

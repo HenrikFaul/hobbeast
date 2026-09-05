@@ -12,6 +12,13 @@ export default defineConfig({
   use: {
     baseURL: appUrl,
     trace: "retain-on-failure",
+    // Every assertion in this suite is written against the Hungarian product
+    // surface. Since v1.70.0 the app picks its language from the browser, so
+    // without this the suite would silently test whatever language the runner
+    // happened to prefer — on GitHub's runners that is English, and the
+    // Hungarian link names stopped matching. Pinning it makes the premise
+    // explicit; `e2e/i18n.spec.ts` covers the other languages on purpose.
+    locale: "hu-HU",
   },
   webServer: {
     command: `bun run dev -- --host 127.0.0.1 --port ${appPort}`,

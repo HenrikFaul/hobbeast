@@ -85,3 +85,19 @@
   puffer elavult marad. Ilyenkor a `@playwright/test` közvetlen futtatása a
   buildelt `dist` ellen ad valódi bizonyítékot — a repo gyökeréből futtasd, mert
   a scratchpadból nem látszik a `node_modules`.
+- **Böngészőnyelv-felismerés bevezetése VISELKEDÉSVÁLTOZÁS a meglévő
+  felhasználóknak, nem csak új képesség.** A v1.70.0 bejegyzése azt állította,
+  hogy „egy magyar látogatónak semmi nem változik" — pontatlan volt: aki angol
+  nyelvű böngészőt használ (Magyarországon sokan), az angol felületet kap. A CI
+  E2E-je bizonyította be, 90 másodperces időtúllépéssel egy „Hobbik" linkre, ami
+  akkor épp „Hobbies" volt. Ha egy funkció alapértelmezést vált, azt a
+  changelogban KI KELL MONDANI, nem elég a képességet leírni.
+- **Nyelvfüggő E2E csomagban rögzítsd a `locale`-t** (`playwright.config.ts` →
+  `use.locale`), különben azt a nyelvet teszteli, amit a futtató preferál — a
+  GitHub futtatói angolt. De a rögzítés önmagában az ELLENTÉTES hibát rejti el
+  (mindenki magyart kap), ezért kell mellé egy külön spec, ami szándékosan más
+  nyelvű böngészőkontextusokat használ.
+- **A `hero-together-*.mp4` E2E állítás csak dev szerverrel megy.** A produkciós
+  `dist`-ben hash-elt a fájlnév, ezért ha a csomagot `PLAYWRIGHT_TEST_BASE_URL`-lel
+  a preview szerverre irányítod, hamis bukást kapsz. A CI dev szervert indít —
+  reprodukáláshoz te is azt futtasd (`npx playwright test` paraméter nélkül).
