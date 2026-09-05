@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
-import { App as CapApp } from "@capacitor/app";
-import { StatusBar, Style } from "@capacitor/status-bar";
-import { SplashScreen } from "@capacitor/splash-screen";
-import { initNativeNotifications } from "./notifications";
+
+// Only @capacitor/core is imported statically — it is small and the platform
+// check below needs it synchronously. The plugin packages (app, status-bar,
+// splash-screen) and ./notifications are pulled in with dynamic import()
+// INSIDE the native-only branch, so the web bundle never carries the Capacitor
+// runtime it can never execute. Static imports here cost the shared app shell
+// roughly 9 KB raw / 4 KB gzip for code that is inert in a browser.
 
 const BRAND_BG = "#183124";
 const APP_LINK_HOSTS = ["expericentre.com", "www.expericentre.com"];
@@ -25,6 +28,18 @@ export function NativeBootstrap() {
     let cancelled = false;
 
     (async () => {
+      // Native-only: load the platform plugins on demand. On the web this line
+      // is never reached, so none of it enters the shell chunk.
+      const [{ App: CapApp }, { StatusBar, Style }, { SplashScreen }, { initNativeNotifications }] =
+        await Promise.all([
+          import("@capacitor/app"),
+          import("@capacitor/status-bar"),
+          import("@capacitor/splash-screen"),
+          import("./notifications"),
+        ]);
+      // The component can unmount while those resolve; don't attach listeners then.
+      if (cancelled) return;
+
       // Light status-bar icons over the dark-green brand background (Android).
       try {
         await StatusBar.setStyle({ style: Style.Light });

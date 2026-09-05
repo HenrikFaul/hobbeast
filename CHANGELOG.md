@@ -117,6 +117,77 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.56.0] — 2026-09-05
+
+### Külföldi források élesben (AT/CZ/PL/SI/SK) + rendezhető, szűrhető forrás-tábla
+
+**14 külföldi eseményforrás élesítve.** A 2026-09-04-i crawl exportjából 44 nem
+magyar host került elemzésre. Mindegyik kapott egy javasló és egy **adverzariálisan
+ellenőrző** menetet, valós HTTP-lekéréssel és `robots.txt`-olvasással. Ami mindkét
+menetet kiállta, az **nem** pending review-ba került, hanem élesben gyűjt
+(`review_state='approved'`, `scrape_enabled=true`), országjelöléssel:
+
+| Ország | Források |
+|---|---|
+| 🇦🇹 AT | Wiener Konzerthaus, FALTER.at, KulturServer Graz, Innsbruck Tourismus |
+| 🇨🇿 CZ | GoOut, Kudy z nudy (CzechTourism), Národní divadlo, Forum Karlín |
+| 🇵🇱 PL | eBilet.pl, Filharmonia Narodowa, Magiczny Kraków |
+| 🇸🇮 SI | Cankarjev dom, Kinodvor |
+| 🇸🇰 SK | Slovenská filharmónia |
+
+Az ellenőrzés valódi munkát végzett: a `brno.cz` elutasítva (a `/akce` oldal
+kizárólag városházi sajtóesemények — tanácsülések, szalagátvágások), a `going.pl`
+szintén. Több endpoint javításra került, és minden rekord viszi a saját
+robots-korlátját (a Konzerthaus `Disallow: /*?` miatt nem lapozható query-vel; az
+Innsbruck 403-at ad böngésző-User-Agent nélkül; a Graz 2 másodperces crawl-delay-t
+kér).
+
+**Nem minden host készült el.** A 44-ből 25 csak az első menetet kapta meg, mert a
+munkamenet heti ügynök-limitbe futott (Sep 7-én áll vissza). Ezeket **szándékosan
+nem** élesítettem: a magyar V5 körben az ellenőrző menet a 39 első-menetes javaslatból
+**11-et elutasított és további 10-et javított** — vagyis a felük hibás volt. Egy menet
+nem elég ahhoz, hogy egy harmadik fél oldalára élő scrapinget engedjek. Köztük van
+több nagy forrás (ticketmaster.pl/cz, predpredaj.sk, oeticket, snd.sk, prague.eu,
+teatrwielki.pl); ezek a limit feloldása után fejezhetők be.
+
+### Forrás-tábla: rendezés és oszloponkénti többszörös szűrés
+
+Az admin `/admin?tab=scraper` forrás-táblája **minden oszlopon rendezhető** (kattintás
+növekvő → csökkenő → alaphelyzet), és **minden oszlopon szűrhető, az oszlop
+adattípusának megfelelően**: a kategorikus oszlopoknál (Ország, Módszer, Kategóriák,
+Hozzáférés, Állapot) többszörös kiválasztás a ténylegesen előforduló értékek közül, a
+Forrásnál szabadszavas keresés névre/URL-re/városra, a dátum-oszlopnál „futott már /
+még nem futott". A szűrők oszlopon belül VAGY, oszlopok között ÉS kapcsolatban állnak.
+
+Új **Ország** oszlop zászlós címkével. A fejléc jelölőnégyzete pontosan a szűrésen
+átjutó sorokat jelöli ki, és van „Mind a N kijelölése" gomb is — így például a lengyel
+jegyértékesítőkre szűkítve egy kattintással átadható a halmaz egy begyűjtő futásnak.
+
+A tábla saját komponensbe került (`ScraperSourcesTable`), a szűrő/rendező logika
+pedig egy tiszta, renderelés nélkül tesztelhető modulba (`scraperSources.ts`) —
+16 új unit teszt fedi.
+
+### NativeBootstrap: a Capacitor-pluginek már csak natívon töltődnek
+
+A korábban jelzett tétel. A `@capacitor/app`, `status-bar`, `splash-screen` és a
+`notifications` modul mostantól dinamikus `import()`-tal, a natív ág **belsejében**
+töltődik, így webre nem kerül olyan kód, ami ott sosem futhat. Csak a
+`@capacitor/core` marad statikus, mert a platform-ellenőrzés szinkron módon kell.
+
+**Őszinte mérés:** ez az app-shellből 176805 → 175908 nyers bájtot (−897), gzip-ben
+56297 → 55948-at (−349) hozott vissza — jóval kevesebbet, mint a korábban becsült
+~9 KB. A becslésem téves volt: a súly zöme a `@capacitor/core` maga, nem a vékony
+plugin-wrapperek. A core kiemeléséhez a `window.Capacitor` globálison keresztüli
+detektálás kellene, ami natív regressziót kockáztatna, ezért nem tettem meg. A
+teljesítmény-keret így változatlan marad.
+
+Kockázatmentes: az alkalmazás **már eddig is** dinamikus importtal töltötte minden
+útvonalát, tehát a Capacitor WebView-ban ez bizonyítottan működő minta. Ellenőrizve:
+`cap sync android` mind az 5 plugint feloldotta, `gradlew assembleRelease` →
+**BUILD SUCCESSFUL** (27,8 MB APK).
+
+---
+
 ## [1.55.2] — 2026-09-04
 
 ### Elavult E2E-állítás javítva — a motto v1.35.0 óta más

@@ -12,24 +12,8 @@ import { SourceInspector } from '@/features/sources/SourceInspector';
 import { AdminSourceDiscovery } from '@/components/admin/AdminSourceDiscovery';
 import { AdminCrawlerControl } from '@/components/admin/AdminCrawlerControl';
 import { AdminEmailSources } from '@/components/admin/AdminEmailSources';
-
-interface ScraperDestination {
-  source_id: string;
-  publisher_name: string;
-  endpoint_url: string;
-  city: string | null;
-  scrape_enabled: boolean;
-  scrape_priority: number;
-  last_run_at: string | null;
-  last_events: number;
-  total_events: number;
-  scrape_strategy: string | null;
-  scrape_note: string | null;
-  categories: string[] | null;
-  access: string;
-  active_events: number;
-  expired_events: number;
-}
+import { ScraperSourcesTable } from '@/components/admin/ScraperSourcesTable';
+import type { ScraperDestination } from '@/components/admin/scraperSources';
 
 interface ScraperDaily {
   day: string;
@@ -71,34 +55,12 @@ interface ProgressRun {
   http_status: number | null;
 }
 
-const STRATEGY_LABELS: Record<string, string> = {
-  render: 'böngészős',
-  rss: 'hírfolyam',
-  tribe: 'esemény-API',
-  site: 'egyedi adapter',
-  ics: 'naptár-feed',
-  'wp-ics-calendar': 'naptár-rács',
-  jsonld: 'strukturált adat',
-  'wp-posts': 'cikkekből',
-  'page-prose': 'egy esemény oldala',
-};
-
 const numberFormat = new Intl.NumberFormat('hu-HU');
-
-function formatWhen(value: string | null) {
-  if (!value) return 'még nem futott';
-  try {
-    return new Date(value).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return value;
-  }
-}
 
 export function AdminScraper() {
   const [stats, setStats] = useState<ScraperStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dispatching, setDispatching] = useState(false);
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
@@ -165,7 +127,6 @@ export function AdminScraper() {
   if (!stats) return null;
 
   const { totals, daily, destinations } = stats;
-  const visibleDestinations = showAll ? destinations : destinations.slice(0, 30);
   const progressTotals = progress.reduce(
     (acc, r) => ({
       discovered: acc.discovered + (r.discovered || 0),
@@ -175,6 +136,18 @@ export function AdminScraper() {
     }),
     { discovered: 0, inserted: 0, duplicates: 0, sources: 0 },
   );
+
+  /** Select or clear a whole set at once — used by the table's filtered "select all". */
+  const selectMany = (ids: string[], on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
 
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
@@ -309,71 +282,12 @@ export function AdminScraper() {
           <CardTitle className="text-sm">Források (destinations) · prioritás szerint</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
-            <thead><tr className="border-b text-left text-xs uppercase text-muted-foreground">
-              <th className="py-2 pr-2 w-8"></th>
-              <th className="py-2 pr-3">Forrás</th><th className="py-2 pr-3">Módszer</th>
-              <th className="py-2 pr-3">Kategóriák</th><th className="py-2 pr-3">Hozzáférés</th>
-              <th className="py-2 pr-3">Utolsó futás</th><th className="py-2 pr-3">Utolsó · összes</th>
-              <th className="py-2 pr-3">Aktív / Lejárt</th><th className="py-2">Állapot</th>
-            </tr></thead>
-            <tbody>{visibleDestinations.map((d) => (
-              <tr key={d.source_id} className="border-b last:border-0">
-                <td className="py-2 pr-2">
-                  <Checkbox
-                    checked={selected.has(d.source_id)}
-                    onCheckedChange={() => toggleSelected(d.source_id)}
-                    aria-label={`${d.publisher_name} kijelölése begyűjtésre`}
-                  />
-                </td>
-                <td className="py-2 pr-3">
-                  <p className="font-medium">{d.publisher_name}</p>
-                  <p className="max-w-[240px] truncate text-xs text-muted-foreground">{d.endpoint_url}</p>
-                  {d.scrape_note && (
-                    <p className="max-w-[280px] text-xs italic text-amber-700 dark:text-amber-500" title={d.scrape_note}>
-                      {d.scrape_note.length > 70 ? `${d.scrape_note.slice(0, 70)}…` : d.scrape_note}
-                    </p>
-                  )}
-                </td>
-                <td className="py-2 pr-3">
-                  <Badge variant={d.scrape_strategy === 'render' || !d.scrape_strategy ? 'outline' : 'secondary'} className="text-[10px]">
-                    {STRATEGY_LABELS[d.scrape_strategy || 'render'] || d.scrape_strategy}
-                  </Badge>
-                </td>
-                <td className="py-2 pr-3">
-                  <span className="flex max-w-[160px] flex-wrap gap-1">
-                    {(d.categories || []).slice(0, 2).map((c) => (
-                      <Badge key={c} variant="outline" className="text-[10px] font-normal">{c}</Badge>
-                    ))}
-                    {(d.categories || []).length > 2 && (
-                      <Badge variant="outline" className="text-[10px] font-normal" title={(d.categories || []).join(', ')}>
-                        +{(d.categories || []).length - 2}
-                      </Badge>
-                    )}
-                    {!(d.categories || []).length && <span className="text-xs text-muted-foreground">—</span>}
-                  </span>
-                </td>
-                <td className="py-2 pr-3 text-xs">{d.access}</td>
-                <td className="py-2 pr-3">{formatWhen(d.last_run_at)}</td>
-                <td className="py-2 pr-3">{d.last_events} · {d.total_events}</td>
-                <td className="py-2 pr-3">
-                  <span className="font-semibold text-emerald-600">{d.active_events}</span>
-                  {' / '}
-                  <span className="text-muted-foreground">{d.expired_events}</span>
-                </td>
-                <td className="py-2">
-                  <Badge variant={d.active_events > 0 ? 'default' : d.last_run_at ? 'secondary' : 'outline'}>
-                    {d.active_events > 0 ? 'termel' : d.last_run_at ? 'nincs találat' : 'várakozik'}
-                  </Badge>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
-          {destinations.length > 30 && (
-            <Button variant="ghost" size="sm" className="mt-3" onClick={() => setShowAll((v) => !v)}>
-              {showAll ? 'Kevesebb mutatása' : `Mind a ${destinations.length} forrás mutatása`}
-            </Button>
-          )}
+          <ScraperSourcesTable
+            destinations={destinations}
+            selected={selected}
+            onToggle={toggleSelected}
+            onSelectMany={selectMany}
+          />
         </CardContent>
       </Card>
     </div>
