@@ -14,7 +14,7 @@
 //        --details N (detail pages per source, default 12).
 
 import { chromium } from 'playwright';
-import { fetchStatic, robotsAllows, robotsCrawlDelayMs, fetchConditional } from './src/fetch.mjs';
+import { fetchStatic, robotsAllows, robotsCrawlDelayMs, fetchConditional, looksLikeBotChallenge } from './src/fetch.mjs';
 import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
 import { crawlFrontier } from './src/sources/crawlFrontier.mjs';
 import { parseEmailEvents } from './src/sources/emailEvents.mjs';
@@ -400,7 +400,15 @@ async function main() {
                   ? await scrapeRssSource(source, opts)
                   : await scrapeGenericSource(source, opts));
         if (events.length > 300) events = events.slice(0, 300);
-        log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
+        // "0 events" and "they refused to serve us" look identical in the run
+        // log otherwise, and the second one is not a parser problem.
+        const blocked = events.length === 0 && looksLikeBotChallenge(httpStatus, null);
+        if (blocked) {
+          error = `blocked: the site answered HTTP ${httpStatus} — not a parsing failure`;
+          log(`  ${label} [${strategy}]: BLOCKED (HTTP ${httpStatus}) — no parsing was possible`);
+        } else {
+          log(`  ${label} [${strategy}]: ${events.length} dated events (HTTP ${httpStatus ?? '?'})`);
+        }
       } catch (e) {
         status = 'failed';
         error = e.message.slice(0, 200);

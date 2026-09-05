@@ -47,6 +47,37 @@ export async function fetchConditional(url, { timeoutMs = 15000, etag = null, la
   }
 }
 
+// Phrases a bot-check interstitial puts in the body. Borrowed from the
+// grepsearch crawler, which added the Hungarian one for local sites.
+const CHALLENGE_HINTS = [
+  'csak egy gyors ellenőrzés',
+  'just a moment',
+  'checking your browser',
+  'attention required',
+  'cf-browser-verification',
+  'cloudflare',
+];
+
+/**
+ * Did the site REFUSE us, as opposed to serving a page we simply found nothing
+ * in? A pure classifier — it changes no behaviour and triggers no retry.
+ *
+ * The distinction matters for reporting. Ticketmaster CZ and PL log "succeeded,
+ * 0 discovered" today, which reads exactly like a parser that needs work; in
+ * fact they answer 403 from the CI datacenter IP. Telling the two apart stops
+ * anyone burning an afternoon writing selectors for a page they were never
+ * served. It is explicitly NOT a hook for evading the block.
+ *
+ * The length guard is what keeps a genuine article about Cloudflare from being
+ * misread as a challenge: interstitials are tiny, real pages are not.
+ */
+export function looksLikeBotChallenge(status, html) {
+  if (status === 403 || status === 429 || status === 503) return true;
+  if (!html) return false;
+  const head = String(html).toLowerCase().slice(0, 4000);
+  return String(html).length < 20000 && CHALLENGE_HINTS.some((s) => head.includes(s));
+}
+
 // robots.txt evaluator for the User-agent:* group. Fails OPEN only for a missing
 // or unreadable robots file, fails CLOSED on a matching Disallow.
 //

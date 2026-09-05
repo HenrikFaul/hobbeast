@@ -12,7 +12,7 @@
 import crypto from 'node:crypto';
 // The Hungarian date vocabulary lives in recipes.mjs so that the Edge Function,
 // which bundles only that file, parses dates exactly the way the worker does.
-import { foldHu, parseHuTextDate, decodeEntities } from './recipes.mjs';
+import { foldHu, parseHuTextDate, decodeEntities, parseJsonLdBlock, jsonLdNodes } from './recipes.mjs';
 // Non-Hungarian sources need their own path words, month names and nav words.
 // localeFor() returns null for HU and for anything unrecognised, so a Hungarian
 // source keeps exactly the behaviour it had before locales existed.
@@ -27,6 +27,15 @@ export { foldHu, parseHuTextDate };
 // (22 registered sources) publishes every event as /ajanlat-{slug}.html.
 const EVENT_LINK_RE = /\/(program(?:ok|ajanlo)?|ajanlat|event(?:s)?|esemeny(?:ek)?|koncert(?:ek)?|musor|eloadas(?:ok)?|rendezveny(?:ek)?|tura(?:k)?|hikeplans|show|naptar|kalendarium|fesztival(?:ok)?|workshop(?:ok)?|kiallitas(?:ok)?|kviz|quiz|tanfolyam(?:ok)?|kurzus(?:ok)?|seta(?:k)?|buli(?:k)?|party)(?:[/\-_?#]|$)/i;
 const DATED_LINK_RE = /20(2[5-9])[/\-.]?(0[1-9]|1[0-2])[/\-.]?(0[1-9]|[12]\d|3[01])?/;
+
+// An opaque numeric id in the path is the one language-independent hint that a
+// URL is an item page rather than a listing — /e/48213-koncert, /d/9912345.
+// Ticketing and CMS sites abroad lean on it heavily, and no keyword vocabulary
+// can catch them. Tightened from the grepsearch original (which accepts any
+// 4+ digit segment): 5+ digits, or 4+ digits immediately followed by a slug
+// hyphen. The looser form would swallow bare year segments like /blog/2019/
+// and /wp-content/uploads/2018/.
+const NUMERIC_ID_LINK_RE = /\/(?:\d{5,}(?:[/-]|$)|\d{4,}-[a-z])/i;
 
 export function md5(s) { return crypto.createHash('md5').update(s).digest('hex'); }
 
@@ -150,26 +159,55 @@ export function stripHtml(s) {
   return String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Read price, currency and ticket link out of a schema.org offers value.
+ *
+ * The old version returned on the FIRST offer object, so an offers[] whose
+ * first entry is a bare `{"@type":"Offer","availability":"InStock"}` — very
+ * common on ticketing sites — masked the real price sitting in entry two. This
+ * keeps scanning until it finds a price, while still binding ticket_url to the
+ * first offer that carries a link, because buildEvent derives external_url
+ * from it and the first link is the canonical one.
+ */
 function parseOffers(offers) {
   const list = Array.isArray(offers) ? offers : offers ? [offers] : [];
+  let price_min = null;
+  let currency = null;
+  let ticket_url = null;
   for (const o of list) {
     if (!o || typeof o !== 'object') continue;
-    const price = Number(o.lowPrice ?? o.price);
-    return {
-      price_min: Number.isFinite(price) && price >= 0 ? price : null,
-      currency: typeof o.priceCurrency === 'string' ? o.priceCurrency.slice(0, 8) : null,
-      ticket_url: typeof o.url === 'string' && /^https?:\/\//.test(o.url) ? o.url : null,
-    };
+    if (ticket_url === null && typeof o.url === 'string' && /^https?:\/\//.test(o.url)) {
+      ticket_url = o.url;
+    }
+    if (currency === null && typeof o.priceCurrency === 'string') {
+      currency = o.priceCurrency.slice(0, 8);
+    }
+    if (price_min !== null) continue;
+    // highPrice covers AggregateOffer ranges and sold-out "from X" listings.
+    const raw = o.lowPrice ?? o.price ?? o.highPrice;
+    // "" and " " must not become 0 — Number('') is 0, which would publish a
+    // paid event as free.
+    if (raw === undefined || raw === null) continue;
+    if (typeof raw === 'string' && raw.trim() === '') continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) continue;
+    price_min = n;
+    if (typeof o.priceCurrency === 'string') currency = o.priceCurrency.slice(0, 8);
   }
-  return { price_min: null, currency: null, ticket_url: null };
+  return { price_min, currency, ticket_url };
 }
 
 export function extractJsonLdEvents(html) {
   const out = [];
   for (const b of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    let parsed;
-    try { parsed = JSON.parse(b[1].trim()); } catch { continue; }
-    const arr = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+    const parsed = parseJsonLdBlock(b[1]);
+    if (!parsed) continue;
+    // Walk the whole document, not just the top level and @graph: venue sites
+    // routinely hang their programme off mainEntity / hasPart / subEvent, and
+    // the old two-level read found nothing there. The @type test below stays
+    // deliberately loose (/Event/i) — a strict allowlist would drop
+    // EventSeries and cost yield on both HU and foreign sources.
+    const arr = jsonLdNodes(parsed);
     for (const it of arr) {
       if (!it || typeof it !== 'object' || !/Event/i.test(String(it['@type'] || ''))) continue;
       const loc = it.location && typeof it.location === 'object' ? it.location : null;
@@ -177,6 +215,7 @@ export function extractJsonLdEvents(html) {
       out.push({
         name: firstString(it.name),
         startDate: firstString(it.startDate),
+        category: eventCategoryHint(it),
         location: firstString(loc?.name) || (typeof it.location === 'string' ? it.location : null),
         address: typeof addr === 'string' ? addr : firstString(addr?.streetAddress),
         city: addr && typeof addr === 'object' ? firstString(addr.addressLocality) : null,
@@ -305,6 +344,44 @@ export function hobbeastCategory(sourceCategories) {
   return 'Program';
 }
 
+// schema.org event subtypes, mapped to Hobbeast's own ten categories. The
+// values here are deliberately Hobbeast's, never the raw schema.org word: the
+// catalogue only understands these strings.
+const TYPE_CATEGORY = {
+  musicevent: 'Zene', festival: 'Zene',
+  theaterevent: 'Színház & Előadás', comedyevent: 'Színház & Előadás',
+  danceevent: 'Tánc',
+  sportsevent: 'Sport & Mozgás',
+  foodevent: 'Gasztro',
+  childrensevent: 'Családi',
+  exhibitionevent: 'Kultúra', visualartsevent: 'Kultúra',
+  literaryevent: 'Kultúra', screeningevent: 'Kultúra',
+};
+
+/**
+ * The event's OWN category, when its JSON-LD says what kind of thing it is.
+ *
+ * Until now every row took its category from the SOURCE's category list, which
+ * is why a whole Prague aggregator landed under "Zene" — a tattoo market and a
+ * drone expo included. schema.org @type is per-event and language-independent,
+ * so it is a far better signal when present. Returns null when the node says
+ * nothing useful, and the caller then falls back to the source-level guess.
+ */
+export function eventCategoryHint(node) {
+  if (!node || typeof node !== 'object') return null;
+  const raw = [].concat(node['@type'] ?? [])[0];
+  const key = raw ? String(raw).replace(/^.*\//, '').toLowerCase() : '';
+  if (TYPE_CATEGORY[key]) return TYPE_CATEGORY[key];
+  // eventCategory/genre are free text; run them through the existing matcher so
+  // only canonical Hobbeast values can ever come out.
+  const free = firstString(node.eventCategory) || firstString(node.genre);
+  if (free) {
+    const guess = hobbeastCategory(free);
+    if (guess !== 'Program') return guess;
+  }
+  return null;
+}
+
 /** Shared normalized-event builder used by every strategy (render/rss/tribe). */
 export function buildEvent(source, ev, { listingUrl, detailUrl, idSeed = null }) {
   const { date, time } = parseEventDate(ev.startDate);
@@ -319,7 +396,10 @@ export function buildEvent(source, ev, { listingUrl, detailUrl, idSeed = null })
     // Chicken Can&#039;t Lay a Duck&quot;`. Decoding is display-only and cannot
     // split or merge rows, because external_id is derived from the URL.
     title: decodeEntities(String(ev.name)).slice(0, 200),
-    category: hobbeastCategory(source.categories),
+    // The event's own schema.org type wins; the source's category list is the
+    // fallback, exactly as before, so anything without a usable @type is
+    // categorised the way it always was.
+    category: ev.category || hobbeastCategory(source.categories),
     subcategory: null,
     tags: (Array.isArray(source.categories) ? source.categories : []).slice(0, 4),
     description: ev.description ? decodeEntities(String(ev.description)) : ev.description,
@@ -383,8 +463,8 @@ export function extractDetailEvents(html, pageUrl = null) {
 export function extractItemListUrls(html, baseUrl) {
   const urls = [];
   for (const b of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    let parsed;
-    try { parsed = JSON.parse(b[1].trim()); } catch { continue; }
+    const parsed = parseJsonLdBlock(b[1]);
+    if (!parsed) continue;
     const arr = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
     for (const it of arr) {
       if (!it || String(it['@type']) !== 'ItemList' || !Array.isArray(it.itemListElement)) continue;
@@ -520,6 +600,62 @@ export async function renderPage(browser, url, localeMonths = null) {
   }
 }
 
+/**
+ * Last-resort listing reader that works on the RAW HTML instead of the DOM.
+ *
+ * Hobbeast's card collector walks up at most four DOM ancestors looking for a
+ * date, which fails whenever a listing puts the date in a block that is far up
+ * the tree but adjacent in the markup — the shape that left Filharmonia
+ * Narodowa and Magiczny Kraków at zero. The grepsearch crawler solves it by
+ * scanning a character window around each anchor in the source text, which has
+ * no notion of tree distance at all.
+ *
+ * Three guards keep it honest, because a text window is a blunt instrument:
+ *   - it is only ever called for a non-Hungarian source (locale is non-null),
+ *     so the 377 Hungarian sources never reach this code;
+ *   - it is only called when every other path produced NOTHING, so it can add
+ *     events where there were none but can never displace a better parse;
+ *   - the anchor must still look like an event link, and the title must still
+ *     survive the locale's navigation-word filter.
+ */
+export function extractAnchorWindowEvents(html, listingUrl, { locale, isEventPath, isNavTitle, parseDate, limit = 80 }) {
+  const out = [];
+  if (!locale || !html) return out;
+  let base;
+  try { base = new URL(listingUrl); } catch { return out; }
+  const baseHost = base.host.replace(/^www\./, '');
+  const seen = new Set();
+  const anchorRe = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]{0,400}?)<\/a>/gi;
+
+  for (const m of html.matchAll(anchorRe)) {
+    if (out.length >= limit) break;
+    const label = decodeEntities(String(m[2]).replace(/<[^>]+>/g, ' '));
+    if (label.length < 6 || label.length > 200) continue;
+    if (isNavTitle(label)) continue;
+
+    let target;
+    try { target = new URL(m[1], base); } catch { continue; }
+    if (target.host.replace(/^www\./, '') !== baseHost) continue;
+    if (target.pathname === base.pathname) continue;
+    if (!isEventPath(target.pathname)) continue;
+
+    // The window is measured in CHARACTERS of markup, which is the whole point:
+    // it finds a date that sits beside the anchor in the source even when the
+    // DOM puts it many levels away.
+    const from = Math.max(0, m.index - 700);
+    const context = decodeEntities(html.slice(from, m.index + m[0].length + 700).replace(/<[^>]+>/g, ' '));
+    const date = parseDate(context);
+    if (!date) continue;
+
+    const url = target.toString();
+    const key = `${url}|${label.toLowerCase()}|${date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: label.slice(0, 200), startDate: date, url, image: null, description: null, offers: {} });
+  }
+  return out;
+}
+
 /** Fisher-Yates: rotate WHICH details we fetch when a listing has more links
  * than the per-run budget, so repeated runs converge to full coverage instead
  * of re-reading the same first N. */
@@ -546,6 +682,14 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   const looksLikeEventPath = (pathname) => EVENT_LINK_RE.test(pathname)
     || DATED_LINK_RE.test(pathname)
     || (localeLinkRe !== null && localeLinkRe.test(pathname));
+  // A SEPARATE, wider predicate used ONLY to decide what to fetch. A wrongly
+  // fetched detail page costs one request and yields nothing unless it really
+  // carries Event data; a wrongly accepted listing CARD becomes a row in the
+  // catalogue, so the card filter below keeps the narrow predicate. Gated on
+  // `locale`, which is null for HU and unknown countries, so the 377 Hungarian
+  // sources evaluate exactly what they did before.
+  const worthFetching = (pathname) => looksLikeEventPath(pathname)
+    || (locale !== null && NUMERIC_ID_LINK_RE.test(pathname));
   // Each judgement is made by ONE vocabulary, never a union of both. Mixing
   // them is actively harmful: parseHuTextDate("6. September 2026") matches its
   // year-less branch and reads the "20" of 2026 as the day, quietly producing
@@ -581,7 +725,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       if (url.host.replace(/^www\./, '') !== listingHost) return false;
       if (u.split('?')[0] === listingUrl.split('?')[0]) return false;
       if (url.pathname.length <= 6) return false;
-      return looksLikeEventPath(url.pathname);
+      return worthFetching(url.pathname);
     } catch { return false; }
   });
   // Over-budget listings: shuffle so each run samples a DIFFERENT subset.
@@ -639,6 +783,23 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       offers: { price_min: null, currency: null, ticket_url: null },
     }, { listingUrl, detailUrl: card.href || listingUrl, idSeed: key });
     if (row) events.push(row);
+  }
+
+  // Nothing worked and this is a foreign source: try reading the raw markup
+  // around each anchor. Deliberately placed after every structured path, so it
+  // only ever fills a vacuum.
+  if (events.length === 0 && locale) {
+    const windowed = extractAnchorWindowEvents(listingHtml, listingUrl, {
+      locale,
+      isEventPath: looksLikeEventPath,
+      isNavTitle,
+      parseDate: parseCardDate,
+    });
+    for (const ev of windowed) {
+      const row = buildEvent(source, ev, { listingUrl, detailUrl: ev.url, idSeed: `${ev.url}|${ev.startDate}` });
+      if (row) events.push(row);
+    }
+    if (windowed.length) log(`    raw-markup fallback recovered ${windowed.length} listing entries`);
   }
 
   // Self-healing entry point: a listing that produced nothing may simply be the

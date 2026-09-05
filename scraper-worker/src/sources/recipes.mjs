@@ -254,11 +254,60 @@ export function parseWpIcsCalendar(html, pageUrl) {
 
 const EVENT_TYPE_RE = /^(Event|MusicEvent|TheaterEvent|SportsEvent|ScreeningEvent|SocialEvent|FestivalEvent|Festival|ExhibitionEvent|EducationEvent|BusinessEvent|ChildrensEvent|ComedyEvent|DanceEvent|FoodEvent|LiteraryEvent|VisualArtsEvent|CourseInstance)$/i;
 
-function jsonLdNodes(value, out = []) {
+/**
+ * Parse one <script type="application/ld+json"> body, tolerating the two ways
+ * real sites break it: a block wrapped in HTML comments (an old XHTML habit
+ * some CMSs still emit) and a trailing comma before } or ]. Borrowed from the
+ * grepsearch crawler, which hits both often enough to handle them.
+ *
+ * The repair only runs AFTER a strict parse has already failed, so it can never
+ * alter a block that parses today — a description legitimately containing
+ * "<!--" is returned untouched by the first attempt.
+ */
+export function parseJsonLdBlock(raw) {
+  const body = String(raw ?? '').trim();
+  if (!body) return null;
+  try { return JSON.parse(body); } catch { /* fall through to the tolerant retries */ }
+
+  const attempts = [];
+  // (a) The whole payload wrapped in one comment — the old
+  //     `<script><!-- {...} //--></script>` idiom. grepsearch's single
+  //     strip-all-comments pass deletes the JSON along with the wrapper here,
+  //     so unwrapping is tried first and separately.
+  const unwrapped = body.replace(/^<!--/, '').replace(/\/\/\s*-->$/, '').replace(/-->$/, '').trim();
+  if (unwrapped !== body) attempts.push(unwrapped);
+  // (b) Comments embedded INSIDE the JSON, which is what stripping is for.
+  attempts.push(body.replace(/<!--[\s\S]*?-->/g, '').trim());
+
+  for (const attempt of attempts) {
+    if (!attempt || attempt === body) continue;
+    try { return JSON.parse(attempt); } catch { /* try the comma repair below */ }
+    // Trailing comma before } or ], which several CMS templates emit.
+    const noTrailingComma = attempt.replace(/,\s*([}\]])/g, '$1');
+    if (noTrailingComma !== attempt) {
+      try { return JSON.parse(noTrailingComma); } catch { /* next attempt */ }
+    }
+  }
+  // Finally: valid apart from a trailing comma, no comments involved.
+  const commaOnly = body.replace(/,\s*([}\]])/g, '$1');
+  if (commaOnly !== body) {
+    try { return JSON.parse(commaOnly); } catch { return null; }
+  }
+  return null;
+}
+
+/**
+ * Flatten a JSON-LD document into every object it contains.
+ *
+ * `mainEntity` and `hasPart` were added for the foreign registry: a venue page
+ * commonly publishes one WebPage/CollectionPage node whose real programme hangs
+ * off one of those keys, and reading only the top level or @graph finds nothing.
+ */
+export function jsonLdNodes(value, out = []) {
   if (Array.isArray(value)) { value.forEach((v) => jsonLdNodes(v, out)); return out; }
   if (value && typeof value === 'object') {
     out.push(value);
-    for (const key of ['@graph', 'itemListElement', 'item', 'subEvent', 'events']) {
+    for (const key of ['@graph', 'itemListElement', 'item', 'subEvent', 'events', 'mainEntity', 'hasPart']) {
       if (value[key]) jsonLdNodes(value[key], out);
     }
   }
@@ -268,8 +317,8 @@ function jsonLdNodes(value, out = []) {
 export function parseJsonLdEvents(html, pageUrl) {
   const events = [];
   for (const block of String(html ?? '').matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    let parsed;
-    try { parsed = JSON.parse(block[1].trim()); } catch { continue; }
+    const parsed = parseJsonLdBlock(block[1]);
+    if (!parsed) continue;
     for (const node of jsonLdNodes(parsed)) {
       const types = [].concat(node['@type'] ?? []);
       if (!types.some((t) => EVENT_TYPE_RE.test(String(t)))) continue;
