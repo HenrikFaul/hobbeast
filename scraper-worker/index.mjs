@@ -372,8 +372,16 @@ async function main() {
         const crawlDelayMs = await robotsCrawlDelayMs(listing).catch(() => null);
         let maxDetails = detailsPerSource;
         if (crawlDelayMs) {
-          maxDetails = Math.max(4, Math.min(detailsPerSource, Math.floor(DETAIL_TIME_BUDGET_MS / crawlDelayMs)));
-          log(`  ${label}: Crawl-delay ${crawlDelayMs / 1000}s -> ${maxDetails} details this run`);
+          // No floor here. prague.eu asks for Crawl-delay: 600, and a minimum of
+          // four details would mean 40 minutes on ONE source — most of a
+          // 50-minute job, starving every other host. When the budget does not
+          // buy even a single polite fetch we take zero details and keep only
+          // what the listing itself yields (JSON-LD plus cards), which is the
+          // honest reading of a delay that large.
+          maxDetails = Math.min(detailsPerSource, Math.floor(DETAIL_TIME_BUDGET_MS / crawlDelayMs));
+          log(maxDetails === 0
+            ? `  ${label}: Crawl-delay ${crawlDelayMs / 1000}s exceeds the per-source budget — listing only, no detail fetches`
+            : `  ${label}: Crawl-delay ${crawlDelayMs / 1000}s -> ${maxDetails} details this run`);
         }
         const opts = {
           browser, fetchStatic: guardedFetch, maxDetails, log,

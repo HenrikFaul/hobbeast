@@ -253,3 +253,52 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   a package/label/SDK igazolására, `unzip -l` az `assets/public/` web-bundle meglétére, majd
   `adb install` + `am start` + `screencap` a valódi UI és a Supabase-kötés (`sb-<ref>-auth-token`
   a logcatben) igazolására. A dev-szerver sikere NEM kiadási bizonyíték.
+
+## Külföldi forrás-vetting második menete (V7, 2026-09-05)
+
+- **A HTTP 200 nem bizonyíték.** A 8 elutasításból 4 olyan oldal volt, ami 200-at ad,
+  de a body csak navigáció és lábléc: `opera.si/sl/program/koledar/` 1,2 KB szöveg és
+  nulla esemény (`eventList.bundle.js` + `data-startdate` attribútum), a
+  `salzburgerfestspiele.at/karten/kalender` 1,4 KB, a `ticketportal.sk`/`.cz` pedig
+  lefordítatlan SPA-sablon (`[SK|lbKategorie]`, `%ValidDate%`, Lorem ipsum, 2017-es
+  demó-esemény). **Olcsó, eldöntő próba:** a nyers HTML-ben számold meg a jövőbeli
+  dátum-tokeneket és az `application/ld+json` blokkokat. Nulla+nulla ⇒ kliensoldali
+  renderelés ⇒ elutasítás. A szövegtörzs hossza (`<script>`/`<style>` nélkül) szintén
+  árulkodó: 1-2 KB alatt garantáltan váz.
+- **A `robots.txt` hostra szól, nem márkára.** A `musikverein.at` gyökere teljesen
+  megengedő, de a naptár a `spielplan.musikverein.at`-on él, aminek nincs `robots.txt`-je
+  (404 ⇒ default-allow) — külön kellett lekérni. Ugyanígy a `predpredaj.sk` valójában
+  `predpredaj.zoznam.sk`. **A dedupot és a robots-olvasást is a végleges kiszolgáló
+  hostra futtasd** (V5-ös tanulság, itt kétszer is előjött).
+- **Név szerinti AI-bot tiltás ≠ általános tiltás.** A `mojekarte.si` ~57 UA-t tilt
+  `Disallow: /`-sal (köztük `ClaudeBot`, `anthropic-ai`, `GPTBot`, `CCBot`), a
+  `wiener-staatsoper.at` hasonlóan + Cloudflare `Content-Signal: search=yes, ai-train=no,
+  use=reference` Article 4 (EU DSM) jogfenntartással. Az általános `User-agent: *` csoport
+  viszont engedi a listaoldalt. A gyűjtő tehát futhat — **saját, őszinte UA-val**, sosem
+  ezekkel a tokenekkel, és a tartalom nem használható tanításra.
+- **A stratégiát a worker saját kódútján igazold, ne feltételezd.** A `tribe` konkrétan
+  `{origin}/wp-json/tribe/events/v1/events`-et hív (`scrapeTribeSource`), a `jsonld`
+  konkrétan `<script type="application/ld+json">` tageket keres (`parseJsonLdEvents`) —
+  nyers JSON body-t NEM eszik. Ezért maradt a `wien.info` `scrape_enabled=false`-on:
+  a végpontja kiváló (~425 KB `{items:[…]}`), de egyik stratégia sem olvassa, élesítve
+  csak `consecutive_failures`-t gyűjtene. **Regisztráld, de ne élesítsd, amíg nincs
+  parser** — ez őszintébb, mint egy sosem gyűjtő „zöld" sor.
+- **Elérhetetlen ≠ „majd élesben jó lesz".** A CTS Eventim / oeticket hostok
+  (`eventim.si`, `oeticket.com`, `eventim.pl`) böngésző-UA-s `curl`-lel IPv4-en és IPv6-on
+  **és** WebFetch-csel is time-outolnak vagy connection resetet kapnak. Két független
+  kimenő út elég a döntéshez: nincs élő lekérés, nincs forrás.
+- **A `bun run db:verify` nem kapu erre a repóra.** A `--mode=fresh` a
+  `20260825090000`-nél elhasal (`auth` séma és `app_runtime_config` kell neki a hosztolt
+  platformról), a `--mode=restore` pedig friss dumpot kívánna — az `E:\databasebackup\
+  Hobbeast\backups` legfrissebb nem-üres fájlja 2026-06-18-i, a regiszter előttről.
+  **Működő minta seed-migrációhoz:** eldobható PG18 klaszter, platformobjektumok kistubolva
+  (`auth.users`, `extensions`, pgcrypto), a regiszter-tábla + segédfüggvényei + a
+  `scrape_*` oszlopok szó szerint kivágva a valódi migrációból, majd a seed **szigorúan**
+  (`ON_ERROR_STOP=1 --single-transaction`) + assertek. A legértékesebb assert: **ültess el
+  egy ütköző hostot és futtasd újra** — így a host-szintű `NOT EXISTS` őr bizonyítottan
+  deduplikál, nem csak az `ON CONFLICT`.
+- **Az `event-feeds:validate` Windows-checkouton mindig piros.** A generátorok LF-fel
+  írnak, a munkapéldány CRLF (a V4 fájlon 56 CRLF / 0 önálló LF), így a `--check`
+  bájt-összehasonlítása „seed drift"-et kiált. CRLF-normalizálás után a tartalom
+  **azonos**. Ne „javítsd" a már élesített migráció újragenerálásával — az egy 78 KB-os
+  hamis diffet és lockfile/diff-kapu kockázatot csinál. Linuxon (CI) zöld.
