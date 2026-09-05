@@ -117,6 +117,103 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.67.0] — 2026-09-05
+
+### 907 munkafüzetsorból 74 forrás, amiből 41 tényleg gyűjt
+
+A tulajdonos négy Excel-fájlt adott át hat országhoz. Az `abroad sources.xlsx`
+valódi szuperhalmaznak bizonyult — ellenőrizve: a másik három fájlból **nulla**
+olyan endpoint van, amit ne tartalmazna —, így minden ebből származik.
+
+**A tölcsér, minden lépés mérve, nem feltételezve:**
+
+| | |
+| --- | ---: |
+| Sor a munkafüzetekben | 907 |
+| Egyedi endpoint | 533 |
+| Nincs még a regiszterben (host-szintű dedup) | 515 |
+| Túlélte a gépi élő szondát | 154 |
+| Első ítélőmenet elfogadta | 85 |
+| **Cáfoló menet után is áll → regisztrálva** | **74** |
+| **Gyűjt is, a valódi workerrel mérve → bekapcsolva** | **41** |
+
+Az utolsó sor az egyetlen, ami számít. A V6-nál mind a 14 forrás átment két
+ítélőmeneten, aztán **tizenkettő nullát gyűjtött**. Egy forrást futás bizonyít,
+nem forrássor. Ezért minden sor a worker saját kinyerőjén ment át, és a
+`parser_strategy` mezőben ott a 2026-09-05-i darabszám valódi eseménycímekkel.
+
+Országonként (bekapcsolt / regisztrált): **SI 13/22, DE 9/16, CZ 8/15, AT 6/8,
+PL 5/8, SK 0/5**. A regiszter 415 → 489 sorra nőtt, a külföldi rész 34 → 108-ra.
+
+**A 33 kikapcsolt sor nem az átvizsgálás kudarca.** Két független menet elolvasta
+őket, és valódi jövőbeli eseményeket nevezett meg rajtuk — a *mi generikus
+kinyerőnk* nem boldogul velük. Mindegyik sor leírja, mi kellene neki. A
+regisztráció megőrzi az endpointot és a robots-tisztázást; a `visitberlin.de`, a
+`visitczechia.com`, a `deutscheoperberlin.de` és az `eventfrog.at` a
+legértékesebb megírandó receptek. Ez a V7-ben lefektetett `wien.info`-precedens.
+
+**Szlovákia 5 sort kapott és nulla bekapcsoltat.** Minden átvizsgálást túlélt
+szlovák lista receptet kíván. Ez őszinte nulla, nem kihagyás.
+
+### Amit a munkafüzetekről tudni érdemes
+
+Ez a legfontosabb visszajelzés a következő adaghoz:
+
+- **151** az 515 jelölt URL-ből sima **HTTP 404** volt.
+- További **46**-nak egyáltalán nem élt a hosztja (nem létező domain, lejárt vagy
+  önaláírt tanúsítvány, kapcsolat-timeout). Hosszabb időkorláttal újrapróbáltam
+  mind az 50 átmenetinek tűnő esetet: **egy sem** javult.
+- A 72 elutasított sorból **33 egyetlen rendezvény volt, nem programlista** — egy
+  fesztivál, egy maraton, egy szakvásár. Németország a legrosszabb: 29-ből 14.
+- További **10** csak múltbeli eseményeket listázott.
+- A német lap **500 sora 184 egyedi endpoint**: a `germany.travel` 195-ször, az
+  `eventfinder.de` 117-szer ismétlődik benne.
+
+**A cáfoló menet megint kifizetődött**, 85-ből 8-at lőtt ki: üres JS-héjakat,
+amiknek a naptára soha nem renderelődik, egy soft-404-et, egy fesztivál
+szerkesztőségi dátumcikkét, és egy szakvásár-feedet kultúrának álcázva. Ráadásul
+**74-ből 60-nak korrigálni kellett az endpointját** — a munkafüzet URL-je
+jellemzően nem a programlista URL-je volt.
+
+### Két saját hiba, mindkettőt a mérés fogta meg, nem az átolvasás
+
+- **A szonda félkész DE locale-lal futott.** A `EVENT_PATH_WORDS`-be már bekerült
+  a `DE`, a `MONTH_WORDS`-be még nem, így a `localeFor('DE')` egy olyan locale-t
+  adott vissza, aminek `undefined` a hónaptáblája — és elszállt. Ez **64 német
+  jelöltet utasított el igazságtalanul**; újraszondázva **25** megkerült.
+- **A `shmf.de`-t rossz stratégiával mértem.** Az endpoint `text/calendar`, én
+  mégis a `render` úton hajtottam rá, ami „page.goto: Download is starting"
+  hibával elszállt. A saját, deklarált `ics` stratégiájával újramérve **három
+  valódi koncertet** ad, tehát be van kapcsolva. **Egy forrást azzal a
+  stratégiával kell tesztelni, amit állít magáról, nem az alapértelmezettel.**
+
+Egy harmadik hibát a *séma* fogott meg, nem én: a `selector` stratégiához
+CHECK-constraint köti a `scrape_rule` meglétét, és három recept nélküli sort
+visszautasított. Jogosan — `render`-re kerültek, a jegyzetük mondja meg, hogy
+recept kell.
+
+### robots.txt
+
+Mind a 74 elfogadott hosztra lekérve 2026-09-05-én: **minden útvonal engedélyezett**.
+Négy kér `Crawl-delay`-t (`stantonamarlberg.com` 10 s, `visitkoper.si` 5 s,
+`kultura.poznan.pl` 2 s, `schwerin.de` 1 s); a worker betartja, és 5 s fölött
+csak a listát olvassa.
+
+Itt is volt egy saját hiba: a robots-gyűjtőm az `allowsPath()`-nak a teljes
+`{rules, crawlDelay}` objektumot adta a szabálytömb helyett, ezért *„rules is not
+iterable"* kivétellel elnyelte **mind a négy** `Crawl-delay`-t, és a generált
+szöveg azt állította volna, hogy egyik sem kér késleltetést. A worker maga
+végig helyesen olvasta — ezt külön leellenőriztem a `stantonamarlberg.com`-on
+(`Crawl-delay: 10` → 10000 ms) —, szóval szabálysértés nem történt, de az
+adatbázisba tényhiba került volna.
+
+Külön figyelmet kapott, hogy több fájlban **üres `Disallow:`** áll, ami *mindent
+engedélyez*. Elválasztóval összefűzve ez pont úgy néz ki, mint a mindent tiltó
+`Disallow: /`. Tizenhárom hosztot érint; a döntés végig **parseolásból** született,
+nem ránézésből, és a szöveg most kimondja, melyikről van szó.
+
+---
+
 ## [1.66.0] — 2026-09-05
 
 ### Németország: hatodik nyelv a kinyerőnek
