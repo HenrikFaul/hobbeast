@@ -1045,4 +1045,37 @@ felhasználó másik utat ad, onnan olvass tovább.
   kell, hogy a frozen install nem írja-e újra (md5 előtte/utána). A repó két
   lockfile-t tart — a `package-lock.json`-t is szinkronizálni kell.
 
-*Utoljára frissítve: 2026-09-04*
+## Supabase jogosultságok: a `REVOKE ... FROM PUBLIC` önmagában semmit nem ér (2026-09-05)
+
+- **Két default működik egyszerre.** A Postgres minden új függvényre ad `EXECUTE`-ot a
+  `PUBLIC`-nak, a Supabase *ezen felül* a default privileges révén **közvetlenül az
+  `anon` és `authenticated` szerepnek is**. Ezért egy `REVOKE ALL ... FROM PUBLIC`
+  után az ACL továbbra is `{postgres=X/postgres, anon=X/postgres, ...}` — élesben
+  lemérve. A revoke-nak **néven kell neveznie az `anon`-t**, különben kozmetika.
+- A repóban 214 revoke nevezi meg az anont, **152 csak a PUBLIC-ot** — utóbbiak
+  hatástalanok. Ezt a `scripts/audit-security-definer.mjs` nem vette észre, mert
+  csak a `REVOKE ... FROM PUBLIC` szöveg **létezését** kereste.
+- **A szkript ráadásul csak egy időablakot vizsgált:** `/^202608(?:22|25|26)/`.
+  2026-08-26 óta **egyetlen migráció sem volt auditálva** — a kimenet végig
+  „300 definíció / 81 migráció" volt, miközben négy új migráció landolt. Kiszélesítve:
+  **368 definíció / 168 migráció**, és azonnal előjött 24 hiányzó revoke.
+- **Tanulság a zöld pipáról:** ha egy audit száma több release-en át *nem változik*,
+  az nem stabilitás, hanem gyanús. Nézd meg, mit vizsgál egyáltalán.
+- **A javítás alakja:** a 24-et lezártuk (`20260905210000`), a szkript most minden
+  migrációt néz, és **ratchet**-et kapott: a cutoff (`20260905`) utáni migrációkban a
+  revoke-nak meg kell neveznie az anont. A 152 régi PUBLIC-only revoke érintetlen —
+  append-only migrációt nem írunk át, és mindegyik külön döntést kíván arról, mit
+  kell visszaadni. A szabály működését eldobható migrációval ellenőriztük: kiváltotta
+  a hibát, majd töröltük.
+- **Nyitott adósság:** élesben **347 SECURITY DEFINER függvényből 139 hívható anonként**
+  (a javítás előtt 159). A többségüket belső capability-ellenőrzés védi, de a felület
+  nagy. Ezt forrásonkénti elemzéssel kell csökkenteni, nem tömeges revoke-kal: néhány
+  szándékosan anon (`list_ticket_types_public`, `event_safe_payload`), és az RLS-ben
+  használt predikátumoknak (`has_role`, `is_organization_member`) **kötelező** anon
+  `EXECUTE`, különben minden rájuk hivatkozó policy elhasal.
+- **Trigger-függvényt nyugodtan el lehet zárni.** Lemértük (és visszagörgettük): a
+  trigger `EXECUTE` nélkül is lefut, mert a jogosultságot a Postgres a trigger
+  *létrehozásakor* ellenőrzi, nem tüzeléskor. Közvetlenül hívva úgyis
+  „can only be called as a trigger" hibát ad, tehát a kitettség eleve nulla volt.
+
+*Utoljára frissítve: 2026-09-05*

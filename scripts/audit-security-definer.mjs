@@ -7,8 +7,27 @@ const migrationRoot = resolve(root, 'supabase', 'migrations');
 const allMigrationNames = readdirSync(migrationRoot)
   .filter((name) => /^\d{14}.*\.sql$/i.test(name))
   .sort();
-const migrationNames = allMigrationNames
-  .filter((name) => /^202608(?:22|25|26)\d+.*\.sql$/i.test(name));
+// Every migration, not a hand-picked window. This used to read
+// /^202608(?:22|25|26)/, which meant NOTHING written after 2026-08-26 was ever
+// audited — the count sat at "300 across 81" while four more migrations landed.
+// Widening it surfaced 24 SECURITY DEFINER functions with no explicit revoke;
+// 20260905210000_revoke_security_definer_from_public.sql closes them, so this
+// passes on merit rather than by narrowing what it looks at.
+const migrationNames = allMigrationNames;
+
+// Revoking only FROM PUBLIC is a no-op on Supabase. Its default privileges
+// grant EXECUTE DIRECTLY to anon and authenticated when a function is created,
+// so the direct grant outlives a PUBLIC-only revoke — measured on the live
+// database, where the ACL still read `anon=X/postgres` afterwards. A revoke
+// that does not name anon therefore protects nothing.
+//
+// 152 historical revokes are PUBLIC-only and are left alone: rewriting
+// append-only migrations is not on, and each needs its own decision about which
+// roles to grant back. This is a ratchet instead — every migration from the
+// cutoff must name anon, so the count of anon-callable SECURITY DEFINER
+// functions can only go down from here. It was 159 of 347 when this rule
+// landed; the remainder is tracked in .governance/codingLessonsLearnt.md.
+const ANON_REVOKE_CUTOFF = '20260905';
 
 const SAFE_SEARCH_PATH =
   /SET\s+search_path\s*(?:=|TO)\s*'?(?:pg_catalog'?\s*,\s*'?)?public'?(?:\s*,\s*'?pg_temp'?)?/i;
@@ -48,6 +67,21 @@ for (const migrationName of migrationNames) {
     );
     if (!revokePattern.test(allMigrationSql)) {
       failures.push(`${migrationName}: ${functionName} is not explicitly revoked from PUBLIC`);
+    }
+
+    // The ratchet: a revoke written from the cutoff onwards must name anon,
+    // because a PUBLIC-only one leaves Supabase's direct anon grant standing.
+    if (migrationName >= ANON_REVOKE_CUTOFF) {
+      const revokeRoles = new RegExp(
+        `REVOKE\\s+(?:ALL|EXECUTE)[^;]*ON\\s+FUNCTION\\s+public\\.${unqualified}\\s*\\([^;]*?FROM\\s+([^;]+);`,
+        'i',
+      ).exec(sql);
+      if (revokeRoles && !/\banon\b/i.test(revokeRoles[1])) {
+        failures.push(
+          `${migrationName}: ${functionName} is revoked from PUBLIC only — name anon too, `
+          + 'or Supabase\'s default direct grant leaves it callable by anonymous clients',
+        );
+      }
     }
   }
 }

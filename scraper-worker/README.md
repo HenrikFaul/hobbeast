@@ -32,6 +32,50 @@ Server-side safety lives in the RPC `public.ingest_scraped_external_events`
 (migration `20260825140000`): service-role only, requires a non-empty title and a
 **future** date, idempotent upsert on `(external_source, external_id)`.
 
+### The collection frontier
+
+The detail-fetch step above is queue-driven, not sampled. A listing routinely
+offers more event links than one run can afford, and the old behaviour —
+`shuffled(detailUrls).slice(0, maxDetails)` — forgot everything afterwards, so
+each night re-rolled the dice: the same pages came back while others were never
+opened.
+
+`public.collection_frontier` remembers instead, one row per `(source_id, url)`:
+
+```
+listing links ──enqueue──▶ collection_frontier (pending)
+                              │  claim: priority DESC, depth ASC, oldest first
+                              ▼
+                           running ──fetch──▶ done  (found_events, etag)
+                              │                 │
+                              │                 └─ revisited after 3 days,
+                              │                    conditional GET → 304 = no re-parse
+                              └─ error → pending at half priority, max 3 attempts
+```
+
+- **Priority** comes from the link's shape: a date, an opaque numeric id, or a
+  long slug in the path means an item page (`2`); anything else is a listing
+  (`0.5`). Links found *on* a detail page are enqueued one level deeper, to
+  depth 2.
+- **Politeness** is unchanged and still binding: robots, `Crawl-delay` and the
+  per-source `DETAIL_TIME_BUDGET_MS` all apply. A `429`/`503` parks the whole
+  host in `crawl_host_state.backoff_until`, and `claim` skips backed-off hosts.
+- **Budget exhaustion** hands the unfetched claims back (`running → pending`),
+  so nothing is lost when a run is cut short. A crashed run's claims free
+  themselves after an hour.
+- **Kill switch:** `crawl_config.collection_frontier_enabled`. With it false —
+  or in a `--dry-run`, or if any frontier RPC is unavailable —
+  `scrapeGenericSource` falls back to the old sampling path unchanged.
+
+The planner lives in `src/sources/collectionFrontier.mjs` and, like
+`crawlFrontier.mjs`, takes its queue, fetch and extractor by injection, so the
+whole walk is testable offline. Progress per source is visible in the admin
+scraper table's **Frontier** column (`done/total`).
+
+Design borrowed from the `event_queue` in `C:\Work\Smartsearchtool\grepsearch-main`,
+scoped per source rather than globally because one host can serve several
+registered sources (jegy.hu has five endpoints).
+
 ## Sources
 
 - `src/sources/jegyhu.mjs` — jegy.hu (concert category for now). Listing is
