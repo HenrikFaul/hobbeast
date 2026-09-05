@@ -117,7 +117,83 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
-## [1.56.0] — 2026-09-05
+## [1.57.0] — 2026-09-05
+
+### A külföldi források tényleg gyűjtenek: nyelvfüggő kinyerés + robots-megfelelés
+
+Az 1.56.0-ban élesített **14 külföldi forrásból 12 nulla eseményt hozott.** Nem a
+webhelyekkel volt baj: mind a 12 HTTP 200-at adott. A generikus kinyerő
+**magyarul beszél**, és ezt három helyen is teszi — az esemény-linkek
+útvonalszavaiban, a listakártyák hónapneveiben és a navigációs szavakban. Az
+`/akce/`, `/udalost/`, `/repertuar/` és a „6. září 2026" egyszerűen láthatatlan
+volt neki.
+
+**A 12 forrás öt különböző okból bukott el** (mérve, nem feltételezve):
+
+1. **Hiányzó útvonal-szókincs** — Kudy z nudy, Kinodvor, Forum Karlín, Národní
+   divadlo, Filharmonia Narodowa. A listán ott voltak a linkek (`/akce/` 97 db,
+   `/film/` 50 db), csak a szűrő nem ismerte fel őket.
+2. **Nem ISO dátum a JSON-LD-ben** — a GoOut listaoldala **36 érvényes prágai
+   eseményt** közöl, `startDate` mezőben `"Sat Sep 05 2026 13:00:00 GMT+0200"`
+   alakban. A parser csak `YYYY-MM-DD` előtagot fogadott el, így **mind a 36
+   eldobódott.**
+3. **Nap-elöl dátumok** — a közép-európai `06.09.2026` és `6. září 2026` formát a
+   magyar, év-elöl váró parser sosem illesztette.
+4. **Túl rövid címek** — a magyar védőkorlát 10 karakter alatt navigációnak
+   minősít mindent, ami a „Kouř", „Jony", „Kanine" filmeket/koncerteket kidobta.
+5. **Rossz belépési pont vagy blokkolt letöltés** — Innsbruck (403 bot
+   user-agentre), Cankarjev dom (kategória-hub, nem eseménylista).
+
+**Megoldás:** új `scraper-worker/src/sources/locales.mjs`, országonkénti
+útvonalszavakkal, hónapnevekkel (a cseh/lengyel/szlovák birtokos alakokkal
+együtt) és navigációs szavakkal AT/CZ/PL/SI/SK nyelvre. **A magyar viselkedés
+bitre azonos marad:** a `localeFor()` `null`-t ad `HU`-ra és minden ismeretlen
+országra, és minden hívási hely erre az ágra esik vissza. A `country_code`-ot a
+`list_scraper_targets` és `list_scraper_targets_by_ids` RPC adja át — egyetlen
+**hozzáfűzött** oszlop, a sorhalmaz, a rendezés és a jogosultságok változatlanok.
+
+**Mérés (valós, élő lekérés mind a 12 forráson):**
+
+| | előtte | utána |
+|---|---|---|
+| gyűjtő források | 1 / 12 | **8 / 12** |
+| összes esemény | 34 | **284** |
+
+Nyertesek: Wiener Konzerthaus 35, Kudy z nudy 39, Národní divadlo 37, GoOut 112,
+KulturServer Graz 28, Forum Karlín 28, Kinodvor 4, Slovenská filharmónia 1.
+Továbbra is nullás: Innsbruck, Filharmonia Narodowa, Magiczny Kraków, Cankarjev
+dom — ezek endpoint-javítást vagy saját receptet igényelnek, nem szókincset.
+
+### robots.txt: wildcard-minták és Crawl-delay betartása
+
+A robots-értékelő **előtag-egyezéssel** dolgozott, ami minden wildcardot némán
+figyelmen kívül hagyott. Három most élesített forrás pontosan ilyen mintát közöl
+— `konzerthaus.at: Disallow: /*?`, `goout.net: Disallow: /*/profile/`,
+`kinodvor.org: Disallow: /potrditve/*` —, vagyis a worker szabadon kérte le
+azokat az URL-eket, amiket ezek a webhelyek kifejezetten kizártak.
+
+- A minták most regexre fordulnak (`*` tetszőleges szakasz, záró `$` horgony).
+- Az `Allow` sorok végre számítanak, a szabvány **leghosszabb-egyezés** elve
+  szerint, így egy tiltott fán belüli kivétel megmarad.
+- A `Crawl-delay` eddig **egyáltalán nem** volt beolvasva. Mostantól teljes
+  egészében betartjuk.
+
+**Ellenőrzött hatás:** 9 magyar hoston (jegy.hu, programturizmus.hu, koncert.hu,
+port.hu, tixa.hu, szegedvaros.hu, broadway.hu, csodalatosbalaton.hu, funcode.hu)
+**nulla** ítéletváltozás. Mind a 4 változás külföldi hoston történt, és mind
+olyan útvonalat zár le, amit eddig jogosulatlanul kértünk le.
+
+> **Figyelmet igényel:** a **jegy.hu** — a platform legnagyobb forrása (5
+> végpont, 450 esemény) — `Crawl-delay: 20`-at kér, mi eddig 400 ms-mal
+> dolgoztunk, azaz **50-szer gyorsabban a kértnél.** A várakozás teljes
+> betartása mellett egy forrás felemésztené a futást, ezért a részletoldal-budget
+> igazodik: `DETAIL_TIME_BUDGET_MS` (4 perc) alapján a jegy.hu futásonként ~12
+> részletoldalt kér le a korábbi 40 helyett. Ez nem veszteség, mert a kinyerő
+> **sorsolja**, melyik részletoldalakat nézi meg, így az ismételt futások
+> lefedik a teljes listát — de a jegy.hu frissítési üteme lassul. Ha ez nem
+> elfogadható, a budget egyetlen konstans.
+
+
 
 ### Külföldi források élesben (AT/CZ/PL/SI/SK) + rendezhető, szűrhető forrás-tábla
 

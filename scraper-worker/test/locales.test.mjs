@@ -1,0 +1,206 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  foldLatin, localeFor, knownLocaleCountries, localeEventPathRe, localeMonthPattern,
+  parseLocaleTextDate, isLocaleNavigationTitle,
+} from '../src/sources/locales.mjs';
+import { parseEventDate } from '../src/sources/generic.mjs';
+
+/**
+ * The v1.56.0 foreign sources collected nothing because the generic extractor
+ * speaks Hungarian: /akce/ is not an event path, "6. září 2026" is not a date,
+ * and "Kouř" is too short to be a title. These tests pin the vocabulary that
+ * fixes that, and — just as importantly — pin that Hungarian sources are left
+ * completely alone.
+ */
+
+describe('locale selection', () => {
+  it('leaves Hungarian and unknown countries on the original code path', () => {
+    // null is the signal every call site checks before using a locale, so this
+    // is the guarantee that 377 Hungarian sources behave exactly as before.
+    assert.equal(localeFor('HU'), null);
+    assert.equal(localeFor('hu'), null);
+    assert.equal(localeFor(null), null);
+    assert.equal(localeFor(undefined), null);
+    assert.equal(localeFor(''), null);
+    assert.equal(localeFor('XX'), null);
+    assert.equal(localeFor('DE'), null, 'only countries we actually registered get a locale');
+  });
+
+  it('covers exactly the five countries the registry now holds', () => {
+    assert.deepEqual(knownLocaleCountries(), ['AT', 'CZ', 'PL', 'SI', 'SK']);
+  });
+
+  it('is case- and whitespace-insensitive about the country code', () => {
+    assert.equal(localeFor(' cz ').country, 'CZ');
+  });
+});
+
+describe('foldLatin', () => {
+  it('strips the diacritics Hungarian folding does not know', () => {
+    assert.equal(foldLatin('září'), 'zari');
+    assert.equal(foldLatin('více'), 'vice');
+    assert.equal(foldLatin('września'), 'wrzesnia');
+    assert.equal(foldLatin('Kouř'), 'kour');
+    assert.equal(foldLatin('Ľudová'), 'ludova');
+  });
+
+  it('handles the Polish stroked l, which is not a combining mark', () => {
+    assert.equal(foldLatin('Łódź'), 'lodz');
+  });
+
+  it('does not throw on empty input', () => {
+    assert.equal(foldLatin(null), '');
+    assert.equal(foldLatin(undefined), '');
+  });
+});
+
+describe('event-path vocabulary', () => {
+  const cases = [
+    ['CZ', '/cs/praha/akce/leznyvlkk/', true],
+    ['CZ', '/udalost/koncert-podzim', true],
+    ['CZ', '/cs/predstaveni/sweeney-todd-FKs5ZFQ', true],
+    ['PL', '/repertuar/koncert-symfoniczny', true],
+    ['PL', '/wydarzenia/festiwal', true],
+    ['SI', '/film/gajin-svet-3/', true],
+    ['SI', '/spored', true],
+    ['SK', '/koncerty', true],
+    ['SK', '/podujatia/vianocny-koncert', true],
+    ['AT', '/de/veranstaltungen/konzert', true],
+    ['AT', '/termine/2026', true],
+  ];
+  for (const [cc, path, expected] of cases) {
+    it(`${cc} recognises ${path}`, () => {
+      assert.equal(localeEventPathRe(localeFor(cc)).test(path), expected);
+    });
+  }
+
+  it('requires a whole path segment, so a word inside a slug does not match', () => {
+    const cz = localeEventPathRe(localeFor('CZ'));
+    // "akce" appears inside "nakceni" but does not start a segment.
+    assert.equal(cz.test('/nakceni'), false);
+    assert.equal(cz.test('/o-nas'), false);
+  });
+
+  it('has no matcher when there is no locale', () => {
+    assert.equal(localeEventPathRe(null), null);
+    assert.equal(localeMonthPattern(null), null);
+  });
+});
+
+describe('parseLocaleTextDate', () => {
+  const cz = localeFor('CZ');
+  const pl = localeFor('PL');
+  const at = localeFor('AT');
+  const si = localeFor('SI');
+  const sk = localeFor('SK');
+
+  it('reads day-first numeric dates, the Central-European norm', () => {
+    // This is the single most important case: it is what the Hungarian
+    // year-first parser could never match.
+    assert.equal(parseLocaleTextDate('Sa, 06.09.2026 19:30', at), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6. 9. 2026', cz), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6/9/2026', pl), '2026-09-06');
+  });
+
+  it('reads month names in each language, including the genitive forms', () => {
+    assert.equal(parseLocaleTextDate('6. září 2026', cz), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6 września 2026', pl), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6. September 2026', at), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6. september 2026', si), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6. septembra 2026', sk), '2026-09-06');
+  });
+
+  it('does not confuse Czech June with July', () => {
+    // "cerven" is a prefix of "cervence", so a shortest-first match would read
+    // every July date as June. Longest-key-first is what prevents that.
+    assert.equal(parseLocaleTextDate('6. června 2026', cz), '2026-06-06');
+    assert.equal(parseLocaleTextDate('6. července 2026', cz), '2026-07-06');
+  });
+
+  it('still accepts ISO and year-first dates, which are language-neutral', () => {
+    assert.equal(parseLocaleTextDate('2026-09-06', cz), '2026-09-06');
+    assert.equal(parseLocaleTextDate('2026.09.06', pl), '2026-09-06');
+  });
+
+  it('rejects impossible dates rather than inventing one', () => {
+    assert.equal(parseLocaleTextDate('45.13.2026', cz), null);
+    assert.equal(parseLocaleTextDate('no date here at all', cz), null);
+    assert.equal(parseLocaleTextDate('', cz), null);
+  });
+
+  it('returns nothing without a locale, so Hungarian never reaches it', () => {
+    assert.equal(parseLocaleTextDate('6. září 2026', null), null);
+  });
+
+  it('rolls a year-less date forward the way the Hungarian parser does', () => {
+    const iso = parseLocaleTextDate('6. ledna', cz); // 6 January
+    assert.match(iso, /^20\d{2}-01-06$/);
+    // Never more than a year out, and never far in the past.
+    const parsed = new Date(`${iso}T00:00:00Z`).getTime();
+    assert.ok(parsed > Date.now() - 40 * 86400000, 'a year-less date must not land in the past');
+  });
+});
+
+describe('isLocaleNavigationTitle', () => {
+  const cz = localeFor('CZ');
+
+  it('keeps genuinely short foreign titles', () => {
+    // All three are real GoOut listings that the Hungarian length guard threw
+    // away for being under ten characters.
+    assert.equal(isLocaleNavigationTitle('Kouř', cz), false);
+    assert.equal(isLocaleNavigationTitle('Jony', cz), false);
+    assert.equal(isLocaleNavigationTitle('Kanine', cz), false);
+  });
+
+  it('still discards pager controls', () => {
+    assert.equal(isLocaleNavigationTitle('Více', cz), true);
+    assert.equal(isLocaleNavigationTitle('Zobrazit všechny akce', cz), true);
+    assert.equal(isLocaleNavigationTitle('Další', cz), true);
+  });
+
+  it('discards a title that is only a date', () => {
+    assert.equal(isLocaleNavigationTitle('6. září 2026', cz), true);
+    assert.equal(isLocaleNavigationTitle('září', cz), true);
+  });
+
+  it('judges nothing when there is no locale', () => {
+    assert.equal(isLocaleNavigationTitle('anything', null), false);
+  });
+});
+
+describe('parseEventDate non-ISO fallback', () => {
+  it('still reads plain ISO exactly as before', () => {
+    assert.deepEqual(parseEventDate('2026-09-06'), { date: '2026-09-06', time: null });
+    assert.deepEqual(parseEventDate('2026-09-06T19:30:00'), { date: '2026-09-06', time: '19:30:00' });
+    assert.deepEqual(parseEventDate('2026-09-06 19:30'), { date: '2026-09-06', time: '19:30:00' });
+  });
+
+  it('reads the JS Date string GoOut puts in its JSON-LD', () => {
+    // Every one of GoOut's 36 Prague events was discarded over this format.
+    const got = parseEventDate('Sat Sep 05 2026 13:00:00 GMT+0200');
+    assert.equal(got.date, '2026-09-05');
+  });
+
+  it('keeps the wall-clock day for a late-evening event', () => {
+    // Reading UTC fields here would move a 23:00 event to the next day.
+    const got = parseEventDate('Sat Nov 28 2026 23:00:00 GMT+0100');
+    assert.equal(got.date, '2026-11-28');
+  });
+
+  it('refuses junk instead of inventing events', () => {
+    assert.deepEqual(parseEventDate('next Tuesday'), { date: null, time: null });
+    assert.deepEqual(parseEventDate(''), { date: null, time: null });
+    assert.deepEqual(parseEventDate(null), { date: null, time: null });
+    assert.deepEqual(parseEventDate('+36 1 555 0100'), { date: null, time: null });
+  });
+
+  it('bounds the fallback to plausible event years', () => {
+    // The sanity window guards the NEW branch only. A literal ISO date is
+    // still taken at face value, exactly as it was before this change —
+    // narrowing that would be a behaviour change for 377 Hungarian sources.
+    assert.deepEqual(parseEventDate('Mon Apr 01 1832 10:00:00 GMT+0100'), { date: null, time: null });
+    assert.deepEqual(parseEventDate('Fri Jan 01 2099 10:00:00 GMT+0100'), { date: null, time: null });
+    assert.equal(parseEventDate('1832-04-01T10:00:00Z').date, '1832-04-01', 'ISO input keeps its original meaning');
+  });
+});

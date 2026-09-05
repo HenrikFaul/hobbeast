@@ -14,7 +14,7 @@
 //        --details N (detail pages per source, default 12).
 
 import { chromium } from 'playwright';
-import { fetchStatic, robotsAllows, fetchConditional } from './src/fetch.mjs';
+import { fetchStatic, robotsAllows, robotsCrawlDelayMs, fetchConditional } from './src/fetch.mjs';
 import { harvestLinks, scoreCandidate, isWorthReviewing } from './src/sources/discovery.mjs';
 import { crawlFrontier } from './src/sources/crawlFrontier.mjs';
 import { parseEmailEvents } from './src/sources/emailEvents.mjs';
@@ -67,6 +67,11 @@ async function guardedFetch(url) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// How long one source may spend waiting out its Crawl-delay between detail
+// fetches. Four minutes keeps a 20s-delay host to nine details per run while
+// leaving the 50-minute job enough room for everything else in the batch.
+const DETAIL_TIME_BUDGET_MS = 240000;
 
 /**
  * The email channel: read events out of the newsletters that arrived on the
@@ -358,7 +363,22 @@ async function main() {
       try {
         if (!listing) throw new Error('invalid endpoint url');
         if (!(await robotsAllows(listing))) throw new Error('robots disallow on listing');
-        const opts = { browser, fetchStatic: guardedFetch, maxDetails: detailsPerSource, log };
+        // A site that publishes Crawl-delay gets it honoured in full. Waiting
+        // that long would let one polite host eat the whole run, so the detail
+        // budget shrinks to fit DETAIL_TIME_BUDGET_MS instead. Nothing is lost
+        // over time: scrapeGenericSource shuffles which details it fetches when
+        // a listing is over budget, so successive runs converge on full
+        // coverage. jegy.hu asks for 20s and kultur.graz.at for 2s.
+        const crawlDelayMs = await robotsCrawlDelayMs(listing).catch(() => null);
+        let maxDetails = detailsPerSource;
+        if (crawlDelayMs) {
+          maxDetails = Math.max(4, Math.min(detailsPerSource, Math.floor(DETAIL_TIME_BUDGET_MS / crawlDelayMs)));
+          log(`  ${label}: Crawl-delay ${crawlDelayMs / 1000}s -> ${maxDetails} details this run`);
+        }
+        const opts = {
+          browser, fetchStatic: guardedFetch, maxDetails, log,
+          ...(crawlDelayMs ? { delayMs: crawlDelayMs } : {}),
+        };
         const adapter = strategy === 'site' ? adapterForSource(source) : null;
         ({ events, httpStatus, discoveredUrl = null } = adapter
           ? await adapter(source, opts)

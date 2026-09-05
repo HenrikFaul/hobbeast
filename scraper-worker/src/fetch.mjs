@@ -47,38 +47,89 @@ export async function fetchConditional(url, { timeoutMs = 15000, etag = null, la
   }
 }
 
-// Very small robots.txt evaluator for the User-agent:* group. Returns true if the
-// exact path prefix is not disallowed. Fails OPEN only for a missing robots file
-// (200-less), fails CLOSED on an explicit matching Disallow.
-export async function robotsAllows(url) {
+// robots.txt evaluator for the User-agent:* group. Fails OPEN only for a missing
+// or unreadable robots file, fails CLOSED on a matching Disallow.
+//
+// Wildcards are honoured, which plain prefix matching cannot do. This matters:
+// konzerthaus.at publishes `Disallow: /*?`, goout.net `Disallow: /*/profile/`
+// and kinodvor.org `Disallow: /potrditve/*`. Read as literal prefixes those
+// patterns match nothing at all, so the worker would have crawled exactly the
+// URLs those sites asked it to leave alone.
+async function robotsFor(url) {
   const u = new URL(url);
   const origin = `${u.protocol}//${u.host}`;
   if (!robotsCache.has(origin)) {
-    let rules = { disallow: [] };
+    let rules = { rules: [], crawlDelay: null };
     try {
       const res = await fetch(`${origin}/robots.txt`, { headers: { 'user-agent': UA } });
       if (res.ok) rules = parseRobots(await res.text());
     } catch { /* no robots -> allow */ }
     robotsCache.set(origin, rules);
   }
-  const { disallow } = robotsCache.get(origin);
-  const path = u.pathname + u.search;
-  return !disallow.some((d) => d && path.startsWith(d));
+  return robotsCache.get(origin);
 }
 
-function parseRobots(text) {
+export async function robotsAllows(url) {
+  const u = new URL(url);
+  const { rules } = await robotsFor(url);
+  return allowsPath(rules, u.pathname + u.search);
+}
+
+/**
+ * Standard precedence: the most specific matching rule wins, and Allow beats
+ * Disallow on an equal-length match. Without this, a site that disallows a
+ * whole tree and re-allows one page inside it would lose the exception.
+ * Exported pure so it can be tested without touching the network.
+ */
+export function allowsPath(rules, path) {
+  let best = null;
+  for (const rule of rules) {
+    if (!rule.re.test(path)) continue;
+    if (!best || rule.length > best.length || (rule.length === best.length && rule.allow)) best = rule;
+  }
+  return best ? best.allow : true;
+}
+
+/** Crawl-delay in ms for this host's `User-agent: *` group, or null. */
+export async function robotsCrawlDelayMs(url) {
+  const { crawlDelay } = await robotsFor(url);
+  return Number.isFinite(crawlDelay) && crawlDelay > 0 ? crawlDelay * 1000 : null;
+}
+
+/**
+ * A robots path pattern as a regex. `*` matches any run of characters and a
+ * trailing `$` anchors the end; everything else is literal. The pattern is
+ * always anchored at the start, which is what makes an unanchored prefix like
+ * `/admin` still match `/admin/users`.
+ */
+function robotsPatternToRegExp(pattern) {
+  const anchored = pattern.endsWith('$');
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const escaped = body.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}${anchored ? '$' : ''}`);
+}
+
+export function parseRobots(text) {
   const lines = text.split(/\r?\n/);
   let inStar = false;
-  const disallow = [];
+  const rules = [];
+  let crawlDelay = null;
   for (const raw of lines) {
     const line = raw.replace(/#.*$/, '').trim();
     if (!line) continue;
     const [kRaw, ...rest] = line.split(':');
     const k = kRaw.trim().toLowerCase();
     const v = rest.join(':').trim();
-    if (k === 'user-agent') inStar = v === '*';
-    else if (inStar && k === 'disallow' && v) disallow.push(v);
-    else if (inStar && k === 'allow') { /* allow entries ignored in this minimal check */ }
+    if (k === 'user-agent') { inStar = v === '*'; continue; }
+    if (!inStar) continue;
+    if (k === 'crawl-delay') {
+      const n = Number(v);
+      if (Number.isFinite(n)) crawlDelay = Math.max(crawlDelay ?? 0, n);
+    } else if ((k === 'disallow' || k === 'allow') && v) {
+      // "Disallow:" with an empty value means "nothing is disallowed" and is
+      // correctly skipped by the `&& v` guard above.
+      rules.push({ allow: k === 'allow', length: v.length, re: robotsPatternToRegExp(v) });
+    }
   }
-  return { disallow };
+  return { rules, crawlDelay };
 }

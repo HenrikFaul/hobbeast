@@ -13,6 +13,13 @@ import crypto from 'node:crypto';
 // The Hungarian date vocabulary lives in recipes.mjs so that the Edge Function,
 // which bundles only that file, parses dates exactly the way the worker does.
 import { foldHu, parseHuTextDate } from './recipes.mjs';
+// Non-Hungarian sources need their own path words, month names and nav words.
+// localeFor() returns null for HU and for anything unrecognised, so a Hungarian
+// source keeps exactly the behaviour it had before locales existed.
+import {
+  localeFor, localeEventPathRe, localeMonthPattern,
+  parseLocaleTextDate, isLocaleNavigationTitle,
+} from './locales.mjs';
 
 export { foldHu, parseHuTextDate };
 
@@ -31,11 +38,33 @@ export function normalizeEndpointUrl(url) {
   try { return new URL(u).toString(); } catch { return null; }
 }
 
+// A JSON-LD startDate is supposed to be ISO 8601, but a site that builds its
+// structured data in the browser often serialises a JS Date instead, giving
+// "Sat Sep 05 2026 13:00:00 GMT+0200 (Central European Summer Time)". GoOut
+// does exactly this: 36 perfectly good Prague events, every one discarded.
+// Only dates the ISO branch already rejects reach the fallback, so this can
+// add events but never change one that parses today.
+const DATE_SANITY_MIN = Date.UTC(2015, 0, 1);
+const DATE_SANITY_MAX = Date.UTC(2040, 0, 1);
+
 export function parseEventDate(raw) {
   if (!raw || typeof raw !== 'string') return { date: null, time: null };
   const m = raw.trim().match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2})(?::\d{2})?)?/);
-  if (!m) return { date: null, time: null };
-  return { date: m[1], time: m[2] ? `${m[2]}:00` : null };
+  if (m) return { date: m[1], time: m[2] ? `${m[2]}:00` : null };
+
+  const parsed = Date.parse(raw.trim());
+  // Bounded so a stray "2" or a phone number cannot become an event date.
+  if (!Number.isFinite(parsed) || parsed < DATE_SANITY_MIN || parsed > DATE_SANITY_MAX) {
+    return { date: null, time: null };
+  }
+  // Read the wall-clock fields the site wrote, not a UTC-shifted version of
+  // them: an event at 00:30 local must not drift onto the previous day.
+  const d = new Date(parsed);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const time = hh === '00' && mm === '00' ? null : `${hh}:${mm}:00`;
+  return { date, time };
 }
 
 /**
@@ -355,11 +384,19 @@ export function extractItemListUrls(html, baseUrl) {
  * each link, climb at most a few ancestors to find the smallest block that also
  * contains a date, and return title + date text + link.
  */
-function collectListingCards(page) {
-  return page.evaluate(() => {
-    const MONTH = '(janu[aá]r|febru[aá]r|m[aá]rcius|[aá]prilis|m[aá]jus|j[uú]nius|j[uú]lius|augusztus|szeptember|okt[oó]ber|november|december|jan|feb|m[aá]rc|[aá]pr|m[aá]j|j[uú]n|j[uú]l|aug|szept|okt|nov|dec)';
+function collectListingCards(page, localeMonths = null) {
+  return page.evaluate((extraMonths) => {
+    const HU_MONTH = '(janu[aá]r|febru[aá]r|m[aá]rcius|[aá]prilis|m[aá]jus|j[uú]nius|j[uú]lius|augusztus|szeptember|okt[oó]ber|november|december|jan|feb|m[aá]rc|[aá]pr|m[aá]j|j[uú]n|j[uú]l|aug|szept|okt|nov|dec)';
+    const MONTH = extraMonths ? `(${HU_MONTH.slice(1, -1)}|${extraMonths})` : HU_MONTH;
+    // The last two alternatives are day-first ("06.09.2026", "6. září"), which
+    // is how every Central-European locale writes a date and which the
+    // Hungarian year-first patterns never match. Added only when a locale is
+    // in play, so a Hungarian listing sees the original three alternatives.
+    const DAY_FIRST = extraMonths
+      ? `|(\\d{1,2}\\s?[.\\-/]\\s?\\d{1,2}\\s?[.\\-/]\\s?20\\d{2})|(\\d{1,2}\\.?\\s*${MONTH})`
+      : '';
     const DATE_RE = new RegExp(
-      `(20\\d{2}[.\\-/]\\s?\\d{1,2}[.\\-/]\\s?\\d{1,2})|(20\\d{2}\\.?\\s*${MONTH}\\.?\\s*\\d{1,2})|(${MONTH}\\.?\\s*\\d{1,2}\\.?)`,
+      `(20\\d{2}[.\\-/]\\s?\\d{1,2}[.\\-/]\\s?\\d{1,2})|(20\\d{2}\\.?\\s*${MONTH}\\.?\\s*\\d{1,2})|(${MONTH}\\.?\\s*\\d{1,2}\\.?)${DAY_FIRST}`,
       'i',
     );
     const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
@@ -387,11 +424,11 @@ function collectListingCards(page) {
       if (cards.length >= 200) break;
     }
     return cards;
-  });
+  }, localeMonths);
 }
 
 // Exported so the rule runner renders exactly the way every other strategy does.
-export async function renderPage(browser, url) {
+export async function renderPage(browser, url, localeMonths = null) {
   const page = await browser.newPage({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
     // Municipal/venue sites often serve mismatched certs; we only read public data.
@@ -421,7 +458,7 @@ export async function renderPage(browser, url) {
       }
       return [...set];
     });
-    const cards = await collectListingCards(page).catch(() => []);
+    const cards = await collectListingCards(page, localeMonths).catch(() => []);
     return { status, html, links, cards };
   } finally {
     await page.close().catch(() => {});
@@ -444,8 +481,25 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   const listingUrl = normalizeEndpointUrl(source.endpoint_url);
   if (!listingUrl) return { events: [], httpStatus: null };
   const listingHost = new URL(listingUrl).host.replace(/^www\./, '');
+  // null for Hungarian and unknown countries, which keeps every branch below
+  // on its original path.
+  const locale = localeFor(source.country_code);
+  const localeLinkRe = localeEventPathRe(locale);
+  const localeMonths = localeMonthPattern(locale);
+  // A link is an event link if EITHER vocabulary recognises it; the Hungarian
+  // one is always consulted first and unchanged.
+  const looksLikeEventPath = (pathname) => EVENT_LINK_RE.test(pathname)
+    || DATED_LINK_RE.test(pathname)
+    || (localeLinkRe !== null && localeLinkRe.test(pathname));
+  // Each judgement is made by ONE vocabulary, never a union of both. Mixing
+  // them is actively harmful: parseHuTextDate("6. September 2026") matches its
+  // year-less branch and reads the "20" of 2026 as the day, quietly producing
+  // 2026-09-20. The locale parser already understands ISO and year-first
+  // dates, so it needs no Hungarian fallback.
+  const isNavTitle = (title) => (locale ? isLocaleNavigationTitle(title, locale) : isNavigationTitle(title));
+  const parseCardDate = (text) => (locale ? parseLocaleTextDate(text, locale) : parseHuTextDate(text));
 
-  let { status: listingStatus, html: listingHtml, links: detailUrls, cards: listingCards } = await renderPage(browser, listingUrl);
+  let { status: listingStatus, html: listingHtml, links: detailUrls, cards: listingCards } = await renderPage(browser, listingUrl, localeMonths);
 
   // Many registry paths are guesses; a 4xx listing falls back to the site root,
   // where the broadened link heuristics can still find the real event pages.
@@ -472,7 +526,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       if (url.host.replace(/^www\./, '') !== listingHost) return false;
       if (u.split('?')[0] === listingUrl.split('?')[0]) return false;
       if (url.pathname.length <= 6) return false;
-      return EVENT_LINK_RE.test(url.pathname) || DATED_LINK_RE.test(url.pathname);
+      return looksLikeEventPath(url.pathname);
     } catch { return false; }
   });
   // Over-budget listings: shuffle so each run samples a DIFFERENT subset.
@@ -480,7 +534,7 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
 
   const events = [];
   const push = (ev, detailUrl) => {
-    if (ev?.name && isNavigationTitle(ev.name)) return;
+    if (ev?.name && isNavTitle(ev.name)) return;
     const row = buildEvent(source, ev, { listingUrl, detailUrl });
     if (row) events.push(row);
   };
@@ -503,15 +557,15 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
   const identity = (title, date) => `${foldHu(title).replace(/[^a-z0-9]+/g, ' ').trim()}|${date}`;
   const covered = new Set(events.map((e) => identity(e.title, e.event_date)));
   for (const card of listingCards || []) {
-    if (isNavigationTitle(card.title)) continue;
+    if (isNavTitle(card.title)) continue;
     // A card linking to a taxonomy page (/megye-, /kerulet-, /telepules-) is a
     // filter, not an event. Cards with no usable href (JS navigation) are kept.
     if (card.href) {
       let path = null;
       try { path = new URL(card.href).pathname; } catch { path = null; }
-      if (path && !EVENT_LINK_RE.test(path) && !DATED_LINK_RE.test(path)) continue;
+      if (path && !looksLikeEventPath(path)) continue;
     }
-    const date = parseHuTextDate(card.dateText);
+    const date = parseCardDate(card.dateText);
     if (!date) continue;
     const key = identity(card.title, date);
     if (covered.has(key)) continue;
