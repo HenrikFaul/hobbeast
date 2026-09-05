@@ -11,8 +11,17 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { NativeBootstrap } from "@/integrations/native/NativeBootstrap";
+import { isNativeRuntime } from "@/integrations/native/isNativeRuntime";
 import Index from "./pages/Index";
+
+// The native shell is loaded ONLY on a device. Importing it eagerly pulled the
+// whole Capacitor runtime into the shared app shell — 11 604 raw / 4 934 gzip
+// bytes that a browser downloads and can never run. `isNativeRuntime()` is
+// dependency-free (see that module for why it is the same test Capacitor
+// itself performs), so on the web this chunk is never even requested.
+const NativeBootstrap = lazy(() =>
+  import("@/integrations/native/NativeBootstrap").then((m) => ({ default: m.NativeBootstrap })));
+const IS_NATIVE = isNativeRuntime();
 
 // Route-level code splitting (Sprint 1.4). Heavy admin/organizer bundles and
 // secondary routes are loaded on demand so the landing page ships a small,
@@ -72,7 +81,11 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <NativeBootstrap />
+            {IS_NATIVE && (
+              <Suspense fallback={null}>
+                <NativeBootstrap />
+              </Suspense>
+            )}
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />

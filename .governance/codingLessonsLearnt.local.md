@@ -66,3 +66,22 @@
   mind egyforma). A TRUNCATE **nem esik RLS alá**. Ma nem elérhető, mert a
   PostgREST nem ad ki TRUNCATE-et és az anon nem tud nyers kapcsolatot nyitni,
   de ez egyetlen réteg. Külön, minden táblát érintő kiadásba való.
+- **Egy shell-szintű bővítést shell-szintű megtakarításból fizess ki, ne a plafon
+  megemeléséből.** A v1.70.0 i18n kerete +2462 gzip bájt volt, és nem
+  kiszervezhető (az első festés előtt kell). A költségvetés jegyzete viszont
+  v1.53.0 óta nevesítette a nyerő lépést: a `NativeBootstrap` lusta betöltése
+  −4934 gzip bájtot hozott, így a shell a bővítéssel EGYÜTT kisebb lett. Mérd meg
+  az alternatívát, mielőtt plafont emelsz.
+- **Platformvizsgálathoz ne importáld a `@capacitor/core`-t.** Épp az az import
+  húzza be a futtatókörnyezetet a webes csomagba. A `win.androidBridge` /
+  `win.webkit.messageHandlers.bridge` olvasása **ugyanaz a vizsgálat**, amit a
+  `getPlatformId(win)` végez — de a helyettesítést TESZTELD a valódi csomaggal
+  szemben, mert egy néma eltérés a natív appon a splash képernyőn ragadást
+  jelentené, amit itt nem lehet kimérni.
+- **A `window.Capacitor` NEM a natív híd jele** — azt maga a `@capacitor/core`
+  hozza létre `initCapacitorGlobal`-lal importkor, tehát weben is létezik.
+- **A böngészőpanel elrejtve throttle-öl**: a `find`/`get_page_text` időtúllépést
+  ad, a kattintáskoordináták elcsúsznak a skálázott panelen, és a konzol/hálózat
+  puffer elavult marad. Ilyenkor a `@playwright/test` közvetlen futtatása a
+  buildelt `dist` ellen ad valódi bizonyítékot — a repo gyökeréből futtasd, mert
+  a scratchpadból nem látszik a `node_modules`.

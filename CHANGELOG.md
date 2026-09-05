@@ -117,6 +117,56 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.70.1] — 2026-09-05
+
+### Az app shell kisebb lett, nem nagyobb
+
+A v1.70.0 CI-ja a teljesítmény-költségvetésen elbukott: az i18n keret
+**+5658 nyers / +2462 gzip bájttal** növelte a kezdő csomagot (provider,
+nyelvregiszter, magyar forráskatalógus, nyelvváltó). Ez a kód **nem
+kiszervezhető** — az első festés előtt ott kell lennie.
+
+A költségvetés plafonjának megemelése helyett az lett kifizetve, amit a
+`scripts/performance-budgets.json` jegyzete **v1.53.0 óta „FUTURE"-ként**
+tartott számon: a `NativeBootstrap` mostantól lusta betöltésű.
+
+- **`isNativeRuntime()`** (`src/integrations/native/isNativeRuntime.ts`) —
+  függőség nélküli platformvizsgálat. Szándékosan **nem** importálja a
+  `Capacitor`-t a `@capacitor/core`-ból: pontosan az az import húzta be a teljes
+  Capacitor futtatókörnyezetet a közös app shellbe — **11 604 nyers / 4934 gzip
+  bájt** olyan kódot, amit egy böngésző soha nem tud lefuttatni.
+- **Nem gyengébb helyettesítő, hanem UGYANAZ a vizsgálat.** A `@capacitor/core`
+  `getPlatformId(win)` függvénye ugyanezt a két globált olvassa, amiket a natív
+  WebView még az alkalmazás JavaScriptje előtt beinjektál:
+  `win.androidBridge` → android, `win.webkit.messageHandlers.bridge` → ios.
+- **Ez tesztelve is van, nem csak leírva.** A
+  `src/integrations/native/__tests__/isNativeRuntime.test.ts` a VALÓDI
+  `@capacitor/core`-ral szemben állítja, hogy a két válasz megegyezik android,
+  ios és web esetén (plusz hogy egy `window.webkit` a `bridge` handler nélkül —
+  asztali Safari — továbbra is web). Ha a Capacitor megváltoztatja a
+  platformfelismerését, ez a teszt bukik el, nem a natív app veszíti el némán a
+  splash képernyőjét, a vissza gombját és a deep linkjeit.
+
+**Eredmény: az app shell ZSUGORODOTT** a v1.69.0-hoz képest —
+178 227 / 57 258 → **175 217 / 56 340** (nyers / gzip) —, úgy, hogy közben
+megkapta a teljes i18n keretet. A plafon ott maradt, ahová a v1.53.0 tette;
+mind a hat költségvetés zöld.
+
+### Bizonyíték
+
+- **883/883 teszt zöld** (120 fájl, +6 az új platformvizsgálatra), lint 0 hiba,
+  `quality:performance` **PASS mind a hat tételre**.
+- A kész buildből Playwrighttal mérve: `html lang=hu`, hazai csík
+  „🇭🇺 Magyarország 3343", „Külföldi programok 3207", a nyelvválasztó mind a hét
+  nyelvvel; `pl`-re váltva a felirat „Wydarzenia za granicą 3207".
+  A lenyíló magyar országnevekkel: Ausztria 521, Csehország 862, Németország 277,
+  Lengyelország 948, Szlovénia 453, Szlovákia 146. Lengyelországot bejelölve
+  **Warszawa pontosan egyszer, „Warsaw" nullaszor** szerepel.
+- **A `NativeBootstrap` chunkot a web egyáltalán nem kéri le** (a böngészőben
+  mért `performance` resource-lista alapján).
+
+---
+
 ## [1.70.0] — 2026-09-05
 
 ### Nyelvek: a termék többé nem csak magyarul olvasható
