@@ -7,6 +7,7 @@ import {
   buildEvent, extractOg, normalizeEndpointUrl, resolveEventImages, shuffled, stripHtml,
 } from './generic.mjs';
 import { scrapeTicketmaster } from './ticketmaster.mjs';
+import { RENDER_UA } from '../fetch.mjs';
 
 /**
  * telekomspots.hu — Next.js app, no schema.org markup. The listing renders
@@ -16,7 +17,8 @@ import { scrapeTicketmaster } from './ticketmaster.mjs';
 async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 40, delayMs = 400, log = () => {} }) {
   const listingUrl = normalizeEndpointUrl(source.endpoint_url) || 'https://telekomspots.hu/events';
   const page = await browser.newPage({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+    // Same identity as every other request this project makes; see RENDER_UA.
+    userAgent: RENDER_UA,
     ignoreHTTPSErrors: true,
   });
   let links = [];

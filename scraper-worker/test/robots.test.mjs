@@ -128,3 +128,101 @@ Crawl-delay: 20`;
     assert.equal(parseRobots('User-agent: *\nDisallow: /admin').crawlDelay, null);
   });
 });
+
+/**
+ * v1.68.0 — the other half of identifying honestly.
+ *
+ * Once the render path stops sending a bare browser user-agent and names us,
+ * a site can address a robots.txt rule to HobbeastBot. Before this, only the
+ * `User-agent: *` group was ever read, so such a rule would have been silently
+ * ignored — we would have been asking to be told, then not listening.
+ */
+describe('a robots.txt group addressed to us', () => {
+  it('wins outright over the wildcard group', () => {
+    const text = `User-agent: *
+Allow: /
+
+User-agent: HobbeastBot
+Disallow: /kalender`;
+    assert.equal(allows(text, '/kalender/2026'), false, 'a rule naming us must bind');
+    assert.equal(allows(text, '/programm'), true, 'and only where it says');
+  });
+
+  it('is matched case-insensitively and inside a longer token', () => {
+    const text = `User-agent: *
+Allow: /
+
+User-agent: hobbeastbot/1.0
+Disallow: /`;
+    assert.equal(allows(text, '/anything'), false);
+  });
+
+  it('takes its Crawl-delay from the group naming us, not the wildcard one', () => {
+    const text = `User-agent: *
+Crawl-delay: 1
+
+User-agent: HobbeastBot
+Crawl-delay: 30`;
+    assert.equal(parseRobots(text).crawlDelay, 30);
+    assert.equal(parseRobots(text).matchedAgent, 'self');
+  });
+
+  it('falls back to the wildcard group when nothing names us', () => {
+    const text = `User-agent: *
+Disallow: /admin
+
+User-agent: GPTBot
+Disallow: /`;
+    assert.equal(allows(text, '/admin/x'), false);
+    assert.equal(allows(text, '/events'), true);
+    assert.equal(parseRobots(text).matchedAgent, '*');
+  });
+
+  it('lets a site permit us specifically while banning everyone else', () => {
+    const text = `User-agent: *
+Disallow: /
+
+User-agent: HobbeastBot
+Allow: /`;
+    assert.equal(allows(text, '/events'), true);
+  });
+});
+
+describe('robots group boundaries', () => {
+  it('treats consecutive User-agent lines as ONE group', () => {
+    // eventfrog.at and orto-bar.com both write groups this way.
+    const text = `User-agent: googlebot-image
+User-agent: googlebot-mobile
+Disallow: /images
+
+User-agent: *
+Disallow: /admin`;
+    assert.equal(allows(text, '/images/x'), true, 'the image rule is not ours');
+    assert.equal(allows(text, '/admin/x'), false, 'the wildcard rule is');
+  });
+
+  it('merges several wildcard groups instead of keeping only one', () => {
+    // visitkoper.si really does this: one * group carries the Crawl-delay, a
+    // later * group carries the Disallow list.
+    const text = `User-agent: *
+Crawl-delay: 5
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: *
+Disallow: /cart/
+Disallow: /checkout/`;
+    const parsed = parseRobots(text);
+    assert.equal(parsed.crawlDelay, 5, 'the delay from the first * group survives');
+    assert.equal(allows(text, '/cart/x'), false, 'and so do the later * rules');
+    assert.equal(allows(text, '/en/events-list/'), true);
+  });
+
+  it('ignores directives written before any User-agent line', () => {
+    const text = `Disallow: /
+User-agent: *
+Allow: /`;
+    assert.equal(allows(text, '/events'), true);
+  });
+});
