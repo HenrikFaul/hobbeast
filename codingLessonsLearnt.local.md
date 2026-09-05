@@ -302,3 +302,40 @@ Never reuse admin/debug projection endpoints as production autocomplete behavior
   bájt-összehasonlítása „seed drift"-et kiált. CRLF-normalizálás után a tartalom
   **azonos**. Ne „javítsd" a már élesített migráció újragenerálásával — az egy 78 KB-os
   hamis diffet és lockfile/diff-kapu kockázatot csinál. Linuxon (CI) zöld.
+
+## Az őszinte user-agent nem került semmibe — de csak mérés mondta meg (2026-09-05, v1.68.0)
+
+- **Két identitásunk volt.** A `fetch.mjs` az őszinte `HobbeastBot/1.0`-t küldte, a
+  Playwright renderelő út (`generic.mjs` `renderPage`, `adapters.mjs`) viszont sima
+  asztali Chrome UA-t — és a `render`/`selector` stratégia viszi a források nagy
+  részét, tehát a gyűjtés nagyobbik fele névtelen volt. Ha egy projektnek van
+  „ki vagyunk mi" szabálya, **grepelj rá minden kimenő kérésre**, ne csak arra az
+  egy fájlra, aminek a neve azt sugallja, hogy ő intézi.
+- **A javítás a hozzáfűzés, nem a csere.** A Chrome-kompatibilitási stringet
+  megtartva, a saját tokent utána: valódi böngésző renderel, tehát a string igaz,
+  a token pedig azonosít. A `prague.eu` bizonyítja, hogy kell: **tiszta** bot-UA-val
+  visszaesik a kiszolgált tartalom, a Chrome-tokennel együtt nem.
+- **Egy helyen definiáld.** `RENDER_UA` a `fetch.mjs`-ben, mindhárom hívási hely
+  onnan veszi — így nem tud szétcsúszni a renderelő és a fetch identitása.
+- **A „böngésző-UA KELL" jegyzetek hazudtak — de nem szándékosan.** Az `events.at`
+  jegyzete 403-at emlegetett; a 403 valójában a `WebFetch`-nek és a sima Node
+  `fetch`-nek szólt, azaz **nem böngésző HTTP-kliensnek**. A Playwright valódi
+  böngésző, és a UA-szövegtől függetlenül 200-at kap. **Ne vidd át egy HTTP-kliens
+  tapasztalatát a renderelő útra**; a blokk gyakran a kliens ujjlenyomatán van,
+  nem a UA szövegén. Mind a négy ilyen jegyzet (`events.at`, `innsbruck.info`,
+  `forumkarlin.cz`, `mojekarte.si`) cáfolódott.
+- **A darabszám-csökkenés nem bizonyíték.** Az éles A/B-n 2002 → 1615 esett, és
+  egyetlen csökkenés sem a UA miatt volt: két forrás `page.goto: Timeout` (a
+  `koncert.hu` ugyanazon az ágon újrafuttatva **195**-öt hozott, többet a
+  bázisnál), az `oberstdorf.de` helyben **ugyanazt az 50 egyedi címet** adja
+  mindkét UA-val, a `tixa.hu` pedig bitre azonos. **Mindig izoláld a változót**:
+  ugyanaz a böngésző, ugyanaz az időzítés, csak a UA más — és ha eltérés van,
+  futtasd rá a valódi kinyerőt, mert a szöveghossz-különbség lehet sávszöveg
+  (a `festspiele-mv.de` 477 karakterrel kevesebbet ad, ugyanazt a 27 eseményt).
+- **Az őszinte azonosítás párja a robots.txt.** Ha megmondjuk, kik vagyunk, egy
+  oldal nekünk címezhet szabályt — a `parseRobots()` viszont csak a
+  `User-agent: *` csoportot olvasta, tehát azt csendben elhagytuk volna. Két
+  csapda a csoportosításban: **több egymást követő `User-agent:` sor EGY csoport**
+  (`eventfrog.at`, `orto-bar.com`), és **több `User-agent: *` blokkot egyesíteni
+  kell** (`visitkoper.si` az egyikben a `Crawl-delay`-t, a másikban a `Disallow`
+  listát hordozza).
