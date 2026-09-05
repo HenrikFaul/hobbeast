@@ -1067,7 +1067,7 @@ felhasználó másik utat ad, onnan olvass tovább.
   append-only migrációt nem írunk át, és mindegyik külön döntést kíván arról, mit
   kell visszaadni. A szabály működését eldobható migrációval ellenőriztük: kiváltotta
   a hibát, majd töröltük.
-- **Nyitott adósság:** élesben **347 SECURITY DEFINER függvényből 139 hívható anonként**
+- **Adósság (2026-09-05-ön lezárva, lásd lentebb):** élesben **347 SECURITY DEFINER függvényből 139 hívható anonként**
   (a javítás előtt 159). A többségüket belső capability-ellenőrzés védi, de a felület
   nagy. Ezt forrásonkénti elemzéssel kell csökkenteni, nem tömeges revoke-kal: néhány
   szándékosan anon (`list_ticket_types_public`, `event_safe_payload`), és az RLS-ben
@@ -1077,5 +1077,50 @@ felhasználó másik utat ad, onnan olvass tovább.
   trigger `EXECUTE` nélkül is lefut, mert a jogosultságot a Postgres a trigger
   *létrehozásakor* ellenőrzi, nem tüzeléskor. Közvetlenül hívva úgyis
   „can only be called as a trigger" hibát ad, tehát a kitettség eleve nulla volt.
+
+
+## Az őr, ami épp az ellenkezőjét csinálta: `<>` az `auth.uid()`-dal (2026-09-05)
+
+- **A hibaosztály.** `IF p_user_id <> auth.uid() AND NOT public.is_organization_member(...)
+  THEN RAISE EXCEPTION ...` — kijelentkezett hívónál `auth.uid()` `NULL`, így
+  `p_user_id <> NULL` → `NULL`, `NULL AND true` → `NULL`, és **az `IF NULL THEN` ág
+  nem hajtódik végre**. Az őr úgy olvasódik, mintha tiltana; pontosan az ellenkezőjét
+  teszi. Kódolvasással ez a sor helyesnek látszik.
+- **Nem elmélet.** Élesben, tranzakcióban lefuttatva és visszagörgetve: anonként a
+  `remove_org_member` egy vadidegen szervezet tagját `active`-ból `removed`-be tette,
+  az `assign_event_organization` pedig más felhasználó eseményét leválasztotta a
+  szervezetéről. **Mindig futtasd le a támadást; a kódolvasás nem bizonyíték.**
+- **A helyes alak** az `IS DISTINCT FROM` (soha nem `NULL`) plusz egy kimondott
+  `IF auth.uid() IS NULL THEN RAISE` a függvény elején. Nem-null operandusokra az
+  `IS DISTINCT FROM` azonos a `<>`-vel, tehát jogos hívóra **nincs viselkedésváltozás**.
+- **Ellenőrizd a `NULL`-lal átugorható ágakat is:** az `assign_event_organization`
+  `IF p_org_id IS NOT NULL AND NOT is_organization_member(...)` sora azt jelenti, hogy
+  `p_org_id => NULL` esetén a szervezet-ellenőrzés **teljesen kimarad**.
+- **Grep-minta a jövőre:** `prosrc ~ '(<>|!=)\s*auth\.uid\(\)'`. Ez a lekérdezés a
+  teljes sémán három találatot adott, és mind a három hibás volt.
+
+## Lezárva: a 139 anon-hívható függvény (2026-09-05)
+
+- A fenti adósság **139 → 37**. A maradék pontosan magyarázható: 14 RLS-policy/nézet-segéd
+  és 23 szándékos publikus felület.
+- **A besorolás bizonyíték alapján ment, nem név alapján.** Három forrás együtt:
+  kereszthivatkozás az `src/` és `supabase/functions/` **összes** `.rpc('...')` hívásával;
+  élesben anonként végigpróbálva (tilt / átmegy / hibázik); és policy/nézet-definíciókban
+  való előfordulás.
+- **Ez fogta meg a `reconcile_virtual_hub_member`-t:** karbantartó jobnak *néz ki*, de az
+  `Onboarding.tsx` és a `Profile.tsx` hívja a bejelentkezett felhasználóra. Név alapján a
+  service_role rétegbe került volna, és eltörte volna az onboardingot.
+- **A „nem dobott hibát" nem egyenlő a „kiadta az adatot"-tal.** 11 `admin_*` olvasó
+  hibátlanul lefutott anonként — de **üres** eredményt adott, mert szűréssel zárnak
+  (`WHERE has_role(auth.uid(),'admin')`), nem `RAISE`-zel. A kontroll az volt, hogy a
+  mögöttes tábla **nem** üres: `crawl_runs` 6 sor, anon `admin_list_crawl_runs` 0 sor.
+  Kontroll nélkül ez a mérés semmit nem bizonyított volna.
+- **Az all-NULL argumentumú próba biztonságos**, mert minden őrzött függvény az inputjai
+  előtt ellenőriz — de utána *nézd meg a táblákat*: 0 új jegy, 0 hub-futás, 0 érintett sor.
+- **Advisor-ERROR ≠ lyuk.** A `public_profile_cards` és a `circle_health_dashboard`
+  definer nézetek a saját `WHERE`-jükben szűrnek, és épp azért definerek, hogy az anon a
+  `profiles`-t közvetlen tábla-jog nélkül olvashassa. Lemérve: 934 profilból az anon a
+  933 publikusat látja, a privát egy nem szivárog. Invokerre váltásuk nem szigorítás
+  lenne, hanem a termék eltörése.
 
 *Utoljára frissítve: 2026-09-05*
