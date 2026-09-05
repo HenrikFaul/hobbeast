@@ -117,6 +117,21 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.57.2] — 2026-09-05
+
+### A scraper-worker tesztjei végre kapuznak a CI-ban
+
+A `scraper-worker` külön csomag, saját `node:test` készlettel, és **eddig semmi
+nem futtatta a CI-ban** — a 113 teszt közül egy sem védett semmit. Pont azok a
+szabályok maradtak őrizetlenül, amelyek eldöntik, *mit tölthetünk le mások
+webhelyeiről*: a `robots.txt` wildcard-értelmezés, az `Allow`/`Disallow`
+sorrend és a `Crawl-delay`. Egy elrontott regex itt csendben átengedne olyan
+URL-eket, amiket a site kizárt.
+
+Új CI-lépés a Vitest után, `working-directory: scraper-worker`. Telepítést nem
+igényel: a tesztek csak worker-forrásokat és a Node standard könyvtárát
+importálják.
+
 ## [1.57.1] — 2026-09-05
 
 ### Rövidített hónapnevek, jegyvásárlás-gombok és HTML-entitások

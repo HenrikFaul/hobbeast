@@ -43,6 +43,14 @@ jobs:
           VITE_SUPABASE_PROJECT_ID: bqdvqmpwccsxumzijspj
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
+      # The scraper worker is a separate package with its own node:test suite,
+      # and nothing gated it until now — the locale and robots rules that decide
+      # what we may fetch from other people's sites were unprotected. It needs
+      # no install: the tests import only worker sources and the node stdlib.
+      - name: Unit tests (scraper worker)
+        run: node --test "test/*.test.mjs"
+        working-directory: scraper-worker
+
       - name: Lint
         run: bun run lint
 
