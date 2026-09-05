@@ -117,6 +117,32 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.58.3] — 2026-09-05
+
+### Visit Bratislava: a dátum mezőben van, nem a szövegben
+
+A Visit Bratislava HTML-kártyái **`5. 9.` alakban** írják a dátumot — év nélkül,
+számmal. Ezt egyik dátummintánk sem fogja, és egy csupasz `D. M.` minta
+globálisan túl zajos lenne (árakkal, időpontokkal ütközne), úgyhogy **nem**
+vezettem be. A forrás saját jegyzete javasolta a tisztább utat, és bejött: a
+WordPress REST-en van egy valódi **`event` post type**
+(`rest_base=event`), amely `title.rendered` + `link` +
+**`event_date.start_date`** (unix timestamp) mezőket ad.
+
+A `wp-posts` stratégia mostantól felismeri a strukturált dátumot — másodperces
+vagy ezredmásodperces timestampet és ISO stringet is, `event_date` vagy `acf`
+alatt —, és ilyenkor **kihagyja a cikk-főcím heurisztikát**, mert egy
+event post type címe definíció szerint az esemény neve („TRH – PIAC – MARKT"
+nem újságcikk-főcím). Eredmény: **30/30 poszt eseménnyé alakul**, tiszta szlovák
+címekkel.
+
+**Magyar regresszió: strukturálisan kizárt, és le is mértem.** A két magyar
+`wp-posts` forrás (funzine.hu, sportagvalaszto.hu) a végpontján
+`_fields=id,link,title,excerpt,content`-et kér — az `event_date` és az `acf`
+**nem is szerepelhet** a válaszban. Élesben ellenőrizve: mindkettőnél
+`has event_date: false`, `has acf: false`, tehát a `structuredPostDate()`
+`null`-t ad, és maradnak az eredeti prózás úton. Teszt is rögzíti ezt.
+
 ## [1.58.2] — 2026-09-05
 
 ### URL-be ágyazott dátum + képlinkes kártyák; a Ticketmasterek kikapcsolva

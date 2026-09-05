@@ -490,6 +490,39 @@ export function splitHeadingSections(html) {
  * the Edge Function can share this file while the Hungarian free-text date
  * parser stays in generic.mjs.
  */
+/**
+ * The start date of a WordPress post that models a real event, read from the
+ * custom field rather than from prose. Accepts a Unix timestamp (seconds or
+ * milliseconds) or an ISO string, under `event_date` or inside `acf`.
+ * Returns null for a plain article, which keeps every existing Hungarian
+ * wp-posts source on its original path — none of them carry these fields.
+ */
+function structuredPostDate(post) {
+  const candidates = [
+    post?.event_date?.start_date, post?.event_date?.start, post?.event_date,
+    post?.acf?.event_date?.start_date, post?.acf?.start_date, post?.acf?.event_date,
+  ];
+  for (const raw of candidates) {
+    if (raw === null || raw === undefined) continue;
+    let ms = null;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      // Seconds vs milliseconds: a seconds value for any plausible event year
+      // is ten digits, a milliseconds value thirteen.
+      ms = raw > 1e11 ? raw : raw * 1000;
+    } else if (typeof raw === 'string') {
+      const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) ms = n > 1e11 ? n : n * 1000;
+    }
+    if (ms === null) continue;
+    if (ms < Date.UTC(2015, 0, 1) || ms > Date.UTC(2040, 0, 1)) continue;
+    const d = new Date(ms);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  }
+  return null;
+}
+
 export function parseWpPosts(posts, { parseDate = parseHuTextDate, fallbackToArticle = true } = {}) {
   const list = Array.isArray(posts) ? posts : [];
   const events = [];
@@ -520,6 +553,25 @@ export function parseWpPosts(posts, { parseDate = parseHuTextDate, fallbackToArt
 
   for (const post of list) {
     const link = post?.link ?? null;
+
+    // A real WordPress EVENT post type carries its date as a field, not as
+    // prose. visitbratislava.com exposes /wp-json/wp/v2/event with
+    // event_date:{start_date:<unix>}, which is far better than anything the
+    // heading heuristics below could recover — the rendered cards there write
+    // "5. 9." with no year at all. When that field is present the title IS the
+    // event name by definition, so the article-headline gate is skipped.
+    const structured = structuredPostDate(post);
+    if (structured) {
+      push(
+        stripTags(post?.title?.rendered ?? ''),
+        structured,
+        link,
+        stripTags(post?.excerpt?.rendered ?? ''),
+        null,
+      );
+      continue;
+    }
+
     const body = post?.content?.rendered ?? '';
     const sections = splitHeadingSections(body);
     let found = 0;
