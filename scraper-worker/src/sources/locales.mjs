@@ -253,6 +253,97 @@ export function parseLocaleTextDate(text, locale) {
   return null;
 }
 
+/**
+ * The date parser for a selector rule's `date` FIELD.
+ *
+ * A selector rule names the element that holds the date, so the text arriving
+ * here is a date and nothing else. That context makes two shapes safe which
+ * would be far too greedy in free-running page text, and which the four
+ * remaining zero-yield sources happen to need:
+ *
+ *   "5.09"            filharmonia.pl — day.month, no year at all
+ *   "7. - 10. sep."   cd-cc.si — a RANGE, and the start is what we want
+ *
+ * A bare `\d{1,2}.\d{1,2}` pattern in page prose would match prices, scores and
+ * version numbers, which is why parseLocaleTextDate does not carry it. Here the
+ * caller has already pointed at the date.
+ *
+ * A range always yields its FIRST date: that is when the thing starts, and the
+ * ingest's future-date gate is about the start.
+ */
+export function parseLocaleFieldDate(text, locale) {
+  if (!locale) return null;
+  const raw = foldLatin(text).slice(0, 200);
+
+  // The other range shape, where BOTH halves name their month:
+  // "05 Sep '26 - 26 Dez '26" (innsbruck.info). Left alone, the general parser
+  // returns the END of the run, which would file a September event in December.
+  const rangeBothMonths = raw.match(/\b(\d{1,2})\s*\.?\s*([a-z]{3,12})\.?\s*'?(\d{2,4})?\s*[-–—]/);
+  if (rangeBothMonths) {
+    const month = monthOf(rangeBothMonths[2], locale.months);
+    if (month) {
+      const day = Number(rangeBothMonths[1]);
+      // A range often states its year only ONCE, at the very end:
+      // "30. jun. - 13. sep. 2026". Inferring instead would see a June start
+      // as already past and roll it into 2027 — a whole year wrong. Prefer the
+      // year written beside the first month, then any year in the text.
+      const rawYear = rangeBothMonths[3] ?? (raw.match(/\b(20\d{2})\b/)?.[1]);
+      if (rawYear) {
+        // "'26" is 2026; a full year is taken as written.
+        const year = rawYear.length === 2 ? 2000 + Number(rawYear) : Number(rawYear);
+        const iso = isoOrNull(year, month, day);
+        if (iso) return iso;
+      }
+      return withInferredYear(day, month);
+    }
+  }
+
+  // A "D. - D. month" range must be read BEFORE the general parser, which
+  // would otherwise latch onto the second number: "7. - 10. sep." parsed
+  // free-text yields the 10th, when the thing starts on the 7th. The month
+  // sits on the tail of the range and belongs to both halves.
+  const rangeMonth = raw.match(/\b(\d{1,2})\s*\.?\s*[-–—]\s*\d{1,2}\s*\.?\s*([a-z]{3,12})/);
+  if (rangeMonth) {
+    const month = monthOf(rangeMonth[2], locale.months);
+    if (month) {
+      // Same rule: a stated year beats inference.
+      const stated = raw.match(/\b(20\d{2})\b/)?.[1];
+      const day = Number(rangeMonth[1]);
+      if (stated) {
+        const iso = isoOrNull(Number(stated), month, day);
+        if (iso) return iso;
+      }
+      return withInferredYear(day, month);
+    }
+  }
+
+  // Everything the free-text parser already understands, including day-first
+  // numeric with a year and day + (abbreviated) month name. A range that
+  // spells out both months ("16. sept. 2026 – 9. maj 2027") lands here and
+  // correctly returns its first date.
+  const full = parseLocaleTextDate(raw, locale);
+  if (full) return full;
+
+  // Bare day.month with no year — safe only because this is the date field.
+  const dayMonth = raw.match(/\b(\d{1,2})\s*[.\-/]\s*(\d{1,2})\b(?!\s*[.\-/]\s*\d)/);
+  if (dayMonth) {
+    const day = Number(dayMonth[1]);
+    const month = Number(dayMonth[2]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return withInferredYear(day, month);
+  }
+
+  return null;
+}
+
+/** The same roll-forward rule the free-text parsers use. */
+function withInferredYear(day, month) {
+  const now = new Date();
+  let year = now.getFullYear();
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (candidate.getTime() < now.getTime() - 32 * 86400000) year += 1;
+  return isoOrNull(year, month, day);
+}
+
 /** Locale-aware sibling of isNavigationTitle() in generic.mjs. */
 export function isLocaleNavigationTitle(title, locale) {
   if (!locale) return false;

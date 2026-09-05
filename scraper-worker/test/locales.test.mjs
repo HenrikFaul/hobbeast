@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   foldLatin, localeFor, knownLocaleCountries, localeEventPathRe, localeMonthPattern,
-  parseLocaleTextDate, isLocaleNavigationTitle,
+  parseLocaleTextDate, isLocaleNavigationTitle, parseLocaleFieldDate,
 } from '../src/sources/locales.mjs';
 import { parseEventDate, buildEvent, dateFromUrlPath } from '../src/sources/generic.mjs';
 
@@ -319,5 +319,51 @@ describe('dateFromUrlPath', () => {
     assert.equal(dateFromUrlPath('/e/2026-09-03/'), '2026-09-03');
     assert.equal(dateFromUrlPath(null), null);
     assert.equal(dateFromUrlPath(''), null);
+  });
+});
+
+describe('parseLocaleFieldDate — the date FIELD of a selector rule', () => {
+  const si = localeFor('SI');
+  const at = localeFor('AT');
+  const pl = localeFor('PL');
+
+  it('reads a bare day.month, which free text never may', () => {
+    // filharmonia.pl's .event-date holds "5.09" and nothing else. In running
+    // prose that pattern would also match prices and scores, which is why
+    // parseLocaleTextDate refuses it; here the rule has pointed at the date.
+    assert.equal(parseLocaleFieldDate('5.09', pl), `${new Date().getFullYear()}-09-05`);
+    assert.equal(parseLocaleFieldDate('12.10', pl), `${new Date().getFullYear()}-10-12`);
+  });
+
+  it('takes the START of a range, not the end', () => {
+    // cd-cc.si: "7. - 10. sep." — the month sits on the second half.
+    assert.equal(parseLocaleFieldDate('7. - 10. sep.', si), `${new Date().getFullYear()}-09-07`);
+    // innsbruck.info: both halves name a month, and the general parser would
+    // otherwise return December for a September event.
+    assert.equal(parseLocaleFieldDate("05 Sep '26 - 26 Dez '26", at), '2026-09-05');
+  });
+
+  it('prefers a year STATED anywhere in the range over inference', () => {
+    // "30. jun." alone is in the past, so inference would roll it to next year
+    // — but the range says 2026 at its end, and that year covers both halves.
+    assert.equal(parseLocaleFieldDate('30. jun. - 13. sep. 2026', si), '2026-06-30');
+    assert.equal(parseLocaleFieldDate('7. jul. - 18. okt. 2026', si), '2026-07-07');
+    // Two stated years: the first half's own year wins.
+    assert.equal(parseLocaleFieldDate('16. sept. 2026 – 9. maj 2027', si), '2026-09-16');
+  });
+
+  it('still reads everything the free-text parser reads', () => {
+    assert.equal(parseLocaleFieldDate('2026-09-05', pl), '2026-09-05');
+    assert.equal(parseLocaleFieldDate('6. cervna 2026', localeFor('CZ')), '2026-06-06');
+  });
+
+  it('invents nothing from junk', () => {
+    assert.equal(parseLocaleFieldDate('brak terminu', pl), null);
+    assert.equal(parseLocaleFieldDate('', pl), null);
+    assert.equal(parseLocaleFieldDate('45.99', pl), null, 'an impossible day/month is not a date');
+  });
+
+  it('never runs for a Hungarian source', () => {
+    assert.equal(parseLocaleFieldDate('5.09', localeFor('HU')), null);
   });
 });

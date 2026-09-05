@@ -6,9 +6,10 @@
 // gate and event-normalization contract.
 
 import { buildEvent, normalizeEndpointUrl, renderPage, resolveEventImages } from './generic.mjs';
+import { localeFor, parseLocaleFieldDate } from './locales.mjs';
 import {
-  extractWithRule, parseIcs, parseJsonLdEvents, parseProsePage, parseWpIcsCalendar,
-  parseWpPosts, validateRule,
+  extractWithRule, parseHuTextDate, parseIcs, parseJsonLdEvents, parseProsePage,
+  parseWpIcsCalendar, parseWpPosts, validateRule,
 } from './recipes.mjs';
 
 const PARSERS = {
@@ -90,7 +91,16 @@ export async function scrapeSelectorSource(source, { browser, fetchStatic, log =
     httpStatus = 200;
   }
 
-  const { events: raw, errors } = extractWithRule(html, rule, url);
+  // A foreign source's date field is written in its own language: "5.09"
+  // (Polish, no year), "7. - 10. sep." (Slovenian range). localeFor() returns
+  // null for HU and anything unrecognised, so a Hungarian rule keeps the exact
+  // Hungarian parser it always used.
+  const locale = localeFor(source.country_code);
+  const parseDate = locale
+    ? (text) => parseLocaleFieldDate(text, locale) ?? parseHuTextDate(text)
+    : parseHuTextDate;
+
+  const { events: raw, errors } = extractWithRule(html, rule, url, { parseDate });
   for (const message of errors) log(`  rule: ${message}`);
   log(`  recipe selector: ${raw.length} entries from ${rule.container}`);
 
