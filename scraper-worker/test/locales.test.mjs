@@ -66,6 +66,12 @@ describe('event-path vocabulary', () => {
     ['SI', '/spored', true],
     ['SK', '/koncerty', true],
     ['SK', '/podujatia/vianocny-koncert', true],
+    // predpredaj.zoznam.sk serves EVENT pages at /sk/listky/<slug>/. The word
+    // means "tickets", so it is also a nav word — the two axes are independent:
+    // a URL path can be an event scheme while the same word as a card TITLE is
+    // a buy button.
+    ['SK', '/sk/listky/unbros-music-festival/', true],
+    ['CZ', '/listky/koncert-2026', true],
     ['AT', '/de/veranstaltungen/konzert', true],
     ['AT', '/termine/2026', true],
   ];
@@ -273,5 +279,16 @@ describe('buildEvent text decoding', () => {
     const a = build({ name: 'Jazz &amp; Wein', startDate: '2026-09-05', url: 'https://example.at/e/1' });
     const b = build({ name: 'Jazz & Wein', startDate: '2026-09-05', url: 'https://example.at/e/1' });
     assert.equal(a.external_id, b.external_id);
+  });
+});
+
+describe('path words and nav words are independent axes', () => {
+  it('treats "listky" as an event path but also as a button label', () => {
+    // predpredaj.zoznam.sk's event detail pages live at /sk/listky/<slug>/, so
+    // the path must match; a CARD titled "Lístky" is still a buy button.
+    const sk = localeFor('SK');
+    assert.equal(localeEventPathRe(sk).test('/sk/listky/unbros-music-festival/'), true);
+    assert.equal(isLocaleNavigationTitle('Lístky', sk), true);
+    assert.equal(isLocaleNavigationTitle('UNBROS MUSIC FESTIVAL', sk), false);
   });
 });

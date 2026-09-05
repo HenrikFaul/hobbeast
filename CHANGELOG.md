@@ -117,6 +117,25 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.58.1] — 2026-09-05
+
+### `/sk/listky/` — a V7 egyetlen fel nem ismert URL-mintája
+
+A V7 20 forrásának **dokumentált** detail-URL mintáit (amit a migráció saját
+„verified live" jegyzetei tartalmaznak) végigmértem a locale-szókincsen, extra
+hálózati lekérés nélkül — hogy a futó éles scrape ne terhelje kétszer a
+webhelyeket. 18 mintából **17 illeszkedett**, egy nem:
+
+`predpredaj.zoznam.sk` az esemény-oldalait `/sk/listky/<slug>/` alatt szolgálja
+ki. A `listky` szlovákul „jegyek", és nem volt a szókincsben — a forrás így
+egyetlen részletoldalt sem ismert volna fel.
+
+`listky`/`listek` bekerült a CZ és SK útvonalszavak közé **és** a navigációs
+szavak közé. Ez nem ellentmondás: a kettő **külön tengely**. Egy URL-útvonal
+lehet eseményséma (`/sk/listky/unbros-music-festival/` egy valódi koncert),
+miközben ugyanaz a szó **kártyacímként** vásárlógomb („Lístky"). Teszt rögzíti
+mindkét irányt.
+
 ## [1.58.0] — 2026-09-05
 
 ### A külföldi forrás-vetting befejezése: +20 forrás, 8 elutasítva

@@ -39,7 +39,7 @@ const EVENT_PATH_WORDS = {
   CZ: [
     'akce', 'akci', 'udalost', 'udalosti', 'predstaveni', 'repertoar', // narodni-divadlo.cz/cs/predstaveni/...
     'koncert', 'koncerty', 'vstupenky', 'kalendar', 'festival', 'vystava',
-    'divadlo', 'film', 'porad', 'porady',
+    'divadlo', 'film', 'porad', 'porady', 'listky', 'listek',
   ],
   PL: [
     'wydarzenie', 'wydarzenia', 'repertuar', // filharmonia.pl/repertuar/...
@@ -54,6 +54,9 @@ const EVENT_PATH_WORDS = {
   SK: [
     'podujatie', 'podujatia', 'koncert', 'koncerty', 'predstavenie', 'predstavenia',
     'vstupenky', 'kalendar', 'festival', 'vystava', 'repertoar', 'program',
+    // predpredaj.zoznam.sk serves its EVENT pages at /sk/listky/<slug>/ — the
+    // word means "tickets" but here it is the detail-page scheme, not a button.
+    'listky', 'listok',
   ],
 };
 
@@ -110,7 +113,7 @@ const NAV_WORDS = {
   CZ: [
     'vice', 'dalsi', 'vsechny', 'vse', 'zpet', 'domu', 'kalendar', 'program',
     'zobrazit', 'nacist',
-    'vstupenky', 'koupit vstupenku', 'detail', 'vice informaci', 'akce', 'vystavy',
+    'vstupenky', 'listky', 'koupit vstupenku', 'detail', 'vice informaci', 'akce', 'vystavy',
   ],
   PL: [
     'wiecej', 'wszystkie', 'dalej', 'wstecz', 'strona glowna', 'kalendarz',
@@ -127,7 +130,7 @@ const NAV_WORDS = {
   ],
   SK: [
     'viac', 'dalsie', 'vsetky', 'spat', 'domov', 'kalendar', 'program', 'zobrazit',
-    'vstupenky', 'kupit vstupenku', 'detail', 'viac informacii', 'podujatia', 'vystavy',
+    'vstupenky', 'listky', 'kupit vstupenku', 'detail', 'viac informacii', 'podujatia', 'vystavy',
   ],
 };
 
