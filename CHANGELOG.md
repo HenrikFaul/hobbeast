@@ -117,6 +117,39 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.58.2] — 2026-09-05
+
+### URL-be ágyazott dátum + képlinkes kártyák; a Ticketmasterek kikapcsolva
+
+**SND Bratislava: 0 → 37.** A szlovák nemzeti színház a legrosszabb esetet
+mutatta: a részletoldalain **nincs JSON-LD, nincs microdata, és `og:title` sem** —
+a meglévő URL-dátum tartalék viszont `og:title`-t igényel. A listakártyákon meg
+nincs dátumszöveg. Az információ mégis ott van, csak máshol:
+
+- **A dátum az URL-ben:** `/predstavenie/17366/2026-09-03/19-00/blazni-z-valencie/`.
+  Új `dateFromUrlPath()` olvassa ki. Nyelvfüggetlen és egyértelmű, ellentétben
+  egy renderelt dátumszöveggel. A `2026-02-31`-et naptári kerekítés-ellenőrzés
+  utasítja vissza, nem csak a regex.
+- **A cím egy testvérelemben:** a 43 előadás-link mind **üres szövegű képlink**,
+  a név a kártya első sorában áll. A kártyagyűjtő most — és **csak** üres
+  horgony esetén — felmászik a legközelebbi szöveges ősig és annak első sorát
+  veszi. Így a cím ékezetesen, helyesen jön: „Blázni z Valencie", „Život
+  Galileiho", nem a slugból csonkolva.
+
+**Magyar regresszió: bizonyítottan nincs.** Az új ág feltétele, hogy a link
+útvonalában teljes ISO dátum legyen. Megmértem a négy legnagyobb magyar
+listaoldalon (koncert.hu, jegy.hu, programturizmus.hu, tixa.hu): **nulla** ilyen
+horgony van rajtuk, tehát az ág **soha nem fut le**. A mérés közbeni ±3 esemény
+eltérés a kinyerő saját sorsolása (`shuffled()`), nem viselkedésváltozás.
+
+**Ticketmaster CZ és PL kikapcsolva.** A listaoldaluk a CI datacenter IP-jéről
+**HTTP 403**, ugyanaz helyi IP-ről **200** — vagyis IP-alapú botvédelem, nem
+User-Agent kérdés; a részletoldalak még helyből is 401-et adnak. A Ticketmaster
+ToS általánosan korlátozza az automatizált hozzáférést, a szankcionált út a
+hivatalos Discovery API (ingyenes kulcs). **A blokkolás megkerülése nem opció**,
+ezért `scrape_enabled=false`, a diagnózis a `scrape_note`-ban. Ha a Discovery
+API-kulcs meglesz, adapterrel visszahozható.
+
 ## [1.58.1] — 2026-09-05
 
 ### `/sk/listky/` — a V7 egyetlen fel nem ismert URL-mintája

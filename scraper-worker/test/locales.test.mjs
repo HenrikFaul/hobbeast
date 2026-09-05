@@ -4,7 +4,7 @@ import {
   foldLatin, localeFor, knownLocaleCountries, localeEventPathRe, localeMonthPattern,
   parseLocaleTextDate, isLocaleNavigationTitle,
 } from '../src/sources/locales.mjs';
-import { parseEventDate, buildEvent } from '../src/sources/generic.mjs';
+import { parseEventDate, buildEvent, dateFromUrlPath } from '../src/sources/generic.mjs';
 
 /**
  * The v1.56.0 foreign sources collected nothing because the generic extractor
@@ -290,5 +290,34 @@ describe('path words and nav words are independent axes', () => {
     assert.equal(localeEventPathRe(sk).test('/sk/listky/unbros-music-festival/'), true);
     assert.equal(isLocaleNavigationTitle('Lístky', sk), true);
     assert.equal(isLocaleNavigationTitle('UNBROS MUSIC FESTIVAL', sk), false);
+  });
+});
+
+describe('dateFromUrlPath', () => {
+  it('reads a full ISO date out of a URL path', () => {
+    // snd.sk encodes the performance date in the link and nowhere else: its
+    // detail pages have no JSON-LD, no microdata and not even an og:title.
+    assert.equal(
+      dateFromUrlPath('https://snd.sk/predstavenie/17366/2026-09-03/19-00/blazni-z-valencie/2026-09-03/19-00'),
+      '2026-09-03',
+    );
+    assert.equal(dateFromUrlPath('/kalendarium/2026-09-17/koncert'), '2026-09-17');
+  });
+
+  it('requires the date to be a whole path segment', () => {
+    assert.equal(dateFromUrlPath('https://x.sk/event/v2026-09-03-promo'), null);
+    assert.equal(dateFromUrlPath('https://x.sk/event/slug'), null);
+  });
+
+  it('rejects a date that does not exist in the calendar', () => {
+    // The regex alone would accept 31 February; the round-trip check catches it.
+    assert.equal(dateFromUrlPath('https://x.sk/e/2026-02-31/slug'), null);
+    assert.equal(dateFromUrlPath('https://x.sk/e/2026-13-01/slug'), null);
+  });
+
+  it('handles a relative path and empty input', () => {
+    assert.equal(dateFromUrlPath('/e/2026-09-03/'), '2026-09-03');
+    assert.equal(dateFromUrlPath(null), null);
+    assert.equal(dateFromUrlPath(''), null);
   });
 });

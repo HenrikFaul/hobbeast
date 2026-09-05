@@ -30,6 +30,26 @@ const DATED_LINK_RE = /20(2[5-9])[/\-.]?(0[1-9]|1[0-2])[/\-.]?(0[1-9]|[12]\d|3[0
 
 export function md5(s) { return crypto.createHash('md5').update(s).digest('hex'); }
 
+/**
+ * A full ISO date sitting in a URL PATH, e.g.
+ * /predstavenie/17366/2026-09-03/19-00/blazni-z-valencie. Language-independent
+ * and unambiguous, unlike a rendered date string. Returns null for anything
+ * that is not a real calendar date, so /2026-13-45/ is rejected rather than
+ * becoming an event.
+ */
+export function dateFromUrlPath(url) {
+  if (!url) return null;
+  let pathname;
+  try { pathname = new URL(url).pathname; } catch { pathname = String(url); }
+  const m = pathname.match(/\/(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(?:\/|$)/);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const probe = new Date(Date.UTC(y, mo - 1, d));
+  // Rejects 2026-02-31, which the regex alone would happily accept.
+  if (probe.getUTCMonth() + 1 !== mo || probe.getUTCDate() !== d) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
 export function normalizeEndpointUrl(url) {
   if (!url) return null;
   let u = String(url).trim();
@@ -407,8 +427,35 @@ function collectListingCards(page, localeMonths = null) {
     const cards = [];
     const seen = new Set();
 
+    // The date a link carries in its own path, e.g.
+    // /predstavenie/17366/2026-09-03/19-00/blazni-z-valencie.
+    const URL_DATE_RE = /\/20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(\/|$)/;
+
+    /**
+     * Some listings make the whole card an image link with NO text, and put the
+     * title in a sibling — snd.sk wraps 43 performances that way. Climb to the
+     * nearest ancestor that has text and take its FIRST LINE, which is where
+     * such templates put the name ("Blázni z Valencie" ahead of the genre,
+     * venue and times). Only consulted for an otherwise-empty anchor, so a card
+     * that names itself is never second-guessed.
+     */
+    const titleFromAncestor = (anchor) => {
+      let node = anchor.parentElement;
+      for (let depth = 0; depth < 3 && node; depth += 1) {
+        const raw = (node.innerText || '').trim();
+        if (raw) {
+          const first = clean(raw.split('\n')[0]);
+          if (first.length >= 6 && first.length <= 160) return first;
+        }
+        node = node.parentElement;
+      }
+      return '';
+    };
+
     for (const anchor of document.querySelectorAll('a[href]')) {
-      const title = clean(anchor.innerText);
+      const rawHref = anchor.getAttribute('href') || '';
+      let title = clean(anchor.innerText);
+      if (!title && URL_DATE_RE.test(rawHref)) title = titleFromAncestor(anchor);
       if (title.length < 6 || title.length > 160) continue;
       // A date on the card, not somewhere far up the page: climb a few levels
       // and stop at the first ancestor that is still small enough to be a card.
@@ -420,8 +467,12 @@ function collectListingCards(page, localeMonths = null) {
         if (DATE_RE.test(text)) { dateText = text; break; }
         node = node.parentElement;
       }
-      if (!dateText) continue;
-      const key = `${title}|${dateText.slice(0, 60)}`;
+      // A card with no visible date can still be dated, if its own link says so.
+      // snd.sk links every performance as
+      // /predstavenie/{id}/{YYYY-MM-DD}/{HH-MM}/{slug}/... — the date is in the
+      // URL, never in the card text, so requiring dateText discarded all 43.
+      if (!dateText && !URL_DATE_RE.test(rawHref)) continue;
+      const key = `${title}|${dateText.slice(0, 60)}|${rawHref}`;
       if (seen.has(key)) continue;
       seen.add(key);
       cards.push({ title, dateText, href: anchor.href || null });
@@ -569,7 +620,12 @@ export async function scrapeGenericSource(source, { browser, fetchStatic, maxDet
       try { path = new URL(card.href).pathname; } catch { path = null; }
       if (path && !looksLikeEventPath(path)) continue;
     }
-    const date = parseCardDate(card.dateText);
+    // Card text first; then the link itself. A URL-embedded ISO date is the
+    // most reliable signal a listing can give — no language, no ambiguity —
+    // and it is the only one snd.sk offers, whose detail pages carry neither
+    // JSON-LD nor microdata nor even an og:title. Detail-page events still win:
+    // `covered` dedups this card away whenever the real parse already found it.
+    const date = parseCardDate(card.dateText) || dateFromUrlPath(card.href);
     if (!date) continue;
     const key = identity(card.title, date);
     if (covered.has(key)) continue;
