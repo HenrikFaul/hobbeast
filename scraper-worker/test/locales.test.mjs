@@ -24,11 +24,13 @@ describe('locale selection', () => {
     assert.equal(localeFor(undefined), null);
     assert.equal(localeFor(''), null);
     assert.equal(localeFor('XX'), null);
-    assert.equal(localeFor('DE'), null, 'only countries we actually registered get a locale');
+    // DE used to be the example of an unregistered country here. It is a
+    // registered locale since v1.66.0, so the example moved to one that is not.
+    assert.equal(localeFor('FR'), null, 'only countries we actually registered get a locale');
   });
 
-  it('covers exactly the five countries the registry now holds', () => {
-    assert.deepEqual(knownLocaleCountries(), ['AT', 'CZ', 'PL', 'SI', 'SK']);
+  it('covers exactly the six countries the registry now holds', () => {
+    assert.deepEqual(knownLocaleCountries(), ['AT', 'CZ', 'DE', 'PL', 'SI', 'SK']);
   });
 
   it('is case- and whitespace-insensitive about the country code', () => {
@@ -365,5 +367,65 @@ describe('parseLocaleFieldDate — the date FIELD of a selector rule', () => {
 
   it('never runs for a Hungarian source', () => {
     assert.equal(parseLocaleFieldDate('5.09', localeFor('HU')), null);
+  });
+});
+
+/**
+ * Germany (v1.66.0) is the first country added AFTER the module settled, so
+ * these tests are really about the promise the module makes: adding a locale
+ * must not touch an existing one. Austria yields 306 events today and speaks
+ * the same language, which is exactly why DE gets its own arrays instead of
+ * sharing Austria's.
+ */
+describe('German locale, added without touching Austria', () => {
+  const de = localeFor('DE');
+  const at = localeFor('AT');
+
+  it('exists, and Hungarian still does not', () => {
+    assert.ok(de, 'DE must resolve to a locale');
+    assert.equal(localeFor('HU'), null);
+    assert.deepEqual(knownLocaleCountries(), ['AT', 'CZ', 'DE', 'PL', 'SI', 'SK']);
+  });
+
+  it('shares no array object with Austria, so neither can drift into the other', () => {
+    assert.notEqual(de.pathWords, at.pathWords);
+    assert.notEqual(de.months, at.months);
+    assert.notEqual(de.navWords, at.navWords);
+  });
+
+  it('leaves the Austrian vocabulary byte-identical', () => {
+    assert.deepEqual(at.pathWords, [
+      'veranstaltung', 'veranstaltungen', 'termin', 'termine', 'konzert', 'konzerte',
+      'kalender', 'spielplan', 'programm', 'vorstellung', 'vorstellungen',
+      'ausstellung', 'ausstellungen', 'festival', 'karten', 'tickets', 'buehne',
+    ]);
+    assert.ok('janner' in at.months, 'Austrian Jaenner must survive');
+    assert.ok(!('janner' in de.months), 'a German page never writes Jaenner');
+  });
+
+  it('reads a German date the same way Austria does', () => {
+    assert.equal(parseLocaleTextDate('Konzert am 6. September 2026 um 20 Uhr', de), '2026-09-06');
+    assert.equal(parseLocaleTextDate('Konzert am 6. September 2026 um 20 Uhr', at), '2026-09-06');
+    assert.equal(parseLocaleTextDate('15. Dezember 2026', de), '2026-12-15');
+  });
+
+  it('takes the START of a German range, not the end', () => {
+    assert.equal(parseLocaleFieldDate('05 Sep 26 - 26 Dez 26', de), '2026-09-05');
+    assert.equal(parseLocaleFieldDate('1. Marz 2027 - 30. April 2027', de), '2027-03-01');
+  });
+
+  it('matches the English event paths German sites actually use', () => {
+    const re = localeEventPathRe(de);
+    assert.ok(re.test('https://www.berlin.de/en/events/12345-konzert'));
+    assert.ok(re.test('https://www.visitberlin.de/de/veranstaltung/sommerfest'));
+    assert.ok(re.test('https://x.de/veranstaltungskalender/oktoberfest'));
+    assert.ok(!re.test('https://x.de/eventual-nonsense'), 'the word must be a whole segment');
+  });
+
+  it('knows a German consent banner is not an event title', () => {
+    assert.ok(isLocaleNavigationTitle('Alle akzeptieren', de));
+    assert.ok(isLocaleNavigationTitle('Mehr anzeigen', de));
+    assert.ok(isLocaleNavigationTitle('Zur Veranstaltung', de));
+    assert.ok(!isLocaleNavigationTitle('Silvesterkonzert im Konzerthaus', de));
   });
 });

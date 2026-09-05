@@ -117,6 +117,51 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.66.0] — 2026-09-05
+
+### Németország: hatodik nyelv a kinyerőnek
+
+A tulajdonos négy munkafüzetnyi külföldi forrást adott át hat országhoz, köztük
+**Németországhoz — ami eddig egyáltalán nem szerepelt a rendszerben**. A
+`localeFor('DE')` `null`-t adott, vagyis a generikus kinyerő minden német oldalt
+a **magyar** szótárral olvasott volna: magyar útvonalszavakkal, magyar
+hónapnevekkel, magyar navigációs szavakkal.
+
+Pontosan ez a V6-hiba, ami annak idején 14 külföldi forrásból 12-t nullára
+állított. Ezért ez a kiadás **először a nyelvet** adja hozzá, és csak utána
+következhetnek a források.
+
+**A DE saját tömböket kap, nem az AT-ét használja.** Ausztria németül beszél, a
+szókincs nagyrészt közös — mégis külön tömb, mert az AT ma **306 eseményt hoz**,
+és egy megosztott tömbhöz adott német szó észrevétlenül megváltoztatná egy
+működő ország kinyerését. A modul ígérete épp az, hogy egy locale hozzáadása
+nem érhet hozzá egy meglévőhöz; ezt most három teszt rögzíti, egyikük
+kifejezetten azt állítja, hogy az `AT.pathWords` bitre a régi marad.
+
+Két apró, de valós nyelvi különbség:
+
+- A **`Jänner`** osztrák; német oldal soha nem írja le. Az AT hónaplistájában
+  marad, a DE-ébe nem került bele — a felsorolása nem került volna semmibe, de
+  így őszintén írja le, mit tartalmaz a német szöveg.
+- A német oldalak jóval gyakrabban nyúlnak az **angol szóhoz**, mint az
+  osztrákok (`berlin.de/en/events/`, `visitberlin.de/en/events`), ezért az
+  `event`/`events` bekerült a DE útvonalszavai közé, az osztrákéba nem.
+- A német oldalak legharsányabb szövege a **süti- és adatvédelmi sáv**, és ez
+  rendszeresen a listán talált első dátum legközelebbi címsora. Az `alle
+  akzeptieren`, `einstellungen`, `datenschutz`, `impressum` ezért navigációs
+  szó, nem eseménycím.
+
+**Két meglévő teszt elbukott a változástól, és jól tette.** Az egyik azt
+állította, hogy a modul „pontosan az öt országot" fedi; a másik épp a `DE`-t
+használta a *nem regisztrált* ország példájaként. Mindkettő frissült — a második
+példája `FR`-re változott —, mert egy teszt, ami nem bukik el egy valódi
+viselkedésváltozáson, nem ér semmit.
+
+A magyar viselkedés változatlan: a `localeFor()` HU-ra és minden ismeretlen
+országra továbbra is `null`, és minden hívási hely arra az ágra esik vissza.
+
+---
+
 ## [1.65.0] — 2026-09-05
 
 ### A 139 anon-hívható függvény átvizsgálása — két valódi lyukkal

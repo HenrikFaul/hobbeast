@@ -41,6 +41,21 @@ const EVENT_PATH_WORDS = {
     'koncert', 'koncerty', 'vstupenky', 'kalendar', 'festival', 'vystava',
     'divadlo', 'film', 'porad', 'porady', 'listky', 'listek',
   ],
+  // Germany speaks the same language as Austria, so the words are the same —
+  // but DE gets its OWN array rather than sharing AT's. Austria already yields
+  // 306 events; adding a German-only word to a shared array would silently
+  // change how a working country is extracted, and this module's whole promise
+  // is that adding a locale cannot touch an existing one.
+  DE: [
+    'veranstaltung', 'veranstaltungen', 'veranstaltungskalender',
+    'termin', 'termine', 'konzert', 'konzerte',
+    'kalender', 'spielplan', 'programm', 'vorstellung', 'vorstellungen',
+    'auffuehrung', 'auffuehrungen', 'ausstellung', 'ausstellungen',
+    'festival', 'karten', 'tickets', 'buehne',
+    // German sites reach for the English word far more often than Austrian
+    // ones do: berlin.de/en/events/, visitberlin.de/en/events/...
+    'event', 'events',
+  ],
   PL: [
     'wydarzenie', 'wydarzenia', 'repertuar', // filharmonia.pl/repertuar/...
     'koncert', 'koncerty', 'impreza', 'imprezy', 'bilety', 'spektakl', 'spektakle',
@@ -74,6 +89,14 @@ const MONTH_WORDS = {
     kveten: 5, kvetna: 5, cerven: 6, cervna: 6, cervenec: 7, cervence: 7,
     srpen: 8, srpna: 8, zari: 9, rijen: 10, rijna: 10, listopad: 11, listopadu: 11,
     prosinec: 12, prosince: 12,
+  },
+  // Identical to AT except for one word: "Jänner" is Austrian, and a German
+  // page never writes it. Listing it anyway would cost nothing, but leaving it
+  // out is the honest statement of what German text actually contains.
+  DE: {
+    januar: 1, februar: 2, marz: 3, april: 4, mai: 5, juni: 6,
+    juli: 7, august: 8, september: 9, oktober: 10, november: 11, dezember: 12,
+    jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, okt: 10, nov: 11, dez: 12,
   },
   PL: {
     styczen: 1, stycznia: 1, luty: 2, lutego: 2, marzec: 3, marca: 3,
@@ -114,6 +137,16 @@ const NAV_WORDS = {
     'vice', 'dalsi', 'vsechny', 'vse', 'zpet', 'domu', 'kalendar', 'program',
     'zobrazit', 'nacist',
     'vstupenky', 'listky', 'koupit vstupenku', 'detail', 'vice informaci', 'akce', 'vystavy',
+  ],
+  DE: [
+    'weiter', 'weiterlesen', 'mehr', 'mehr lesen', 'alle', 'alle termine', 'zuruck',
+    'startseite', 'ubersicht', 'anzeigen', 'details', 'kalender', 'mehr erfahren',
+    'programm', 'tickets', 'karten', 'jetzt buchen', 'zum event',
+    'zur veranstaltung', 'mehr infos', 'veranstaltungen', 'veranstaltungskalender',
+    'nachste', 'vorschau', 'eintritt frei', 'mehr anzeigen',
+    // Cookie and consent banners are the loudest text on a German page and are
+    // routinely the nearest heading to the first date on the listing.
+    'alle akzeptieren', 'einstellungen', 'datenschutz', 'impressum',
   ],
   PL: [
     'wiecej', 'wszystkie', 'dalej', 'wstecz', 'strona glowna', 'kalendarz',
