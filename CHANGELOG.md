@@ -117,6 +117,66 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.63.0] — 2026-09-05
+
+### Ticketmaster CZ/PL a hivatalos API-n, és a PORT.hu élesben
+
+**Ticketmaster: a szankcionált úton.** A weboldaluk a CI datacenter IP-jéről
+403-at ad, a részletoldalak 401-et, és a ToS is korlátozza az automatizált
+hozzáférést — ezt nem kerüljük meg. A tulajdonos szerzett Discovery API-kulcsot,
+ami `TICKETMASTER_API_KEY` GitHub secretként került be (az értéke sehol nem
+jelenik meg, a titok-szkennelés zöld).
+
+Új adapter (`scraper-worker/src/sources/ticketmaster.mjs`, `scrape_strategy=site`),
+ami országonként lapozza a Discovery API-t. **Élesben mérve: CZ 312, PL 923
+esemény**, helyszínnel, várossal, árral és **eseményenkénti kategóriával** a
+Ticketmaster saját osztályozásából (Music → Zene, Sports → Sport & Mozgás,
+Arts & Theatre + Dance → Tánc, …).
+
+Két dolgot külön kezel:
+
+- **Felár-sorok kiszűrve.** A „VIP Packages", „Parkovací lístek", „Fast Track"
+  ugyanazon a napon és helyszínen szerepelnek, mint a valódi koncert, és külön
+  programként duplikálnák. A minta szándékosan szűk: a csupasz `parking` szó
+  kidobná a „Parking Lot Party"-t is, ezért csak a felár-**kifejezésekre**
+  illeszkedik.
+- **A helyi dátum az irányadó, nem az UTC.** A `dateTime` UTC-ben jön, és egy
+  késő esti előadást átvinne a következő napra; a `localDate` a helyes.
+
+Kulcs hiányában az adapter **nullát jelent, nem hibát** — egy hiányzó secret nem
+dönti el a futást.
+
+### PORT.hu — négy kategória, kód nélkül
+
+A PORT.hu régóta regisztrálva volt, de visszatartva: a robots.txt névre szólóan
+tiltja az `anthropic-ai`, GPTBot, CCBot, PerplexityBot és Google-Extended
+crawlereket. A mi gyűjtőnk egyik sem — `HobbeastBot/1.0` néven fut, tehát a
+`User-agent: *` csoport alá esik, ami csak a jegymester-útvonalakat, a `/site/`,
+`/ticketlist/` és `/galeria/` ágat tiltja, crawl-delay nélkül. A saját
+robots-értékelőnkkel minden használt útvonalat ellenőriztem. **A tulajdonos
+döntött az élesítésről.**
+
+**Új kód nem kellett.** A program-adatlapok szabályos schema.org JSON-LD-t
+közölnek (`{"@type":"MusicEvent","startDate":"2026-05-06T17:00:00+0200"}`), az
+`/esemeny/` útvonal már illeszkedik a szókincsünkre, és a `@type` a v1.60.0-ban
+bevezetett kategória-tippet hajtja.
+
+Regisztrálás előtt **mindegyik kategóriát lemértem a valódi kinyerővel**, csak
+azt számolva, amit az ingest jövőbeli-dátum kapuja megtart: **zene 30,
+fesztivál 39, kiállítás 20, egyéb 14** — futásonként ~103 esemény.
+
+**A `/programkereso/szinhaz`-t szándékosan NEM regisztráltam.** 0 esemény- és 19
+helyszín-linket ad: ez **színház-katalógus**, nem előadáslista, és a kinyerő a
+két találatát „Városmajori Szabadtéri Színpad" és „Millenáris" néven publikálta
+volna programként. Színházi tartalom a fesztivál-kategórián keresztül jön. A
+mozi-időrend is kimarad: több ezer vetítés ugyanazokból a filmekből.
+
+**A `Port.hu-master` PHP könyvtárról őszintén:** filmadatlap-parser (cím, év,
+IMDb, poszter a `/adatlap/film/…` oldalakról) és egy `search/suggest-list`
+kereső-végpont. Eseménynaptárhoz nem használható; azt jelezte hasznosan, hogy a
+port.hu ad gépi adatot. A valódi megoldás a JSON-LD lett, amit a meglévő
+kinyerőnk már olvas.
+
 ## [1.62.0] — 2026-09-05
 
 ### A biztonsági audit vak volt — most már lát, és 20 függvényt bezártunk az anon elől

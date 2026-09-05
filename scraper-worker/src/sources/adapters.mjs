@@ -6,6 +6,7 @@
 import {
   buildEvent, extractOg, normalizeEndpointUrl, resolveEventImages, shuffled, stripHtml,
 } from './generic.mjs';
+import { scrapeTicketmaster } from './ticketmaster.mjs';
 
 /**
  * telekomspots.hu — Next.js app, no schema.org markup. The listing renders
@@ -72,6 +73,11 @@ async function scrapeTelekomSpots(source, { browser, fetchStatic, maxDetails = 4
 
 const ADAPTERS = {
   'telekomspots.hu': scrapeTelekomSpots,
+  // Both go through the official Discovery API rather than the website: the
+  // site itself answers 403 from a datacenter IP and their terms restrict
+  // automated access. See src/sources/ticketmaster.mjs.
+  'ticketmaster.cz': scrapeTicketmaster,
+  'ticketmaster.pl': scrapeTicketmaster,
 };
 
 export function adapterForSource(source) {

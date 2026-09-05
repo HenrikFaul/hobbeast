@@ -67,6 +67,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Ticketmaster CZ/PL go through the official Discovery API. Absent
+          # key = those two sources report nothing; every other source is
+          # unaffected.
+          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY }}
         run: >-
           node index.mjs
           --sources ${{ github.event.inputs.sources || '40' }}
