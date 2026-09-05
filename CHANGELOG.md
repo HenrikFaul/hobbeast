@@ -117,6 +117,37 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.68.1] — 2026-09-05
+
+### A hiányzó versioning-artefaktumok pótlása
+
+A governance minden változáscsomaghoz páros artefaktumot ír elő
+(`versioning/<ID>_..._business_request_summary.pdf` üzleti nyelven és
+`versioning/<ID>_..._ai_dev_prompts.md` fejlesztői nyelven). A gyakorlat **v1.22.0
+után abbamaradt**: a CHANGELOG 104 verziójából **68-hoz egyáltalán nem volt**
+artefaktum, további **6-hoz csak a fele**.
+
+Mind a 74 hiány pótolva, a `versioning/` mostantól **hiánytalanul lefedi a
+changelog minden verzióját** (247 fájl).
+
+Két dolgot fontos tudni róluk:
+
+- **Visszamenőleges rekonstrukciók, és ezt ki is mondják.** Mindegyik fájl a
+  CHANGELOG megfelelő bejegyzéséből származik — ez a projekt valódi nyilvántartása
+  —, és mindegyik fejlécében ott áll, hogy 2026-09-05-én készült, nem a kiadás
+  napján. Kiadáskori dátumot hazudni rájuk rosszabb lett volna, mint a hiány.
+- **Az azonosítójuk `20`-szal kezdődik**, elkülönülve a korábbi kötegektől
+  (`13`–`19`), így egy rekonstruált artefaktum sosem téveszthető össze egy eredetivel.
+  Kivétel az a 6, aminek a fele már megvolt: azok a **meglévő azonosítójukat**
+  kapták, hogy a pár összetartozzon.
+
+Ráadásként a PDF-ek végre helyesen írják a magyar szöveget: a korábbi
+artefaktumok Latin-1 core fonttal készültek, ezért az `ő` és az `ű` fekete
+négyzetként jelent meg bennük. Az újak beágyazott TrueType fonttal készülnek —
+**0 hibás karakter**.
+
+---
+
 ## [1.68.0] — 2026-09-05
 
 ### A gyűjtő mostantól mindenhol megmondja, kicsoda
