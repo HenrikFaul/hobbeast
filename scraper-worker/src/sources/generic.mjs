@@ -12,7 +12,7 @@
 import crypto from 'node:crypto';
 // The Hungarian date vocabulary lives in recipes.mjs so that the Edge Function,
 // which bundles only that file, parses dates exactly the way the worker does.
-import { foldHu, parseHuTextDate } from './recipes.mjs';
+import { foldHu, parseHuTextDate, decodeEntities } from './recipes.mjs';
 // Non-Hungarian sources need their own path words, month names and nav words.
 // localeFor() returns null for HU and for anything unrecognised, so a Hungarian
 // source keeps exactly the behaviour it had before locales existed.
@@ -294,11 +294,15 @@ export function buildEvent(source, ev, { listingUrl, detailUrl, idSeed = null })
     external_source: 'scraper',
     external_id: `${source.source_id}:${md5(idSeed || ev.url || detailUrl || `${ev.name}|${date}`).slice(0, 12)}`,
     external_url: ticket.ticket_url || ev.url || detailUrl,
-    title: String(ev.name).slice(0, 200),
+    // JSON-LD routinely carries HTML-escaped text, and it reached the catalogue
+    // raw: FALTER published a title reading `Claudia Märzendorfer &quot;A
+    // Chicken Can&#039;t Lay a Duck&quot;`. Decoding is display-only and cannot
+    // split or merge rows, because external_id is derived from the URL.
+    title: decodeEntities(String(ev.name)).slice(0, 200),
     category: hobbeastCategory(source.categories),
     subcategory: null,
     tags: (Array.isArray(source.categories) ? source.categories : []).slice(0, 4),
-    description: ev.description,
+    description: ev.description ? decodeEntities(String(ev.description)) : ev.description,
     event_date: date,
     event_time: time,
     location_type: 'address',

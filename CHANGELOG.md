@@ -117,6 +117,50 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.57.1] — 2026-09-05
+
+### Rövidített hónapnevek, jegyvásárlás-gombok és HTML-entitások
+
+Az 1.57.0 élesítése után **valós futással** ellenőriztem mind a 14 külföldi
+forrást, és három hibát talált, amit a laborban nem láttam.
+
+- **Rövidített hónapnevek.** A szlovén oldalak `16. sept. 2026` és `13. okt.`
+  alakot írnak. A hónapkeresés csak egy irányban vizsgálta az előtagot
+  (`"sept".startsWith("september")` → hamis), így minden rövidített dátumot
+  eldobott. Most mindkét irány működik, de **csak egyértelmű** rövidítésre: a
+  cseh `cerv` a `cerven` (június) és a `cervenec` (július) előtagja is, ezért
+  `null`-t ad ahelyett, hogy tippelne — fél évadot rakna rossz hónapba.
+- **Jegyvásárlás-gombok eseményként.** A Cankarjev domnál a dátumhoz legközelebbi
+  kártya a **„NAKUP VSTOPNIC"** (JEGYVÁSÁRLÁS) gomb, így a kinyerő sorban ilyen
+  nevű „eseményeket" publikált. A navigációs szólisták mostantól tartalmazzák a
+  jegyvásárlási CTA-kat, a műfaji fejléceket (`Razstave`) és a bérbeadási
+  helykitöltőt (`Prireditev drugega organizatorja`). Ez **egy hamis pozitívot is
+  kiszűrt** a Slovenská filharmóniánál, ahol az egyetlen „esemény" valójában egy
+  jegyértékesítési hirdetmény volt.
+- **Dekódolatlan HTML-entitások.** A JSON-LD gyakran escape-elt szöveget hoz, és
+  ez nyersen került a katalógusba: a FALTER.at egyik címe
+  `Claudia Märzendorfer &quot;A Chicken Can&#039;t Lay a Duck&quot;` alakban
+  jelent meg. A cím és a leírás mostantól dekódolva kerül be. Sorok nem
+  duplikálódhatnak tőle, mert az `external_id` az URL-ből képződik, nem a címből
+  — ezt teszt rögzíti.
+
+**Éles eredmény a teljes 14-en** (production futás, `event-scraper.yml`):
+
+| | 1.56.0 | most |
+|---|---|---|
+| gyűjtő források | 2 / 14 | **10 / 14** |
+| élő (jövőbeli) esemény | 17 | **259** |
+
+GoOut 76, Národní divadlo 35, KulturServer Graz 28, Forum Karlín 28, Wiener
+Konzerthaus 26, FALTER.at 27, Kudy z nudy 25, eBilet.pl 10, Kinodvor 3,
+Slovenská filharmónia 1.
+
+A maradék négy (Innsbruck, Filharmonia Narodowa, Magiczny Kraków, Cankarjev dom)
+**nem szókincs-kérdés**: a részletoldalaikon nincs strukturált eseményadat, vagy
+a regisztrált végpont műfaj-hub. Mindegyik kapott `scrape_note`-ot a konkrét
+diagnózissal, hogy az admin felületen látszódjon, mi hiányzik — szelektoros
+recept vagy jobb belépési pont.
+
 ## [1.57.0] — 2026-09-05
 
 ### A külföldi források tényleg gyűjtenek: nyelvfüggő kinyerés + robots-megfelelés

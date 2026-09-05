@@ -95,12 +95,40 @@ const MONTH_WORDS = {
 
 // "Show more", "back", "all" and friends: a card whose title is one of these is
 // a pager control, not a programme. Mirrors the Hungarian list in generic.mjs.
+//
+// The ticket call-to-action entries are not optional politeness. On cd-cc.si
+// the card nearest each date is the "NAKUP VSTOPNIC" (BUY TICKETS) button, so
+// without them the extractor cheerfully publishes a row of events all named
+// "BUY TICKETS". Genre headings ("Razstave" = Exhibitions) are here for the
+// same reason: they head a section, they do not name a programme.
 const NAV_WORDS = {
-  AT: ['weiter', 'mehr', 'alle', 'zuruck', 'startseite', 'ubersicht', 'anzeigen', 'details', 'kalender', 'mehr erfahren', 'programm'],
-  CZ: ['vice', 'dalsi', 'vsechny', 'vse', 'zpet', 'domu', 'kalendar', 'program', 'zobrazit', 'nacist'],
-  PL: ['wiecej', 'wszystkie', 'dalej', 'wstecz', 'strona glowna', 'kalendarz', 'pokaz', 'zobacz wszystkie'],
-  SI: ['vec', 'vsi', 'vse', 'naprej', 'nazaj', 'domov', 'koledar', 'spored', 'prikazi'],
-  SK: ['viac', 'dalsie', 'vsetky', 'spat', 'domov', 'kalendar', 'program', 'zobrazit'],
+  AT: [
+    'weiter', 'mehr', 'alle', 'zuruck', 'startseite', 'ubersicht', 'anzeigen',
+    'details', 'kalender', 'mehr erfahren', 'programm',
+    'tickets', 'karten', 'jetzt buchen', 'zum event', 'mehr infos', 'veranstaltungen',
+  ],
+  CZ: [
+    'vice', 'dalsi', 'vsechny', 'vse', 'zpet', 'domu', 'kalendar', 'program',
+    'zobrazit', 'nacist',
+    'vstupenky', 'koupit vstupenku', 'detail', 'vice informaci', 'akce', 'vystavy',
+  ],
+  PL: [
+    'wiecej', 'wszystkie', 'dalej', 'wstecz', 'strona glowna', 'kalendarz',
+    'pokaz', 'zobacz wszystkie',
+    'bilety', 'kup bilet', 'kup bilety', 'szczegoly', 'wiecej informacji', 'wystawy',
+  ],
+  SI: [
+    'vec', 'vsi', 'vse', 'naprej', 'nazaj', 'domov', 'koledar', 'spored', 'prikazi',
+    'nakup vstopnic', 'vstopnice', 'kupi vstopnico', 'kupi', 'razstave',
+    'prireditve', 'vec o dogodku', 'gledalisce in ples', 'glasba', 'film',
+    // The venue's placeholder for a third-party hire ("event of another
+    // organiser"), used verbatim on every such booking — a label, not a name.
+    'prireditev drugega organizatorja',
+  ],
+  SK: [
+    'viac', 'dalsie', 'vsetky', 'spat', 'domov', 'kalendar', 'program', 'zobrazit',
+    'vstupenky', 'kupit vstupenku', 'detail', 'viac informacii', 'podujatia', 'vystavy',
+  ],
 };
 
 // A foreign event name can legitimately be very short — GoOut listed the films
@@ -151,10 +179,20 @@ export function localeMonthPattern(locale) {
 
 function monthOf(word, months) {
   const w = foldLatin(word);
-  // Longest key first so "cervence" (July) is not swallowed by "cerven" (June).
+  if (w.length < 3) return null;
+  // Longest key first so "cervence" (July) is not swallowed by "cerven" (June),
+  // and so an inflected form ("septembra", "wrzesnia") still finds its stem.
   const keys = Object.keys(months).sort((a, b) => b.length - a.length);
   for (const key of keys) if (w.startsWith(key)) return months[key];
-  return null;
+
+  // The other direction: the text holds an ABBREVIATION of the month rather
+  // than the whole word. Slovenian listings write "16. sept. 2026" and
+  // "13. okt.", and a one-way prefix test rejects every one of them.
+  // Accepted only when the abbreviation is unambiguous — "cerv" could be
+  // either Czech June or July, so it resolves to neither.
+  const candidates = new Set();
+  for (const key of keys) if (key.startsWith(w)) candidates.add(months[key]);
+  return candidates.size === 1 ? [...candidates][0] : null;
 }
 
 function isoOrNull(y, mo, d) {

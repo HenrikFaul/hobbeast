@@ -4,7 +4,7 @@ import {
   foldLatin, localeFor, knownLocaleCountries, localeEventPathRe, localeMonthPattern,
   parseLocaleTextDate, isLocaleNavigationTitle,
 } from '../src/sources/locales.mjs';
-import { parseEventDate } from '../src/sources/generic.mjs';
+import { parseEventDate, buildEvent } from '../src/sources/generic.mjs';
 
 /**
  * The v1.56.0 foreign sources collected nothing because the generic extractor
@@ -118,6 +118,27 @@ describe('parseLocaleTextDate', () => {
     assert.equal(parseLocaleTextDate('6. července 2026', cz), '2026-07-06');
   });
 
+  it('reads abbreviated month names', () => {
+    // Cankarjev dom writes "16. sept. 2026" and "13. okt.". A one-way prefix
+    // test ("sept".startsWith("september")) rejects both, which is why that
+    // source still collected nothing after the first pass of this work.
+    assert.equal(parseLocaleTextDate('Razstave 16. sept. 2026', si), '2026-09-16');
+    assert.equal(parseLocaleTextDate('6. dec. 2026', si), '2026-12-06');
+    assert.equal(parseLocaleTextDate('6. srp 2026', cz), '2026-08-06');
+    assert.equal(parseLocaleTextDate('6 wrze 2026', pl), '2026-09-06');
+    assert.equal(parseLocaleTextDate('6. Sept 2026', at), '2026-09-06');
+  });
+
+  it('refuses an ambiguous abbreviation rather than guessing', () => {
+    // "cerv" prefixes both cerven (June) and cervenec (July). Picking one
+    // would silently file half a theatre season under the wrong month.
+    assert.equal(parseLocaleTextDate('6. cerv 2026', cz), null);
+  });
+
+  it('does not treat a two-letter fragment as a month', () => {
+    assert.equal(parseLocaleTextDate('6. ma 2026', si), null);
+  });
+
   it('still accepts ISO and year-first dates, which are language-neutral', () => {
     assert.equal(parseLocaleTextDate('2026-09-06', cz), '2026-09-06');
     assert.equal(parseLocaleTextDate('2026.09.06', pl), '2026-09-06');
@@ -157,6 +178,25 @@ describe('isLocaleNavigationTitle', () => {
     assert.equal(isLocaleNavigationTitle('Více', cz), true);
     assert.equal(isLocaleNavigationTitle('Zobrazit všechny akce', cz), true);
     assert.equal(isLocaleNavigationTitle('Další', cz), true);
+  });
+
+  it('discards ticket call-to-action buttons', () => {
+    // On cd-cc.si the card closest to each date is the BUY TICKETS button, so
+    // without this the extractor publishes a row of events all named that.
+    const si = localeFor('SI');
+    assert.equal(isLocaleNavigationTitle('NAKUP VSTOPNIC', si), true);
+    assert.equal(isLocaleNavigationTitle('Kup bilety', localeFor('PL')), true);
+    assert.equal(isLocaleNavigationTitle('Vstupenky', cz), true);
+    assert.equal(isLocaleNavigationTitle('Jetzt buchen', localeFor('AT')), true);
+  });
+
+  it('discards genre headings and hire placeholders', () => {
+    const si = localeFor('SI');
+    assert.equal(isLocaleNavigationTitle('Razstave', si), true);
+    // "Event of another organiser" — the venue's label for a third-party hire.
+    assert.equal(isLocaleNavigationTitle('Prireditev drugega organizatorja', si), true);
+    // ...but a real programme with a genuine name survives all of it.
+    assert.equal(isLocaleNavigationTitle('KOZMOS KOSOVEL', si), false);
   });
 
   it('discards a title that is only a date', () => {
@@ -202,5 +242,36 @@ describe('parseEventDate non-ISO fallback', () => {
     assert.deepEqual(parseEventDate('Mon Apr 01 1832 10:00:00 GMT+0100'), { date: null, time: null });
     assert.deepEqual(parseEventDate('Fri Jan 01 2099 10:00:00 GMT+0100'), { date: null, time: null });
     assert.equal(parseEventDate('1832-04-01T10:00:00Z').date, '1832-04-01', 'ISO input keeps its original meaning');
+  });
+});
+
+describe('buildEvent text decoding', () => {
+  const source = { source_id: 'src_test', publisher_name: 'P', categories: ['zene'], city: 'Wien' };
+  const build = (ev) => buildEvent(source, { offers: {}, ...ev }, {
+    listingUrl: 'https://example.at/listing', detailUrl: 'https://example.at/detail',
+  });
+
+  it('decodes HTML entities that JSON-LD carries into the title', () => {
+    // Published verbatim before this: FALTER.at listed
+    // `Claudia Märzendorfer &quot;A Chicken Can&#039;t Lay a Duck&quot;`.
+    const row = build({ name: 'Claudia M &quot;A Chicken Can&#039;t Lay a Duck&quot;', startDate: '2026-09-05' });
+    assert.equal(row.title, 'Claudia M "A Chicken Can\'t Lay a Duck"');
+  });
+
+  it('decodes the description too', () => {
+    const row = build({ name: 'Konzert im Hof', startDate: '2026-09-05', description: 'Jazz &amp; Wein' });
+    assert.equal(row.description, 'Jazz & Wein');
+  });
+
+  it('leaves a clean title untouched', () => {
+    assert.equal(build({ name: 'Naši furianti', startDate: '2026-09-05' }).title, 'Naši furianti');
+  });
+
+  it('keeps external_id tied to the URL, so decoding cannot duplicate a row', () => {
+    // The id is what the upsert dedups on. If it depended on the title, this
+    // change would have forked every previously-ingested escaped event.
+    const a = build({ name: 'Jazz &amp; Wein', startDate: '2026-09-05', url: 'https://example.at/e/1' });
+    const b = build({ name: 'Jazz & Wein', startDate: '2026-09-05', url: 'https://example.at/e/1' });
+    assert.equal(a.external_id, b.external_id);
   });
 });
