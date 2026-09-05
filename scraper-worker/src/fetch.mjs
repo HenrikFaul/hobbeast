@@ -1,5 +1,30 @@
 // Minimal polite static fetcher + robots.txt gate. HTTPS only.
-const UA = 'HobbeastBot/1.0 (+https://expericentre.com; event aggregation)';
+
+/**
+ * The token that names us, and the single place it is written.
+ *
+ * Every request this project makes — plain fetch, robots.txt lookup, and the
+ * Playwright render path — carries it, so a site can always tell who is asking
+ * and can address a robots.txt rule to us. ROBOTS_SELF_TOKENS is what we match
+ * such a rule against, kept lowercase for comparison.
+ */
+export const BOT_TOKEN = 'HobbeastBot/1.0 (+https://expericentre.com; event aggregation)';
+export const ROBOTS_SELF_TOKENS = ['hobbeastbot'];
+
+const UA = BOT_TOKEN;
+
+/**
+ * The user-agent for the Playwright render path.
+ *
+ * It keeps the Chrome compatibility string because a real browser is what is
+ * doing the rendering and some sites branch their markup on it — but our token
+ * is appended, which is the standard way to be honest about an automated
+ * client without breaking UA sniffing. It must never be used to look like
+ * something we are not: if a site refuses this, the answer is to disable the
+ * source and record why, never to strip the token off.
+ */
+export const RENDER_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36 ${BOT_TOKEN}`;
+
 const robotsCache = new Map();
 
 export async function fetchStatic(url, { timeoutMs = 15000 } = {}) {
@@ -140,27 +165,62 @@ function robotsPatternToRegExp(pattern) {
   return new RegExp(`^${escaped}${anchored ? '$' : ''}`);
 }
 
-export function parseRobots(text) {
-  const lines = text.split(/\r?\n/);
-  let inStar = false;
-  const rules = [];
-  let crawlDelay = null;
-  for (const raw of lines) {
+export function parseRobots(text, selfTokens = ROBOTS_SELF_TOKENS) {
+  // Parse into groups first. Consecutive User-agent lines head ONE group, which
+  // is why `expectingAgents` exists: "User-agent: a\nUser-agent: b\nDisallow: /"
+  // is a single group naming two agents, not two groups.
+  const groups = [];
+  let current = null;
+  let expectingAgents = false;
+
+  for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/#.*$/, '').trim();
     if (!line) continue;
     const [kRaw, ...rest] = line.split(':');
     const k = kRaw.trim().toLowerCase();
     const v = rest.join(':').trim();
-    if (k === 'user-agent') { inStar = v === '*'; continue; }
-    if (!inStar) continue;
+
+    if (k === 'user-agent') {
+      if (!expectingAgents) {
+        current = { agents: [], rules: [], crawlDelay: null };
+        groups.push(current);
+        expectingAgents = true;
+      }
+      current.agents.push(v.toLowerCase());
+      continue;
+    }
+    expectingAgents = false;
+    if (!current) continue; // a directive before any User-agent line belongs to nobody
+
     if (k === 'crawl-delay') {
       const n = Number(v);
-      if (Number.isFinite(n)) crawlDelay = Math.max(crawlDelay ?? 0, n);
+      if (Number.isFinite(n)) current.crawlDelay = Math.max(current.crawlDelay ?? 0, n);
     } else if ((k === 'disallow' || k === 'allow') && v) {
       // "Disallow:" with an empty value means "nothing is disallowed" and is
       // correctly skipped by the `&& v` guard above.
-      rules.push({ allow: k === 'allow', length: v.length, re: robotsPatternToRegExp(v) });
+      current.rules.push({ allow: k === 'allow', length: v.length, re: robotsPatternToRegExp(v) });
     }
   }
-  return { rules, crawlDelay };
+
+  // Standard precedence: a group that NAMES us wins outright over the wildcard
+  // group. This is the other half of identifying honestly — once we say who we
+  // are, a site can address a rule to us, and we have to be able to read it.
+  // Until v1.68.0 only `User-agent: *` was consulted, so such a rule would have
+  // been silently ignored.
+  const tokens = (selfTokens ?? []).map((t) => t.toLowerCase());
+  const named = groups.filter((g) => g.agents.some(
+    (a) => a !== '*' && tokens.some((t) => a.includes(t)),
+  ));
+  // Several `User-agent: *` blocks in one file are common (visitkoper.si has
+  // two: one carries Crawl-delay, the other the Disallow list). Merge them, as
+  // the pre-group implementation effectively did, so nothing is lost.
+  const chosen = named.length ? named : groups.filter((g) => g.agents.includes('*'));
+
+  const rules = chosen.flatMap((g) => g.rules);
+  const delays = chosen.map((g) => g.crawlDelay).filter((d) => Number.isFinite(d));
+  return {
+    rules,
+    crawlDelay: delays.length ? Math.max(...delays) : null,
+    matchedAgent: named.length ? 'self' : (chosen.length ? '*' : 'none'),
+  };
 }

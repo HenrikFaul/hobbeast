@@ -10,6 +10,9 @@
 // the admin scraper stats, so weak sources can be triaged without code changes.
 
 import crypto from 'node:crypto';
+// One definition of who we say we are, shared with the plain fetcher, so the
+// render path and the fetch path can never drift apart on identity.
+import { RENDER_UA } from '../fetch.mjs';
 // The Hungarian date vocabulary lives in recipes.mjs so that the Edge Function,
 // which bundles only that file, parses dates exactly the way the worker does.
 import { foldHu, parseHuTextDate, decodeEntities, parseJsonLdBlock, jsonLdNodes } from './recipes.mjs';
@@ -569,7 +572,11 @@ function collectListingCards(page, localeMonths = null) {
 // Exported so the rule runner renders exactly the way every other strategy does.
 export async function renderPage(browser, url, localeMonths = null) {
   const page = await browser.newPage({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+    // A real Chromium is doing the rendering, so the Chrome compatibility
+    // string is accurate — but RENDER_UA appends our own token, so the site is
+    // told who is asking. Never replace this with a bare browser UA to get past
+    // a refusal; disable the source and record the reason instead.
+    userAgent: RENDER_UA,
     // Municipal/venue sites often serve mismatched certs; we only read public data.
     ignoreHTTPSErrors: true,
   });
