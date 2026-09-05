@@ -117,6 +117,76 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.59.0] — 2026-09-05
+
+### RLS: a két védtelen tábla lezárva, a nézetek egyenként megmérve
+
+**Két tábla teljesen RLS nélkül állt** — a Supabase advisor ERROR szinten jelezte
+őket. Mindkettő a hosztolt dashboardon készült, és a
+`20260824010000_restore_schema_parity.sql` pontosan úgy reprodukálta őket,
+ahogy az élesben voltak: kikapcsolt RLS-sel.
+
+- **`event_views`** (`event_id, user_id, source, view_count, last_viewed_at`) —
+  személyre szóló megtekintési előzmény. RLS nélkül **bármely bejelentkezett
+  kliens olvashatta, ki mit nézett meg**, és írhatott más nevére sort.
+  Mostantól: csak a saját sorai, `SELECT`/`INSERT`/`UPDATE` `user_id =
+  auth.uid()` mellett, `DELETE` policy szándékosan nincs.
+- **`organizer_audit_log`** — auditnapló. RLS nélkül bárki olvashatta az összes
+  szervezői műveletet, és — ami rosszabb — **bejegyzést is szúrhatott bele**,
+  ami az auditnapló egyetlen tulajdonságát semmisíti meg. Mostantól olvasás
+  `is_event_operator(event_id, 'moderate')` mellett, **írási policy pedig
+  egyáltalán nincs**: bejegyzés csak service_role vagy SECURITY DEFINER
+  függvény útján keletkezhet.
+
+Mindkettő üres volt és a `src/` sehol nem hivatkozik rájuk, tehát működő
+funkció nem sérülhetett. **A szigetelést le is mértem** két valódi
+felhasználóval szimulálva: A csak a saját sorát látja (1, nem 2), B ugyanígy,
+egy nem-operátor 0 auditsort lát, és B **nem tud A nevére sort hamisítani** — a
+próba utána kitakarított maga után. A `public` sémában így **nulla tábla maradt
+RLS nélkül**.
+
+**A 16 „RLS bekapcsolva, nulla policy" táblát NEM nyitottam ki.** Ezek
+`rls_enabled_no_policy` figyelmeztetést kapnak, de a deny-all itt szándékos:
+egyikre sincs kliens-hivatkozás a `src/`-ben (lemérve, mind a 16-nál nulla), és
+kizárólag SECURITY DEFINER RPC-ken vagy service_role-on át érhetők el, amelyek
+átmennek az RLS-en. Egy megengedő policy hozzáadása **kinyitna egy jelenleg
+zárt táblát** — ezért mindegyik kapott egy `COMMENT`-et, hogy a figyelmeztetést
+később se „javítsa meg" senki.
+
+### A definer nézetek: 3 átállítva, 2 szándékosan nem
+
+Nyolc nézet fut definer jogokkal, ötöt elér a kliens. Az „állítsuk át mind az
+ötöt" egysoros javítás lett volna — és **kettő némán eltört volna tőle**, ezért
+mindegyiket élesben megmértem, valódi nem-admin felhasználóként, a beállítást
+egy tranzakción belül átbillentve és visszaállítva:
+
+| nézet | definer | invoker |
+|---|---|---|
+| `public_profile_cards` | **934** | **1** |
+| a másik négy | 0 | 0 |
+
+**Átállítva `security_invoker=true`-ra:** `public_event_safety` (eddig
+**semmilyen** `WHERE`-je nem volt, vagyis bárki olvashatta az összes esemény
+biztonsági profilját — az alaptábla policy-je „safety reviewer vagy az esemény
+létrehozója", ez a helyes közönség), `promoted_experience_candidates` (a
+predikátuma megegyezik az alaptábla saját policy-jével),
+`virtual_hub_discovery_cards` (a `virtual_hubs` policy pont ezt a halmazt
+engedi).
+
+**Szándékosan definer marad — az advisor tovább fogja jelezni, és ez a helyes:**
+
+- **`public_profile_cards`** — 934 → 1. A nézet éppen azért létezik, hogy a
+  zárt `profiles` tábla egy szűk, biztonságos vetületét publikálja. Átállítva
+  minden profil-lista a saját kártyánkra zsugorodna.
+- **`circle_health_dashboard`** — már most is a hostra/adminra szűr, **de**
+  LATERAL joinokkal aggregál a `user_reports` fölött, aminek az RLS-e „saját
+  bejelentés vagy safety reviewer". Egy körgazda egyik sem, így invoker módban
+  az `open_report_count` és a `reports_30d` **némán nullára esne egy biztonsági
+  dashboardon**. A jelentések alulmérése rosszabb, mint a lint.
+
+Ellenőrizve utólag: a `public_profile_cards` továbbra is 934 sort ad egy sima
+felhasználónak.
+
 ## [1.58.3] — 2026-09-05
 
 ### Visit Bratislava: a dátum mezőben van, nem a szövegben
