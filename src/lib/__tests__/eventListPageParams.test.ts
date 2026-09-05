@@ -27,6 +27,7 @@ describe('no regression when the new filters are not used', () => {
     await listSafeExternalEventsPage({ fromDate: '2026-08-27' });
     expect(rpcMock).toHaveBeenCalledWith('list_external_events_safe_page', {
       p_from_date: '2026-08-27', p_limit: 48, p_offset: 0, p_to_date: null, p_city: null,
+      p_countries: null,
     });
   });
 
@@ -53,7 +54,7 @@ describe('with the new filters', () => {
     await listSafeExternalEventsPage({ fromDate: '2026-12-12', toDate: '2026-12-14', limit: 100 });
     expect(rpcMock).toHaveBeenCalledWith('list_external_events_safe_page', {
       p_from_date: '2026-12-12', p_limit: 100, p_offset: 0,
-      p_to_date: '2026-12-14', p_city: null,
+      p_to_date: '2026-12-14', p_city: null, p_countries: null,
     });
   });
 
@@ -80,13 +81,47 @@ describe('listEventCities', () => {
       error: null,
     });
     expect(await listEventCities('2026-08-27')).toEqual([
-      { city: 'Budapest', events: 1024 },
-      { city: 'Debrecen', events: 61 },
+      { city: 'Budapest', events: 1024, countryCode: null },
+      { city: 'Debrecen', events: 61, countryCode: null },
     ]);
+  });
+
+  it('carries the country through when the RPC supplies it', async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ city: 'Warszawa', events: 569, country_code: 'PL' }],
+      error: null,
+    });
+    expect(await listEventCities('2026-08-27', ['PL'])).toEqual([
+      { city: 'Warszawa', events: 569, countryCode: 'PL' },
+    ]);
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toEqual(['PL']);
   });
 
   it('returns an empty list rather than throwing on a odd payload', async () => {
     rpcMock.mockResolvedValueOnce({ data: { nope: true }, error: null });
     expect(await listEventCities('2026-08-27')).toEqual([]);
+  });
+});
+
+/**
+ * v1.69.0 added the country filter. Omitting it must keep meaning "every
+ * country", and an empty selection must not be sent as an empty array — the RPC
+ * reads NULL as "no filter" and an empty array would be indistinguishable from
+ * a deliberate "no countries at all".
+ */
+describe('country filter', () => {
+  it('sends NULL when no country is selected', async () => {
+    await listSafeExternalEventsPage({ fromDate: '2026-08-27', countries: [] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toBeNull();
+  });
+
+  it('passes a selection through, uppercased and de-duplicated', async () => {
+    await listSafeExternalEventsPage({ fromDate: '2026-08-27', countries: ['hu', 'AT', 'hu'] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toEqual(['HU', 'AT']);
+  });
+
+  it('drops blank entries rather than sending them', async () => {
+    await listSafeExternalEventsPage({ fromDate: '2026-08-27', countries: ['', '  ', 'PL'] });
+    expect((rpcMock.mock.calls[0][1] as Record<string, unknown>).p_countries).toEqual(['PL']);
   });
 });

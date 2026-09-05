@@ -113,10 +113,17 @@ export async function listSafeDiscoverableEventsPage(input: {
   return normalizeEventPage(data);
 }
 
+/** null when nothing is selected, which the RPCs read as "every country". */
+function countriesParam(countries?: readonly string[] | null): string[] | null {
+  const list = (countries ?? []).map((c) => String(c ?? '').trim().toUpperCase()).filter(Boolean);
+  return list.length ? Array.from(new Set(list)) : null;
+}
+
 export async function listSafeExternalEventsPage(input: {
   fromDate: string;
   toDate?: string | null;
   city?: string | null;
+  countries?: readonly string[] | null;
   limit?: number;
   offset?: number;
 }): Promise<SafeEventPage> {
@@ -126,23 +133,58 @@ export async function listSafeExternalEventsPage(input: {
     p_offset: Math.max(0, Math.trunc(input.offset ?? 0) || 0),
     p_to_date: input.toDate || null,
     p_city: input.city || null,
+    p_countries: countriesParam(input.countries),
   });
   if (error) throw new Error('EXTERNAL_EVENT_LIST_PAGE_FAILED');
   return normalizeEventPage(data);
 }
 
-/** The cities the catalogue actually has upcoming programmes in. */
-export async function listEventCities(fromDate: string): Promise<Array<{ city: string; events: number }>> {
+/**
+ * The cities the catalogue actually has upcoming programmes in.
+ *
+ * The RPC canonicalises, so "Warszawa" and the "Warsaw" spelling Ticketmaster
+ * writes arrive as one entry rather than two competing chips, and nationwide
+ * markers such as "Országos" are excluded because they are not cities.
+ */
+export async function listEventCities(
+  fromDate: string,
+  countries?: readonly string[] | null,
+): Promise<Array<{ city: string; events: number; countryCode: string | null }>> {
   const { data, error } = await eventRpcClient.rpc('list_event_cities', {
     p_from_date: fromDate,
     p_limit: 60,
+    p_countries: countriesParam(countries),
   });
   if (error) throw new Error('EVENT_CITIES_FAILED');
   return Array.isArray(data)
     ? data
       .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
-      .map((row) => ({ city: String(row.city ?? ''), events: Number(row.events) || 0 }))
+      .map((row) => ({
+        city: String(row.city ?? ''),
+        events: Number(row.events) || 0,
+        countryCode: row.country_code ? String(row.country_code) : null,
+      }))
       .filter((row) => row.city)
+    : [];
+}
+
+/** How many upcoming programmes each country has, for the country buttons. */
+export async function listEventCountries(
+  fromDate: string,
+): Promise<Array<{ countryCode: string; events: number; cities: number }>> {
+  const { data, error } = await eventRpcClient.rpc('list_event_countries', {
+    p_from_date: fromDate,
+  });
+  if (error) throw new Error('EVENT_COUNTRIES_FAILED');
+  return Array.isArray(data)
+    ? data
+      .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+      .map((row) => ({
+        countryCode: String(row.country_code ?? '').toUpperCase(),
+        events: Number(row.events) || 0,
+        cities: Number(row.cities) || 0,
+      }))
+      .filter((row) => row.countryCode)
     : [];
 }
 

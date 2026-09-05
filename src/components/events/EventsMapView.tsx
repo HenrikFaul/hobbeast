@@ -9,6 +9,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackOutboundClick } from '@/lib/outboundTracking';
 import { pickEditorialClip } from '@/features/events/EditorialVideoBackdrop';
 import { EDITORIAL_VIDEO_BASE } from '@/assets/editorial/videoLibrary';
+import { CountryFilterBar } from '@/components/events/CountryFilterBar';
+import {
+  boundsForCountries,
+  countryLabel,
+  readStoredSelection,
+  resolveDefaultCountry,
+  selectionToCountries,
+  writeStoredSelection,
+  type CountrySelection,
+} from '@/features/events/countryFilter';
+import { listEventCountries } from '@/lib/eventOperations';
+import { getTodayDateString } from '@/features/events/discoveryModel';
 
 type MarkerKind = 'county' | 'city' | 'district' | 'venue';
 
@@ -175,6 +187,13 @@ export function EventsMapView() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [placeKey, setPlaceKey] = useState<string | null>(null);
   const [placeLabel, setPlaceLabel] = useState<string | null>(null);
+  // The map answers "where are the programmes" — so it has to say WHICH country
+  // it is answering for, and move there when that changes.
+  const [countrySelection, setCountrySelection] = useState<CountrySelection>(
+    () => readStoredSelection(resolveDefaultCountry()),
+  );
+  const [countryCounts, setCountryCounts] = useState<Record<string, number>>({});
+  const queryCountries = useMemo(() => selectionToCountries(countrySelection), [countrySelection]);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
@@ -312,9 +331,37 @@ export function EventsMapView() {
     [payload],
   );
 
+  useEffect(() => {
+    writeStoredSelection(countrySelection);
+    const b = boundsForCountries(queryCountries);
+    // fitBounds, not flyToBounds. flyTo animates through requestAnimationFrame,
+    // and a rAF that never fires — a backgrounded tab, a reduced-motion setting,
+    // a throttled renderer — leaves the map exactly where it was with no error
+    // to show for it. That was measured here: valid bounds, a live 951x846 map,
+    // and centre/zoom identical before and after. A filter change should land
+    // immediately anyway.
+    if (b && mapRef.current) {
+      mapRef.current.invalidateSize(false);
+      mapRef.current.fitBounds(b, { padding: [24, 24], animate: false });
+    }
+  }, [countrySelection, queryCountries]);
+
+  useEffect(() => {
+    listEventCountries(getTodayDateString())
+      .then((rows) => setCountryCounts(Object.fromEntries(rows.map((r) => [r.countryCode, r.events]))))
+      .catch(() => setCountryCounts({}));
+  }, []);
+
+  // Every marker on this map comes from geo_places, which is a HUNGARIAN
+  // gazetteer, and not one foreign event carries coordinates (measured
+  // 2026-09-05: 0 of them). So a foreign country can be selected and framed, but
+  // it has no pins yet. Saying that plainly beats showing an empty map and
+  // letting someone conclude the page is broken.
+  const foreignWithoutPlacement = countrySelection.foreign.filter((c) => (countryCounts[c] ?? 0) > 0);
+
   const areaLabel = placeLabel
     || (district ? `Budapest ${district}. kerület` : null)
-    || selectedCity || county || 'Magyarország';
+    || selectedCity || county || countryLabel(countrySelection.home);
 
   const resetArea = () => {
     setCounty(null);
@@ -345,6 +392,22 @@ export function EventsMapView() {
             </p>
           )}
         </div>
+
+        <CountryFilterBar
+          selection={countrySelection}
+          onChange={setCountrySelection}
+          counts={countryCounts}
+          label="Melyik országot nézzük?"
+        />
+
+        {foreignWithoutPlacement.length > 0 && (
+          <p className="rounded-[0.9rem] bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+            A térkép a kiválasztott országra ugrik, de{' '}
+            {foreignWithoutPlacement.map(countryLabel).join(', ')} programjaihoz még nincs
+            térképi elhelyezés — a helyszínnévtár egyelőre magyar, és a külföldi
+            programokhoz nem érkezik koordináta. A listás nézetben mind ott vannak.
+          </p>
+        )}
 
         {(county || selectedCity || district || placeKey) && (
           <Button variant="outline" size="sm" className="w-fit rounded-full" onClick={resetArea}>

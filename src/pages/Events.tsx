@@ -10,6 +10,15 @@ import { LeaveEventDialog } from "@/components/LeaveEventDialog";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { searchEventbriteEvents } from "@/lib/eventbrite";
+import { CountryFilterBar } from '@/components/events/CountryFilterBar';
+import {
+  readStoredSelection,
+  resolveDefaultCountry,
+  selectionToCountries,
+  writeStoredSelection,
+  countryMeta,
+  type CountrySelection,
+} from '@/features/events/countryFilter';
 import { HOBBY_CATALOG } from "@/lib/hobbyCategories";
 import { resolveEventLocationLabel } from "@/lib/eventLocationHelper";
 import { getParticipantStatsMap } from '@/lib/eventParticipantStats';
@@ -17,6 +26,7 @@ import {
   cancelEventParticipation,
   joinEventAtomic,
   listEventCities,
+  listEventCountries,
   listSafeDiscoverableEventsPage,
   listSafeExternalEventsPage,
 } from '@/lib/eventOperations';
@@ -106,7 +116,14 @@ const Events = () => {
   const [dateFrom, setDateFrom] = useState(searchParams.get('from') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('to') || '');
   const [cityFilter, setCityFilter] = useState(searchParams.get('city') || '');
-  const [cityOptions, setCityOptions] = useState<Array<{ city: string; events: number }>>([]);
+  const [cityOptions, setCityOptions] = useState<Array<{ city: string; events: number; countryCode: string | null }>>([]);
+  // Country is the primary geography: the visitor's own country is the default,
+  // and everything else sits behind the "Külföldi programok" step.
+  const [countrySelection, setCountrySelection] = useState<CountrySelection>(
+    () => readStoredSelection(resolveDefaultCountry()),
+  );
+  const [countryCounts, setCountryCounts] = useState<Record<string, number>>({});
+  const queryCountries = useMemo(() => selectionToCountries(countrySelection), [countrySelection]);
   const [priceFilter, setPriceFilter] = useState<PriceFilter>(() => {
     const requested = searchParams.get('price');
     return requested === 'free' || requested === 'paid' ? requested : 'all';
@@ -271,6 +288,7 @@ const Events = () => {
         fromDate: queryRange.from,
         toDate: queryRange.to,
         city: queryCity || null,
+        countries: queryCountries,
         limit: EVENT_PAGE_SIZE,
         offset: append ? externalOffset : 0,
       });
@@ -379,10 +397,20 @@ const Events = () => {
     }, 300);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryRange.from, queryRange.to, queryCity]);
+  }, [queryRange.from, queryRange.to, queryCity, queryCountries]);
   useEffect(() => {
-    listEventCities(getTodayDateString()).then(setCityOptions).catch(() => setCityOptions([]));
+    // The city list follows the country selection, so a Hungarian visitor is
+    // never offered Praha as a "nearby" city.
+    listEventCities(getTodayDateString(), queryCountries)
+      .then(setCityOptions)
+      .catch(() => setCityOptions([]));
+  }, [queryCountries]);
+  useEffect(() => {
+    listEventCountries(getTodayDateString())
+      .then((rows) => setCountryCounts(Object.fromEntries(rows.map((r) => [r.countryCode, r.events]))))
+      .catch(() => setCountryCounts({}));
   }, []);
+  useEffect(() => { writeStoredSelection(countrySelection); }, [countrySelection]);
   useEffect(() => { fetchJoined(); }, [user]);
   useEffect(() => { fetchProfileLocation(); }, [user]);
   useEffect(() => {
@@ -1103,6 +1131,12 @@ const Events = () => {
         {/* Location. The distance slider below needs a saved profile location
             and a geocoded address; this one only needs a town name, so it also
             works for someone who has neither. */}
+        <CountryFilterBar
+          selection={countrySelection}
+          onChange={(next) => { setCountrySelection(next); setCityFilter(''); }}
+          counts={countryCounts}
+        />
+
         <div className="mb-5 rounded-[1.2rem] border border-primary/10 bg-secondary/40 p-4">
           <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Helyszín</p>
@@ -1136,7 +1170,13 @@ const Events = () => {
                 className={`rounded-full ${cityFilter === entry.city ? 'border-0 bg-accent text-accent-foreground' : 'bg-card'}`}
                 onClick={() => setCityFilter(cityFilter === entry.city ? '' : entry.city)}
               >
-                {entry.city}<span className="ml-1.5 text-xs opacity-70">{entry.events}</span>
+                {entry.city}
+                {queryCountries.length > 1 && entry.countryCode && (
+                  <span className="ml-1 text-xs opacity-60" aria-hidden="true">
+                    {countryMeta(entry.countryCode)?.flag}
+                  </span>
+                )}
+                <span className="ml-1.5 text-xs opacity-70">{entry.events}</span>
               </Button>
             ))}
           </div>

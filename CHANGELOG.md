@@ -117,6 +117,111 @@ A natív app teljes értékűvé bővítése és validálása a `C:\Work\APK-ben
 
 ---
 
+## [1.69.0] — 2026-09-05
+
+### Az ország lett a listázók elsődleges földrajza
+
+Eddig a termék egyetlen földrajzi fogalma a városgombok sora volt, így egy magyar
+látogató első képernyőjén a **Budapest, Praha, Warszawa, Wien** egyenrangúként
+sorakozott. Mostantól alapértelmezetten **a saját országodat látod**, és minden
+más egyetlen tudatos lépés — a **„Külföldi programok"** — mögött van, ahol több
+országot is bejelölhetsz. A választás megmarad a következő látogatásra.
+
+### Előbb meg kellett építeni az ország fogalmát
+
+Az `external_events` táblának **egyáltalán nem volt ország-oszlopa** — a „mutasd a
+magyar programokat" kérdés szó szerint megválaszolhatatlan volt. Nem tippelünk:
+a `source_payload->>'source_id'` a jövőbeli események **99,8%-án** (6550/6564) ott
+van, és egyenesen arra a regiszter-sorra mutat, ami begyűjtötte őket — abban pedig
+már ott a levetített `country_code`. Mérve: **HU 3343, PL 948, CZ 862, AT 521,
+SI 453, DE 277, SK 146**, és 13 sor, aminek nincs forrása (azoknak városa sincs).
+
+Tárolt oszlop lett, nem olvasáskori JOIN: a listázó a termék legforgalmasabb
+útja, és nem fizethet soronkénti JOIN-t olyasmiért, ami a beolvasás után soha nem
+változik.
+
+### Warszawa és Warsaw: nem elírás volt, hanem két szótár
+
+A hibát jogosan kifogásoltad. Az ok nem véletlen: a **Ticketmaster Discovery API
+angol**, és exonimát ír (`Warsaw`, `Krakow`, `Wroclaw`, `Prague`), miközben minden
+helyi forrás endonimát (`Warszawa`, `Kraków`, `Wrocław`, `Praha`). Ugyanez érinti a
+`Poznan`/`Poznań` és `Gdansk`/`Gdańsk` párost, a Wiener Staatsoper pedig
+`Vienna, Austria`-t ír oda, ahol mindenki más `Wien`-t.
+
+Két további dolog bújt meg abban a mezőben:
+
+- **A prágai kerületek külön városként szerepeltek** — a `Praha 1…10` további
+  **250 eseményt** szórt szét a „Praha" mellől.
+- Volt sor, ahova **cím** (`Ke Sklárně 3213/15, Praha`) vagy **országos jelölő**
+  (`Országos`, `Polska`, `Vsa Slovenija`, `celostátní (celá ČR)`) került város helyett.
+
+A javítás **adat, nem kód**: a `city_aliases` tábla és a `canonical_city()`
+függvény. A `location_city` **nem íródik át** — ez megjelenítési és csoportosítási
+réteg, tehát egy rossz alias legfeljebb egy címkét ront el, adatot soha, és egy
+újonnan észlelt duplikátum **egy INSERT**, nem kódmódosítás.
+
+Az eredmény mérve:
+
+| | Előtte | Utána |
+| --- | --- | ---: |
+| Praha | 13 külön címke | **709 esemény, egy tétel** |
+| Warszawa | `Warszawa` 437 + `Warsaw` 132 | **569, egy tétel** |
+| Wien | `Wien` 219 + `Vienna, Austria` 52 | **271, egy tétel** |
+
+Végpontig is bizonyítva: a **„Warszawa"-ra szűrve most már visszajön az a 10 sor
+is, amit a Ticketmaster `Warsaw`-ként tárolt** — korábban egyetlen egy sem.
+
+### Nem fővárosok, hanem országok
+
+A gombok sorából eltűntek a fővárosok. Helyükön a hazai ország mindig ott van
+(zászlóval és darabszámmal), mellette a **„Külföldi programok"** kapcsoló a
+külföldi programok összesített számával; kinyitva **hat ország checkboxa**, mind
+élő darabszámmal. A városgombok megmaradtak, de **a kiválasztott országokat
+követik** — így egy magyar látogatónak soha nem ajánljuk fel Prágát „közeli"
+városként. Ha több ország aktív, a városgombok zászlót is kapnak.
+
+### A térkép odaugrik — és egy hibát is találtunk közben
+
+A térképes nézet is megkapta az ország-választót, és **a kiválasztott országokra
+keretez**. Mérve, csempekoordinátával: csak Magyarország `z7 x70 y44` →
+Németországot hozzáadva **`z6 x34 y21`** (kizoomol és nyugatra tol) → visszavéve
+újra `z7 x70 y44`.
+
+Az első megvalósítás `flyToBounds`-ot használt, és **némán nem csinált semmit**.
+Nem tippeltük meg, hanem megmértük: érvényes bounds, élő 951×846-os térkép,
+`hasMap: true` — és a közép/zoom bitre azonos a hívás előtt és után. A `flyTo`
+`requestAnimationFrame`-re épül, és egy rAF, ami nem fut le (háttérben lévő fül,
+csökkentett animáció, fojtott renderelő), a térképet ott hagyja, ahol volt,
+**hibaüzenet nélkül**. Ezért `fitBounds`-ra váltottunk `animate: false`-szal — egy
+szűrőváltásnak amúgy is azonnal kell landolnia.
+
+### Amit szándékosan NEM szállítunk, és miért
+
+Három korlátot jobb kimondani, mint látszatmegoldást adni rájuk:
+
+- **Nincs i18n keretrendszer az appban.** Minden felületi szöveg kódba írt magyar.
+  A „mindig adott nyelvre fordítva" ezért ma magyar címkét jelent — de a
+  címkék, endonimák és zászlók **adatként** ülnek a `countryFilter.ts`-ben, tehát
+  egy második nyelv ezt az egy táblázatot igényli, nem a komponenseket.
+- **A térképen a külföldi programokhoz nincs pont.** Nem hanyagságból: **egyetlen
+  külföldi eseménynek sincs koordinátája** (0 db, mérve), a `geo_places` névtár
+  pedig tisztán magyar (megye/kerület/irányítószám). A térkép ezért odakeretez az
+  országra, de a felület **meg is mondja**, hogy ott még nincs elhelyezés, és hogy
+  a listás nézetben minden ott van — üres térkép helyett, amiről bárki azt hinné,
+  hogy elromlott.
+- **A klubok listázója nem kapott ország-szűrőt.** A `clubs` táblán már **van**
+  `country_code`, de mind a **2741 aktív klub magyar**. Egy „Külföldi programok"
+  kapcsoló ott ma minden opciónál nullát mutatna: halott vezérlő. A képesség
+  megvan, a szűrő az első külföldi klubbal kerül be.
+
+Minden új RPC-paraméter **additív, alapértelmezéssel**, a `list_event_cities` és a
+`list_external_events_safe_page` régi aláírását pedig **eldobtuk, nem hagytuk a
+régi mellett** — két azonos névvel hívható túlterhelés a PostgREST-nek
+kétértelmű, és a hiba csak futásidőben derülne ki. 829 front-end teszt zöld,
+ebből 17 új az ország-logikára.
+
+---
+
 ## [1.68.1] — 2026-09-05
 
 ### A hiányzó versioning-artefaktumok pótlása
